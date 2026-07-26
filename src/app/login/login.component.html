@@ -1,0 +1,93 @@
+<main class="login-page" (mousemove)="trackPointer($event)" (mouseleave)="resetPointer()">
+  <section class="login-card">
+    <div class="pharmacist-stage" [ngClass]="faceClasses">
+      <div class="login-speech-badge">
+        <strong>Xin chào!</strong>
+        <span>Hãy nhập tài khoản và mật khẩu của bạn</span>
+      </div>
+      <div class="pharmacist-head" [style.transform]="headTransform">
+        <div class="pharmacist-hair"></div>
+        <div class="pharmacist-cap">
+          <span>+</span>
+        </div>
+        <div class="pharmacist-face">
+          <div class="pharmacist-brows">
+            <span></span>
+            <span></span>
+          </div>
+          <div class="pharmacist-eyes">
+            <span class="eye">
+              <i [style.transform]="eyeTransform"></i>
+            </span>
+            <span class="eye">
+              <i [style.transform]="eyeTransform"></i>
+            </span>
+          </div>
+          <div class="pharmacist-nose"></div>
+          <div class="pharmacist-cheeks"></div>
+          <div class="pharmacist-mouth"></div>
+        </div>
+        <div class="pharmacist-arm left-arm"></div>
+        <div class="pharmacist-arm right-arm"></div>
+        <div class="pharmacist-hand left-hand"><span></span></div>
+        <div class="pharmacist-hand right-hand"><span></span></div>
+      </div>
+      <div class="pharmacist-body">
+        <span class="uniform-collar left-collar"></span>
+        <span class="uniform-collar right-collar"></span>
+        <span class="uniform-trim sleeve-left"></span>
+        <span class="uniform-trim sleeve-right"></span>
+        <span class="coat-line"></span>
+        <span class="uniform-buttons"></span>
+        <span class="uniform-pocket"></span>
+        <span class="name-tag">U</span>
+        <span class="pharmacist-skirt"></span>
+      </div>
+    </div>
+
+    <form class="login-form" (ngSubmit)="submitLogin()">
+      <span class="login-kicker">UPHARMA LOGIN</span>
+      <h1>Xin chào, đăng nhập rồi mình mới xem được nha.</h1>
+      <p>Thông tin đăng nhập chỉ được giữ trong ngày hôm nay. Qua ngày mới hoặc đăng xuất thì mình đăng nhập lại giúp hệ thống an toàn hơn.</p>
+
+      <label>
+        <span>Tài khoản</span>
+        <input
+          [(ngModel)]="username"
+          name="username"
+          type="text"
+          autocomplete="username"
+          placeholder="Nhập số điện thoại"
+          (focus)="focusedField = 'username'"
+          (blur)="focusedField = ''"
+        />
+      </label>
+
+      <label>
+        <span>Mật khẩu</span>
+        <input
+          [(ngModel)]="password"
+          name="password"
+          type="password"
+          autocomplete="current-password"
+          placeholder="Nhập mật khẩu"
+          (focus)="focusedField = 'password'"
+          (blur)="focusedField = ''"
+        />
+      </label>
+
+      <p class="login-error" *ngIf="errorText">{{ errorText }}</p>
+
+      <button type="submit" [disabled]="loading">
+        {{ loading ? "Đang đăng nhập..." : "Đăng nhập" }}
+      </button>
+
+      <div class="login-progress" *ngIf="loading" aria-live="polite">
+        <span>
+          <i [style.width.%]="loadingProgress"></i>
+        </span>
+        <strong>{{ loadingProgress }}%</strong>
+      </div>
+    </form>
+  </section>
+</main>

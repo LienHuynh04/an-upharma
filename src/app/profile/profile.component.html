@@ -1,0 +1,169 @@
+<div class="app profile-app layout-left" [ngClass]="pageClasses">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-logo">U</div>
+      <div>
+        <strong>NHÀ THUỐC UPHARMA</strong>
+        <span>PROFILE</span>
+      </div>
+    </div>
+
+    <nav class="nav-list sidebar-menu" aria-label="Menu profile">
+      <ul class="menu-list">
+        <li class="menu-item menu-group" [class.is-open]="menuGroups['profile']">
+          <button class="menu-parent is-active" type="button" [attr.aria-expanded]="menuGroups['profile']" (click)="toggleMenuGroup('profile')">
+            <span class="menu-icon">●</span>
+            <span class="menu-label">Tài khoản</span>
+            <span class="menu-chevron">⌄</span>
+          </button>
+          <ul class="menu-child">
+            <li><a class="active" routerLink="/profile" aria-current="page">Thông tin cá nhân</a></li>
+          </ul>
+        </li>
+
+        <li class="menu-item menu-group" [class.is-open]="menuGroups['goods']">
+          <button class="menu-parent" type="button" [attr.aria-expanded]="menuGroups['goods']" (click)="toggleMenuGroup('goods')">
+            <span class="menu-icon">▥</span>
+            <span class="menu-label">Hàng Hoá</span>
+            <span class="menu-chevron">⌄</span>
+          </button>
+          <ul class="menu-child">
+            <li><a routerLink="/ton-kho">Tồn kho</a></li>
+            <li><a routerLink="/hang-da-het">Hàng đã hết</a></li>
+            <li><a routerLink="/hang-lap-tot">Hàng lặp tốt</a></li>
+            <li><a routerLink="/hang-ban-cham">Hàng bán chậm</a></li>
+          </ul>
+        </li>
+
+        <li class="menu-item menu-group" [class.is-open]="menuGroups['test']">
+          <button class="menu-parent" type="button" [attr.aria-expanded]="menuGroups['test']" (click)="toggleMenuGroup('test')">
+            <span class="menu-icon">↯</span>
+            <span class="menu-label">Test</span>
+            <span class="menu-chevron">⌄</span>
+          </button>
+          <ul class="menu-child">
+            <li><a routerLink="/api-test">Test tốc độ tiêu thụ</a></li>
+          </ul>
+        </li>
+      </ul>
+    </nav>
+  </aside>
+
+  <main class="content inventory-content profile-content">
+    <header class="topbar">
+      <button class="menu-btn" type="button" aria-label="Menu" (click)="toggleSidebar()">☰</button>
+      <nav class="breadcrumb" aria-label="Đường dẫn trang">
+        <ol class="breadcrumb-list">
+          <li class="breadcrumb-item"><a routerLink="/profile">Upharma</a></li>
+          <li class="breadcrumb-item is-current" aria-current="page">Profile</li>
+        </ol>
+      </nav>
+      <div class="user-title">{{ userTitle }}</div>
+      <span></span>
+      <button class="store-btn logout-topbar" type="button" aria-label="Đăng xuất" title="Đăng xuất" (click)="openLogoutConfirm($event)">
+        <span>↪</span>
+        <strong>Đăng xuất</strong>
+      </button>
+    </header>
+
+    <section class="profile-hero">
+      <div class="profile-avatar-wrap">
+        <div class="profile-avatar">{{ avatarInitial }}</div>
+        <span class="profile-status">Online</span>
+      </div>
+      <div class="profile-hero-copy">
+        <h1>Xin chào, {{ displayName }}</h1>
+        <p>{{ role }} • ID {{ userId }} • {{ shopList.length }} nhà thuốc</p>
+      </div>
+      <button type="button" (click)="loadProfile()" [disabled]="loading">
+        {{ loading ? "Đang tải..." : "Tải lại profile" }}
+      </button>
+    </section>
+
+    <p class="api-test-error" *ngIf="errorText">{{ errorText }}</p>
+
+    <section class="profile-grid">
+      <article class="profile-card">
+        <span>Mã người dùng</span>
+        <strong>{{ userId }}</strong>
+        <small>ID tài khoản</small>
+      </article>
+      <article class="profile-card">
+        <span>Email</span>
+        <strong>{{ email }}</strong>
+        <small>Tài khoản làm việc</small>
+      </article>
+      <article class="profile-card">
+        <span>Vai trò</span>
+        <strong>{{ role }}</strong>
+        <small>Mã quyền: {{ accountType }}</small>
+      </article>
+      <article class="profile-card">
+        <span>Nhà thuốc</span>
+        <strong>{{ shopList.length }}</strong>
+        <small>Shop đang được phép xem</small>
+      </article>
+    </section>
+
+    <section class="profile-main-grid">
+      <article class="profile-panel profile-info-panel">
+        <div class="profile-panel-heading">
+          <div>
+            <span>Hồ sơ</span>
+            <h2>Thông tin cá nhân</h2>
+          </div>
+        </div>
+        <dl class="profile-info-list">
+          <div *ngFor="let item of profileDetails">
+            <dt>{{ item.label }}</dt>
+            <dd>{{ item.value }}</dd>
+          </div>
+        </dl>
+        <p class="profile-empty" *ngIf="profileDetails.length === 0">Chưa có thông tin profile để hiển thị.</p>
+      </article>
+
+      <article class="profile-panel profile-shop-panel">
+        <div class="profile-panel-heading">
+          <div>
+            <span>Nhà thuốc</span>
+            <h2>Danh sách shop</h2>
+          </div>
+          <strong>{{ shopList.length }}</strong>
+        </div>
+        <div class="profile-shop-list">
+          <article *ngFor="let shop of shopList">
+            <strong>{{ shop.ShopCode }}</strong>
+            <div>
+              <span>{{ shop.ShopName }}</span>
+              <small>{{ shop.ShopAddress || "Chưa có địa chỉ" }}</small>
+            </div>
+            <em>{{ shop.EmRole || "Không có vai trò" }}</em>
+          </article>
+        </div>
+      </article>
+    </section>
+  </main>
+</div>
+
+<div class="loading-overlay" [class.is-visible]="loading" aria-live="polite">
+  <div class="loading-box">
+    <span class="loader" aria-hidden="true"></span>
+    <strong>Đang lấy thông tin profile...</strong>
+    <div class="loading-progress" aria-hidden="true">
+      <i [style.width.%]="loadingProgress"></i>
+    </div>
+    <span class="loading-progress-percent">{{ loadingProgress }}%</span>
+  </div>
+</div>
+
+<div class="confirm-overlay" [class.is-visible]="logoutConfirmOpen" (click)="cancelLogout()">
+  <section class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="logoutConfirmTitle" (click)="$event.stopPropagation()">
+    <span class="confirm-icon">↪</span>
+    <h2 id="logoutConfirmTitle">Đăng xuất khỏi hệ thống?</h2>
+    <p>Sau khi đăng xuất, thông tin đăng nhập trên máy này sẽ được xoá và chị cần đăng nhập lại để dùng tiếp.</p>
+    <div class="confirm-actions">
+      <button class="confirm-secondary" type="button" (click)="cancelLogout()">Ở lại</button>
+      <button class="confirm-primary" type="button" (click)="confirmLogout()">Đăng xuất</button>
+    </div>
+  </section>
+</div>

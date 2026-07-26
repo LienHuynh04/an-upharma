@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>UPHARMA - Tồn Kho</title>
+    <link rel="stylesheet" href="../styles.css" />
+  </head>
+  <body>
+    <div class="app layout-left">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-logo">U</div>
+          <div>
+            <strong>NHÀ THUỐC UPHARMA</strong>
+            <span>KHÁNH HÒA &amp; GIA LAI</span>
+          </div>
+        </div>
+
+        <nav class="nav-list sidebar-menu" aria-label="Menu chính">
+          <ul class="menu-list">
+            <!-- Menu chưa có UI, mở lại khi đã xây dựng trang tương ứng.
+            <li class="menu-item"><a href="#"><span>⌘</span>Tổng Quan</a></li>
+            <li class="menu-item"><a href="#"><span>▦</span>Nhà Thuốc</a></li>
+            <li class="menu-item"><a href="#"><span>♙</span>Nhân Sự <em>57</em></a></li>
+            <li class="menu-item"><a href="#"><span>◎</span>OKR</a></li>
+            <li class="menu-item"><a href="#"><span>◇</span>Khuyến Mãi</a></li>
+            <li class="menu-item"><a href="#"><span>▤</span>Báo Cáo NV</a></li>
+            <li class="menu-item"><a href="#"><span>▣</span>Báo Cáo</a></li>
+            <li class="menu-item"><a href="#"><span>◩</span>Chỉ Tiêu</a></li>
+            <li class="menu-item"><a href="#"><span>▥</span>Hiệu Suất</a></li>
+            <li class="menu-item"><a href="#"><span>♧</span>Khách Hàng</a></li>
+            -->
+            <li class="menu-item menu-group is-open">
+              <button class="menu-parent is-active" data-menu-toggle type="button" aria-expanded="true">
+                <span class="menu-icon">▥</span>
+                <span class="menu-label">Hàng Hoá</span>
+                <span class="menu-chevron">⌄</span>
+              </button>
+              <ul class="menu-child">
+                <li><a class="active" href="/dashboard/" aria-current="page">Tồn kho</a></li>
+                <!-- Chưa có UI.
+                <li><a href="#">Wrong FEFO</a></li>
+                <li><a href="#">Hàng Không Có</a></li>
+                -->
+              </ul>
+            </li>
+            <!-- Menu chưa có UI.
+            <li class="menu-item"><a href="#"><span>✥</span>Đánh Giá AI</a></li>
+            <li class="menu-item"><a href="#"><span>⊙</span>Chấm KPI</a></li>
+            <li class="menu-item"><a href="#"><span>▧</span>Công Việc thông minh</a></li>
+            -->
+            <li class="menu-item menu-group">
+              <button class="menu-parent" data-menu-toggle type="button" aria-expanded="false">
+                <span class="menu-icon n8n-menu-icon">n8n</span>
+                <span class="menu-label">Tự động hóa n8n</span>
+                <span class="menu-chevron">⌄</span>
+              </button>
+              <ul class="menu-child">
+                <li><a href="#n8n-expiry" data-n8n-workflow="expiry">Cảnh báo sắp hết hạn</a></li>
+                <li><a href="#n8n-inventory" data-n8n-workflow="inventory">Đồng bộ tồn kho</a></li>
+                <li><a href="#n8n-report" data-n8n-workflow="report">Báo cáo cuối ngày</a></li>
+              </ul>
+            </li>
+            <!-- Chưa có UI.
+            <li class="menu-item"><a href="#"><span>♡</span>Check</a></li>
+            -->
+          </ul>
+        </nav>
+
+      </aside>
+
+      <main class="content inventory-content">
+        <header class="topbar">
+          <button class="menu-btn" type="button" aria-label="Menu">☰</button>
+          <nav class="breadcrumb" aria-label="Đường dẫn trang">
+            <ol class="breadcrumb-list">
+              <li class="breadcrumb-item"><a href="#">Upharma</a></li>
+              <li class="breadcrumb-item"><a href="#">Kho hàng</a></li>
+              <li class="breadcrumb-item is-current" aria-current="page">Tồn kho</li>
+            </ol>
+          </nav>
+          <div class="user-title" id="userTitle">Đang tải người dùng...</div>
+          <div class="layout-switch" aria-label="Chọn kiểu menu">
+            <button class="is-active" data-layout-mode="left" type="button">Menu trái</button>
+            <button data-layout-mode="top" type="button">Menu trên</button>
+          </div>
+          <button class="store-btn" type="button" aria-label="Cửa hàng">▦</button>
+        </header>
+
+        <nav class="top-menu" aria-label="Menu ngang">
+          <!-- Menu chưa có UI, mở lại khi đã xây dựng trang tương ứng.
+          <a href="#"><span>⌘</span>Tổng Quan</a>
+          <a href="#"><span>▦</span>Nhà Thuốc</a>
+          <a href="#"><span>♙</span>Nhân Sự</a>
+          <a href="#"><span>▤</span>Báo Cáo</a>
+          <a href="#"><span>△</span>Wrong FEFO</a>
+          <a href="#"><span>⊙</span>Chấm KPI</a>
+          -->
+          <a class="active" href="/dashboard/"><span>▥</span>Hàng Hoá</a>
+          <a href="#n8n-expiry" data-n8n-workflow="expiry"><span class="n8n-menu-icon">n8n</span>Tự động hóa</a>
+        </nav>
+
+        <section class="inventory-header">
+          <div>
+            <h1>Danh mục tồn kho</h1>
+            <div class="expiry-legend" aria-label="Chú thích hạn dùng">
+              <span><i class="grey"></i> Hết hạn</span>
+              <span><i class="red"></i> 3 Tháng</span>
+              <span><i class="blue"></i> 6 Tháng</span>
+              <span><i class="green"></i> 1 Năm</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="expiry-dashboard" aria-label="Thống kê hạn dùng">
+          <article class="expired" data-expiry-filter="expired">
+            <span>Hết hạn</span>
+            <strong id="expiredCount">0</strong>
+          </article>
+          <article class="danger" data-expiry-filter="danger">
+            <span>3 Tháng</span>
+            <strong id="threeMonthCount">0</strong>
+          </article>
+          <article class="warning" data-expiry-filter="warning">
+            <span>6 Tháng</span>
+            <strong id="sixMonthCount">0</strong>
+          </article>
+          <article class="safe" data-expiry-filter="safe">
+            <span>1 Năm</span>
+            <strong id="oneYearCount">0</strong>
+          </article>
+          <article class="normal" data-expiry-filter="normal">
+            <span>Hàng bình thường</span>
+            <strong id="normalCount">0</strong>
+          </article>
+        </section>
+
+        <section class="shop-filter-section" aria-labelledby="shopFilterTitle">
+          <h2 id="shopFilterTitle">Nhà thuốc</h2>
+          <div class="shop-dashboard" id="shopDashboard" aria-label="Lọc tồn kho theo nhà thuốc"></div>
+        </section>
+
+        <section class="table-card inventory-table-card filters-collapsed" aria-label="Danh mục tồn kho">
+          <button
+            class="mobile-filter-toggle"
+            id="mobileFilterToggle"
+            type="button"
+            aria-expanded="false"
+            aria-controls="columnFilters"
+          >
+            <span class="mobile-filter-toggle-copy">
+              <strong>Tìm kiếm và bộ lọc</strong>
+              <small id="mobileFilterSummary">Chưa có bộ lọc</small>
+            </span>
+            <span class="mobile-filter-toggle-icon" aria-hidden="true">⌄</span>
+          </button>
+          <div class="table-scroll">
+            <table class="inventory-table">
+              <thead>
+                <tr>
+                  <th>STT</th>
+                  <th>Tên SP</th>
+                  <th>Mã SP</th>
+                  <th>Nhà thuốc</th>
+                  <th>Giá(VNĐ)</th>
+                  <th>Lô</th>
+                  <th>Hạn dùng</th>
+                  <th>SL</th>
+                  <th>Đơn vị</th>
+                  <th>VAT(%)</th>
+                </tr>
+                <tr class="column-filter-row" id="columnFilters">
+                  <th></th>
+                  <th><input data-filter="productName" type="search" placeholder="Lọc tên SP" /></th>
+                  <th><input data-filter="productCode" type="search" placeholder="Mã SP" /></th>
+                  <th><input data-filter="shop" type="search" placeholder="Nhà thuốc" /></th>
+                  <th><input data-filter="price" type="search" placeholder="Giá" /></th>
+                  <th><input data-filter="lot" type="search" placeholder="Lô" /></th>
+                  <th>
+                    <select data-filter="expiryStatus" aria-label="Lọc hạn dùng">
+                      <option value="">Tất cả</option>
+                      <option value="expired">Hết hạn</option>
+                      <option value="danger">3 tháng</option>
+                      <option value="warning">6 tháng</option>
+                      <option value="safe">1 năm</option>
+                      <option value="normal">Hàng bình thường</option>
+                    </select>
+                  </th>
+                  <th><input data-filter="quantity" type="search" placeholder="SL" /></th>
+                  <th><input data-filter="unit" type="search" placeholder="Đơn vị" /></th>
+                  <th><input data-filter="vat" type="search" placeholder="VAT" /></th>
+                </tr>
+              </thead>
+              <tbody id="inventoryRows">
+                <tr>
+                  <td colspan="10" class="empty-row">Đang tải tồn kho...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div class="loading-overlay" id="loadingOverlay" aria-live="polite">
+      <div class="loading-box">
+        <span class="loader" aria-hidden="true"></span>
+        <strong id="loadingTitle">Đang tải dữ liệu</strong>
+      </div>
+    </div>
+
+    <dialog class="n8n-dialog" id="n8nDialog" aria-labelledby="n8nDialogTitle">
+      <div class="n8n-dialog-shell">
+        <header class="n8n-dialog-header">
+          <div>
+            <span class="n8n-kicker">TỰ ĐỘNG HÓA</span>
+            <h2 id="n8nDialogTitle">n8n dùng để làm gì?</h2>
+          </div>
+          <button class="n8n-close" type="button" data-close-n8n aria-label="Đóng">×</button>
+        </header>
+
+        <p class="n8n-intro">
+          n8n kết nối các hệ thống thành một quy trình tự chạy. Ví dụ: đến giờ đã đặt, n8n gọi API tồn kho,
+          lọc thuốc sắp hết hạn rồi gửi danh sách cho quản lý mà không cần thao tác thủ công.
+        </p>
+
+        <div class="n8n-example-tabs" role="tablist" aria-label="Quy trình n8n mẫu">
+          <button class="is-active" type="button" data-n8n-example="expiry">Sắp hết hạn</button>
+          <button type="button" data-n8n-example="inventory">Đồng bộ tồn kho</button>
+          <button type="button" data-n8n-example="report">Báo cáo cuối ngày</button>
+        </div>
+
+        <section class="n8n-example-content" aria-live="polite">
+          <div class="n8n-example-heading">
+            <div>
+              <span id="n8nExampleLabel">QUY TRÌNH MẪU 01</span>
+              <h3 id="n8nExampleTitle">Cảnh báo thuốc sắp hết hạn</h3>
+            </div>
+            <span class="n8n-demo-badge">Demo UI tĩnh</span>
+          </div>
+          <p id="n8nExampleDescription"></p>
+          <ol class="n8n-flow" id="n8nFlow"></ol>
+          <div class="n8n-result" id="n8nResult"></div>
+        </section>
+      </div>
+    </dialog>
+
+    <script src="../config.js"></script>
+    <script src="../static-data.js"></script>
+    <script src="../app.js"></script>
+  </body>
+</html>

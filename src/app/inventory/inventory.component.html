@@ -1,0 +1,428 @@
+<div class="app" [ngClass]="appClasses">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-logo">U</div>
+      <div>
+        <strong>NHÀ THUỐC UPHARMA</strong>
+        <span>{{ brandShopText }}</span>
+      </div>
+    </div>
+
+    <nav class="nav-list sidebar-menu" aria-label="Menu chính">
+      <ul class="menu-list">
+        <li class="menu-item menu-group" [class.is-open]="menuGroups['profile']">
+          <button
+            class="menu-parent"
+            type="button"
+            [attr.aria-expanded]="menuGroups['profile']"
+            (click)="toggleMenuGroup('profile')"
+          >
+            <span class="menu-icon">●</span>
+            <span class="menu-label">Tài khoản</span>
+            <span class="menu-chevron">⌄</span>
+          </button>
+          <ul class="menu-child">
+            <li><a routerLink="/profile">Thông tin cá nhân</a></li>
+          </ul>
+        </li>
+
+        <li class="menu-item menu-group" [class.is-open]="menuGroups['goods']">
+          <button
+            class="menu-parent is-active"
+            type="button"
+            [attr.aria-expanded]="menuGroups['goods']"
+            (click)="toggleMenuGroup('goods')"
+          >
+            <span class="menu-icon">▥</span>
+            <span class="menu-label">Hàng Hoá</span>
+            <span class="menu-chevron">⌄</span>
+          </button>
+          <ul class="menu-child">
+            <li><a class="active" routerLink="/ton-kho" aria-current="page">Tồn kho</a></li>
+            <li><a routerLink="/hang-da-het">Hàng đã hết</a></li>
+            <li><a routerLink="/hang-lap-tot">Hàng lặp tốt</a></li>
+            <li><a routerLink="/hang-ban-cham">Hàng bán chậm</a></li>
+          </ul>
+        </li>
+
+        <li class="menu-item menu-group" [class.is-open]="menuGroups['test']">
+          <button
+            class="menu-parent"
+            type="button"
+            [attr.aria-expanded]="menuGroups['test']"
+            (click)="toggleMenuGroup('test')"
+          >
+            <span class="menu-icon">↯</span>
+            <span class="menu-label">Test</span>
+            <span class="menu-chevron">⌄</span>
+          </button>
+          <ul class="menu-child">
+            <li><a routerLink="/api-test">Test tốc độ tiêu thụ</a></li>
+          </ul>
+        </li>
+
+        <li class="menu-item menu-group" [class.is-open]="menuGroups['n8n']">
+          <button
+            class="menu-parent"
+            type="button"
+            [attr.aria-expanded]="menuGroups['n8n']"
+            (click)="toggleMenuGroup('n8n')"
+          >
+            <span class="menu-icon n8n-menu-icon">n8n</span>
+            <span class="menu-label">Tự động hóa n8n</span>
+            <span class="menu-chevron">⌄</span>
+          </button>
+          <ul class="menu-child">
+            <li><a href="#n8n-expiry" (click)="openN8nExample('expiry', $event)">Cảnh báo sắp hết hạn</a></li>
+            <li><a href="#n8n-inventory" (click)="openN8nExample('inventory', $event)">Đồng bộ tồn kho</a></li>
+            <li><a href="#n8n-report" (click)="openN8nExample('report', $event)">Báo cáo cuối ngày</a></li>
+          </ul>
+        </li>
+      </ul>
+    </nav>
+  </aside>
+
+  <main class="content inventory-content">
+    <header class="topbar">
+      <button class="menu-btn" type="button" aria-label="Menu" (click)="toggleSidebar()">☰</button>
+      <nav class="breadcrumb" aria-label="Đường dẫn trang">
+        <ol class="breadcrumb-list">
+          <li class="breadcrumb-item"><a href="#">Upharma</a></li>
+          <li class="breadcrumb-item"><a href="#">Kho hàng</a></li>
+          <li class="breadcrumb-item is-current" aria-current="page">Tồn kho</li>
+        </ol>
+      </nav>
+      <div class="user-title">{{ userTitle }}</div>
+      <div class="layout-switch" aria-label="Chọn kiểu menu">
+        <button [class.is-active]="layoutMode === 'left'" (click)="setLayoutMode('left')" type="button">Menu trái</button>
+        <button [class.is-active]="layoutMode === 'top'" (click)="setLayoutMode('top')" type="button">Menu trên</button>
+      </div>
+      <button class="store-btn logout-topbar" type="button" aria-label="Đăng xuất" title="Đăng xuất" (click)="openLogoutConfirm($event)">
+        <span>↪</span>
+        <strong>Đăng xuất</strong>
+      </button>
+    </header>
+
+    <nav class="top-menu" aria-label="Menu ngang">
+      <a class="active" routerLink="/ton-kho"><span>▥</span>Hàng Hoá</a>
+      <a routerLink="/hang-da-het"><span>0</span>Hàng đã hết</a>
+      <a routerLink="/hang-lap-tot"><span>✓</span>Hàng lặp tốt</a>
+      <a routerLink="/hang-ban-cham"><span>↓</span>Hàng bán chậm</a>
+      <a routerLink="/api-test"><span>↯</span>Test API</a>
+      <a href="#n8n-expiry" (click)="openN8nExample('expiry', $event)">
+        <span class="n8n-menu-icon">n8n</span>Tự động hóa
+      </a>
+    </nav>
+
+    <section class="inventory-header">
+      <div>
+        <h1>Danh mục tồn kho</h1>
+        <div class="expiry-legend" aria-label="Chú thích hạn dùng">
+          <span><i class="grey"></i> Hết hạn</span>
+          <span><i class="red"></i> 3 Tháng</span>
+          <span><i class="blue"></i> 6 Tháng</span>
+          <span><i class="green"></i> 1 Năm</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="expiry-dashboard" aria-label="Thống kê hạn dùng">
+      <article
+        *ngFor="let card of expiryCards"
+        [class]="card.key"
+        [class.is-active]="card.key !== 'all' && columnFilters['expiryStatus'] === card.key"
+        (click)="toggleExpiryFilter(card.key)"
+      >
+        <span>{{ card.label }}</span>
+        <strong>{{ card.key === 'all' ? activeExpiryTotal : expirySummary[card.countKey!] }}</strong>
+      </article>
+    </section>
+
+    <section class="shop-filter-section" aria-labelledby="shopFilterTitle">
+      <h2 id="shopFilterTitle">Nhà thuốc</h2>
+      <div class="shop-dashboard" aria-label="Lọc tồn kho theo nhà thuốc">
+        <button
+          *ngFor="let shop of shopCards; trackBy: trackByShop"
+          class="shop-filter-card"
+          [class.is-active]="shop.shopCode === activeShopCode"
+          type="button"
+          [attr.aria-pressed]="shop.shopCode === activeShopCode"
+          [attr.title]="shop.shopName"
+          (click)="applyShopFilter(shop.shopCode)"
+        >
+          <span class="shop-filter-copy">
+            <b>{{ shop.label }}</b>
+            <small>{{ shop.shopName }}</small>
+          </span>
+          <strong>{{ shop.count }}</strong>
+        </button>
+      </div>
+    </section>
+
+    <div class="inventory-cache-status out-stock-cache-status inventory-loading-status" *ngIf="inventoryCacheStatus || inventoryRefreshing">
+      <div class="inventory-cache-status-copy">
+        <span>{{ inventoryRefreshing ? "Đang cập nhật" : "Trạng thái dữ liệu" }}</span>
+        <strong>{{ inventoryCacheStatus || "Đang cập nhật dữ liệu tồn kho..." }}</strong>
+      </div>
+      <div
+        class="inventory-cache-progress"
+        role="progressbar"
+        [attr.aria-valuenow]="inventoryRefreshProgress"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        [class.is-running]="inventoryRefreshing"
+      >
+        <i [style.width.%]="inventoryRefreshProgress"></i>
+      </div>
+    </div>
+
+    <section class="table-card inventory-table-card" [class.filters-collapsed]="filtersCollapsed" aria-label="Danh mục tồn kho">
+      <button
+        class="mobile-filter-toggle"
+        type="button"
+        [attr.aria-expanded]="!filtersCollapsed"
+        aria-controls="columnFilters"
+        (click)="toggleFilters()"
+      >
+        <span class="mobile-filter-toggle-copy">
+          <strong>Tìm kiếm và bộ lọc</strong>
+          <small>{{ mobileFilterSummary }}</small>
+        </span>
+        <span class="mobile-filter-toggle-icon" aria-hidden="true">⌄</span>
+      </button>
+      <div class="table-scroll" (scroll)="onTableScroll($event)">
+        <table class="inventory-table">
+          <thead>
+            <tr>
+              <th>STT</th>
+              <th>Tên SP</th>
+              <th>Mã SP</th>
+              <th>Nhà thuốc</th>
+              <th>Giá(VNĐ)</th>
+              <th>Lô</th>
+              <th>Hạn dùng</th>
+              <th>SL</th>
+              <th>Đơn vị</th>
+              <th>VAT(%)</th>
+            </tr>
+            <tr class="column-filter-row" id="columnFilters">
+              <th></th>
+              <th>
+                <input
+                  [(ngModel)]="columnFilters['productName']"
+                  (ngModelChange)="onColumnFilterInput('productName')"
+                  type="search"
+                  placeholder="Lọc tên SP"
+                />
+              </th>
+              <th>
+                <input
+                  [(ngModel)]="columnFilters['productCode']"
+                  (ngModelChange)="onColumnFilterInput('productCode')"
+                  type="search"
+                  placeholder="Mã SP"
+                />
+              </th>
+              <th>
+                <input
+                  [(ngModel)]="columnFilters['shop']"
+                  (ngModelChange)="onColumnFilterInput('shop')"
+                  type="search"
+                  placeholder="Nhà thuốc"
+                />
+              </th>
+              <th>
+                <input
+                  [(ngModel)]="columnFilters['price']"
+                  (ngModelChange)="onColumnFilterInput('price')"
+                  type="search"
+                  placeholder="Giá"
+                />
+              </th>
+              <th>
+                <input
+                  [(ngModel)]="columnFilters['lot']"
+                  (ngModelChange)="onColumnFilterInput('lot')"
+                  type="search"
+                  placeholder="Lô"
+                />
+              </th>
+              <th>
+                <select
+                  [(ngModel)]="columnFilters['expiryStatus']"
+                  (ngModelChange)="onExpirySelectChange()"
+                  aria-label="Lọc hạn dùng"
+                >
+                  <option value="">Tất cả</option>
+                  <option value="expired">Hết hạn</option>
+                  <option value="danger">3 tháng</option>
+                  <option value="warning">6 tháng</option>
+                  <option value="safe">1 năm</option>
+                  <option value="normal">Hàng bình thường</option>
+                </select>
+              </th>
+              <th>
+                <input
+                  [(ngModel)]="columnFilters['quantity']"
+                  (ngModelChange)="onColumnFilterInput('quantity')"
+                  type="search"
+                  placeholder="SL"
+                />
+              </th>
+              <th>
+                <input
+                  [(ngModel)]="columnFilters['unit']"
+                  (ngModelChange)="onColumnFilterInput('unit')"
+                  type="search"
+                  placeholder="Đơn vị"
+                />
+              </th>
+              <th>
+                <input
+                  [(ngModel)]="columnFilters['vat']"
+                  (ngModelChange)="onColumnFilterInput('vat')"
+                  type="search"
+                  placeholder="VAT"
+                />
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngIf="filteredRows.length === 0">
+              <td colspan="10" class="empty-row">Không có dữ liệu tồn kho</td>
+            </tr>
+            <tr
+              *ngFor="let item of displayedRows; let index = index; trackBy: trackByInventory"
+              [class]="item.expiryStatus"
+              [class.is-collapsed]="!item.expanded"
+            >
+              <td class="index-cell" data-label="STT">{{ index + 1 }}</td>
+              <td class="product-cell" data-label="Tên SP">
+                <span class="desktop-product-name">{{ item.productName }}</span>
+                <button
+                  class="record-toggle"
+                  type="button"
+                  [attr.aria-expanded]="item.expanded"
+                  [attr.aria-label]="(item.expanded ? 'Thu gọn' : 'Mở') + ' chi tiết ' + item.productName"
+                  (click)="toggleRecord(item)"
+                >
+                  <span class="record-toggle-index">{{ index + 1 }}</span>
+                  <span class="record-toggle-copy">
+                    <strong>{{ item.productName }}</strong>
+                    <small>{{ item.productCode }} - {{ item.shopCode }}</small>
+                  </span>
+                  <span class="record-toggle-icon" aria-hidden="true">⌄</span>
+                </button>
+              </td>
+              <td class="code-cell" data-label="Mã SP">{{ item.productCode }}</td>
+              <td class="shop-cell" data-label="Nhà thuốc" [attr.data-shop-code]="item.shopCode">
+                <span class="shop-code">{{ item.shopCode }}</span>
+              </td>
+              <td class="number-cell" data-label="Giá(VNĐ)">{{ item.priceText }}</td>
+              <td class="lot-cell" data-label="Lô">{{ item.lot }}</td>
+              <td class="date-cell" data-label="Hạn dùng">{{ item.expiryText }}</td>
+              <td class="number-cell quantity-cell" data-label="SL">{{ item.quantity }}</td>
+              <td data-label="Đơn vị">{{ item.unit }}</td>
+              <td class="number-cell" data-label="VAT(%)">{{ item.vat }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="table-load-more" *ngIf="filteredRows.length > 0">
+        <span>Đang hiển thị {{ displayedRows.length }} / {{ filteredRows.length }} dòng</span>
+        <span class="table-inline-loader" *ngIf="isAppendingRows" aria-live="polite">
+          <span class="loader" aria-hidden="true"></span>
+          Đang nạp thêm dòng...
+        </span>
+        <button type="button" *ngIf="displayedRows.length < filteredRows.length" [disabled]="isAppendingRows" (click)="loadMoreRows()">
+          Xem thêm {{ filteredRows.length - displayedRows.length > renderBatchSize ? renderBatchSize : filteredRows.length - displayedRows.length }} dòng
+        </button>
+        <span class="table-end-message" *ngIf="!isAppendingRows && displayedRows.length >= filteredRows.length">Bạn đã xem hết dữ liệu.</span>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="loading-overlay" [class.is-visible]="isLoading" aria-live="polite">
+  <div class="loading-box">
+    <span class="loader" aria-hidden="true"></span>
+    <strong>{{ loadingTitle || 'Đang tải dữ liệu' }}</strong>
+    <div class="loading-progress" aria-hidden="true">
+      <i [style.width.%]="loadingProgressPercent"></i>
+    </div>
+    <span class="loading-progress-percent">{{ loadingProgressPercent }}%</span>
+  </div>
+</div>
+
+<dialog class="n8n-dialog" [open]="n8nDialogOpen" aria-labelledby="n8nDialogTitle" (click)="closeN8nDialog()">
+  <div class="n8n-dialog-shell" (click)="$event.stopPropagation()">
+    <header class="n8n-dialog-header">
+      <div>
+        <span class="n8n-kicker">TỰ ĐỘNG HÓA</span>
+        <h2 id="n8nDialogTitle">n8n dùng để làm gì?</h2>
+      </div>
+      <button class="n8n-close" type="button" aria-label="Đóng" (click)="closeN8nDialog()">×</button>
+    </header>
+
+    <p class="n8n-intro">
+      n8n kết nối các hệ thống thành một quy trình tự chạy. Ví dụ: đến giờ đã đặt, n8n gọi API tồn kho,
+      lọc thuốc sắp hết hạn rồi gửi danh sách cho quản lý mà không cần thao tác thủ công.
+    </p>
+
+    <div class="n8n-example-tabs" role="tablist" aria-label="Quy trình n8n mẫu">
+      <button
+        type="button"
+        [class.is-active]="activeN8nWorkflowKey === 'expiry'"
+        (click)="activeN8nWorkflowKey = 'expiry'"
+      >
+        Sắp hết hạn
+      </button>
+      <button
+        type="button"
+        [class.is-active]="activeN8nWorkflowKey === 'inventory'"
+        (click)="activeN8nWorkflowKey = 'inventory'"
+      >
+        Đồng bộ tồn kho
+      </button>
+      <button
+        type="button"
+        [class.is-active]="activeN8nWorkflowKey === 'report'"
+        (click)="activeN8nWorkflowKey = 'report'"
+      >
+        Báo cáo cuối ngày
+      </button>
+    </div>
+
+    <section class="n8n-example-content" aria-live="polite">
+      <div class="n8n-example-heading">
+        <div>
+          <span>{{ activeN8nWorkflow.label }}</span>
+          <h3>{{ activeN8nWorkflow.title }}</h3>
+        </div>
+        <span class="n8n-demo-badge">Demo UI tĩnh</span>
+      </div>
+      <p>{{ activeN8nWorkflow.description }}</p>
+      <ol class="n8n-flow">
+        <li *ngFor="let step of activeN8nWorkflow.steps; let index = index">
+          <span class="n8n-step-number">{{ index + 1 }}</span>
+          <small>{{ step[0] }}</small>
+          <strong>{{ step[1] }}</strong>
+          <em>{{ step[2] }}</em>
+        </li>
+      </ol>
+      <div class="n8n-result">{{ activeN8nWorkflow.result }}</div>
+    </section>
+  </div>
+</dialog>
+
+<div class="confirm-overlay" [class.is-visible]="logoutConfirmOpen" (click)="cancelLogout()">
+  <section class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="logoutConfirmTitle" (click)="$event.stopPropagation()">
+    <span class="confirm-icon">↪</span>
+    <h2 id="logoutConfirmTitle">Đăng xuất khỏi hệ thống?</h2>
+    <p>Sau khi đăng xuất, thông tin đăng nhập trên máy này sẽ được xoá và chị cần đăng nhập lại để dùng tiếp.</p>
+    <div class="confirm-actions">
+      <button class="confirm-secondary" type="button" (click)="cancelLogout()">Ở lại</button>
+      <button class="confirm-primary" type="button" (click)="confirmLogout()">Đăng xuất</button>
+    </div>
+  </section>
+</div>
