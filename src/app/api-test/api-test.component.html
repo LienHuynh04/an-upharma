@@ -1,0 +1,175 @@
+<div class="api-test-shell" [ngClass]="pageClasses">
+  <aside class="api-test-sidebar">
+    <div class="brand">
+      <div class="brand-logo">U</div>
+      <div>
+        <strong>NHÀ THUỐC UPHARMA</strong>
+        <span>TEST API</span>
+      </div>
+    </div>
+    <nav class="nav-list sidebar-menu" aria-label="Menu test">
+      <ul class="menu-list">
+        <li class="menu-item menu-group" [class.is-open]="menuGroups['profile']">
+          <button class="menu-parent" type="button" [attr.aria-expanded]="menuGroups['profile']" (click)="toggleMenuGroup('profile')">
+            <span class="menu-icon">●</span>
+            <span class="menu-label">Tài khoản</span>
+            <span class="menu-chevron">⌄</span>
+          </button>
+          <ul class="menu-child">
+            <li><a routerLink="/profile">Thông tin cá nhân</a></li>
+          </ul>
+        </li>
+
+        <li class="menu-item menu-group" [class.is-open]="menuGroups['goods']">
+          <button
+            class="menu-parent"
+            type="button"
+            [attr.aria-expanded]="menuGroups['goods']"
+            (click)="toggleMenuGroup('goods')"
+          >
+            <span class="menu-icon">▥</span>
+            <span class="menu-label">Hàng Hoá</span>
+            <span class="menu-chevron">⌄</span>
+          </button>
+          <ul class="menu-child">
+            <li><a routerLink="/ton-kho">Tồn kho</a></li>
+            <li><a routerLink="/hang-da-het">Hàng đã hết</a></li>
+            <li><a routerLink="/hang-lap-tot">Hàng lặp tốt</a></li>
+            <li><a routerLink="/hang-ban-cham">Hàng bán chậm</a></li>
+          </ul>
+        </li>
+
+        <li class="menu-item menu-group" [class.is-open]="menuGroups['test']">
+          <button
+            class="menu-parent is-active"
+            type="button"
+            [attr.aria-expanded]="menuGroups['test']"
+            (click)="toggleMenuGroup('test')"
+          >
+            <span class="menu-icon">↯</span>
+            <span class="menu-label">Test</span>
+            <span class="menu-chevron">⌄</span>
+          </button>
+          <ul class="menu-child">
+            <li><a class="active" routerLink="/api-test">Tốc độ tiêu thụ</a></li>
+          </ul>
+        </li>
+      </ul>
+    </nav>
+  </aside>
+
+  <main class="api-test-content">
+    <header class="topbar">
+      <button class="menu-btn" type="button" aria-label="Menu" (click)="toggleSidebar()">☰</button>
+      <nav class="breadcrumb" aria-label="Đường dẫn trang">
+        <ol class="breadcrumb-list">
+          <li class="breadcrumb-item"><a routerLink="/ton-kho">Upharma</a></li>
+          <li class="breadcrumb-item"><a routerLink="/ton-kho">Test API</a></li>
+          <li class="breadcrumb-item is-current" aria-current="page">Tốc độ tiêu thụ</li>
+        </ol>
+      </nav>
+      <div class="user-title">{{ userTitle }}</div>
+      <button class="store-btn logout-topbar" type="button" aria-label="Đăng xuất" title="Đăng xuất" (click)="openLogoutConfirm($event)">
+        <span>↪</span>
+        <strong>Đăng xuất</strong>
+      </button>
+    </header>
+
+    <section class="api-test-header">
+      <div>
+        <span>POST</span>
+        <h1>{{ endpoint }}</h1>
+        <p>Trang test chỉ gọi API tốc độ tiêu thụ cho 3 nhà thuốc lấy từ response đăng nhập.</p>
+      </div>
+      <button type="button" (click)="loginOnly()" [disabled]="loading">Lấy lại phiên</button>
+    </section>
+
+    <section class="api-test-grid">
+      <form class="api-test-panel" (ngSubmit)="callSpeedApi()">
+        <h2>Payload</h2>
+
+        <div class="api-test-shop-picker">
+          <div class="api-test-shop-heading">
+            <span>ShopLst</span>
+          </div>
+          <label class="api-test-check" *ngFor="let shop of shops">
+            <input
+              type="radio"
+              name="selectedShopCode"
+              [checked]="selectedShopCode === shop.ShopCode"
+              (change)="selectShop(shop.ShopCode)"
+            />
+            <span>{{ shop.ShopCode }} - {{ shop.ShopName }}</span>
+          </label>
+          <input [(ngModel)]="shopLst" name="shopLst" (ngModelChange)="updateRequestPreview()" />
+        </div>
+
+        <label>
+          TimeStart
+          <input [(ngModel)]="timeStart" name="timeStart" (ngModelChange)="updateRequestPreview()" />
+        </label>
+
+        <label>
+          TimeEnd
+          <input [(ngModel)]="timeEnd" name="timeEnd" (ngModelChange)="updateRequestPreview()" />
+        </label>
+
+        <label>
+          ProductID
+          <input [(ngModel)]="productID" name="productID" placeholder="Để trống để lấy tất cả" (ngModelChange)="updateRequestPreview()" />
+        </label>
+
+        <label>
+          GetType
+          <input [(ngModel)]="getType" name="getType" placeholder="Ví dụ: duytri nếu API yêu cầu" (ngModelChange)="updateRequestPreview()" />
+        </label>
+
+        <label>
+          ViewCity
+          <input [(ngModel)]="viewCity" name="viewCity" type="number" (ngModelChange)="updateRequestPreview()" />
+        </label>
+
+        <button class="api-test-submit" type="submit" [disabled]="loading || !shopLst">
+          {{ loading ? "Đang gọi..." : "Gọi API tốc độ tiêu thụ" }}
+        </button>
+      </form>
+
+      <section class="api-test-panel">
+        <h2>Request gửi đi</h2>
+        <h3>SalesInvoice/GetReportSalesSpeed</h3>
+        <pre>{{ requestPayload }}</pre>
+      </section>
+    </section>
+
+    <section class="api-test-panel response-panel">
+      <h2>Response</h2>
+      <p class="api-test-error" *ngIf="errorText">{{ errorText }}</p>
+      <h3 *ngIf="responseText">SalesInvoice/GetReportSalesSpeed</h3>
+      <pre *ngIf="responseText">{{ responseText }}</pre>
+      <p *ngIf="!responseText && !errorText">Chưa có response. Bấm gọi API để kiểm tra.</p>
+    </section>
+  </main>
+</div>
+
+<div class="loading-overlay" [class.is-visible]="loading" aria-live="polite">
+  <div class="loading-box">
+    <span class="loader" aria-hidden="true"></span>
+    <strong>{{ loading ? "Đang gọi API test..." : "" }}</strong>
+    <div class="loading-progress" aria-hidden="true">
+      <i [style.width.%]="loadingProgress"></i>
+    </div>
+    <span class="loading-progress-percent">{{ loadingProgress }}%</span>
+  </div>
+</div>
+
+<div class="confirm-overlay" [class.is-visible]="logoutConfirmOpen" (click)="cancelLogout()">
+  <section class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="logoutConfirmTitle" (click)="$event.stopPropagation()">
+    <span class="confirm-icon">↪</span>
+    <h2 id="logoutConfirmTitle">Đăng xuất khỏi hệ thống?</h2>
+    <p>Sau khi đăng xuất, thông tin đăng nhập trên máy này sẽ được xoá và chị cần đăng nhập lại để dùng tiếp.</p>
+    <div class="confirm-actions">
+      <button class="confirm-secondary" type="button" (click)="cancelLogout()">Ở lại</button>
+      <button class="confirm-primary" type="button" (click)="confirmLogout()">Đăng xuất</button>
+    </div>
+  </section>
+</div>

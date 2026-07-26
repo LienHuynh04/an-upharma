@@ -1,0 +1,6 @@
+/model sonnet{
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://llm.wokushop.com",
+    "ANTHROPIC_AUTH_TOKEN": "your_token_here"
+  }
+}

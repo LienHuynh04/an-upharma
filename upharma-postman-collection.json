@@ -1,0 +1,320 @@
+{
+  "info": {
+    "_postman_id": "b7e0b1e5-0a71-4d14-9b38-upharma",
+    "name": "UPHARMA NHATHUOC API",
+    "description": "Postman collection for UPHARMA NHATHUOC APIs used by the Angular app. Run Login first to store token, uPharmaID and a default shopCode.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://icpc1hn.work/NHATHUOC"
+    },
+    {
+      "key": "username",
+      "value": "0706147803"
+    },
+    {
+      "key": "password",
+      "value": "2602"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "uPharmaID",
+      "value": ""
+    },
+    {
+      "key": "shopCode",
+      "value": "SHOP0025"
+    },
+    {
+      "key": "timeStart",
+      "value": "2026-07-23 00:00:00"
+    },
+    {
+      "key": "timeEnd",
+      "value": "2026-07-23 23:59:00"
+    }
+  ],
+  "item": [
+    {
+      "name": "01 Auth",
+      "item": [
+        {
+          "name": "User Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.Token) pm.collectionVariables.set('token', json.Token);",
+                  "if (json.UserInfo && json.UserInfo.uPharmaID) pm.collectionVariables.set('uPharmaID', String(json.UserInfo.uPharmaID));",
+                  "if (json.UserInfo && Array.isArray(json.UserInfo.ShopLst) && json.UserInfo.ShopLst.length > 0) {",
+                  "  const firstAllowedShop = json.UserInfo.ShopLst.find(shop => shop.ShopCode !== 'SHOP0040') || json.UserInfo.ShopLst[0];",
+                  "  pm.collectionVariables.set('shopCode', firstAllowedShop.ShopCode);",
+                  "}",
+                  "pm.test('Login OK', function () {",
+                  "  pm.expect(json.RespCode).to.eql(0);",
+                  "  pm.expect(json.Token).to.be.a('string').and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"UserName\": \"{{username}}\",\n  \"Password\": \"{{password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/User/UserLogin",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "User",
+                "UserLogin"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get User Info By ID",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"Token\": \"{{token}}\",\n  \"uPharmaID\": \"{{uPharmaID}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/User/GetUserInfoByID",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "User",
+                "GetUserInfoByID"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 Inventory And Dashboard APIs",
+      "item": [
+        {
+          "name": "Get Inventory By Shop ID",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ProductID\": \"\",\n  \"LotCode\": \"\",\n  \"StoreType\": \"\",\n  \"Token\": \"{{token}}\",\n  \"uPharmaID\": \"{{uPharmaID}}\",\n  \"ShopCode\": \"{{shopCode}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/LocalStore/GetInventoryByShopID",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "LocalStore",
+                "GetInventoryByShopID"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Invoice Order Online By Time",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"TimeStart\": \"{{timeStart}}\",\n  \"TimeEnd\": \"{{timeEnd}}\",\n  \"Token\": \"{{token}}\",\n  \"uPharmaID\": \"{{uPharmaID}}\",\n  \"ShopCode\": \"{{shopCode}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/InvoiceOnline/GetInvoiceOrderOnByTime",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "InvoiceOnline",
+                "GetInvoiceOrderOnByTime"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Message By Time",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"TimeStart\": \"{{timeStart}}\",\n  \"TimeEnd\": \"{{timeEnd}}\",\n  \"Token\": \"{{token}}\",\n  \"uPharmaID\": \"{{uPharmaID}}\",\n  \"ShopCode\": \"{{shopCode}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/NTMessage/GetMessageByTime",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "NTMessage",
+                "GetMessageByTime"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Employee Of Shop",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"Token\": \"{{token}}\",\n  \"uPharmaID\": \"{{uPharmaID}}\",\n  \"ShopCode\": \"{{shopCode}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/Employee/GetEmployeeOfShop",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "Employee",
+                "GetEmployeeOfShop"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Order Header By Shop",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"TimeStart\": \"{{timeStart}}\",\n  \"TimeEnd\": \"{{timeEnd}}\",\n  \"ShopCode\": \"{{shopCode}}\",\n  \"PageNumber\": 1,\n  \"NumberRow\": 0,\n  \"Token\": \"{{token}}\",\n  \"uPharmaID\": \"{{uPharmaID}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/SalesInvoice/GetOrderHeaderByShop",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "SalesInvoice",
+                "GetOrderHeaderByShop"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 Out Of Stock / Sales Speed",
+      "item": [
+        {
+          "name": "Get Report Sales Speed",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"uPharmaID\": \"{{uPharmaID}}\",\n  \"Token\": \"{{token}}\",\n  \"TimeStart\": \"{{timeStart}}\",\n  \"TimeEnd\": \"{{timeEnd}}\",\n  \"ProductID\": \"\",\n  \"GetType\": \"Week\",\n  \"ViewCity\": 0,\n  \"ShopLst\": \"{{shopCode}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/SalesInvoice/GetReportSalesSpeed",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "SalesInvoice",
+                "GetReportSalesSpeed"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

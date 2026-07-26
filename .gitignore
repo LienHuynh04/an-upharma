@@ -1,0 +1,8 @@
+node_modules/
+.angular/
+.env.claude.local
+.claude/settings.local.json
+backend/.env
+backend/.cache/
+.firebase/
+firebase-debug.log
