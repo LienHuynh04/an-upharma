@@ -92,8 +92,8 @@ export class UpharmaService {
     }
 
     if ((environment as any).useStaticData) {
-      const response = await fetch("/assets/data/login.json");
-      if (!response.ok) throw new Error("Chưa có data tĩnh, vui lòng chờ cronjob");
+      const response = await fetch("assets/data/login.json");
+      if (!response.ok) throw new Error("Chưa có data tĩnh, vui lòng chờ cronjob hoặc kiểm tra lại đường dẫn");
       const loginData = await response.json() as LoginResponse;
       this.setSession(loginData);
       if (this.shopList.length === 0) throw new Error("Phiên đăng nhập không có nhà thuốc hợp lệ");
@@ -340,7 +340,7 @@ export class UpharmaService {
     }
 
     if ((environment as any).useStaticData) {
-      const response = await fetch(`/assets/data/${resourceName}.json`);
+      const response = await fetch(`assets/data/${resourceName}.json`);
       if (!response.ok) throw new Error(`Không thể đọc data tĩnh của ${resourceName}`);
       const data = await response.json() as ResourceResponse;
       if (options.onFresh) options.onFresh(data);
