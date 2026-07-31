@@ -25,7 +25,8 @@ import { RouterOutlet } from "@angular/router";
       </span>
     </div>
 
-    <div class="cat-rating-overlay" [class.is-visible]="ratingModalOpen" (click)="closeRatingModal()">
+    <!-- Tính năng đánh giá 5 sao tạm thời bị ẩn theo yêu cầu -->
+    <div *ngIf="false" class="cat-rating-overlay" [class.is-visible]="ratingModalOpen" (click)="closeRatingModal()">
       <section class="cat-rating-modal" role="dialog" aria-modal="true" aria-labelledby="catRatingTitle" (click)="$event.stopPropagation()">
         <button class="cat-rating-close" type="button" aria-label="Đóng đánh giá" (click)="closeRatingModal()">×</button>
         <img class="cat-rating-avatar" [src]="codexBotImage" alt="" />
