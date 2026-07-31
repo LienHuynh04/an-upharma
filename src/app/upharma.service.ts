@@ -91,6 +91,15 @@ export class UpharmaService {
       throw new Error("Vui lòng nhập tài khoản và mật khẩu");
     }
 
+    if ((environment as any).useStaticData) {
+      const response = await fetch("/assets/data/login.json");
+      if (!response.ok) throw new Error("Chưa có data tĩnh, vui lòng chờ cronjob");
+      const loginData = await response.json() as LoginResponse;
+      this.setSession(loginData);
+      if (this.shopList.length === 0) throw new Error("Phiên đăng nhập không có nhà thuốc hợp lệ");
+      return loginData;
+    }
+
     const loginData = this.useBackendProxy
       ? await this.backendLogin(credentials)
       : await this.request<LoginResponse>("/User/UserLogin", {
@@ -145,6 +154,10 @@ export class UpharmaService {
     payload: RawRecord,
     options: { cache?: boolean; forceRefresh?: boolean } = {},
   ): Promise<T> {
+    if ((environment as any).useStaticData) {
+      throw new Error(`API endpoint ${pathname} không được hỗ trợ ở chế độ tĩnh`);
+    }
+
     const normalizedPath = pathname.startsWith("/") ? pathname : `/${pathname}`;
 
     if (!options.cache) {
@@ -324,6 +337,14 @@ export class UpharmaService {
 
     if (!this.getResourceConfig(resourceName)) {
       throw new Error(`Không hỗ trợ nhóm API: ${resourceName}`);
+    }
+
+    if ((environment as any).useStaticData) {
+      const response = await fetch(`/assets/data/${resourceName}.json`);
+      if (!response.ok) throw new Error(`Không thể đọc data tĩnh của ${resourceName}`);
+      const data = await response.json() as ResourceResponse;
+      if (options.onFresh) options.onFresh(data);
+      return data;
     }
 
     if (this.useBackendProxy) {
