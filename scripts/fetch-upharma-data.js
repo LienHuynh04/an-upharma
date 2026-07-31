@@ -41,7 +41,7 @@ async function requestUpharma(pathname, payload) {
 function extractArray(data) {
   if (Array.isArray(data)) return data;
   if (!data || typeof data !== "object") return [];
-  const preferredKeys = ["Data", "data", "DataLst", "ListData", "InventoryLst", "InventoryList", "Table", "Rows"];
+  const preferredKeys = ["SalesSpeedLst", "Data", "data", "DataLst", "ListData", "InventoryLst", "InventoryList", "Table", "Rows"];
   for (const key of preferredKeys) {
     if (Array.isArray(data[key])) return data[key];
   }
@@ -170,6 +170,7 @@ async function run() {
           Token: loginData.Token,
           uPharmaID: String(loginData.UserInfo.uPharmaID),
           ShopCode: shop.ShopCode,
+          ShopLst: shop.ShopCode, // Some APIs like GetReportSalesSpeed use ShopLst
         });
 
         const arrayData = extractArray(responseData);
