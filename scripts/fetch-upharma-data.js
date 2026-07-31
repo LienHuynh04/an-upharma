@@ -75,6 +75,9 @@ function getResourceConfig(resourceName, now = new Date()) {
   const twoMonthsAgo = new Date(now);
   twoMonthsAgo.setUTCMonth(twoMonthsAgo.getUTCMonth() - 2);
 
+  const nineMonthsAgo = new Date(now);
+  nineMonthsAgo.setUTCMonth(nineMonthsAgo.getUTCMonth() - 9);
+
   const configs = {
     inventory: {
       pathname: "/LocalStore/GetInventoryByShopID",
@@ -99,6 +102,16 @@ function getResourceConfig(resourceName, now = new Date()) {
         TimeEnd: currentTime,
         PageNumber: 1,
         NumberRow: 0,
+      }),
+    },
+    sales_speed: {
+      pathname: "/SalesInvoice/GetReportSalesSpeed",
+      payload: () => ({
+        TimeStart: formatDateTime(nineMonthsAgo),
+        TimeEnd: currentTime,
+        ProductID: "",
+        GetType: "Month",
+        ViewCity: 0,
       }),
     },
   };
@@ -142,7 +155,7 @@ async function run() {
   fs.writeFileSync(path.join(DATA_DIR, 'login.json'), JSON.stringify(loginData, null, 2));
   console.log("Đã lưu login.json");
 
-  const resources = ['inventory', 'invoices', 'messages', 'employees', 'orders'];
+  const resources = ['inventory', 'invoices', 'messages', 'employees', 'orders', 'sales_speed'];
   
   for (const resourceName of resources) {
     console.log(`Đang lấy data cho ${resourceName}...`);
