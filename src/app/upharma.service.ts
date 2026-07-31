@@ -156,8 +156,14 @@ export class UpharmaService {
   ): Promise<T> {
     if ((environment as any).useStaticData) {
       if (pathname.includes("GetReportSalesSpeed")) {
-        const response = await fetch(this.getStaticDataUrl("assets/data/sales_speed.json"));
-        if (!response.ok) throw new Error("Không thể đọc data tĩnh của sales_speed");
+        const url = this.getStaticDataUrl("assets/data/sales_speed.json");
+        console.log(`[Firebase Fetch] Đang gọi API: ${url}`);
+        const response = await fetch(url);
+        if (!response.ok) {
+          const errText = await response.text();
+          console.error(`[Firebase Lỗi 404?] URL: ${url} - Trạng thái: ${response.status} - Chi tiết:`, errText);
+          throw new Error(`Không thể đọc data tĩnh của sales_speed. Mã lỗi: ${response.status}`);
+        }
         const json = await response.json();
         
         const dataArr = (json as any).data || (json as any).DataLst || (json as any).Rows || [];
@@ -390,8 +396,14 @@ export class UpharmaService {
     }
 
     if ((environment as any).useStaticData) {
-      const response = await fetch(this.getStaticDataUrl(`assets/data/${resourceName}.json`));
-      if (!response.ok) throw new Error(`Không thể đọc data tĩnh của ${resourceName}`);
+      const url = this.getStaticDataUrl(`assets/data/${resourceName}.json`);
+      console.log(`[Firebase Fetch] Đang tải resource ${resourceName} từ: ${url}`);
+      const response = await fetch(url);
+      if (!response.ok) {
+        const errText = await response.text();
+        console.error(`[Firebase Lỗi 404?] URL: ${url} - Trạng thái: ${response.status} - Chi tiết:`, errText);
+        throw new Error(`Không thể đọc data tĩnh của ${resourceName}. Mã lỗi: ${response.status}`);
+      }
       const data = await response.json() as ResourceResponse;
       if (options.onFresh) options.onFresh(data);
       return data;
