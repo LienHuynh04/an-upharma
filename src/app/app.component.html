@@ -50,12 +50,13 @@
             [attr.aria-expanded]="menuGroups['test']"
             (click)="toggleMenuGroup('test')"
           >
-            <span class="menu-icon">↯</span>
-            <span class="menu-label">Test</span>
+            <span class="menu-icon">⚙</span>
+            <span class="menu-label">Hệ thống</span>
             <span class="menu-chevron">⌄</span>
           </button>
           <ul class="menu-child">
-            <li><a routerLink="/api-test">Test tốc độ tiêu thụ</a></li>
+            <li><a routerLink="/cronjob" routerLinkActive="active">Quản lý Cronjob</a></li>
+            <li><a routerLink="/api-test" routerLinkActive="active">Test tốc độ tiêu thụ</a></li>
           </ul>
         </li>
 
