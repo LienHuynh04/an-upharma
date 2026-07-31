@@ -213,6 +213,20 @@ export class OutOfStockComponent implements OnInit {
     await this.loadActiveShop(true);
   }
 
+  setRange(range: '1d' | '7d'): void {
+    const now = new Date();
+    let start = now;
+    if (range === '1d') {
+      start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+    } else {
+      start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6, 0, 0, 0);
+    }
+    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 0);
+    this.startDateInput = this.toDateTimeLocalValue(start);
+    this.endDateInput = this.toDateTimeLocalValue(end);
+    void this.applyDateFilter();
+  }
+
   async applyDateFilter(): Promise<void> {
     this.timeStart = this.toApiDateTime(this.startDateInput);
     this.timeEnd = this.toApiDateTime(this.endDateInput);

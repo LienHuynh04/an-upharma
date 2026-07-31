@@ -46,12 +46,13 @@
             [attr.aria-expanded]="menuGroups['test']"
             (click)="toggleMenuGroup('test')"
           >
-            <span class="menu-icon">↯</span>
-            <span class="menu-label">Test</span>
+            <span class="menu-icon">⚙</span>
+            <span class="menu-label">Hệ thống</span>
             <span class="menu-chevron">⌄</span>
           </button>
           <ul class="menu-child">
-            <li><a routerLink="/api-test">Test tốc độ tiêu thụ</a></li>
+            <li><a routerLink="/cronjob" routerLinkActive="active">Quản lý Cronjob</a></li>
+            <li><a routerLink="/api-test" routerLinkActive="active">Test tốc độ tiêu thụ</a></li>
           </ul>
         </li>
       </ul>
@@ -81,7 +82,7 @@
       <a class="active" routerLink="/hang-da-het"><span>0</span>Hàng đã hết</a>
       <a routerLink="/hang-lap-tot"><span>✓</span>Hàng lặp tốt</a>
       <a routerLink="/hang-ban-cham"><span>↓</span>Hàng bán chậm</a>
-      <a routerLink="/api-test"><span>↯</span>Test API</a>
+      <a routerLink="/cronjob"><span>⚙</span>Hệ thống</a>
     </nav>
 
     <section class="out-stock-hero">
@@ -116,6 +117,10 @@
           <h2>{{ activeShopName }}</h2>
         </div>
         <div class="out-stock-date-filters">
+          <div class="quick-filters">
+            <button type="button" class="btn btn-small" (click)="setRange('1d')">Hôm nay</button>
+            <button type="button" class="btn btn-small" (click)="setRange('7d')">7 ngày</button>
+          </div>
           <label>
             <span>Từ ngày</span>
             <input [(ngModel)]="startDateInput" type="datetime-local" aria-label="Từ ngày" />
