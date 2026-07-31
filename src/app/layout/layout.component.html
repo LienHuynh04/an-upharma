@@ -1,0 +1,98 @@
+<div class="app" [ngClass]="appClasses">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-logo">U</div>
+      <div>
+        <strong>NHÀ THUỐC UPHARMA</strong>
+        <span>{{ brandShopText }}</span>
+      </div>
+    </div>
+
+    <nav class="nav-list sidebar-menu" aria-label="Menu chính">
+      <ul class="menu-list">
+        <li class="menu-item menu-group" [class.is-open]="menuGroups['profile']">
+          <button
+            class="menu-parent"
+            type="button"
+            [attr.aria-expanded]="menuGroups['profile']"
+            (click)="toggleMenuGroup('profile')"
+          >
+            <span class="menu-icon">●</span>
+            <span class="menu-label">Tài khoản</span>
+            <span class="menu-chevron">⌄</span>
+          </button>
+          <ul class="menu-child">
+            <li><a routerLink="/profile" routerLinkActive="active">Thông tin cá nhân</a></li>
+          </ul>
+        </li>
+
+        <li class="menu-item menu-group" [class.is-open]="menuGroups['goods']">
+          <button
+            class="menu-parent"
+            [class.is-active]="menuGroups['goods']"
+            type="button"
+            [attr.aria-expanded]="menuGroups['goods']"
+            (click)="toggleMenuGroup('goods')"
+          >
+            <span class="menu-icon">▥</span>
+            <span class="menu-label">Hàng Hoá</span>
+            <span class="menu-chevron">⌄</span>
+          </button>
+          <ul class="menu-child">
+            <li><a routerLink="/ton-kho" routerLinkActive="active">Tồn kho</a></li>
+            <li><a routerLink="/hang-da-het" routerLinkActive="active">Hàng đã hết</a></li>
+            <li><a routerLink="/hang-lap-tot" routerLinkActive="active">Hàng lặp tốt</a></li>
+            <li><a routerLink="/hang-ban-cham" routerLinkActive="active">Hàng bán chậm</a></li>
+          </ul>
+        </li>
+
+        <li class="menu-item menu-group" [class.is-open]="menuGroups['test']">
+          <button
+            class="menu-parent"
+            [class.is-active]="menuGroups['test']"
+            type="button"
+            [attr.aria-expanded]="menuGroups['test']"
+            (click)="toggleMenuGroup('test')"
+          >
+            <span class="menu-icon">⚙</span>
+            <span class="menu-label">Hệ thống</span>
+            <span class="menu-chevron">⌄</span>
+          </button>
+          <ul class="menu-child">
+            <li><a routerLink="/cronjob" routerLinkActive="active">Quản lý Cronjob</a></li>
+            <li><a routerLink="/api-test" routerLinkActive="active">Test API</a></li>
+          </ul>
+        </li>
+      </ul>
+    </nav>
+  </aside>
+
+  <main class="content">
+    <header class="topbar">
+      <button class="menu-btn" type="button" aria-label="Menu" (click)="toggleSidebar()">☰</button>
+      
+      <div class="topbar-spacer"></div>
+
+      <div class="user-title">{{ userTitle }}</div>
+      <button class="store-btn logout-topbar" type="button" aria-label="Đăng xuất" title="Đăng xuất" (click)="openLogoutConfirm($event)">
+        <span>↪</span> Đăng xuất
+      </button>
+    </header>
+
+    <div class="page-content-wrapper">
+      <router-outlet></router-outlet>
+    </div>
+  </main>
+</div>
+
+<!-- Logout Confirm Modal -->
+<div class="modal-overlay" *ngIf="showLogoutConfirm" (click)="cancelLogout()">
+  <div class="modal-content logout-modal" (click)="$event.stopPropagation()">
+    <h3>Đăng xuất</h3>
+    <p>Bạn có chắc chắn muốn đăng xuất khỏi UPHARMA không?</p>
+    <div class="modal-actions">
+      <button class="btn-cancel" (click)="cancelLogout()">Hủy</button>
+      <button class="btn-danger" (click)="confirmLogout()">Đăng xuất</button>
+    </div>
+  </div>
+</div>
