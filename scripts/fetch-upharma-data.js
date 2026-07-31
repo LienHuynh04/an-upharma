@@ -1,5 +1,20 @@
 const fs = require('fs');
 const path = require('path');
+const admin = require('firebase-admin');
+
+if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
+  try {
+    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+      databaseURL: process.env.FIREBASE_DATABASE_URL || `https://${serviceAccount.project_id}-default-rtdb.firebaseio.com`
+    });
+    console.log("Firebase Admin initialized");
+  } catch (err) {
+    console.error("Firebase init error:", err);
+  }
+}
+const db = admin.apps.length > 0 ? admin.database() : null;
 
 const UPHARMA_API_BASE_URL = process.env.UPHARMA_API_BASE_URL || "https://icpc1hn.work/NHATHUOC";
 const UPHARMA_USERNAME = process.env.UPHARMA_USERNAME;
@@ -146,14 +161,13 @@ async function run() {
   // Rewrite ShopLst to only include valid shops
   loginData.UserInfo.ShopLst = shops;
 
-  // Make sure directory exists
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
+  if (db) {
+    await db.ref('sync_logs/login').set({
+      ...loginData,
+      fetchedAt: new Date().toISOString()
+    });
+    console.log("Đã push login data lên Firebase RTDB");
   }
-
-  // Save login.json
-  fs.writeFileSync(path.join(DATA_DIR, 'login.json'), JSON.stringify(loginData, null, 2));
-  console.log("Đã lưu login.json");
 
   const resources = ['inventory', 'invoices', 'messages', 'employees', 'orders', 'sales_speed'];
   
@@ -198,11 +212,16 @@ async function run() {
       fetchedAt: new Date().toISOString(),
     };
 
-    fs.writeFileSync(path.join(DATA_DIR, `${resourceName}.json`), JSON.stringify(resourceData, null, 2));
-    console.log(`Đã lưu ${resourceName}.json (${data.length} records)`);
+    if (db) {
+      await db.ref(`upharma_data/${resourceName}`).set(resourceData);
+      console.log(`Đã push ${resourceName} lên Firebase RTDB (${data.length} records)`);
+    }
   }
   
   console.log("Hoàn thành fetch data!");
+  if (db) {
+    process.exit(0);
+  }
 }
 
 run().catch(console.error);
