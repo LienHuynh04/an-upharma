@@ -839,6 +839,19 @@ export class UpharmaService {
   }
 
   private getStaticDataUrl(filename: string): string {
+    const firebaseDbUrl = (environment as any).firebaseDbUrl;
+    if (firebaseDbUrl) {
+      const normalizedFirebase = firebaseDbUrl.replace(/\/$/, "");
+      if (filename === "assets/data/login.json") {
+        return `${normalizedFirebase}/sync_logs/login.json`;
+      }
+      if (filename.startsWith("assets/data/")) {
+        const resource = filename.replace("assets/data/", "");
+        return `${normalizedFirebase}/upharma_data/${resource}`;
+      }
+    }
+    
+    // Fallback if firebaseDbUrl is not defined
     const basePath = document.querySelector('base')?.getAttribute('href') || '/';
     const normalizedBase = basePath.endsWith('/') ? basePath : `${basePath}/`;
     return `${normalizedBase}${filename}`;
