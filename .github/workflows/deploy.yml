@@ -3,7 +3,7 @@ name: Deploy Angular to GitHub Pages with Cron Data Fetch
 on:
   push:
     branches:
-      - main
+      - master
   schedule:
     # 0h UTC (7h sáng VN)
     - cron: '0 0 * * *'
