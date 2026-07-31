@@ -163,6 +163,13 @@ async function run() {
   // Rewrite ShopLst to only include valid shops
   loginData.UserInfo.ShopLst = shops;
 
+  // Restore JSON output for frontend compatibility
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+  fs.writeFileSync(path.join(DATA_DIR, 'login.json'), JSON.stringify(loginData, null, 2));
+  console.log("Đã lưu login.json");
+
   if (db) {
     await db.ref('sync_logs/login').set({
       ...loginData,
@@ -218,6 +225,10 @@ async function run() {
       await db.ref(`upharma_data/${resourceName}`).set(resourceData);
       console.log(`Đã push ${resourceName} lên Firebase RTDB (${data.length} records)`);
     }
+
+    // Restore JSON output for frontend compatibility
+    fs.writeFileSync(path.join(DATA_DIR, `${resourceName}.json`), JSON.stringify(resourceData, null, 2));
+    console.log(`Đã lưu ${resourceName}.json`);
   }
   
   console.log("Hoàn thành fetch data!");
