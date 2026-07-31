@@ -155,6 +155,11 @@ export class UpharmaService {
     options: { cache?: boolean; forceRefresh?: boolean } = {},
   ): Promise<T> {
     if ((environment as any).useStaticData) {
+      if (pathname.includes("GetReportSalesSpeed")) {
+        const response = await fetch(this.getStaticDataUrl("assets/data/sales_speed.json"));
+        if (!response.ok) throw new Error("Không thể đọc data tĩnh của sales_speed");
+        return (await response.json()) as T;
+      }
       throw new Error(`API endpoint ${pathname} không được hỗ trợ ở chế độ tĩnh`);
     }
 
