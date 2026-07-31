@@ -39,6 +39,7 @@ jobs:
         env:
           UPHARMA_USERNAME: ${{ secrets.UPHARMA_USERNAME }}
           UPHARMA_PASSWORD: ${{ secrets.UPHARMA_PASSWORD }}
+          FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
           # Exclude SHOP0040 if needed, or define in secrets
           UPHARMA_EXCLUDED_SHOPS: "SHOP0040"
         run: node scripts/fetch-upharma-data.js
