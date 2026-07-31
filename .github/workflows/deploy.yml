@@ -1,0 +1,49 @@
+name: Deploy Angular to GitHub Pages with Cron Data Fetch
+
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    # 0h UTC (7h sáng VN)
+    - cron: '0 0 * * *'
+    # Mỗi 1 tiếng 1 lần
+    - cron: '0 * * * *'
+  workflow_dispatch: # Cho phép trigger bằng tay
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci || npm install
+
+      - name: Fetch Upharma Static Data
+        env:
+          UPHARMA_USERNAME: ${{ secrets.UPHARMA_USERNAME }}
+          UPHARMA_PASSWORD: ${{ secrets.UPHARMA_PASSWORD }}
+          # Exclude SHOP0040 if needed, or define in secrets
+          UPHARMA_EXCLUDED_SHOPS: "SHOP0040"
+        run: node scripts/fetch-upharma-data.js
+
+      - name: Build Angular Project
+        run: npm run build -- --configuration production --base-href /an-upharma/
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist/upharma/browser
+          publish_branch: gh-pages

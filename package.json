@@ -6,6 +6,7 @@
     "ng": "ng",
     "start": "ng serve --host 127.0.0.1 --port 4200",
     "backend": "node backend/server.js",
+    "fetch-data": "node scripts/fetch-upharma-data.js",
     "claude:sonnet": "scripts/claude-sonnet.sh",
     "build": "ng build",
     "watch": "ng build --watch --configuration development"
