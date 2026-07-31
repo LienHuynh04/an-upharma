@@ -158,7 +158,14 @@ export class UpharmaService {
       if (pathname.includes("GetReportSalesSpeed")) {
         const response = await fetch(this.getStaticDataUrl("assets/data/sales_speed.json"));
         if (!response.ok) throw new Error("Không thể đọc data tĩnh của sales_speed");
-        return (await response.json()) as T;
+        const json = await response.json();
+        
+        const dataArr = (json as any).data || (json as any).DataLst || (json as any).Rows || [];
+        if (Array.isArray(dataArr) && dataArr.length === 0) {
+          this.triggerGithubCronjob();
+        }
+
+        return json as T;
       }
       throw new Error(`API endpoint ${pathname} không được hỗ trợ ở chế độ tĩnh`);
     }
@@ -197,6 +204,44 @@ export class UpharmaService {
     this.inFlightCalls.set(cacheKey, request);
 
     return request;
+  }
+
+  private async triggerGithubCronjob(): Promise<void> {
+    const lastTrigger = localStorage.getItem('last_auto_cronjob');
+    if (lastTrigger && Date.now() - parseInt(lastTrigger) < 5 * 60 * 1000) {
+      return; // Do not trigger more than once every 5 minutes
+    }
+    
+    const githubPat = localStorage.getItem('github_pat');
+    if (!githubPat) {
+      console.warn("Không có Github PAT để tự động kích hoạt cronjob.");
+      return;
+    }
+
+    try {
+      localStorage.setItem('last_auto_cronjob', Date.now().toString());
+      console.log("Dữ liệu tĩnh trống, đang tự động kích hoạt Github Action...");
+      
+      const response = await fetch('https://api.github.com/repos/LienHuynh04/an-upharma/actions/workflows/fetch-data.yml/dispatches', {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/vnd.github.v3+json',
+          'Authorization': `Bearer ${githubPat}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ref: 'master'
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Lỗi gọi GitHub API: ${response.status} ${response.statusText}`);
+      }
+      
+      console.log("Đã gửi lệnh chạy Cronjob thành công!");
+    } catch (err) {
+      console.error("Lỗi khi kích hoạt tự động cronjob:", err);
+    }
   }
 
   prefetchSalesSpeed(): void {
