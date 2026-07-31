@@ -110,7 +110,7 @@ function getResourceConfig(resourceName, now = new Date()) {
         TimeStart: formatDateTime(nineMonthsAgo),
         TimeEnd: currentTime,
         ProductID: "",
-        GetType: "Month",
+        GetType: "Week",
         ViewCity: 0,
       }),
     },

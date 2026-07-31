@@ -479,7 +479,7 @@ export class UpharmaService {
         ...base,
         TimeStart: this.formatDateTime(monthStart),
         TimeEnd: this.formatDateTime(todayEnd),
-        GetType: "Month",
+        GetType: "Week",
       },
     ];
   }
