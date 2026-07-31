@@ -9,11 +9,12 @@ import { ProfileComponent } from "./app/profile/profile.component";
 import { RootComponent } from "./app/root.component";
 import { SlowSellingComponent } from "./app/slow-selling/slow-selling.component";
 import { StableConsumptionComponent } from "./app/stable-consumption/stable-consumption.component";
+import { LayoutComponent } from "./app/layout/layout.component";
 
 const routes: Routes = [
   {
     path: "",
-    redirectTo: "profile",
+    redirectTo: "ton-kho",
     pathMatch: "full",
   },
   {
@@ -21,53 +22,52 @@ const routes: Routes = [
     component: LoginComponent,
   },
   {
-    path: "ton-kho",
-    component: InventoryComponent,
+    path: "",
+    component: LayoutComponent,
     canActivate: [authGuard],
-  },
-  {
-    path: "dashboard",
-    redirectTo: "ton-kho",
-    pathMatch: "full",
-  },
-  {
-    path: "profile",
-    component: ProfileComponent,
-    canActivate: [authGuard],
-  },
-  {
-    path: "api-test",
-    component: ApiTestComponent,
-    canActivate: [authGuard],
-  },
-  {
-    path: "out-of-stock",
-    component: OutOfStockComponent,
-    canActivate: [authGuard],
-  },
-  {
-    path: "hang-lap-tot",
-    component: StableConsumptionComponent,
-    canActivate: [authGuard],
-  },
-  {
-    path: "hang-da-het",
-    component: OutOfStockComponent,
-    canActivate: [authGuard],
-  },
-  {
-    path: "hang-ban-cham",
-    component: SlowSellingComponent,
-    canActivate: [authGuard],
-  },
-  {
-    path: "cronjob",
-    loadComponent: () => import("./app/cronjob/cronjob.component").then(m => m.CronjobComponent),
-    canActivate: [authGuard],
+    children: [
+      {
+        path: "ton-kho",
+        component: InventoryComponent,
+      },
+      {
+        path: "dashboard",
+        redirectTo: "ton-kho",
+        pathMatch: "full",
+      },
+      {
+        path: "profile",
+        component: ProfileComponent,
+      },
+      {
+        path: "api-test",
+        component: ApiTestComponent,
+      },
+      {
+        path: "out-of-stock",
+        component: OutOfStockComponent,
+      },
+      {
+        path: "hang-lap-tot",
+        component: StableConsumptionComponent,
+      },
+      {
+        path: "hang-da-het",
+        component: OutOfStockComponent,
+      },
+      {
+        path: "hang-ban-cham",
+        component: SlowSellingComponent,
+      },
+      {
+        path: "cronjob",
+        loadComponent: () => import("./app/cronjob/cronjob.component").then((m) => m.CronjobComponent),
+      },
+    ],
   },
   {
     path: "**",
-    redirectTo: "profile",
+    redirectTo: "ton-kho",
   },
 ];
 

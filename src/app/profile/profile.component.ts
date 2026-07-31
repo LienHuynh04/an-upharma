@@ -6,7 +6,7 @@ import { RawRecord, ShopInfo, UpharmaService } from "../upharma.service";
 @Component({
   selector: "app-profile",
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule],
   templateUrl: "./profile.component.html",
 })
 export class ProfileComponent implements OnInit {

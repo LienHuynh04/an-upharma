@@ -7,7 +7,7 @@ import { RawRecord, ShopInfo, UpharmaService } from "../upharma.service";
 @Component({
   selector: "app-api-test",
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule],
   templateUrl: "./api-test.component.html",
 })
 export class ApiTestComponent implements OnInit {

@@ -1,81 +1,4 @@
-<div class="app out-stock-app layout-left" [ngClass]="pageClasses">
-  <aside class="sidebar">
-    <div class="brand">
-      <div class="brand-logo">U</div>
-      <div>
-        <strong>NHÀ THUỐC UPHARMA</strong>
-        <span>Hàng bán chậm</span>
-      </div>
-    </div>
-    <nav class="nav-list sidebar-menu" aria-label="Menu Hàng bán chậm">
-      <ul class="menu-list">
-        <li class="menu-item menu-group" [class.is-open]="menuGroups['profile']">
-          <button class="menu-parent" type="button" [attr.aria-expanded]="menuGroups['profile']" (click)="toggleMenuGroup('profile')">
-            <span class="menu-icon">●</span>
-            <span class="menu-label">Tài khoản</span>
-            <span class="menu-chevron">⌄</span>
-          </button>
-          <ul class="menu-child">
-            <li><a routerLink="/profile">Thông tin cá nhân</a></li>
-          </ul>
-        </li>
-
-        <li class="menu-item menu-group" [class.is-open]="menuGroups['goods']">
-          <button
-            class="menu-parent is-active"
-            type="button"
-            [attr.aria-expanded]="menuGroups['goods']"
-            (click)="toggleMenuGroup('goods')"
-          >
-            <span class="menu-icon">▥</span>
-            <span class="menu-label">Hàng Hoá</span>
-            <span class="menu-chevron">⌄</span>
-          </button>
-          <ul class="menu-child">
-            <li><a routerLink="/ton-kho">Tồn kho</a></li>
-            <li><a routerLink="/hang-da-het">Hàng đã hết</a></li>
-            <li><a routerLink="/hang-lap-tot">Hàng lặp tốt</a></li>
-            <li><a class="active" routerLink="/hang-ban-cham" aria-current="page">Hàng bán chậm</a></li>
-          </ul>
-        </li>
-
-        <li class="menu-item menu-group" [class.is-open]="menuGroups['test']">
-          <button
-            class="menu-parent"
-            type="button"
-            [attr.aria-expanded]="menuGroups['test']"
-            (click)="toggleMenuGroup('test')"
-          >
-            <span class="menu-icon">⚙</span>
-            <span class="menu-label">Hệ thống</span>
-            <span class="menu-chevron">⌄</span>
-          </button>
-          <ul class="menu-child">
-            <li><a routerLink="/cronjob" routerLinkActive="active">Quản lý Cronjob</a></li>
-            <li><a routerLink="/api-test" routerLinkActive="active">Test tốc độ tiêu thụ</a></li>
-          </ul>
-        </li>
-      </ul>
-    </nav>
-  </aside>
-
-  <main class="content inventory-content out-stock-content">
-    <header class="topbar">
-      <button class="menu-btn" type="button" aria-label="Menu" (click)="toggleSidebar()">☰</button>
-      <nav class="breadcrumb" aria-label="Đường dẫn trang">
-        <ol class="breadcrumb-list">
-          <li class="breadcrumb-item"><a routerLink="/ton-kho">Upharma</a></li>
-          <li class="breadcrumb-item"><a routerLink="/ton-kho">Kho hàng</a></li>
-          <li class="breadcrumb-item is-current" aria-current="page">Hàng bán chậm</li>
-        </ol>
-      </nav>
-      <div class="user-title">{{ userTitle }}</div>
-      <span></span>
-      <button class="store-btn logout-topbar" type="button" aria-label="Đăng xuất" title="Đăng xuất" (click)="openLogoutConfirm($event)">
-        <span>↪</span>
-        <strong>Đăng xuất</strong>
-      </button>
-    </header>
+<div class="page-inner">
 
     <nav class="top-menu" aria-label="Menu ngang">
       <a routerLink="/ton-kho"><span>▥</span>Hàng Hoá</a>
@@ -111,9 +34,9 @@
     <section class="stable-time-filters">
       <span class="stable-time-label">Khoảng xét</span>
       <div class="stable-time-buttons">
-        <button type="button" [class.is-active]="selectedRange === '1d'" (click)="setRange('1d')">Hôm nay</button>
-        <button type="button" [class.is-active]="selectedRange === '7d'" (click)="setRange('7d')">7 ngày</button>
-        <button type="button" [class.is-active]="selectedRange === '3m'" (click)="setRange('3m')">3 tháng</button>
+        <button type="button" class="btn btn-small" [class.is-active]="selectedRange === '1d'" (click)="setRange('1d')">Hôm nay</button>
+        <button type="button" class="btn btn-small" [class.is-active]="selectedRange === '7d'" (click)="setRange('7d')">7 ngày</button>
+        <button type="button" class="btn btn-small" [class.is-active]="selectedRange === '3m'" (click)="setRange('3m')">3 tháng</button>
       </div>
     </section>
 
@@ -256,7 +179,6 @@
         <span class="table-end-message" *ngIf="!isAppendingRows && displayedRows.length >= filteredRows.length">Bạn đã xem hết dữ liệu.</span>
       </div>
     </section>
-  </main>
 </div>
 
 <div class="loading-overlay" [class.is-visible]="loading" aria-live="polite">
@@ -308,14 +230,3 @@
   </section>
 </div>
 
-<div class="confirm-overlay" [class.is-visible]="logoutConfirmOpen" (click)="cancelLogout()">
-  <section class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="logoutConfirmTitle" (click)="$event.stopPropagation()">
-    <span class="confirm-icon">↪</span>
-    <h2 id="logoutConfirmTitle">Đăng xuất khỏi hệ thống?</h2>
-    <p>Sau khi đăng xuất, thông tin đăng nhập trên máy này sẽ được xoá và chị cần đăng nhập lại để dùng tiếp.</p>
-    <div class="confirm-actions">
-      <button class="confirm-secondary" type="button" (click)="cancelLogout()">Ở lại</button>
-      <button class="confirm-primary" type="button" (click)="confirmLogout()">Đăng xuất</button>
-    </div>
-  </section>
-</div>

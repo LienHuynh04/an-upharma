@@ -95,6 +95,7 @@ export class UpharmaService {
       const response = await fetch(this.getStaticDataUrl("assets/data/login.json"));
       if (!response.ok) throw new Error("Chưa có data tĩnh, vui lòng chờ cronjob hoặc kiểm tra lại đường dẫn");
       const loginData = await response.json() as LoginResponse;
+      console.log(`[Firebase Fetch] ✅ KẾT NỐI THÀNH CÔNG: Đã đăng nhập bằng file tĩnh từ URL: ${this.getStaticDataUrl("assets/data/login.json")}`);
       this.setSession(loginData);
       if (this.shopList.length === 0) throw new Error("Phiên đăng nhập không có nhà thuốc hợp lệ");
       return loginData;
@@ -165,6 +166,7 @@ export class UpharmaService {
           throw new Error(`Không thể đọc data tĩnh của sales_speed. Mã lỗi: ${response.status}`);
         }
         const json = await response.json();
+        console.log(`[Firebase Fetch] ✅ KẾT NỐI THÀNH CÔNG: Đã đọc được dữ liệu từ URL: ${url}`);
         
         const dataArr = (json as any).data || (json as any).DataLst || (json as any).Rows || [];
         if (Array.isArray(dataArr) && dataArr.length === 0) {
@@ -405,6 +407,7 @@ export class UpharmaService {
         throw new Error(`Không thể đọc data tĩnh của ${resourceName}. Mã lỗi: ${response.status}`);
       }
       const data = await response.json() as ResourceResponse;
+      console.log(`[Firebase Fetch] ✅ KẾT NỐI THÀNH CÔNG: Đã lấy được dữ liệu cho ${resourceName} từ: ${url}`);
       if (options.onFresh) options.onFresh(data);
       return data;
     }
