@@ -21,7 +21,7 @@ import { RouterOutlet } from "@angular/router";
         (pointercancel)="stopCodexBotDrag($event)"
       >
         <span class="codex-badge">{{ codexBotMessage }}</span>
-        <img [src]="codexBotImage" alt="" (error)="($any($event.target)).src = '/assets/out-stock-cat.jpg'" />
+        <img [src]="codexBotImage" alt="" (error)="($any($event.target)).src = 'assets/out-stock-cat.jpg'" />
       </span>
     </div>
 
@@ -70,7 +70,7 @@ export class RootComponent implements OnInit {
   }
 
   get codexBotImage(): string {
-    return this.codexBotDragging ? "/assets/meomeo-happy.jpg" : "/assets/meomeo-idle.jpg";
+    return this.codexBotDragging ? "assets/meomeo-happy.jpg" : "assets/meomeo-idle.jpg";
   }
 
   get codexBotMessage(): string {
