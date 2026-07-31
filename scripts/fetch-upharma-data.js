@@ -12,10 +12,12 @@ if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
       databaseURL: process.env.FIREBASE_DATABASE_URL || `https://${serviceAccount.project_id}-default-rtdb.firebaseio.com`
     });
     db = getDatabase(app);
-    console.log("Firebase Admin initialized");
+    console.log("Firebase Admin initialized (Kết nối Firebase thành công)");
   } catch (err) {
-    console.error("Firebase init error:", err);
+    console.error("Firebase init error (Kết nối Firebase thất bại):", err.message);
   }
+} else {
+  console.log("Không tìm thấy cấu hình FIREBASE_SERVICE_ACCOUNT_KEY (Bỏ qua kết nối Firebase)");
 }
 
 const UPHARMA_API_BASE_URL = process.env.UPHARMA_API_BASE_URL || "https://icpc1hn.work/NHATHUOC";
