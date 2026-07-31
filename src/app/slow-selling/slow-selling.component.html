@@ -46,12 +46,13 @@
             [attr.aria-expanded]="menuGroups['test']"
             (click)="toggleMenuGroup('test')"
           >
-            <span class="menu-icon">↯</span>
-            <span class="menu-label">Test</span>
+            <span class="menu-icon">⚙</span>
+            <span class="menu-label">Hệ thống</span>
             <span class="menu-chevron">⌄</span>
           </button>
           <ul class="menu-child">
-            <li><a routerLink="/api-test">Test tốc độ tiêu thụ</a></li>
+            <li><a routerLink="/cronjob" routerLinkActive="active">Quản lý Cronjob</a></li>
+            <li><a routerLink="/api-test" routerLinkActive="active">Test tốc độ tiêu thụ</a></li>
           </ul>
         </li>
       </ul>
@@ -81,15 +82,13 @@
       <a routerLink="/hang-da-het"><span>0</span>Hàng đã hết</a>
       <a routerLink="/hang-lap-tot"><span>✓</span>Hàng lặp tốt</a>
       <a class="active" routerLink="/hang-ban-cham"><span>↓</span>Hàng bán chậm</a>
-      <a routerLink="/api-test"><span>↯</span>Test API</a>
+      <a routerLink="/cronjob"><span>⚙</span>Hệ thống</a>
     </nav>
 
     <section class="out-stock-hero stable-hero">
-      <div>
+      <div class="stable-header-text">
         <h1>Hàng bán chậm</h1>
-        <p>
-          Xét 3 tháng gần nhất tính đến hiện tại. Sản phẩm được xem là bán chậm khi cả 3 tháng chỉ bán ra đúng 1 đơn.
-        </p>
+        <p>Sản phẩm được xem là bán chậm khi trong khoảng thời gian đã xét chỉ bán ra đúng 1 đơn.</p>
       </div>
       <button type="button" (click)="reloadActiveShop()" [disabled]="loading || slowSellingRefreshing || !activeShopCode">
         {{ loading || slowSellingRefreshing ? "Đang tải..." : "Tải lại shop đang xem" }}
@@ -107,6 +106,15 @@
         <small>{{ tab.shopName }}</small>
         <strong>{{ tab.loading ? "Đang tải" : tab.loaded ? tab.count : "Chưa tải" }}</strong>
       </button>
+    </section>
+
+    <section class="stable-time-filters">
+      <span class="stable-time-label">Khoảng xét</span>
+      <div class="stable-time-buttons">
+        <button type="button" [class.is-active]="selectedRange === '1d'" (click)="setRange('1d')">Hôm nay</button>
+        <button type="button" [class.is-active]="selectedRange === '7d'" (click)="setRange('7d')">7 ngày</button>
+        <button type="button" [class.is-active]="selectedRange === '3m'" (click)="setRange('3m')">3 tháng</button>
+      </div>
     </section>
 
     <section class="out-stock-table-card inventory-table-card stable-table-card" [class.filters-collapsed]="filtersCollapsed">
@@ -195,7 +203,7 @@
             </tr>
             <tr *ngIf="!loading && hasActiveShopLoaded && filteredRows.length === 0">
               <td colspan="5" class="empty-row">
-                Chưa có sản phẩm nào bán chậm trong 3 tháng gần nhất.
+                Chưa có sản phẩm nào bán chậm trong khoảng thời gian đã chọn.
               </td>
             </tr>
             <tr
@@ -230,7 +238,7 @@
                 <strong>{{ item.totalQuantity }}</strong>
               </td>
               <td data-label="Đánh giá">
-                <span class="stable-result-badge">Bán chậm {{ selectedMonthWindow }} tháng</span>
+                <span class="stable-result-badge">Bán chậm thời gian đã chọn</span>
               </td>
             </tr>
           </tbody>
@@ -272,7 +280,7 @@
     (click)="$event.stopPropagation()"
   >
     <button class="stable-detail-close" type="button" aria-label="Đóng" (click)="closeSlowSellingDetail()">×</button>
-    <span class="stable-detail-kicker">{{ item.shopCode }} · {{ selectedMonthWindow }} tháng</span>
+    <span class="stable-detail-kicker">{{ item.shopCode }} · thời gian đã chọn</span>
     <h2 id="slowSellingDetailTitle">{{ item.productName }}</h2>
     <div class="stable-detail-meta">
       <span>
@@ -289,7 +297,7 @@
       </span>
     </div>
 
-    <h3>Chi tiết 3 tháng gần nhất</h3>
+    <h3>Chi tiết khoảng thời gian</h3>
     <div class="stable-detail-month-grid">
       <article *ngFor="let month of item.slowMonths" [class.is-strong]="month.quantity > 0">
         <span>{{ month.label }}</span>

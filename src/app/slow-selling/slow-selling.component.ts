@@ -51,7 +51,7 @@ type SlowSellingTextFilterKey = "productName" | "productCode";
 export class SlowSellingComponent implements OnInit {
   readonly endpoint = "/SalesInvoice/GetReportSalesSpeed";
   readonly renderBatchSize = 200;
-  readonly selectedMonthWindow = 3;
+  selectedRange: '1d' | '7d' | '3m' = '1d';
   shops: ShopInfo[] = [];
   activeShopCode = "";
   rows: SlowSellingItem[] = [];
@@ -509,13 +509,26 @@ export class SlowSellingComponent implements OnInit {
     return new Date(Number(match[2]), Number(match[1]) - 1, 1);
   }
 
+  setRange(range: '1d' | '7d' | '3m'): void {
+    this.selectedRange = range;
+    this.setDefaultDateRange(true);
+    void this.applyDateFilter();
+  }
+
   private setDefaultDateRange(force = false): void {
     if (!force && this.timeStart && this.timeEnd) {
       return;
     }
 
     const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth() - this.selectedMonthWindow + 1, 1, 0, 0, 0);
+    let start: Date;
+    if (this.selectedRange === '1d') {
+      start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+    } else if (this.selectedRange === '7d') {
+      start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6, 0, 0, 0);
+    } else {
+      start = new Date(now.getFullYear(), now.getMonth() - 2, 1, 0, 0, 0); // 3 months
+    }
     const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 0);
 
     this.timeStart = this.upharmaService.formatUpharmaDateTime(start);
@@ -525,7 +538,7 @@ export class SlowSellingComponent implements OnInit {
   }
 
   private getLoadedShopKey(shopCode: string): string {
-    return `${shopCode}:${this.selectedMonthWindow}:${this.timeStart}:${this.timeEnd}`;
+    return `${shopCode}:${this.selectedRange}:${this.timeStart}:${this.timeEnd}`;
   }
 
   private getCacheKey(shopCode: string, uPharmaID: number): string {
@@ -534,7 +547,7 @@ export class SlowSellingComponent implements OnInit {
       "v1",
       uPharmaID,
       shopCode,
-      this.selectedMonthWindow,
+      this.selectedRange,
       this.timeStart,
       this.timeEnd,
     ].join("|");

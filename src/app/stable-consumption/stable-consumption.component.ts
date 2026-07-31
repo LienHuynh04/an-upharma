@@ -41,7 +41,7 @@ interface StableConsumptionCacheEntry {
 }
 
 type StableTextFilterKey = "productName" | "productCode";
-type StableMonthWindow = 3 | 6 | 9;
+type StableMonthWindow = '1d' | '7d' | '3m' | '6m' | '9m';
 
 @Component({
   selector: "app-stable-consumption",
@@ -55,7 +55,7 @@ export class StableConsumptionComponent implements OnInit {
   shops: ShopInfo[] = [];
   activeShopCode = "";
   rows: StableItem[] = [];
-  selectedMonthWindow: StableMonthWindow = 3;
+  selectedMonthWindow: StableMonthWindow = '1d';
   timeStart = "";
   timeEnd = "";
   startDateInput = "";
@@ -484,7 +484,12 @@ export class StableConsumptionComponent implements OnInit {
     return Array.from(monthMap.values()).sort((first, second) => first.date.getTime() - second.date.getTime());
   }
 
-  private findStableMonthWindow(months: StableMonth[], monthWindow: StableMonthWindow): StableMonth[] | null {
+  private findStableMonthWindow(months: StableMonth[], monthWindowStr: StableMonthWindow): StableMonth[] | null {
+    let monthWindow = 3;
+    if (monthWindowStr === '1d' || monthWindowStr === '7d') monthWindow = 1;
+    if (monthWindowStr === '6m') monthWindow = 6;
+    if (monthWindowStr === '9m') monthWindow = 9;
+
     for (let index = 0; index <= months.length - monthWindow; index += 1) {
       const windowMonths = months.slice(index, index + monthWindow);
       const isConsecutive = windowMonths.every((month, monthIndex) => {
@@ -533,7 +538,17 @@ export class StableConsumptionComponent implements OnInit {
     }
 
     const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth() - this.selectedMonthWindow + 1, 1, 0, 0, 0);
+    let start: Date;
+    if (this.selectedMonthWindow === '1d') {
+      start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+    } else if (this.selectedMonthWindow === '7d') {
+      start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6, 0, 0, 0);
+    } else {
+      let m = 3;
+      if (this.selectedMonthWindow === '6m') m = 6;
+      if (this.selectedMonthWindow === '9m') m = 9;
+      start = new Date(now.getFullYear(), now.getMonth() - m + 1, 1, 0, 0, 0);
+    }
     const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 0);
 
     this.timeStart = this.upharmaService.formatUpharmaDateTime(start);
