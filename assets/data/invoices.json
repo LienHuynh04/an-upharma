@@ -1,0 +1,99 @@
+{
+  "success": true,
+  "resource": "invoices",
+  "user": {
+    "uPharmaID": 841,
+    "FullName": "Phạm Hà Nhật An",
+    "Email": "an.phamhanhat.danang.nvbh@upharma.com.vn"
+  },
+  "shops": [
+    {
+      "ShopCode": "SHOP0025",
+      "ShopName": "Nhà thuốc số 25 - 170 Lê Đình Lý - Thanh Khê - Đà Nẵng",
+      "EmRole": "Cửa hàng trưởng",
+      "ShopAddress": "170 Lê Đình Lý P.Thanh Khê TP.Đà Nẵng",
+      "GroupMail": "u_mt_danang@upharma.com.vn;phuong.tranthiha.asm@upharma.com.vn;thao.nguyenngocanh.asm@upharma.com.vn;hang.nguyenminh.mientrung@upharma.com.vn",
+      "PhoneNumber": "0935.156.177\n"
+    },
+    {
+      "ShopCode": "SHOP0097",
+      "ShopName": "Nhà thuốc số 97 - 44 Nguyễn Lương Bằng, Liên Chiều, Đà Nẵng",
+      "EmRole": "Cửa hàng trưởng",
+      "ShopAddress": "44 Nguyễn Lương Bằng, Liên Chiều, Đà Nẵng",
+      "GroupMail": "u_mt_danang@upharma.com.vn;phuong.tranthiha.asm@upharma.com.vn;thao.nguyenngocanh.asm@upharma.com.vn;hang.nguyenminh.mientrung@upharma.com.vn",
+      "PhoneNumber": "0934 666 897"
+    },
+    {
+      "ShopCode": "SHOP0144",
+      "ShopName": "Nhà thuốc số 144 - 77-79 Lê Văn Hiến, Phường Ngũ Hành Sơn, Đà Nẵng",
+      "EmRole": "Quản lý khu vực",
+      "ShopAddress": "77-79 Lê Văn Hiến, Phường Ngũ Hành Sơn, Đà Nẵng",
+      "GroupMail": "u_mt_danang@upharma.com.vn;phuong.tranthiha.asm@upharma.com.vn;thao.nguyenngocanh.asm@upharma.com.vn;hang.nguyenminh.mientrung@upharma.com.vn",
+      "PhoneNumber": "0902239144"
+    }
+  ],
+  "data": [
+    {
+      "OrderID": "ORD20260729-010352",
+      "CustomerContact": "0979097979",
+      "CustomerName": "Ngọc Anh",
+      "CreateDate": "2026-07-29 21:32:43",
+      "PaymentMethod": 0,
+      "PaidAmount": 0,
+      "RecipientName": "Ngọc Anh",
+      "RecipientPhoneNumber": "0979097979",
+      "TotalProductAmount": 330000,
+      "DirectDiscount": -90000,
+      "VoucherDiscount": 0,
+      "ShippingFee": 0,
+      "TotalAmount": 420000,
+      "StoreAmount": 420000,
+      "Address": "Toà D’eldorado II, 298 Võ Chí Công",
+      "Note": "",
+      "AdminNote": "xin thêm hàng kho giúp em ",
+      "AddressLine1": "Thành phố Hà Nội",
+      "AddressLine2": "",
+      "AddressLine3": "Phường Tây Hồ",
+      "StoreCode": "SHOP0144",
+      "StoreName": "Nhà thuốc số 144 - 77-79 Lê Văn Hiến, Phường Ngũ Hành Sơn, Đà Nẵng",
+      "Channel": "web",
+      "OrderType": 2,
+      "Status": 2,
+      "InvoiceOrderOnLLst": [],
+      "__shopCode": "SHOP0144",
+      "__shopName": "Nhà thuốc số 144 - 77-79 Lê Văn Hiến, Phường Ngũ Hành Sơn, Đà Nẵng"
+    },
+    {
+      "OrderID": "ORD20260730-010358",
+      "CustomerContact": "0964185634",
+      "CustomerName": "Trần phương",
+      "CreateDate": "2026-07-30 08:14:07",
+      "PaymentMethod": 0,
+      "PaidAmount": 0,
+      "RecipientName": "Phương",
+      "RecipientPhoneNumber": "0964185634",
+      "TotalProductAmount": 384000,
+      "DirectDiscount": 72000,
+      "VoucherDiscount": 0,
+      "ShippingFee": 0,
+      "TotalAmount": 312000,
+      "StoreAmount": 312000,
+      "Address": "Lữ đoàn 113 xuân hoà phúc yên",
+      "Note": "",
+      "AdminNote": "xin thêm hàng kho giúp em ",
+      "AddressLine1": "Tỉnh Phú Thọ",
+      "AddressLine2": "",
+      "AddressLine3": "Phường Phúc Yên",
+      "StoreCode": "SHOP0144",
+      "StoreName": "Nhà thuốc số 144 - 77-79 Lê Văn Hiến, Phường Ngũ Hành Sơn, Đà Nẵng",
+      "Channel": "web",
+      "OrderType": 2,
+      "Status": 2,
+      "InvoiceOrderOnLLst": [],
+      "__shopCode": "SHOP0144",
+      "__shopName": "Nhà thuốc số 144 - 77-79 Lê Văn Hiến, Phường Ngũ Hành Sơn, Đà Nẵng"
+    }
+  ],
+  "failedShops": [],
+  "fetchedAt": "2026-07-31T06:10:02.312Z"
+}
