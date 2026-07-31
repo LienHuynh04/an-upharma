@@ -92,7 +92,7 @@ export class UpharmaService {
     }
 
     if ((environment as any).useStaticData) {
-      const response = await fetch("assets/data/login.json");
+      const response = await fetch(this.getStaticDataUrl("assets/data/login.json"));
       if (!response.ok) throw new Error("Chưa có data tĩnh, vui lòng chờ cronjob hoặc kiểm tra lại đường dẫn");
       const loginData = await response.json() as LoginResponse;
       this.setSession(loginData);
@@ -340,7 +340,7 @@ export class UpharmaService {
     }
 
     if ((environment as any).useStaticData) {
-      const response = await fetch(`assets/data/${resourceName}.json`);
+      const response = await fetch(this.getStaticDataUrl(`assets/data/${resourceName}.json`));
       if (!response.ok) throw new Error(`Không thể đọc data tĩnh của ${resourceName}`);
       const data = await response.json() as ResourceResponse;
       if (options.onFresh) options.onFresh(data);
@@ -786,5 +786,11 @@ export class UpharmaService {
     const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
 
     return `${values["year"]}-${values["month"]}-${values["day"]} ${values["hour"]}:${values["minute"]}:${values["second"]}`;
+  }
+
+  private getStaticDataUrl(filename: string): string {
+    const basePath = document.querySelector('base')?.getAttribute('href') || '/';
+    const normalizedBase = basePath.endsWith('/') ? basePath : `${basePath}/`;
+    return `${normalizedBase}${filename}`;
   }
 }
