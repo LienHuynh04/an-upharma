@@ -1,0 +1,200 @@
+.cronjob-container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 20px;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.header {
+  margin-bottom: 24px;
+}
+
+.header h2 {
+  color: #1a1a1a;
+  margin-bottom: 8px;
+}
+
+.header p {
+  color: #666;
+  margin: 0;
+}
+
+.card {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  border: 1px solid #eaeaea;
+}
+
+.card h3 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  color: #333;
+  font-size: 1.1rem;
+}
+
+.help-text {
+  color: #666;
+  font-size: 0.9rem;
+  margin-bottom: 15px;
+}
+
+.input-group {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.token-input {
+  flex: 1;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-family: monospace;
+}
+
+.btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+
+.btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: #0969da;
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #0550a8;
+}
+
+.btn-danger {
+  background: #cf222e;
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #a40e26;
+}
+
+.btn-trigger {
+  background: #2da44e;
+  color: white;
+  padding: 12px 24px;
+  font-size: 1rem;
+}
+
+.btn-trigger:hover {
+  background: #258a3f;
+}
+
+.btn-secondary {
+  background: #f6f8fa;
+  color: #24292f;
+  border: 1px solid #d0d7de;
+}
+
+.btn-secondary:hover {
+  background: #f3f4f6;
+}
+
+.action-row {
+  display: flex;
+  gap: 15px;
+}
+
+.mt-2 {
+  margin-top: 15px;
+}
+
+.alert {
+  padding: 10px 15px;
+  border-radius: 4px;
+  margin-top: 15px;
+}
+
+.alert-error {
+  background: #ffebe9;
+  color: #cf222e;
+  border: 1px solid #ff818266;
+}
+
+.alert-success {
+  background: #dafbe1;
+  color: #1a7f37;
+  border: 1px solid #4ac26b66;
+}
+
+.loading-state, .empty-state {
+  text-align: center;
+  padding: 30px;
+  color: #666;
+  font-style: italic;
+  background: #f9f9f9;
+  border-radius: 4px;
+}
+
+.runs-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 15px;
+}
+
+.runs-table th, .runs-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #eaeaea;
+}
+
+.runs-table th {
+  background: #f6f8fa;
+  font-weight: 600;
+  color: #57606a;
+}
+
+.status-badge {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.status-success {
+  background: #dafbe1;
+  color: #1a7f37;
+}
+
+.status-error {
+  background: #ffebe9;
+  color: #cf222e;
+}
+
+.status-running {
+  background: #ddf4ff;
+  color: #0969da;
+}
+
+.status-other {
+  background: #f6f8fa;
+  color: #57606a;
+}
+
+.link-btn {
+  color: #0969da;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.link-btn:hover {
+  text-decoration: underline;
+}

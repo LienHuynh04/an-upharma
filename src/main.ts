@@ -1,5 +1,5 @@
 import { bootstrapApplication } from "@angular/platform-browser";
-import { provideRouter, Routes } from "@angular/router";
+import { provideRouter, Routes, withHashLocation } from "@angular/router";
 import { ApiTestComponent } from "./app/api-test/api-test.component";
 import { authGuard } from "./app/auth.guard";
 import { InventoryComponent } from "./app/inventory/inventory.component";
@@ -61,11 +61,16 @@ const routes: Routes = [
     canActivate: [authGuard],
   },
   {
+    path: "cronjob",
+    loadComponent: () => import("./app/cronjob/cronjob.component").then(m => m.CronjobComponent),
+    canActivate: [authGuard],
+  },
+  {
     path: "**",
     redirectTo: "profile",
   },
 ];
 
 bootstrapApplication(RootComponent, {
-  providers: [provideRouter(routes)],
+  providers: [provideRouter(routes, withHashLocation())],
 }).catch((error) => console.error(error));
