@@ -366,7 +366,7 @@ export class StableConsumptionComponent implements OnInit {
         TimeStart: this.timeStart,
         TimeEnd: this.timeEnd,
         ProductID: "",
-        GetType: "Month",
+        GetType: "Week",
         ViewCity: 0,
         ShopLst: shop.ShopCode,
       };
