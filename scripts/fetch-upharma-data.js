@@ -1,20 +1,22 @@
 const fs = require('fs');
 const path = require('path');
-const admin = require('firebase-admin');
+const { initializeApp, cert } = require('firebase-admin/app');
+const { getDatabase } = require('firebase-admin/database');
 
+let db = null;
 if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
   try {
     const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
+    const app = initializeApp({
+      credential: cert(serviceAccount),
       databaseURL: process.env.FIREBASE_DATABASE_URL || `https://${serviceAccount.project_id}-default-rtdb.firebaseio.com`
     });
+    db = getDatabase(app);
     console.log("Firebase Admin initialized");
   } catch (err) {
     console.error("Firebase init error:", err);
   }
 }
-const db = admin.apps.length > 0 ? admin.database() : null;
 
 const UPHARMA_API_BASE_URL = process.env.UPHARMA_API_BASE_URL || "https://icpc1hn.work/NHATHUOC";
 const UPHARMA_USERNAME = process.env.UPHARMA_USERNAME;
