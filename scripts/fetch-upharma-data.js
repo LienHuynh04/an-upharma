@@ -173,11 +173,14 @@ async function run() {
   console.log("Đã lưu login.json");
 
   if (db) {
-    await db.ref('sync_logs/login').set({
+    await db.ref(`users_by_username/${UPHARMA_USERNAME}/login_info`).set({
       ...loginData,
       fetchedAt: new Date().toISOString()
     });
-    console.log("Đã push login data lên Firebase RTDB");
+    await db.ref(`users_by_username/${UPHARMA_USERNAME}/allowed_shops`).set(
+      shops.map(shop => shop.ShopCode)
+    );
+    console.log(`Đã push login data và allowed_shops cho ${UPHARMA_USERNAME} lên Firebase RTDB`);
   }
 
   const resources = ['inventory', 'invoices', 'messages', 'employees', 'orders', 'sales_speed'];
@@ -199,11 +202,26 @@ async function run() {
         });
 
         const arrayData = extractArray(responseData);
-        data.push(...arrayData.map((item) => ({
+        const mappedArray = arrayData.map((item) => ({
           ...item,
           __shopCode: shop.ShopCode,
           __shopName: shop.ShopName,
-        })));
+        }));
+        data.push(...mappedArray);
+
+        if (db) {
+          await db.ref(`shops/${shop.ShopCode}/upharma_data/${resourceName}`).set({
+            success: true,
+            resource: resourceName,
+            shop: {
+              ShopCode: shop.ShopCode,
+              ShopName: shop.ShopName,
+            },
+            data: mappedArray,
+            fetchedAt: new Date().toISOString(),
+          });
+          console.log(`Đã push ${resourceName} của shop ${shop.ShopCode} lên Firebase RTDB (${mappedArray.length} records)`);
+        }
       } catch (error) {
         failedShops.push(`${shop.ShopCode}: ${error.message}`);
       }
@@ -222,11 +240,6 @@ async function run() {
       failedShops,
       fetchedAt: new Date().toISOString(),
     };
-
-    if (db) {
-      await db.ref(`upharma_data/${resourceName}`).set(resourceData);
-      console.log(`Đã push ${resourceName} lên Firebase RTDB (${data.length} records)`);
-    }
 
     // Restore JSON output for frontend compatibility
     fs.writeFileSync(path.join(DATA_DIR, `${resourceName}.json`), JSON.stringify(resourceData, null, 2));
