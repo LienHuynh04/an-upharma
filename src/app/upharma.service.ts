@@ -92,10 +92,16 @@ export class UpharmaService {
     }
 
     if ((environment as any).useStaticData) {
-      const response = await fetch(this.getStaticDataUrl("assets/data/login.json"));
-      if (!response.ok) throw new Error("Chưa có data tĩnh, vui lòng chờ cronjob hoặc kiểm tra lại đường dẫn");
+      const firebaseDbUrl = (environment as any).firebaseDbUrl;
+      let url = this.getStaticDataUrl("assets/data/login.json");
+      if (firebaseDbUrl && credentials.UserName) {
+        url = `${firebaseDbUrl.replace(/\/$/, "")}/users_by_username/${credentials.UserName}/login_info.json`;
+      }
+      console.log(`[Firebase Fetch] Đang xác thực tài khoản từ: ${url}`);
+      const response = await fetch(url);
+      if (!response.ok) throw new Error("Tài khoản chưa được đồng bộ hoặc không tồn tại trên Firebase");
       const loginData = await response.json() as LoginResponse;
-      console.log(`[Firebase Fetch] ✅ KẾT NỐI THÀNH CÔNG: Đã đăng nhập bằng file tĩnh từ URL: ${this.getStaticDataUrl("assets/data/login.json")}`);
+      console.log(`[Firebase Fetch] ✅ KẾT NỐI THÀNH CÔNG: Đã đăng nhập bằng dữ liệu Firebase từ URL: ${url}`);
       this.setSession(loginData);
       if (this.shopList.length === 0) throw new Error("Phiên đăng nhập không có nhà thuốc hợp lệ");
       return loginData;
@@ -157,6 +163,43 @@ export class UpharmaService {
   ): Promise<T> {
     if ((environment as any).useStaticData) {
       if (pathname.includes("GetReportSalesSpeed")) {
+        const firebaseDbUrl = (environment as any).firebaseDbUrl;
+        if (firebaseDbUrl && this.shopList.length > 0) {
+          const normalizedFirebase = firebaseDbUrl.replace(/\/$/, "");
+          const shopsData: any[] = [];
+          
+          await Promise.all(
+            this.shopList.map(async (shop) => {
+              try {
+                const url = `${normalizedFirebase}/shops/${shop.ShopCode}/upharma_data/sales_speed.json`;
+                console.log(`[Firebase Fetch] Đang tải sales_speed cho shop ${shop.ShopCode} từ: ${url}`);
+                const response = await fetch(url);
+                if (response.ok) {
+                  const json = await response.json();
+                  if (json && Array.isArray(json.data)) {
+                    shopsData.push(...json.data);
+                  }
+                }
+              } catch (err) {
+                console.warn(`Lỗi tải sales_speed của shop ${shop.ShopCode}:`, err);
+              }
+            })
+          );
+          
+          const combined = {
+            success: true,
+            resource: "sales_speed",
+            data: shopsData,
+            fetchedAt: new Date().toISOString(),
+          };
+          
+          if (shopsData.length === 0) {
+            this.triggerGithubCronjob();
+          }
+
+          return combined as unknown as T;
+        }
+
         const url = this.getStaticDataUrl("assets/data/sales_speed.json");
         console.log(`[Firebase Fetch] Đang gọi API: ${url}`);
         const response = await fetch(url);
@@ -398,6 +441,50 @@ export class UpharmaService {
     }
 
     if ((environment as any).useStaticData) {
+      const firebaseDbUrl = (environment as any).firebaseDbUrl;
+      if (firebaseDbUrl && this.shopList.length > 0) {
+        const normalizedFirebase = firebaseDbUrl.replace(/\/$/, "");
+        const shopsData: any[] = [];
+        const failedShops: string[] = [];
+        
+        await Promise.all(
+          this.shopList.map(async (shop) => {
+            try {
+              const url = `${normalizedFirebase}/shops/${shop.ShopCode}/upharma_data/${resourceName}.json`;
+              console.log(`[Firebase Fetch] Đang tải ${resourceName} cho shop ${shop.ShopCode} từ: ${url}`);
+              const response = await fetch(url);
+              if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+              }
+              const json = await response.json();
+              if (json && Array.isArray(json.data)) {
+                shopsData.push(...json.data);
+              }
+            } catch (err: any) {
+              console.warn(`Không tải được dữ liệu ${resourceName} của shop ${shop.ShopCode}:`, err);
+              failedShops.push(`${shop.ShopCode}: ${err.message}`);
+            }
+          })
+        );
+        
+        const combinedData: ResourceResponse = {
+          success: true,
+          resource: resourceName,
+          user: {
+            uPharmaID: session.UserInfo.uPharmaID,
+            FullName: session.UserInfo.FullName,
+            Email: session.UserInfo.Email,
+          },
+          shops: this.shopList,
+          data: shopsData,
+          failedShops,
+          fetchedAt: new Date().toISOString(),
+        };
+        
+        if (options.onFresh) options.onFresh(combinedData);
+        return combinedData;
+      }
+
       const url = this.getStaticDataUrl(`assets/data/${resourceName}.json`);
       console.log(`[Firebase Fetch] Đang tải resource ${resourceName} từ: ${url}`);
       const response = await fetch(url);
