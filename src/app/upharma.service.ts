@@ -817,7 +817,7 @@ export class UpharmaService {
       },
       messages: {
         pathname: "/NTMessage/GetMessageByTime",
-        payload: () => ({ TimeStart: this.formatDateTime(twoMonthsAgo), TimeEnd: currentTime }),
+        payload: () => ({ TimeStart: `${today} 00:00:00`, TimeEnd: currentTime }),
       },
       employees: {
         pathname: "/Employee/GetEmployeeOfShop",

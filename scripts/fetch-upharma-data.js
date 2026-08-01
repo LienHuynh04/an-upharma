@@ -108,7 +108,7 @@ function getResourceConfig(resourceName, now = new Date()) {
     },
     messages: {
       pathname: "/NTMessage/GetMessageByTime",
-      payload: () => ({ TimeStart: formatDateTime(twoMonthsAgo), TimeEnd: currentTime }),
+      payload: () => ({ TimeStart: `${today} 00:00:00`, TimeEnd: currentTime }),
     },
     employees: {
       pathname: "/Employee/GetEmployeeOfShop",
@@ -126,7 +126,7 @@ function getResourceConfig(resourceName, now = new Date()) {
     sales_speed: {
       pathname: "/SalesInvoice/GetReportSalesSpeed",
       payload: () => ({
-        TimeStart: formatDateTime(nineMonthsAgo),
+        TimeStart: `${today} 00:00:00`,
         TimeEnd: currentTime,
         ProductID: "",
         GetType: "Week",
