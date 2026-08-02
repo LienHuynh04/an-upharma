@@ -95,8 +95,8 @@
               <th>STT</th>
               <th>Tên SP</th>
               <th>Mã SP</th>
+              <th>Đơn vị</th>
               <th>Tổng bán</th>
-              <th>Đánh giá</th>
             </tr>
             <tr class="column-filter-row" id="stableColumnFilters">
               <th></th>
@@ -166,11 +166,9 @@
                 </button>
               </td>
               <td data-label="Mã SP">{{ item.productCode }}</td>
+              <td data-label="Đơn vị">{{ item.unit || "--" }}</td>
               <td data-label="Tổng bán">
                 <strong>{{ item.totalQuantity }}</strong>
-              </td>
-              <td data-label="Đánh giá">
-                <span class="stable-result-badge">Ổn định thời gian đã chọn</span>
               </td>
             </tr>
           </tbody>
@@ -231,11 +229,10 @@
     <h3>Các tháng đạt</h3>
     <div class="stable-detail-month-grid">
       <article *ngFor="let month of item.stableMonths" [class.is-strong]="month.quantity >= 2">
-        <span>{{ month.label }}</span>
+        <span>{{ month.sessionText || month.label }}</span>
         <strong>{{ month.quantityText }}</strong>
-        <small>lần</small>
+        <small>{{ item.unit || "--" }}</small>
       </article>
     </div>
   </section>
 </div>
-

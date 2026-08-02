@@ -91,22 +91,6 @@ export class UpharmaService {
       throw new Error("Vui lòng nhập tài khoản và mật khẩu");
     }
 
-    if ((environment as any).useStaticData) {
-      const firebaseDbUrl = (environment as any).firebaseDbUrl;
-      let url = this.getStaticDataUrl("assets/data/login.json");
-      if (firebaseDbUrl && credentials.UserName) {
-        url = `${firebaseDbUrl.replace(/\/$/, "")}/users_by_username/${credentials.UserName}/login_info.json`;
-      }
-      console.log(`[Firebase Fetch] Đang xác thực tài khoản từ: ${url}`);
-      const response = await fetch(url);
-      if (!response.ok) throw new Error("Tài khoản chưa được đồng bộ hoặc không tồn tại trên Firebase");
-      const loginData = await response.json() as LoginResponse;
-      console.log(`[Firebase Fetch] ✅ KẾT NỐI THÀNH CÔNG: Đã đăng nhập bằng dữ liệu Firebase từ URL: ${url}`);
-      this.setSession(loginData);
-      if (this.shopList.length === 0) throw new Error("Phiên đăng nhập không có nhà thuốc hợp lệ");
-      return loginData;
-    }
-
     const loginData = this.useBackendProxy
       ? await this.backendLogin(credentials)
       : await this.request<LoginResponse>("/User/UserLogin", {

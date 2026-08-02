@@ -34,6 +34,7 @@ interface OutOfStockCacheEntry {
 
 type OutStockTextFilterKey = "productName" | "productCode";
 type OutStockMultiFilterKey = "quantityText" | "unit";
+type OutStockRange = "3m" | "1d" | "7d";
 
 @Component({
   selector: "app-out-of-stock",
@@ -56,6 +57,7 @@ export class OutOfStockComponent implements OnInit {
   loading = false;
   loadingProgress = 0;
   outStockRefreshing = false;
+  selectedRange: OutStockRange = "3m";
   visibleLimit = this.renderBatchSize;
   isAppendingRows = false;
   outStockCacheStatus = "";
@@ -218,13 +220,16 @@ export class OutOfStockComponent implements OnInit {
     await this.loadActiveShop(true);
   }
 
-  setRange(range: '1d' | '7d'): void {
+  setRange(range: OutStockRange): void {
+    this.selectedRange = range;
     const now = new Date();
     let start = now;
-    if (range === '1d') {
+    if (range === "1d") {
       start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-    } else {
+    } else if (range === "7d") {
       start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6, 0, 0, 0);
+    } else {
+      start = new Date(now.getFullYear(), now.getMonth() - 2, 1, 0, 0, 0);
     }
     const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 0);
     this.startDateInput = this.toDateTimeLocalValue(start);
@@ -479,7 +484,7 @@ export class OutOfStockComponent implements OnInit {
     }
 
     const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+    const todayStart = new Date(now.getFullYear(), now.getMonth() - 2, 1, 0, 0, 0);
     const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 0);
 
     this.timeStart = this.upharmaService.formatUpharmaDateTime(todayStart);

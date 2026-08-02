@@ -86,8 +86,8 @@
               <th>STT</th>
               <th>Tên SP</th>
               <th>Mã SP</th>
+              <th>Đơn vị</th>
               <th>Tổng bán</th>
-              <th>Đánh giá</th>
             </tr>
             <tr class="column-filter-row" id="slowSellingColumnFilters">
               <th></th>
@@ -157,11 +157,9 @@
                 </button>
               </td>
               <td data-label="Mã SP">{{ item.productCode }}</td>
+              <td data-label="Đơn vị">{{ item.unit || "--" }}</td>
               <td data-label="Tổng bán">
                 <strong>{{ item.totalQuantity }}</strong>
-              </td>
-              <td data-label="Đánh giá">
-                <span class="stable-result-badge">Bán chậm thời gian đã chọn</span>
               </td>
             </tr>
           </tbody>
@@ -213,20 +211,15 @@
         <small>Tổng bán</small>
         <strong>{{ item.totalQuantity }}</strong>
       </span>
-      <span>
-        <small>Đánh giá</small>
-        <strong>Bán chậm</strong>
-      </span>
     </div>
 
     <h3>Chi tiết khoảng thời gian</h3>
     <div class="stable-detail-month-grid">
       <article *ngFor="let month of item.slowMonths" [class.is-strong]="month.quantity > 0">
-        <span>{{ month.label }}</span>
+        <span>{{ month.sessionText || month.label }}</span>
         <strong>{{ month.quantityText }}</strong>
-        <small>lần</small>
+        <small>{{ item.unit || "--" }}</small>
       </article>
     </div>
   </section>
 </div>
-
