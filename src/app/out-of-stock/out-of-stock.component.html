@@ -12,7 +12,7 @@
       <div>
         <h1>Những hàng đã hết ở tồn kho các shop</h1>
         <p>
-          Bấm vào shop nào thì mới gọi API báo cáo tốc độ tiêu thụ cho shop đó, dữ liệu đã tải sẽ được giữ lại trên trang.
+          Xem các sản phẩm đã hết trong 3 tháng gần nhất, bấm vào shop nào thì dữ liệu của shop đó sẽ được tải và giữ lại trên trang.
         </p>
       </div>
       <button type="button" (click)="reloadActiveShop()" [disabled]="loading || outStockRefreshing || !activeShopCode">
@@ -41,6 +41,7 @@
         </div>
         <div class="out-stock-date-filters">
           <div class="quick-filters">
+            <button type="button" class="btn btn-small" [class.is-active]="selectedRange === '3m'" (click)="setRange('3m')">3 tháng</button>
             <button type="button" class="btn btn-small" (click)="setRange('1d')">Hôm nay</button>
             <button type="button" class="btn btn-small" (click)="setRange('7d')">7 ngày</button>
           </div>

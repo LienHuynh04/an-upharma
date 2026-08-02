@@ -59,12 +59,14 @@ export class LayoutComponent implements OnInit {
 
   openLogoutConfirm(e: Event) {
     e.preventDefault();
+    e.stopPropagation();
     this.showLogoutConfirm = true;
   }
 
-  confirmLogout() {
+  async confirmLogout() {
+    this.showLogoutConfirm = false;
     this.upharma.clearSession();
-    this.router.navigate(["/login"]);
+    await this.router.navigateByUrl("/login", { replaceUrl: true });
   }
 
   cancelLogout() {

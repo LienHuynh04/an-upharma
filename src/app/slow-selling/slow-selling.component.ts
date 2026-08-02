@@ -28,6 +28,7 @@ interface SlowSellingItem {
 
 interface SlowSellingMonth {
   key: string;
+  sessionText: string;
   label: string;
   quantity: number;
   quantityText: string;
@@ -51,7 +52,7 @@ type SlowSellingTextFilterKey = "productName" | "productCode";
 export class SlowSellingComponent implements OnInit {
   readonly endpoint = "/SalesInvoice/GetReportSalesSpeed";
   readonly renderBatchSize = 200;
-  selectedRange: '1d' | '7d' | '3m' = '1d';
+  selectedRange: '1d' | '7d' | '3m' = '3m';
   shops: ShopInfo[] = [];
   activeShopCode = "";
   rows: SlowSellingItem[] = [];
@@ -410,9 +411,15 @@ export class SlowSellingComponent implements OnInit {
     return Array.from(groupedRows.entries()).flatMap(([productCode, productRows]) => {
       const monthTotals = this.buildMonthTotals(productRows);
       const slowWindow = this.buildThreeMonthWindow(monthTotals);
+      if (!slowWindow) {
+        return [];
+      }
       const totalQuantity = slowWindow.reduce((sum, month) => sum + month.quantity, 0);
 
-      if (totalQuantity !== 1) {
+      const hasAtLeastOneMonthBelowTwo = slowWindow.some((month) => month.quantity < 2);
+      const hasAtLeastOneSale = slowWindow.some((month) => month.quantity > 0);
+
+      if (!hasAtLeastOneMonthBelowTwo || !hasAtLeastOneSale) {
         return [];
       }
 
@@ -455,7 +462,8 @@ export class SlowSellingComponent implements OnInit {
       const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
       const current = monthMap.get(key) || {
         key,
-        label: `${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()}`,
+        sessionText: String(this.pick(row, ["Session", "Ky", "Thang"])).trim() || `${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()}`,
+        label: String(this.pick(row, ["Session", "Ky", "Thang"])).trim() || `${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()}`,
         quantity: 0,
         quantityText: "0",
         date,
@@ -468,27 +476,12 @@ export class SlowSellingComponent implements OnInit {
     return Array.from(monthMap.values()).sort((first, second) => first.date.getTime() - second.date.getTime());
   }
 
-  private buildThreeMonthWindow(months: SlowSellingMonth[]): SlowSellingMonth[] {
-    const monthMap = new Map(months.map((month) => [month.key, month]));
-    const now = new Date();
+  private buildThreeMonthWindow(months: SlowSellingMonth[]): SlowSellingMonth[] | null {
+    if (months.length < 3) {
+      return null;
+    }
 
-    return [2, 1, 0].map((monthOffset) => {
-      const date = new Date(now.getFullYear(), now.getMonth() - monthOffset, 1);
-      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-      const existingMonth = monthMap.get(key);
-
-      if (existingMonth) {
-        return existingMonth;
-      }
-
-      return {
-        key,
-        label: `${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()}`,
-        quantity: 0,
-        quantityText: "0",
-        date,
-      };
-    });
+    return months.slice(-3);
   }
 
   private getMonthDate(row: RawRecord): Date | null {

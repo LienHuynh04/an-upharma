@@ -298,8 +298,9 @@ export class AppComponent implements OnInit {
   }
 
   async confirmLogout(): Promise<void> {
+    this.logoutConfirmOpen = false;
     this.upharmaService.clearSession();
-    await this.router.navigateByUrl("/login");
+    await this.router.navigateByUrl("/login", { replaceUrl: true });
   }
 
   toggleFilters(): void {

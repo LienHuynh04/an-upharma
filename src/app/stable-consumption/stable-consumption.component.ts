@@ -28,6 +28,7 @@ interface StableItem {
 
 interface StableMonth {
   key: string;
+  sessionText: string;
   label: string;
   quantity: number;
   quantityText: string;
@@ -55,7 +56,7 @@ export class StableConsumptionComponent implements OnInit {
   shops: ShopInfo[] = [];
   activeShopCode = "";
   rows: StableItem[] = [];
-  selectedMonthWindow: StableMonthWindow = '1d';
+  selectedMonthWindow: StableMonthWindow = '3m';
   timeStart = "";
   timeEnd = "";
   startDateInput = "";
@@ -425,9 +426,15 @@ export class StableConsumptionComponent implements OnInit {
 
     return Array.from(groupedRows.entries()).flatMap(([productCode, productRows]) => {
       const monthTotals = this.buildMonthTotals(productRows);
-      const stableWindow = this.findStableMonthWindow(monthTotals, this.selectedMonthWindow);
+      const stableWindow = this.buildThreeMonthWindow(monthTotals);
 
       if (!stableWindow) {
+        return [];
+      }
+
+      const isStable = stableWindow.every((month) => month.quantity >= 2);
+
+      if (!isStable) {
         return [];
       }
 
@@ -471,7 +478,8 @@ export class StableConsumptionComponent implements OnInit {
       const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
       const current = monthMap.get(key) || {
         key,
-        label: `${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()}`,
+        sessionText: String(this.pick(row, ["Session", "Ky", "Thang"])).trim() || `${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()}`,
+        label: String(this.pick(row, ["Session", "Ky", "Thang"])).trim() || `${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()}`,
         quantity: 0,
         quantityText: "0",
         date,
@@ -482,36 +490,6 @@ export class StableConsumptionComponent implements OnInit {
     }
 
     return Array.from(monthMap.values()).sort((first, second) => first.date.getTime() - second.date.getTime());
-  }
-
-  private findStableMonthWindow(months: StableMonth[], monthWindowStr: StableMonthWindow): StableMonth[] | null {
-    let monthWindow = 3;
-    if (monthWindowStr === '1d' || monthWindowStr === '7d') monthWindow = 1;
-    if (monthWindowStr === '6m') monthWindow = 6;
-    if (monthWindowStr === '9m') monthWindow = 9;
-
-    for (let index = 0; index <= months.length - monthWindow; index += 1) {
-      const windowMonths = months.slice(index, index + monthWindow);
-      const isConsecutive = windowMonths.every((month, monthIndex) => {
-        if (monthIndex === 0) {
-          return true;
-        }
-
-        return this.monthDistance(windowMonths[monthIndex - 1].date, month.date) === 1;
-      });
-      const hasSalesEveryMonth = windowMonths.every((month) => month.quantity > 0);
-      const hasAtLeastTwoInOneMonth = windowMonths.some((month) => month.quantity >= 2);
-
-      if (isConsecutive && hasSalesEveryMonth && hasAtLeastTwoInOneMonth) {
-        return windowMonths;
-      }
-    }
-
-    return null;
-  }
-
-  private monthDistance(firstDate: Date, secondDate: Date): number {
-    return (secondDate.getFullYear() - firstDate.getFullYear()) * 12 + secondDate.getMonth() - firstDate.getMonth();
   }
 
   private getMonthDate(row: RawRecord): Date | null {
@@ -530,6 +508,14 @@ export class StableConsumptionComponent implements OnInit {
     }
 
     return new Date(Number(match[2]), Number(match[1]) - 1, 1);
+  }
+
+  private buildThreeMonthWindow(months: StableMonth[]): StableMonth[] | null {
+    if (months.length < 3) {
+      return null;
+    }
+
+    return months.slice(-3);
   }
 
   private setDefaultDateRange(force = false): void {
