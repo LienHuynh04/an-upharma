@@ -1,6 +1,5 @@
 import { CommonModule } from "@angular/common";
 import { Component, OnInit } from "@angular/core";
-import { FormsModule } from "@angular/forms";
 import { Router, RouterLink } from "@angular/router";
 import { formatMoney, normalizeFilterText, PRODUCT_NAME_COLLATOR } from "../inventory-utils";
 import { RawRecord, ShopInfo, UpharmaService } from "../upharma.service";
@@ -32,14 +31,10 @@ interface OutOfStockCacheEntry {
   savedAt: number;
 }
 
-type OutStockTextFilterKey = "productName" | "productCode";
-type OutStockMultiFilterKey = "quantityText" | "unit";
-type OutStockRange = "3m" | "1d" | "7d";
-
 @Component({
   selector: "app-out-of-stock",
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, RouterLink],
   templateUrl: "./out-of-stock.component.html",
 })
 export class OutOfStockComponent implements OnInit {
@@ -48,16 +43,12 @@ export class OutOfStockComponent implements OnInit {
   shops: ShopInfo[] = [];
   activeShopCode = "";
   rows: OutOfStockItem[] = [];
-  quantityFilter = "";
   timeStart = "";
   timeEnd = "";
-  startDateInput = "";
-  endDateInput = "";
   userTitle = "Đang tải người dùng...";
   loading = false;
   loadingProgress = 0;
   outStockRefreshing = false;
-  selectedRange: OutStockRange = "3m";
   visibleLimit = this.renderBatchSize;
   isAppendingRows = false;
   outStockCacheStatus = "";
@@ -65,15 +56,6 @@ export class OutOfStockComponent implements OnInit {
   sidebarCollapsed = false;
   mobileMenuOpen = false;
   logoutConfirmOpen = false;
-  filtersCollapsed = true;
-  textFilters: Record<OutStockTextFilterKey, string> = {
-    productName: "",
-    productCode: "",
-  };
-  multiFilters: Record<OutStockMultiFilterKey, string[]> = {
-    quantityText: [],
-    unit: [],
-  };
   menuGroups: Record<string, boolean> = {
     profile: false,
     goods: true,
@@ -114,8 +96,6 @@ export class OutOfStockComponent implements OnInit {
   }
 
   get filteredRows(): OutOfStockItem[] {
-    let activeIndex = 0;
-
     return this.rows.filter((row) => {
       if (row.shopCode !== this.activeShopCode) {
         return false;
@@ -125,13 +105,7 @@ export class OutOfStockComponent implements OnInit {
         return false;
       }
 
-      activeIndex += 1;
-
-      if (!this.quantityFilter) {
-        return this.matchesColumnFilters(row, activeIndex);
-      }
-
-      return row.quantityText === this.quantityFilter && this.matchesColumnFilters(row, activeIndex);
+      return true;
     });
   }
 
@@ -139,42 +113,8 @@ export class OutOfStockComponent implements OnInit {
     return this.filteredRows.slice(0, this.visibleLimit);
   }
 
-  get quantityOptions(): string[] {
-    const quantities = this.rows
-      .filter((row) => row.shopCode === this.activeShopCode)
-      .map((row) => row.quantityText)
-      .filter((quantity) => quantity && quantity !== "--");
-
-    return Array.from(new Set(quantities)).sort((first, second) => {
-      const firstNumber = Number(first.replaceAll(",", "."));
-      const secondNumber = Number(second.replaceAll(",", "."));
-
-      if (Number.isFinite(firstNumber) && Number.isFinite(secondNumber)) {
-        return firstNumber - secondNumber;
-      }
-
-      return first.localeCompare(second, "vi", { numeric: true });
-    });
-  }
-
   get hasActiveShopLoaded(): boolean {
     return this.loadedShopKeys.has(this.getLoadedShopKey(this.activeShopCode));
-  }
-
-  get mobileFilterSummary(): string {
-    const textFilterCount = Object.values(this.textFilters).filter((value) => value.trim()).length;
-    const multiFilterCount = Object.values(this.multiFilters).filter((values) => values.length > 0).length;
-    const filterCount = textFilterCount + multiFilterCount + (this.quantityFilter ? 1 : 0);
-
-    return filterCount > 0 ? `${filterCount} bộ lọc đang dùng` : "Chưa có bộ lọc";
-  }
-
-  get quantityFilterOptions(): string[] {
-    return this.getMultiFilterOptions("quantityText");
-  }
-
-  get unitFilterOptions(): string[] {
-    return this.getMultiFilterOptions("unit");
   }
 
   async loadOutOfStock(): Promise<void> {
@@ -204,8 +144,6 @@ export class OutOfStockComponent implements OnInit {
 
   async setActiveShop(shopCode: string): Promise<void> {
     this.activeShopCode = shopCode;
-    this.quantityFilter = "";
-    this.clearTableFilters();
 
     if (!this.loadedShopKeys.has(this.getLoadedShopKey(shopCode))) {
       await this.loadActiveShop();
@@ -218,39 +156,6 @@ export class OutOfStockComponent implements OnInit {
     }
 
     await this.loadActiveShop(true);
-  }
-
-  setRange(range: OutStockRange): void {
-    this.selectedRange = range;
-    const now = new Date();
-    let start = now;
-    if (range === "1d") {
-      start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-    } else if (range === "7d") {
-      start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6, 0, 0, 0);
-    } else {
-      start = new Date(now.getFullYear(), now.getMonth() - 2, 1, 0, 0, 0);
-    }
-    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 0);
-    this.startDateInput = this.toDateTimeLocalValue(start);
-    this.endDateInput = this.toDateTimeLocalValue(end);
-    void this.applyDateFilter();
-  }
-
-  async applyDateFilter(): Promise<void> {
-    this.timeStart = this.toApiDateTime(this.startDateInput);
-    this.timeEnd = this.toApiDateTime(this.endDateInput);
-    this.quantityFilter = "";
-    this.clearTableFilters();
-    this.rows = [];
-    this.loadedShopKeys.clear();
-    this.outStockCacheStatus = "";
-
-    await this.loadActiveShop(true);
-  }
-
-  onFilterChange(): void {
-    this.resetVisibleRows();
   }
 
   loadMoreRows(): void {
@@ -286,48 +191,6 @@ export class OutOfStockComponent implements OnInit {
 
   toggleRecord(row: OutOfStockItem): void {
     row.expanded = !row.expanded;
-  }
-
-  toggleFilters(): void {
-    this.filtersCollapsed = !this.filtersCollapsed;
-  }
-
-  toggleMultiFilter(filterKey: OutStockMultiFilterKey, value: string): void {
-    const currentValues = this.multiFilters[filterKey];
-
-    this.multiFilters[filterKey] = currentValues.includes(value)
-      ? currentValues.filter((item) => item !== value)
-      : [...currentValues, value];
-    this.resetVisibleRows();
-  }
-
-  isMultiFilterSelected(filterKey: OutStockMultiFilterKey, value: string): boolean {
-    return this.multiFilters[filterKey].includes(value);
-  }
-
-  getMultiFilterLabel(filterKey: OutStockMultiFilterKey): string {
-    const selectedCount = this.multiFilters[filterKey].length;
-
-    return selectedCount > 0 ? `Đã chọn ${selectedCount}` : "Tất cả";
-  }
-
-  clearMultiFilter(filterKey: OutStockMultiFilterKey, event?: Event): void {
-    event?.preventDefault();
-    event?.stopPropagation();
-    this.multiFilters[filterKey] = [];
-    this.resetVisibleRows();
-  }
-
-  clearTableFilters(): void {
-    this.textFilters = {
-      productName: "",
-      productCode: "",
-    };
-    this.multiFilters = {
-      quantityText: [],
-      unit: [],
-    };
-    this.resetVisibleRows();
   }
 
   private resetVisibleRows(): void {
@@ -444,7 +307,7 @@ export class OutOfStockComponent implements OnInit {
         forceRefresh,
       });
       this.loadingProgress = 75;
-      const shopRows = this.filterRowsBySelectedDateRange(this.extractArray(response))
+      const shopRows: OutOfStockItem[] = this.extractArray(response)
         .map((row, index) => this.normalizeSalesSpeedRow(row, shop, index))
         .filter((row) => !row.productCode.trim().toUpperCase().startsWith("Y"))
         .sort((first, second) => PRODUCT_NAME_COLLATOR.compare(first.productName, second.productName));
@@ -489,8 +352,6 @@ export class OutOfStockComponent implements OnInit {
 
     this.timeStart = this.upharmaService.formatUpharmaDateTime(todayStart);
     this.timeEnd = this.upharmaService.formatUpharmaDateTime(todayEnd);
-    this.startDateInput = this.toDateTimeLocalValue(todayStart);
-    this.endDateInput = this.toDateTimeLocalValue(todayEnd);
   }
 
   private getLoadedShopKey(shopCode: string): string {
@@ -569,47 +430,6 @@ export class OutOfStockComponent implements OnInit {
     return `${pad(date.getHours())}:${pad(date.getMinutes())} ${pad(date.getDate())}-${pad(date.getMonth() + 1)}`;
   }
 
-  private matchesColumnFilters(row: OutOfStockItem, activeIndex: number): boolean {
-    const textTargets: Record<OutStockTextFilterKey, string> = {
-      productName: row.productName,
-      productCode: row.productCode,
-    };
-
-    for (const [key, filterValue] of Object.entries(this.textFilters) as [OutStockTextFilterKey, string][]) {
-      const normalizedFilter = normalizeFilterText(filterValue);
-
-      if (normalizedFilter && !normalizeFilterText(textTargets[key]).includes(normalizedFilter)) {
-        return false;
-      }
-    }
-
-    for (const [key, selectedValues] of Object.entries(this.multiFilters) as [OutStockMultiFilterKey, string[]][]) {
-      if (selectedValues.length > 0 && !selectedValues.includes(String(row[key] || "--"))) {
-        return false;
-      }
-    }
-
-    return true;
-  }
-
-  private getMultiFilterOptions(filterKey: OutStockMultiFilterKey): string[] {
-    const values = this.rows
-      .filter((row) => row.shopCode === this.activeShopCode)
-      .map((row) => String(row[filterKey] || "--"))
-      .filter((value) => value.trim());
-
-    return Array.from(new Set(values)).sort((first, second) => {
-      const firstNumber = Number(first.replaceAll(",", "."));
-      const secondNumber = Number(second.replaceAll(",", "."));
-
-      if (Number.isFinite(firstNumber) && Number.isFinite(secondNumber)) {
-        return firstNumber - secondNumber;
-      }
-
-      return first.localeCompare(second, "vi", { numeric: true });
-    });
-  }
-
   private normalizeSalesSpeedRow(row: RawRecord, shop: ShopInfo, rowIndex: number): OutOfStockItem {
     const productName = String(
       this.pick(row, ["ProductName", "Product_Name", "ProductFullName", "TenSP", "TenSanPham", "Name", "ItemName"]),
@@ -661,12 +481,13 @@ export class OutOfStockComponent implements OnInit {
   private getShortageMonthLabel(row: RawRecord): string {
     const sessionText = String(this.pick(row, ["Session", "Period", "MonthLabel", "Month", "Thang"])).trim();
     if (sessionText) {
-      const monthMatch = sessionText.match(/Tháng\s*\d+\s*-\s*Năm\s*(\d{4})/i);
+      const monthMatch = sessionText.match(/Tháng\s*(\d+)/i);
       if (monthMatch) {
-        const monthPart = sessionText.match(/Tháng\s*(\d+)/i);
-        if (monthPart) {
-          return `Tháng ${monthPart[1]} - Năm ${monthMatch[1]}`;
-        }
+        return monthMatch[1].padStart(2, "0");
+      }
+      const numeric = sessionText.match(/\d+/);
+      if (numeric) {
+        return numeric[0].padStart(2, "0");
       }
       return sessionText;
     }
@@ -676,8 +497,7 @@ export class OutOfStockComponent implements OnInit {
     if (parsed !== null) {
       const date = new Date(parsed);
       const month = date.getMonth() + 1;
-      const year = date.getFullYear();
-      return `Tháng ${month} - Năm ${year}`;
+      return String(month).padStart(2, "0");
     }
 
     return "--";
@@ -710,64 +530,6 @@ export class OutOfStockComponent implements OnInit {
     }
 
     return [];
-  }
-
-  private filterRowsBySelectedDateRange(rows: RawRecord[]): RawRecord[] {
-    const rangeStart = this.parseDateTimeValue(this.timeStart);
-    const rangeEnd = this.parseDateTimeValue(this.timeEnd);
-
-    if (rangeStart === null || rangeEnd === null) {
-      return rows;
-    }
-
-    return rows.filter((row) => {
-      const rowRange = this.getRowSearchRange(row);
-
-      if (!rowRange) {
-        return true;
-      }
-
-      return rowRange.start <= rangeEnd && rowRange.end >= rangeStart;
-    });
-  }
-
-  private getRowSearchRange(row: RawRecord): { start: number; end: number } | null {
-    const rowStart = this.parseDateTimeValue(
-      this.pick(row, ["TimeBegin", "TimeStart", "BeginTime", "StartTime", "FromDate", "DateFrom"]),
-    );
-    const rowEnd = this.parseDateTimeValue(
-      this.pick(row, ["TimeEnd", "EndTime", "FinishTime", "ToDate", "DateTo"]),
-    );
-
-    if (rowStart !== null || rowEnd !== null) {
-      const start = rowStart ?? rowEnd;
-      const end = rowEnd ?? rowStart;
-
-      if (start !== null && end !== null) {
-        return {
-          start,
-          end,
-        };
-      }
-    }
-
-    const rowDate = this.parseDateTimeValue(this.pick(row, [
-      "TimeStart",
-      "TimeBegin",
-      "LastSaleDate",
-      "LastDate",
-      "NgayBanCuoi",
-      "DateSellLast",
-      "InvoiceDate",
-      "SaleDate",
-      "CreateDate",
-      "CreatedDate",
-      "OrderDate",
-      "Date",
-      "Ngay",
-    ]));
-
-    return rowDate === null ? null : { start: rowDate, end: rowDate };
   }
 
   private pick(row: RawRecord, keys: string[]): unknown {
@@ -803,15 +565,6 @@ export class OutOfStockComponent implements OnInit {
     }
 
     return text;
-  }
-
-  private toDateTimeLocalValue(date: Date): string {
-    const pad = (value: number) => String(value).padStart(2, "0");
-
-    return [
-      `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`,
-      `${pad(date.getHours())}:${pad(date.getMinutes())}`,
-    ].join("T");
   }
 
   private toApiDateTime(value: string): string {
