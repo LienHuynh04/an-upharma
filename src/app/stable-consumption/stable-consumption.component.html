@@ -15,9 +15,14 @@
           Chọn 3, 6 hoặc 9 tháng. Sản phẩm đạt điều kiện khi tháng nào cũng có bán và có ít nhất 1 tháng bán từ 2 lần/số lượng trở lên.
         </p>
       </div>
-      <button type="button" (click)="reloadActiveShop()" [disabled]="loading || stableRefreshing || !activeShopCode">
-        {{ loading || stableRefreshing ? "Đang tải..." : "Tải lại shop đang xem" }}
-      </button>
+      <div class="out-stock-hero-actions">
+        <button type="button" class="btn btn-secondary" (click)="exportExcel()" [disabled]="loading || stableRefreshing || filteredRows.length === 0">
+          Xuất excel
+        </button>
+        <button type="button" class="btn btn-primary" (click)="reloadActiveShop()" [disabled]="loading || stableRefreshing || !activeShopCode">
+          {{ loading || stableRefreshing ? "Đang tải..." : "Tải lại shop đang xem" }}
+        </button>
+      </div>
     </section>
 
     <section class="out-stock-tabs" aria-label="Chọn nhà thuốc">

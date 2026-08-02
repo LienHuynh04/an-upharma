@@ -1,5 +1,6 @@
 import { CommonModule } from "@angular/common";
 import { Component, OnInit } from "@angular/core";
+import { FormsModule } from "@angular/forms";
 import { Router, RouterLink } from "@angular/router";
 import { formatMoney, normalizeFilterText, PRODUCT_NAME_COLLATOR } from "../inventory-utils";
 import { RawRecord, ShopInfo, UpharmaService } from "../upharma.service";
@@ -34,7 +35,7 @@ interface OutOfStockCacheEntry {
 @Component({
   selector: "app-out-of-stock",
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink],
   templateUrl: "./out-of-stock.component.html",
 })
 export class OutOfStockComponent implements OnInit {
@@ -45,6 +46,7 @@ export class OutOfStockComponent implements OnInit {
   rows: OutOfStockItem[] = [];
   timeStart = "";
   timeEnd = "";
+  monthFilter = "current";
   userTitle = "Đang tải người dùng...";
   loading = false;
   loadingProgress = 0;
@@ -105,7 +107,20 @@ export class OutOfStockComponent implements OnInit {
         return false;
       }
 
+      if (this.normalizeMonthKey(row.shortageMonth) !== this.getFilterMonthKey()) {
+        return false;
+      }
+
       return true;
+    }).sort((first, second) => {
+      const firstPriority = this.getMonthPriority(this.normalizeMonthKey(first.shortageMonth));
+      const secondPriority = this.getMonthPriority(this.normalizeMonthKey(second.shortageMonth));
+
+      if (firstPriority !== secondPriority) {
+        return firstPriority - secondPriority;
+      }
+
+      return PRODUCT_NAME_COLLATOR.compare(first.productName, second.productName);
     });
   }
 
@@ -158,6 +173,44 @@ export class OutOfStockComponent implements OnInit {
     await this.loadActiveShop(true);
   }
 
+  async exportExcel(): Promise<void> {
+    const xlsx = await import("xlsx");
+    const activeShop = this.shops.find((shop) => shop.ShopCode === this.activeShopCode) || {
+      ShopCode: this.activeShopCode,
+      ShopName: this.activeShopName,
+    };
+    const exportMonthKey = this.getFilterMonthKey();
+    const exportMonthRows = this.rows.filter((row) => row.zeroStock && this.normalizeMonthKey(row.shortageMonth) === exportMonthKey);
+
+    if (exportMonthRows.length === 0) {
+      return;
+    }
+
+    const shopRows = exportMonthRows.filter((row) => row.shopCode === activeShop.ShopCode);
+
+    if (shopRows.length === 0) {
+      return;
+    }
+
+    const workbook = xlsx.utils.book_new();
+    const sheetRows = shopRows
+      .sort((first, second) => PRODUCT_NAME_COLLATOR.compare(first.productName, second.productName))
+      .map((row) => ({
+        "Tên sp": row.productName,
+        "Mã SP": row.productCode,
+        "Số lượng": row.quantityText,
+        "Đơn vị": row.unit || "--",
+      }));
+    const worksheet = xlsx.utils.json_to_sheet(sheetRows);
+    xlsx.utils.book_append_sheet(workbook, worksheet, this.makeSheetName(exportMonthKey));
+
+    const buffer = xlsx.write(workbook, {
+      bookType: "xlsx",
+      type: "array",
+    }) as ArrayBuffer;
+    this.downloadExcelBuffer(buffer, `hang-het-nha-${activeShop.ShopCode}.xlsx`);
+  }
+
   loadMoreRows(): void {
     const filteredRows = this.filteredRows;
 
@@ -206,6 +259,106 @@ export class OutOfStockComponent implements OnInit {
   private resetVisibleRows(): void {
     this.visibleLimit = this.renderBatchSize;
     this.isAppendingRows = false;
+  }
+
+  onMonthFilterChange(): void {
+    this.resetVisibleRows();
+  }
+
+  get monthFilterLabel(): string {
+    const monthKey = this.getFilterMonthKey();
+    return monthKey === this.getCurrentMonthKey() ? "Tháng hiện tại" : `Tháng ${monthKey}`;
+  }
+
+  getMonthOptionLabel(filterKey: "current" | "prev1" | "prev2"): string {
+    const offset = filterKey === "current" ? 0 : filterKey === "prev1" ? 1 : 2;
+    const monthKey = this.getMonthKeyByOffset(offset);
+
+    if (filterKey === "current") {
+      return "Tháng hiện tại";
+    }
+
+    return `Tháng ${Number(monthKey)}`;
+  }
+
+  getMonthDisplayLabel(value: string): string {
+    const monthKey = this.normalizeMonthKey(value);
+    return monthKey === this.getCurrentMonthKey() ? "Tháng hiện tại" : `Tháng ${monthKey}`;
+  }
+
+  private normalizeMonthKey(value: string): string {
+    const trimmed = String(value || "").trim();
+
+    if (!trimmed || trimmed === "--") {
+      return "Unknown";
+    }
+
+    const numeric = trimmed.match(/\d+/)?.[0] || trimmed;
+    return numeric.padStart(2, "0");
+  }
+
+  private getCurrentMonthKey(): string {
+    return String(new Date().getMonth() + 1).padStart(2, "0");
+  }
+
+  private getMonthKeyByOffset(offset: number): string {
+    const currentMonth = new Date().getMonth() + 1;
+    const month = ((currentMonth - offset - 1 + 12) % 12) + 1;
+    return String(month).padStart(2, "0");
+  }
+
+  private getFilterMonthKey(): string {
+    const monthOffsets: Record<string, number> = {
+      current: 0,
+      prev1: 1,
+      prev2: 2,
+    };
+    const offset = monthOffsets[this.monthFilter] ?? 0;
+    return this.getMonthKeyByOffset(offset);
+  }
+
+  private getMonthPriority(monthKey: string): number {
+    if (monthKey === "Unknown") {
+      return 99;
+    }
+
+    const currentMonth = new Date().getMonth() + 1;
+    const month = Number(monthKey);
+    if (!Number.isFinite(month)) {
+      return 98;
+    }
+
+    const diff = (currentMonth - month + 12) % 12;
+    if (diff === 0) return 0;
+    if (diff === 1) return 1;
+    if (diff === 2) return 2;
+    return 3;
+  }
+
+  private makeSheetName(monthKey: string): string {
+    return monthKey === "Unknown" ? "Unknown" : `Thang ${monthKey}`.slice(0, 31);
+  }
+
+  private formatExportDate(date: Date): string {
+    const pad = (value: number) => String(value).padStart(2, "0");
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  }
+
+  private downloadExcelBuffer(buffer: ArrayBuffer, fileName: string): void {
+    const blob = new Blob([buffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = fileName;
+    link.style.display = "none";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   toggleMenuGroup(groupKey: string): void {

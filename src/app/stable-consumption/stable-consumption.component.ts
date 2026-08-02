@@ -198,6 +198,31 @@ export class StableConsumptionComponent implements OnInit {
     await this.loadActiveShop(true);
   }
 
+  async exportExcel(): Promise<void> {
+    const rows = this.filteredRows;
+
+    if (rows.length === 0) {
+      return;
+    }
+
+    const xlsx = await import("xlsx");
+    const workbook = xlsx.utils.book_new();
+    const sheetRows = rows.map((row) => ({
+      "Tên SP": row.productName,
+      "Mã SP": row.productCode,
+      "Đơn vị": row.unit || "--",
+      "Tổng bán": row.totalQuantity,
+    }));
+    const worksheet = xlsx.utils.json_to_sheet(sheetRows);
+    xlsx.utils.book_append_sheet(workbook, worksheet, "Hang lap tot");
+
+    const buffer = xlsx.write(workbook, {
+      bookType: "xlsx",
+      type: "array",
+    }) as ArrayBuffer;
+    this.downloadExcelBuffer(buffer, `hang-lap-tot-${this.activeShopCode || "shop"}.xlsx`);
+  }
+
   async applyDateFilter(): Promise<void> {
     this.timeStart = this.toApiDateTime(this.startDateInput);
     this.timeEnd = this.toApiDateTime(this.endDateInput);
@@ -271,6 +296,23 @@ export class StableConsumptionComponent implements OnInit {
       productCode: "",
     };
     this.resetVisibleRows();
+  }
+
+  private downloadExcelBuffer(buffer: ArrayBuffer, fileName: string): void {
+    const blob = new Blob([buffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = fileName;
+    link.style.display = "none";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   private resetVisibleRows(): void {

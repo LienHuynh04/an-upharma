@@ -11,3 +11,10 @@ firebase-debug.log
 /dist/
 src/assets/data/login.json
 .vscode/
+
+.env
+.env.*
+!.env.example
+firebase.json
+*.pem
+*.key

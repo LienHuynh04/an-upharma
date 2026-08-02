@@ -1124,8 +1124,12 @@ select {
 }
 
 .btn:hover:not(:disabled) {
-  background: var(--page);
   border-color: #cbd5e1;
+  opacity: 0.88;
+}
+
+.out-stock-hero-actions .btn:hover:not(:disabled) {
+  transform: scale(0.8);
 }
 
 .btn.is-active,
@@ -1182,7 +1186,7 @@ select {
 
 .menu-btn:hover,
 .store-btn:hover {
-  background: rgba(0, 0, 0, 0.08);
+  opacity: 0.88;
   transform: scale(1.05);
 }
 
@@ -3039,6 +3043,34 @@ select {
   color: #1f332b;
   background: #ffffff;
   font-size: 11px;
+  outline: none;
+}
+
+.out-stock-hero-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.out-stock-month-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 160px;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.out-stock-month-filter select {
+  width: 100%;
+  height: 34px;
+  border: 1px solid #d7e2e9;
+  border-radius: 6px;
+  padding: 0 10px;
+  color: #1f332b;
+  background: #ffffff;
+  font-size: 12px;
   outline: none;
 }
 

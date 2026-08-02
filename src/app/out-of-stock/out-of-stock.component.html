@@ -15,9 +15,14 @@
           Xem các sản phẩm đã hết trong 3 tháng gần nhất, bấm vào shop nào thì dữ liệu của shop đó sẽ được tải và giữ lại trên trang.
         </p>
       </div>
-      <button type="button" (click)="reloadActiveShop()" [disabled]="loading || outStockRefreshing || !activeShopCode">
-        {{ loading || outStockRefreshing ? "Đang tải..." : "Tải lại shop đang xem" }}
-      </button>
+      <div class="out-stock-hero-actions">
+        <button type="button" class="btn btn-secondary" (click)="exportExcel()" [disabled]="loading || outStockRefreshing || rows.length === 0">
+          Xuất excel
+        </button>
+        <button type="button" class="btn btn-primary" (click)="reloadActiveShop()" [disabled]="loading || outStockRefreshing || !activeShopCode">
+          {{ loading || outStockRefreshing ? "Đang tải..." : "Tải lại shop đang xem" }}
+        </button>
+      </div>
     </section>
 
     <section class="out-stock-tabs" aria-label="Chọn nhà thuốc">
@@ -39,6 +44,14 @@
           <span class="out-stock-current-shop">{{ activeShopCode || "--" }}</span>
           <h2>{{ activeShopName }}</h2>
         </div>
+        <label class="out-stock-month-filter">
+          <span>Lọc tháng</span>
+          <select [(ngModel)]="monthFilter" (ngModelChange)="onMonthFilterChange()" aria-label="Lọc tháng hiển thị">
+            <option value="current">{{ getMonthOptionLabel("current") }}</option>
+            <option value="prev1">{{ getMonthOptionLabel("prev1") }}</option>
+            <option value="prev2">{{ getMonthOptionLabel("prev2") }}</option>
+          </select>
+        </label>
       </div>
 
       <div class="inventory-cache-status out-stock-cache-status" *ngIf="outStockCacheStatus || outStockRefreshing">
@@ -106,7 +119,7 @@
                 </button>
               </td>
               <td data-label="Mã SP">{{ item.productCode }}</td>
-              <td data-label="Tháng hết">Tháng {{ item.shortageMonth }}</td>
+              <td data-label="Tháng hết">{{ getMonthDisplayLabel(item.shortageMonth) }}</td>
               <td data-label="Tồn/SL">
                 <span class="stock-quantity" [class.is-zero]="item.zeroStock">{{ item.quantityText }}</span>
               </td>
