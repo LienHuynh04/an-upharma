@@ -1,0 +1,104 @@
+<div class="page-inner employee-plan-page">
+  <section class="employee-plan-hero">
+    <div class="hero-meta">
+      <label>
+        Tháng
+        <select [(ngModel)]="selectedMonth" name="selectedMonth">
+          <option *ngFor="let month of monthOptions" [ngValue]="month">{{ month }}</option>
+        </select>
+      </label>
+      <label>
+        Năm
+        <select [(ngModel)]="selectedYear" name="selectedYear">
+          <option *ngFor="let year of yearOptions" [ngValue]="year">{{ year }}</option>
+        </select>
+      </label>
+      <button class="view-button" type="button" (click)="loadAllShops()">Xem</button>
+    </div>
+  </section>
+
+  <section class="employee-plan-tabs" *ngIf="tabs.length > 0">
+    <button
+      type="button"
+      *ngFor="let tab of tabs"
+      class="shop-tab"
+      [class.is-active]="activeShopCode === tab.shopCode"
+      (click)="activeShopCode = tab.shopCode"
+    >
+      <span class="tab-code">{{ tab.shopCode }}</span>
+      <strong>{{ tab.shopName }}</strong>
+      <small>{{ tab.items.length }} nhân viên</small>
+    </button>
+  </section>
+
+  <section class="employee-plan-state" *ngIf="!activeTab">
+    <div class="state-card">
+      <strong>Không có dữ liệu</strong>
+      <p>Chọn shop khác hoặc kiểm tra phiên đăng nhập.</p>
+    </div>
+  </section>
+
+  <section class="employee-plan-panel" *ngIf="activeTab as currentTab">
+    <div class="employee-plan-loading" *ngIf="currentTab.loading">
+      <span class="loader" aria-hidden="true"></span>
+      <strong>Đang tải {{ currentTab.shopCode }}...</strong>
+    </div>
+
+    <p class="api-test-error" *ngIf="currentTab.errorText">{{ currentTab.errorText }}</p>
+
+    <div class="employee-plan-grid" *ngIf="!currentTab.loading && !currentTab.errorText">
+      <article class="employee-plan-box" *ngFor="let item of currentTab.items">
+        <div class="top">
+          <div class="title-wrap">
+            <h3>{{ item.EmployeeName }}</h3>
+            <span>{{ item.EmployeeCode }}</span>
+          </div>
+          <div class="employee-icons" aria-hidden="true">
+            <span class="mdi mdi-percent"></span>
+            <span class="mdi mdi-cog"></span>
+            <span class="mdi mdi-file"></span>
+          </div>
+        </div>
+
+        <div class="money">{{ formatNumber(item.Amount) }} VNĐ</div>
+        <div class="moneyR moneyR-good">{{ formatNumber(item.AmountR) }} VNĐ</div>
+
+        <div class="section-label">Khách hàng</div>
+        <div class="custom">
+          <div class="item-cus">
+            <div>Tổng:</div>
+            <div class="quan">
+              <div class="number">{{ formatNumber(item.QuantityCus) }}</div>
+              <div class="real real-good">{{ formatNumber(item.QuantityCusR) }}</div>
+            </div>
+          </div>
+          <div class="item-cus new">
+            <div>Mới:</div>
+            <div class="quan">
+              <div class="number">{{ formatNumber(item.QuantityCusNew) }}</div>
+              <div class="real real-light">{{ formatNumber(item.QuantityCusNewR) }}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-label">Cá nhân</div>
+        <div class="custom">
+          <div class="item-cus">
+            <div>Đơn hàng:</div>
+            <div class="quan">
+              <div class="number">{{ formatNumber(item.QuantityInvoice) }}</div>
+              <div class="real real-good">{{ formatNumber(item.QuantityInvoiceR) }}</div>
+            </div>
+          </div>
+          <div class="item-cus new">
+            <div>Điểm:</div>
+            <div class="quan">
+              <div class="number">{{ formatNumber(item.PointRatio) }}</div>
+              <div class="real real-light">{{ formatNumber(item.PointRatioR) }}</div>
+            </div>
+          </div>
+        </div>
+      </article>
+    </div>
+  </section>
+</div>

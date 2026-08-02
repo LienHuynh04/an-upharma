@@ -1,0 +1,51 @@
+<main class="dashboard-page">
+  <header class="dashboard-heading">
+    <div>
+      <span>TỔNG QUAN</span>
+      <h1>Dashboard</h1>
+      <p>Biểu đồ doanh số theo ca và top sản phẩm theo shop.</p>
+    </div>
+    <div class="dashboard-actions">
+      <label>
+        Shop
+        <select [(ngModel)]="activeShopCode">
+          <option *ngFor="let shop of shops" [ngValue]="shop.ShopCode">{{ shop.ShopCode }} - {{ shop.ShopName }}</option>
+        </select>
+      </label>
+      <label>
+        Từ
+        <input [(ngModel)]="selectedStartDate" type="date" />
+      </label>
+      <label>
+        Đến
+        <input [(ngModel)]="selectedEndDate" type="date" />
+      </label>
+      <button type="button" class="dashboard-view-btn" (click)="loadDashboard()">Xem</button>
+    </div>
+  </header>
+
+  <p class="api-test-error" *ngIf="dashboardErrorText">{{ dashboardErrorText }}</p>
+  <section class="dashboard-shell" *ngIf="!dashboardLoading && !dashboardErrorText">
+    <article class="dashboard-card dashboard-card-chart">
+      <header><h2>Doanh số bán hàng theo ca</h2></header>
+      <div class="chart-wrap">
+        <canvas #salesChartCanvas></canvas>
+      </div>
+    </article>
+
+    <article class="dashboard-card dashboard-card-top">
+      <header><h2>Top 5 sản phẩm doanh số cao</h2></header>
+      <div class="top-list">
+        <div *ngFor="let item of topProductSales; let index = index">
+          <strong>{{ getTopProductRank(index) }}. {{ item.ProductName }}</strong>
+          <span>{{ formatMoney(item.Amount) }}</span>
+        </div>
+      </div>
+    </article>
+  </section>
+
+  <div class="dashboard-loading" *ngIf="dashboardLoading">
+    <span class="loader" aria-hidden="true"></span>
+    <strong>Đang tải dashboard...</strong>
+  </div>
+</main>

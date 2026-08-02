@@ -157,6 +157,20 @@ function getResourceConfig(resourceName, now = new Date()) {
         ViewCity: 0,
       }),
     },
+    statistics_shop: {
+      pathname: "/CancelProduct/GetStatisticsShop",
+      payload: () => ({
+        TimeStart: `${formatDateTime(new Date(now.getFullYear(), now.getMonth(), 3, 0, 7, 10))}`,
+        TimeEnd: `${formatDateTime(new Date(now.getFullYear(), now.getMonth() + 1, 3, 0, 7, 10))}`,
+      }),
+    },
+    customer_new: {
+      pathname: "/Buyer/GetCustomerNewLst",
+      payload: () => ({
+        Month: now.getMonth() + 1,
+        Year: now.getFullYear(),
+      }),
+    },
   };
   return configs[resourceName];
 }
@@ -207,7 +221,7 @@ async function run() {
     console.log(`Đã push login data và allowed_shops cho ${UPHARMA_USERNAME} lên Firebase RTDB`);
   }
 
-  const resources = ['inventory', 'invoices', 'messages', 'employees', 'orders', 'sales_speed'];
+  const resources = ['inventory', 'invoices', 'messages', 'employees', 'orders', 'sales_speed', 'statistics_shop', 'customer_new'];
   
   for (const resourceName of resources) {
     console.log(`Đang lấy data cho ${resourceName}...`);

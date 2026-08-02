@@ -18,6 +18,7 @@ export class LayoutComponent implements OnInit {
   menuGroups: Record<string, boolean> = {
     profile: false,
     goods: true,
+    stats: false,
     test: false,
     n8n: false,
   };

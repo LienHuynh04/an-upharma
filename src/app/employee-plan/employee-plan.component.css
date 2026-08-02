@@ -1,0 +1,260 @@
+.employee-plan-page {
+  display: grid;
+  gap: 18px;
+}
+
+.employee-plan-hero {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  align-items: end;
+  padding: 19px 20px;
+  border-radius: 15px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+}
+
+.hero-meta {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: end;
+}
+
+.hero-meta label {
+  display: grid;
+  gap: 6px;
+  min-width: 140px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.hero-meta input {
+  min-width: 120px;
+  border-radius: 9px;
+  border: 1px solid var(--line);
+  padding: 10px 12px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.view-button {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--gold);
+  border-radius: 9px;
+  padding: 0 16px;
+  color: #fff;
+  background: linear-gradient(135deg, var(--gold-light), var(--gold));
+  box-shadow: 0 7px 18px rgba(163, 107, 20, 0.2);
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.view-button:hover {
+  transform: translateY(-1px);
+}
+
+.employee-plan-tabs {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.shop-tab {
+  flex: 0 0 auto;
+  display: grid;
+  gap: 4px;
+  min-width: 210px;
+  text-align: left;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  padding: 14px 16px;
+  box-shadow: var(--shadow);
+  color: var(--text);
+}
+
+.shop-tab.is-active {
+  background: linear-gradient(135deg, var(--gold-light), var(--gold));
+  color: #fff;
+  border-color: transparent;
+}
+
+.tab-code {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: inherit;
+}
+
+.shop-tab.is-active .tab-code,
+.shop-tab.is-active small {
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.shop-tab strong {
+  font-size: 14px;
+  line-height: 1.35;
+  color: inherit;
+}
+
+.shop-tab small {
+  color: #64748b;
+}
+
+.employee-plan-state,
+.employee-plan-panel {
+  background: var(--surface);
+  border-radius: 22px;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  padding: 18px;
+}
+
+.state-card {
+  padding: 10px 2px;
+}
+
+.state-card strong {
+  display: block;
+  font-size: 18px;
+  margin-bottom: 4px;
+}
+
+.employee-plan-loading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 0;
+}
+
+.employee-plan-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.employee-plan-box {
+  display: grid;
+  gap: 12px;
+  background: var(--surface);
+  border-radius: 18px;
+  padding: 16px;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--line);
+}
+
+.employee-plan-box .top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.employee-plan-box h3 {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.2;
+  color: #ffffff;
+}
+
+.title-wrap span {
+  display: block;
+  margin-top: 4px;
+  font-size: 16px;
+  color: #657995;
+}
+
+.employee-icons {
+  display: flex;
+  align-items: center;
+  color: var(--muted);
+}
+
+.money {
+  font-size: 19px;
+  font-weight: 700;
+  margin-bottom: 4px;
+  color: var(--text);
+}
+
+.moneyR {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.section-label {
+  font-size: 14px;
+  margin-bottom: 4px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.custom {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.item-cus {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: center;
+  color: var(--text);
+}
+
+.quan {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--surface-2);
+  border-radius: 12px;
+  padding: 8px 10px;
+}
+
+.number {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.real {
+  min-width: 72px;
+  text-align: right;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.real-good {
+  color: #16a34a;
+}
+
+.real-light {
+  color: #0f172a;
+}
+
+.moneyR-good {
+  color: #16a34a;
+}
+
+@media (max-width: 640px) {
+  .shop-tab {
+    min-width: 180px;
+  }
+
+  .employee-plan-panel {
+    padding: 14px;
+  }
+
+  .employee-plan-hero {
+    justify-content: stretch;
+  }
+}
