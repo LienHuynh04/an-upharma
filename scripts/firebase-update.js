@@ -88,6 +88,30 @@ function formatDateTime(date) {
   return `${values.year}-${values.month}-${values.day} ${values.hour}:${values.minute}:${values.second}`;
 }
 
+function formatDateOnly(date) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+function getThreeMonthWindow(now = new Date()) {
+  const current = new Date(now);
+  const start = new Date(now);
+  start.setMonth(start.getMonth() - 2, 1);
+  start.setHours(0, 0, 0, 0);
+  current.setHours(23, 59, 59, 999);
+
+  return {
+    start: formatDateOnly(start),
+    end: formatDateOnly(current),
+  };
+}
+
 function getResourceConfig(resourceName, now = new Date()) {
   const currentTime = formatDateTime(now);
   const today = currentTime.slice(0, 10);
@@ -126,10 +150,10 @@ function getResourceConfig(resourceName, now = new Date()) {
     sales_speed: {
       pathname: "/SalesInvoice/GetReportSalesSpeed",
       payload: () => ({
-        TimeStart: `${today} 00:00:00`,
-        TimeEnd: currentTime,
+        TimeStart: `${getThreeMonthWindow(now).start} 00:00:00`,
+        TimeEnd: `${getThreeMonthWindow(now).end} 23:59:59`,
         ProductID: "",
-        GetType: "Week",
+        GetType: "month",
         ViewCity: 0,
       }),
     },

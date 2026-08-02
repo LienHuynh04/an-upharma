@@ -33,6 +33,14 @@ const EXCLUDED_SHOP_CODES = new Set(
 const DATA_DIR = path.join(__dirname, '..', 'src', 'assets', 'data');
 const REQUEST_TIMEOUT_MS = Number(process.env.UPHARMA_REQUEST_TIMEOUT_MS || 120000);
 const SHOP_CONCURRENCY = Math.max(1, Number(process.env.UPHARMA_SHOP_CONCURRENCY || 3));
+const HEARTBEAT_MS = Number(process.env.UPHARMA_HEARTBEAT_MS || 30000);
+
+const heartbeatStartedAt = Date.now();
+const heartbeatTimer = setInterval(() => {
+  const elapsed = Math.round((Date.now() - heartbeatStartedAt) / 1000);
+  console.log(`[heartbeat] fetch-upharma-data vẫn đang chạy... ${elapsed}s`);
+}, HEARTBEAT_MS);
+heartbeatTimer.unref?.();
 
 async function requestUpharma(pathname, payload) {
   const controller = new AbortController();
@@ -100,6 +108,30 @@ function formatDateTime(date) {
   return `${values.year}-${values.month}-${values.day} ${values.hour}:${values.minute}:${values.second}`;
 }
 
+function formatDateOnly(date) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+function getThreeMonthWindow(now = new Date()) {
+  const current = new Date(now);
+  const start = new Date(now);
+  start.setMonth(start.getMonth() - 2, 1);
+  start.setHours(0, 0, 0, 0);
+  current.setHours(23, 59, 59, 999);
+
+  return {
+    start: formatDateOnly(start),
+    end: formatDateOnly(current),
+  };
+}
+
 function getResourceConfig(resourceName, now = new Date()) {
   const currentTime = formatDateTime(now);
   const today = currentTime.slice(0, 10);
@@ -133,8 +165,8 @@ function getResourceConfig(resourceName, now = new Date()) {
     sales_speed: {
       pathname: "/SalesInvoice/GetReportSalesSpeed",
       payload: () => ({
-        TimeStart: `${today} 00:00:00`,
-        TimeEnd: currentTime,
+        TimeStart: `${getThreeMonthWindow(now).start} 00:00:00`,
+        TimeEnd: `${getThreeMonthWindow(now).end} 23:59:59`,
         ProductID: "",
         GetType: "month",
         ViewCity: 0,
@@ -167,6 +199,7 @@ async function mapWithConcurrency(items, concurrency, mapper) {
 async function run() {
   if (!UPHARMA_USERNAME || !UPHARMA_PASSWORD) {
     console.error("Thiếu UPHARMA_USERNAME hoặc UPHARMA_PASSWORD");
+    clearInterval(heartbeatTimer);
     process.exit(1);
   }
 
@@ -178,6 +211,7 @@ async function run() {
 
   if (loginData.RespCode !== 0 || !loginData.Token) {
     console.error("Đăng nhập thất bại:", loginData.RespText);
+    clearInterval(heartbeatTimer);
     process.exit(1);
   }
 
@@ -187,6 +221,7 @@ async function run() {
   
   if (shops.length === 0) {
     console.error("Không có nhà thuốc hợp lệ sau khi filter.");
+    clearInterval(heartbeatTimer);
     process.exit(1);
   }
 
@@ -214,7 +249,7 @@ async function run() {
   const resources = ['inventory', 'invoices', 'messages', 'employees', 'orders', 'sales_speed'];
   
   for (const resourceName of resources) {
-    console.log(`Đang lấy data cho ${resourceName}...`);
+    console.log(`\n[resource] START ${resourceName} (${shops.length} shop)`);
     const config = getResourceConfig(resourceName);
     const data = [];
     const failedShops = [];
@@ -283,13 +318,18 @@ async function run() {
 
     // Restore JSON output for frontend compatibility
     fs.writeFileSync(path.join(DATA_DIR, `${resourceName}.json`), JSON.stringify(resourceData, null, 2));
-    console.log(`Đã lưu ${resourceName}.json`);
+    console.log(`[resource] DONE ${resourceName}. Đã lưu ${resourceName}.json`);
   }
   
   console.log("Hoàn thành fetch data!");
+  clearInterval(heartbeatTimer);
   if (db) {
     process.exit(0);
   }
 }
 
-run().catch(console.error);
+run().catch((error) => {
+  console.error("Fetch data failed:", error);
+  clearInterval(heartbeatTimer);
+  process.exit(1);
+});

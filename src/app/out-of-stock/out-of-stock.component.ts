@@ -19,6 +19,7 @@ interface OutOfStockItem {
   productName: string;
   productCode: string;
   quantityText: string;
+  shortageMonth: string;
   zeroStock: boolean;
   unit: string;
   searchText: string;
@@ -115,6 +116,10 @@ export class OutOfStockComponent implements OnInit {
 
     return this.rows.filter((row) => {
       if (row.shopCode !== this.activeShopCode) {
+        return false;
+      }
+
+      if (!row.zeroStock) {
         return false;
       }
 
@@ -619,12 +624,14 @@ export class OutOfStockComponent implements OnInit {
     const unit = String(this.pick(row, ["UnitOfMeasure", "UnitName", "Unit", "DonVi", "DonViTinh", "DVT"]));
     const quantityText = quantity === "" ? "--" : String(quantity);
     const zeroStock = this.toNumber(quantity) === 0;
+    const shortageMonth = this.getShortageMonthLabel(row);
     const item = {
       rowKey: [shop.ShopCode, productCode, productName, rowIndex].join("|"),
       shopCode: shop.ShopCode,
       productName,
       productCode,
       quantityText,
+      shortageMonth,
       zeroStock,
       unit,
       searchText: "",
@@ -637,12 +644,38 @@ export class OutOfStockComponent implements OnInit {
         item.productName,
         item.productCode,
         item.quantityText,
+        item.shortageMonth,
         item.unit,
         formatMoney(this.pick(row, ["UnitPrice", "Price", "Gia", "GiaBan"])),
       ].join(" "),
     );
 
     return item;
+  }
+
+  private getShortageMonthLabel(row: RawRecord): string {
+    const sessionText = String(this.pick(row, ["Session", "Period", "MonthLabel", "Month", "Thang"])).trim();
+    if (sessionText) {
+      const monthMatch = sessionText.match(/Tháng\s*\d+\s*-\s*Năm\s*(\d{4})/i);
+      if (monthMatch) {
+        const monthPart = sessionText.match(/Tháng\s*(\d+)/i);
+        if (monthPart) {
+          return `Tháng ${monthPart[1]} - Năm ${monthMatch[1]}`;
+        }
+      }
+      return sessionText;
+    }
+
+    const dateText = String(this.pick(row, ["TimeBegin", "TimeStart", "BeginTime", "StartTime", "Date", "Ngay"])).trim();
+    const parsed = this.parseDateTimeValue(dateText);
+    if (parsed !== null) {
+      const date = new Date(parsed);
+      const month = date.getMonth() + 1;
+      const year = date.getFullYear();
+      return `Tháng ${month} - Năm ${year}`;
+    }
+
+    return "--";
   }
 
   private extractArray(data: unknown): RawRecord[] {
