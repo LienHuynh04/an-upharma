@@ -25,26 +25,49 @@
   </header>
 
   <p class="api-test-error" *ngIf="dashboardErrorText">{{ dashboardErrorText }}</p>
-  <section class="dashboard-shell" *ngIf="!dashboardLoading && !dashboardErrorText">
+  <section class="dashboard-shell" *ngIf="!dashboardErrorText">
     <article class="dashboard-card dashboard-card-chart">
       <header><h2>Doanh số bán hàng theo ca</h2></header>
       <div class="chart-wrap">
+        <div class="chart-loading" *ngIf="chartLoading">
+          <span class="loader" aria-hidden="true"></span>
+          <strong>Đang tải biểu đồ...</strong>
+        </div>
         <canvas #salesChartCanvas></canvas>
       </div>
     </article>
 
     <article class="dashboard-card dashboard-card-top">
-      <header><h2>Top 5 sản phẩm doanh số cao</h2></header>
-      <div class="top-list">
-        <div *ngFor="let item of topProductSales; let index = index">
-          <strong>{{ getTopProductRank(index) }}. {{ item.ProductName }}</strong>
-          <span>{{ formatMoney(item.Amount) }}</span>
+      <div class="top3-header">
+        <div class="title">
+          <span class="mdi mdi-trophy"></span>
+          <p>Top 5 sản phẩm doanh số cao</p>
+        </div>
+      </div>
+      <div class="line-honizontal"></div>
+      <div class="top3-list">
+        <div
+          *ngFor="let item of topProductSales; let index = index"
+          class="top3-cell"
+          [style.--color-bg]="getTopProductBg(index)"
+        >
+          <div [class.top3-celltop1]="index === 0">
+            <div>
+              <p>{{ getTopProductRank(index) }}. {{ item.ProductName }}</p>
+              <div class="money-order">
+                <p>Doanh số: <span>{{ formatMoney(item.Amount) }}</span></p>
+              </div>
+            </div>
+            <div *ngIf="index === 0">
+              <span class="mdi mdi-star icon-star"></span>
+            </div>
+          </div>
         </div>
       </div>
     </article>
   </section>
 
-  <div class="dashboard-loading" *ngIf="dashboardLoading">
+  <div class="dashboard-loading" *ngIf="dashboardLoading && !customerNewLst.length">
     <span class="loader" aria-hidden="true"></span>
     <strong>Đang tải dashboard...</strong>
   </div>

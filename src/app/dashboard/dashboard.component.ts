@@ -72,6 +72,7 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
   selectedStartDate = "";
   selectedEndDate = "";
   dashboardLoading = false;
+  chartLoading = false;
   dashboardErrorText = "";
   paymentMethodInfo: PaymentMethodInfo = { Cash: 0, Card: 0, VNPay: 0, CK: 0 };
   topProductSales: StatisticTopProduct[] = [];
@@ -106,31 +107,34 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
     }
 
     this.dashboardLoading = true;
+    this.chartLoading = true;
     this.dashboardErrorText = "";
+    this.customerNewLst = [];
 
     try {
-      const [statistics, customerNew] = await Promise.all([
-        this.upharmaService.callEndpoint<StatisticsShopResponse>(this.statisticsEndpoint, {
-          ShopCode: this.activeShopCode,
-          TimeStart: this.getRangeStart(),
-          TimeEnd: this.getRangeEnd(),
-          Token: session.Token,
-          uPharmaID: String(session.UserInfo.uPharmaID),
-        }),
-        this.upharmaService.callEndpoint<CustomerNewResponse>(this.customerNewEndpoint, {
-          Month: this.getEndMonth(),
-          Year: this.getEndYear(),
-          Token: session.Token,
-          uPharmaID: String(session.UserInfo.uPharmaID),
-          ShopCode: this.activeShopCode,
-        }),
-      ]);
+      const customerNew = await this.upharmaService.callEndpoint<CustomerNewResponse>(this.customerNewEndpoint, {
+        Month: this.getEndMonth(),
+        Year: this.getEndYear(),
+        Token: session.Token,
+        uPharmaID: String(session.UserInfo.uPharmaID),
+        ShopCode: this.activeShopCode,
+      });
+
+      this.customerNewLst = customerNew.CustomerNewLst || [];
+      this.dashboardLoading = false;
+
+      const statistics = await this.upharmaService.callEndpoint<StatisticsShopResponse>(this.statisticsEndpoint, {
+        ShopCode: this.activeShopCode,
+        TimeStart: this.getRangeStart(),
+        TimeEnd: this.getRangeEnd(),
+        Token: session.Token,
+        uPharmaID: String(session.UserInfo.uPharmaID),
+      });
 
       this.paymentMethodInfo = statistics.PaymentMethodInfo || { Cash: 0, Card: 0, VNPay: 0, CK: 0 };
       this.topProductSales = (statistics.TopProductSalesLst || []).slice(0, 5);
       this.salesDayLst = statistics.SalesDayLst || [];
       this.customerSalesLst = statistics.CustomerSalesLst || [];
-      this.customerNewLst = customerNew.CustomerNewLst || [];
       this.customerInfoLst = (statistics.CustomerInfoLst || []).map((item) => ({
         title: item.Title || "",
         percent: Number(item.Percent || 0),
@@ -141,6 +145,7 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
       this.dashboardErrorText = error instanceof Error ? error.message : String(error);
     } finally {
       this.dashboardLoading = false;
+      this.chartLoading = false;
     }
   }
 
@@ -167,6 +172,22 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
 
   getTopProductRank(index: number): number {
     return index + 1;
+  }
+
+  getTopProductBg(index: number): string {
+    if (index === 0) {
+      return "#fff2f2";
+    }
+
+    if (index === 1) {
+      return "#f2f2ff";
+    }
+
+    return "#f2f2f2";
+  }
+
+  getTopProductLabel(index: number): string {
+    return `${index + 1}. ${this.topProductSales[index]?.ProductName || ""}`;
   }
 
   private setDefaultDateRange(): void {

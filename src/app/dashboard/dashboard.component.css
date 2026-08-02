@@ -11,7 +11,7 @@
   padding: 20px;
   border: 1px solid var(--line);
   border-radius: 20px;
-  background: linear-gradient(135deg, #f4f7fe 0%, #ffffff 100%);
+  background: var(--surface);
   box-shadow: var(--shadow);
 }
 
@@ -19,7 +19,7 @@
   display: inline-block;
   font-size: 12px;
   font-weight: 800;
-  color: #4e84f6;
+  color: var(--gold);
   letter-spacing: 0.08em;
 }
 
@@ -44,7 +44,7 @@
   gap: 6px;
   font-size: 11px;
   font-weight: 700;
-  color: #334155;
+  color: var(--text);
 }
 
 .dashboard-actions select {
@@ -81,6 +81,12 @@
   filter: brightness(1.02);
 }
 
+.dashboard-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
 .dashboard-card {
   border: 1px solid var(--line);
   border-radius: 20px;
@@ -96,14 +102,130 @@
 
 .dashboard-card-chart,
 .dashboard-card-top {
-  background: linear-gradient(180deg, #111827 0%, #0f172a 100%);
-  border-color: rgba(148, 163, 184, 0.18);
-  color: #e5e7eb;
+  border-color: var(--line);
 }
 
 .dashboard-card-chart header h2,
 .dashboard-card-top header h2 {
+  color: var(--text);
+}
+
+.dashboard-card-top {
+  background: linear-gradient(180deg, #111827 0%, #0f172a 100%);
+  color: #e5e7eb;
+}
+
+.dashboard-card-top header h2,
+.dashboard-card-top .top3-header .title p,
+.dashboard-card-top .top3-cell p:first-child,
+.dashboard-card-top .money-order p {
+  color: #e5e7eb;
+}
+
+.dashboard-card-top .top3-header .title span,
+.dashboard-card-top .icon-star {
+  color: var(--gold);
+}
+
+.dashboard-card-top .line-honizontal {
+  background: linear-gradient(90deg, rgba(148, 163, 184, 0.05), rgba(148, 163, 184, 0.45), rgba(148, 163, 184, 0.05));
+}
+
+.dashboard-card-top .top3-cell p:first-child {
   color: #f8fafc;
+}
+
+.dashboard-card-top .money-order span {
+  color: #93c5fd;
+}
+
+.dashboard-card-top .top3-cell {
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.18);
+}
+
+.top3-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.top3-header .title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+}
+
+.top3-header .title span {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--gold);
+  background: var(--gold-soft);
+  font-size: 20px;
+}
+
+.top3-header .title p {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.line-honizontal {
+  height: 1px;
+  margin: 12px 0 16px;
+  background: linear-gradient(90deg, rgba(148, 163, 184, 0.12), rgba(148, 163, 184, 0.5), rgba(148, 163, 184, 0.12));
+}
+
+.top3-list {
+  display: grid;
+  gap: 10px;
+}
+
+.top3-cell {
+  background: var(--color-bg);
+  border-radius: 16px;
+  padding: 12px;
+}
+
+.top3-celltop1 {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.top3-cell p {
+  margin: 0;
+  line-height: 1.4;
+}
+
+.top3-cell p:first-child {
+  font-weight: 800;
+  color: var(--text);
+}
+
+.money-order {
+  margin-top: 8px;
+}
+
+.money-order p {
+  color: #475569;
+  font-size: 13px;
+}
+
+.money-order span {
+  color: #0066ff;
+  font-weight: 900;
+}
+
+.icon-star {
+  color: #f59e0b;
+  font-size: 22px;
+  line-height: 1;
 }
 
 .payment-grid,
@@ -126,7 +248,7 @@
   align-items: center;
   padding: 10px 12px;
   border-radius: 14px;
-  background: #f8fbff;
+  background: var(--surface-2);
 }
 
 .payment-grid div span,
@@ -150,13 +272,13 @@
 }
 
 .table-head {
-  background: #edf3ff;
+  background: var(--surface-2);
   font-weight: 800;
 }
 
 .table-row {
-  background: #fff;
-  border: 1px solid #eef2ff;
+  background: var(--surface);
+  border: 1px solid var(--line);
 }
 
 .chart-wrap {
@@ -164,6 +286,18 @@
   position: relative;
   height: 420px;
   min-height: 420px;
+}
+
+.chart-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(2px);
+  z-index: 1;
 }
 
 .chart-wrap canvas {
@@ -175,7 +309,7 @@
 .chart-axis {
   display: grid;
   align-content: space-between;
-  color: #94a3b8;
+  color: var(--muted);
   font-size: 11px;
 }
 
@@ -208,7 +342,7 @@
 }
 
 .shift-bars span {
-  color: #cbd5e1;
+  color: var(--muted);
   font-size: 11px;
   text-align: center;
 }

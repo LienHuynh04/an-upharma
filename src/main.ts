@@ -18,7 +18,7 @@ import { HomeComponent } from "./app/home/home.component";
 const routes: Routes = [
   {
     path: "",
-    redirectTo: "dashboard",
+    redirectTo: "chi-tieu-nhan-vien",
     pathMatch: "full",
   },
   {
@@ -78,7 +78,7 @@ const routes: Routes = [
   },
   {
     path: "**",
-    redirectTo: "ton-kho",
+    redirectTo: "chi-tieu-nhan-vien",
   },
 ];
 

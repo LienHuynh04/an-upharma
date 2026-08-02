@@ -1,6 +1,12 @@
 import { CommonModule } from "@angular/common";
 import { Component, OnInit } from "@angular/core";
-import { Router, RouterLink, RouterLinkActive, RouterOutlet } from "@angular/router";
+import {
+  NavigationEnd,
+  Router,
+  RouterLink,
+  RouterLinkActive,
+  RouterOutlet,
+} from "@angular/router";
 import { UpharmaService } from "../upharma.service";
 
 @Component({
@@ -17,7 +23,7 @@ export class LayoutComponent implements OnInit {
   layoutMode: "left" | "top" = "left";
   menuGroups: Record<string, boolean> = {
     profile: false,
-    goods: true,
+    goods: false,
     stats: false,
     test: false,
     n8n: false,
@@ -34,6 +40,12 @@ export class LayoutComponent implements OnInit {
   ngOnInit() {
     this.darkMode = localStorage.getItem("upharma_dark_mode") === "true";
     this.checkSession();
+    this.syncMenuState(this.router.url);
+    this.router.events.subscribe((event) => {
+      if (event instanceof NavigationEnd) {
+        this.syncMenuState(event.urlAfterRedirects || event.url);
+      }
+    });
   }
 
   get userInitial(): string {
@@ -72,6 +84,12 @@ export class LayoutComponent implements OnInit {
 
   toggleMenuGroup(group: string) {
     this.menuGroups[group] = !this.menuGroups[group];
+  }
+
+  private syncMenuState(url: string): void {
+    const isStatsRoute =
+      url.includes("/chi-tieu-nhan-vien") || url.includes("/chi-tieu-nha-thuoc-trong-nam");
+    this.menuGroups["stats"] = isStatsRoute;
   }
 
   openLogoutConfirm(e: Event) {

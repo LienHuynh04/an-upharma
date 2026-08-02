@@ -60,11 +60,6 @@ interface ResourceConfig {
   payload: () => RawRecord;
 }
 
-interface FirebaseCallConfig {
-  resourceName: string;
-  acceptShopCode?: boolean;
-}
-
 interface CachedResource {
   savedAt: number;
   data: ResourceResponse;
@@ -152,58 +147,6 @@ export class UpharmaService {
     payload: RawRecord,
     options: { cache?: boolean; forceRefresh?: boolean } = {},
   ): Promise<T> {
-    const firebaseCallResource = this.getFirebaseCallResource(pathname);
-    if (firebaseCallResource) {
-      const firebaseDbUrl = (environment as any).firebaseDbUrl;
-      const payloadShopCodes = this.extractShopCodesFromPayload(payload);
-      const shopsToFetch =
-        payloadShopCodes.length > 0
-          ? this.shopList.filter((shop) => payloadShopCodes.includes(shop.ShopCode))
-          : this.shopList;
-
-      if (firebaseDbUrl && shopsToFetch.length > 0) {
-        const normalizedFirebase = firebaseDbUrl.replace(/\/$/, "");
-        const shopsData: any[] = [];
-        const failedShops: string[] = [];
-        const resourceName = firebaseCallResource.resourceName;
-
-        await Promise.all(
-          shopsToFetch.map(async (shop) => {
-            try {
-              const url = `${normalizedFirebase}/shops/${shop.ShopCode}/upharma_data/${resourceName}.json`;
-              console.log(`[Firebase Fetch] Đang tải ${resourceName} cho shop ${shop.ShopCode} từ: ${url}`);
-              const response = await fetch(url);
-              if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-              }
-
-              const json = await response.json();
-              if (json && Array.isArray(json.data)) {
-                shopsData.push(...json.data);
-              } else {
-                failedShops.push(`${shop.ShopCode}: Firebase không có mảng data hợp lệ`);
-              }
-            } catch (err) {
-              const message = err instanceof Error ? err.message : String(err);
-              failedShops.push(`${shop.ShopCode}: ${message}`);
-              console.warn(`Lỗi tải ${resourceName} của shop ${shop.ShopCode}:`, err);
-            }
-          }),
-        );
-
-        const combined = {
-          success: true,
-          resource: resourceName,
-          shops: shopsToFetch,
-          failedShops,
-          data: shopsData,
-          fetchedAt: new Date().toISOString(),
-        };
-
-        return combined as unknown as T;
-      }
-    }
-
     if (pathname.includes("GetReportSalesSpeed")) {
       const firebaseDbUrl = (environment as any).firebaseDbUrl;
       const payloadShopCodes = this.extractShopCodesFromPayload(payload);
@@ -323,18 +266,6 @@ export class UpharmaService {
     }
 
     return [];
-  }
-
-  private getFirebaseCallResource(pathname: string): FirebaseCallConfig | null {
-    if (pathname.includes("GetStatisticsShop")) {
-      return { resourceName: "statistics_shop" };
-    }
-
-    if (pathname.includes("GetCustomerNewLst")) {
-      return { resourceName: "customer_new" };
-    }
-
-    return null;
   }
 
   private async triggerGithubCronjob(): Promise<void> {

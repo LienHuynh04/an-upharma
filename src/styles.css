@@ -55,6 +55,33 @@ button:disabled {
   opacity: 0.58;
 }
 
+select {
+  color: var(--text);
+  font-size: 12px;
+  width: 100%;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  outline: 0;
+  border-radius: 9px;
+  padding: 11px 12px;
+  min-height: 42px;
+}
+
+select:hover {
+  border-color: rgba(183, 121, 18, 0.42);
+}
+
+select:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 4px rgba(183, 121, 18, 0.12);
+}
+
+select option {
+  color: var(--text);
+  background: var(--surface);
+}
+
 /* Application shell */
 .app {
   display: grid;

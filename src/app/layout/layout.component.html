@@ -19,13 +19,13 @@
             <span class="menu-icon">◎</span><span>Hồ sơ cá nhân</span>
           </a>
         </li>
-        <li class="menu-item">
+        <!-- <li class="menu-item">
           <a routerLink="/dashboard" routerLinkActive="active">
             <span class="menu-icon">⌂</span><span>Tổng quan</span>
           </a>
-        </li>
+        </li> -->
 
-        <li class="nav-section-label">THỐNG KÊ</li>
+        <li class="nav-section-label">CHỈ TIÊU</li>
         <li class="menu-item menu-group" [class.is-open]="menuGroups['stats']">
           <button
             class="menu-parent"
@@ -52,6 +52,8 @@
             </li>
           </ul>
         </li>
+
+        <!-- Trang Tổng quan tạm ẩn để deploy trước -->
 
         <li class="nav-section-label">QUẢN LÝ</li>
         <li class="menu-item menu-group" [class.is-open]="menuGroups['goods']">
@@ -86,7 +88,7 @@
             </li>
           </ul>
         </li>
-
+<!-- 
         <li class="nav-section-label">HỆ THỐNG</li>
         <li class="menu-item">
           <a routerLink="/cronjob" routerLinkActive="active">
@@ -97,7 +99,7 @@
           <a routerLink="/api-test" routerLinkActive="active">
             <span class="menu-icon">↯</span><span>Kiểm tra API</span>
           </a>
-        </li>
+        </li> -->
       </ul>
     </nav>
 
@@ -132,11 +134,6 @@
         <span>⌕</span><input type="search" placeholder="Tìm kiếm nhanh..." />
       </label>
       <div class="topbar-spacer"></div>
-      <nav class="topbar-nav" aria-label="Thống kê nhanh">
-        <a routerLink="/chi-tieu-nhan-vien" routerLinkActive="active"
-          >Chỉ tiêu nhân viên</a
-        >
-      </nav>
       <button
         class="topbar-icon"
         type="button"
