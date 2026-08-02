@@ -31,19 +31,31 @@ const EXCLUDED_SHOP_CODES = new Set(
 );
 
 const DATA_DIR = path.join(__dirname, '..', 'src', 'assets', 'data');
+const REQUEST_TIMEOUT_MS = Number(process.env.UPHARMA_REQUEST_TIMEOUT_MS || 120000);
+const SHOP_CONCURRENCY = Math.max(1, Number(process.env.UPHARMA_SHOP_CONCURRENCY || 3));
 
 async function requestUpharma(pathname, payload) {
-  const response = await fetch(`${UPHARMA_API_BASE_URL}${pathname}`, {
-    method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      Origin: "https://upharma.com.vn",
-      Referer: "https://upharma.com.vn/",
-      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
-    },
-    body: JSON.stringify(payload),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(new Error(`Timeout sau ${REQUEST_TIMEOUT_MS}ms`)), REQUEST_TIMEOUT_MS);
+
+  let response;
+  try {
+    response = await fetch(`${UPHARMA_API_BASE_URL}${pathname}`, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        Origin: "https://upharma.com.vn",
+        Referer: "https://upharma.com.vn/",
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
   const text = await response.text();
   let data;
   try {
@@ -91,11 +103,6 @@ function formatDateTime(date) {
 function getResourceConfig(resourceName, now = new Date()) {
   const currentTime = formatDateTime(now);
   const today = currentTime.slice(0, 10);
-  const twoMonthsAgo = new Date(now);
-  twoMonthsAgo.setUTCMonth(twoMonthsAgo.getUTCMonth() - 2);
-
-  const nineMonthsAgo = new Date(now);
-  nineMonthsAgo.setUTCMonth(nineMonthsAgo.getUTCMonth() - 9);
 
   const configs = {
     inventory: {
@@ -123,28 +130,38 @@ function getResourceConfig(resourceName, now = new Date()) {
         NumberRow: 0,
       }),
     },
-    out_of_stock: {
-      pathname: "/SalesInvoice/GetReportSalesSpeed",
-      payload: () => ({
-        TimeStart: `${today} 00:00:00`,
-        TimeEnd: currentTime,
-        ProductID: "",
-        GetType: "Month",
-        ViewCity: 0,
-      }),
-    },
     sales_speed: {
       pathname: "/SalesInvoice/GetReportSalesSpeed",
       payload: () => ({
         TimeStart: `${today} 00:00:00`,
         TimeEnd: currentTime,
         ProductID: "",
-        GetType: "Week",
+        GetType: "month",
         ViewCity: 0,
       }),
     },
   };
   return configs[resourceName];
+}
+
+async function mapWithConcurrency(items, concurrency, mapper) {
+  const results = new Array(items.length);
+  let index = 0;
+
+  const workers = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+    while (true) {
+      const currentIndex = index;
+      index += 1;
+      if (currentIndex >= items.length) {
+        break;
+      }
+
+      results[currentIndex] = await mapper(items[currentIndex], currentIndex);
+    }
+  });
+
+  await Promise.all(workers);
+  return results;
 }
 
 async function run() {
@@ -194,7 +211,7 @@ async function run() {
     console.log(`Đã push login data và allowed_shops cho ${UPHARMA_USERNAME} lên Firebase RTDB`);
   }
 
-  const resources = ['inventory', 'invoices', 'messages', 'employees', 'orders', 'out_of_stock', 'sales_speed'];
+  const resources = ['inventory', 'invoices', 'messages', 'employees', 'orders', 'sales_speed'];
   
   for (const resourceName of resources) {
     console.log(`Đang lấy data cho ${resourceName}...`);
@@ -202,7 +219,10 @@ async function run() {
     const data = [];
     const failedShops = [];
 
-    for (const shop of shops) {
+    const shopResults = await mapWithConcurrency(shops, SHOP_CONCURRENCY, async (shop) => {
+      const startedAt = Date.now();
+      console.log(`[${resourceName}] START ${shop.ShopCode}`);
+
       try {
         const responseData = await requestUpharma(config.pathname, {
           ...config.payload(),
@@ -218,7 +238,6 @@ async function run() {
           __shopCode: shop.ShopCode,
           __shopName: shop.ShopName,
         }));
-        data.push(...mappedArray);
 
         if (db) {
           await db.ref(`shops/${shop.ShopCode}/upharma_data/${resourceName}`).set({
@@ -231,11 +250,20 @@ async function run() {
             data: mappedArray,
             fetchedAt: new Date().toISOString(),
           });
-          console.log(`Đã push ${resourceName} của shop ${shop.ShopCode} lên Firebase RTDB (${mappedArray.length} records)`);
         }
+
+        console.log(`[${resourceName}] DONE ${shop.ShopCode} (${mappedArray.length} records, ${Math.round((Date.now() - startedAt) / 1000)}s)`);
+        return { shop, mappedArray };
       } catch (error) {
-        failedShops.push(`${shop.ShopCode}: ${error.message}`);
+        const message = error instanceof Error ? error.message : String(error);
+        console.warn(`[${resourceName}] FAIL ${shop.ShopCode}: ${message}`);
+        failedShops.push(`${shop.ShopCode}: ${message}`);
+        return { shop, mappedArray: [] };
       }
+    });
+
+    for (const result of shopResults) {
+      data.push(...result.mappedArray);
     }
 
     const resourceData = {

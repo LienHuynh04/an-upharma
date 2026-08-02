@@ -1,7 +1,7 @@
 export const environment = {
   apiEnabled: true,
   useBackendProxy: false,
-  useStaticData: false,
+  useStaticData: true,
   apiBaseUrl: "https://icpc1hn.work/NHATHUOC",
   directApiBaseUrl: "https://icpc1hn.work/NHATHUOC",
   account: {

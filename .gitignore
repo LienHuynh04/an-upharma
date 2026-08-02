@@ -6,3 +6,8 @@ backend/.env
 backend/.cache/
 .firebase/
 firebase-debug.log
+
+# Generated assets and local runtime files
+/dist/
+src/assets/data/login.json
+.vscode/

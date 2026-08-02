@@ -161,47 +161,58 @@ export class UpharmaService {
     payload: RawRecord,
     options: { cache?: boolean; forceRefresh?: boolean } = {},
   ): Promise<T> {
-    if ((environment as any).useStaticData) {
-      if (pathname.includes("GetReportSalesSpeed")) {
-        const firebaseDbUrl = (environment as any).firebaseDbUrl;
-        if (firebaseDbUrl && this.shopList.length > 0) {
-          const normalizedFirebase = firebaseDbUrl.replace(/\/$/, "");
-          const shopsData: any[] = [];
-          
-          await Promise.all(
-            this.shopList.map(async (shop) => {
-              try {
-                const url = `${normalizedFirebase}/shops/${shop.ShopCode}/upharma_data/sales_speed.json`;
-                console.log(`[Firebase Fetch] Đang tải sales_speed cho shop ${shop.ShopCode} từ: ${url}`);
-                const response = await fetch(url);
-                if (response.ok) {
-                  const json = await response.json();
-                  if (json && Array.isArray(json.data)) {
-                    shopsData.push(...json.data);
-                  }
-                }
-              } catch (err) {
-                console.warn(`Lỗi tải sales_speed của shop ${shop.ShopCode}:`, err);
+    if (pathname.includes("GetReportSalesSpeed")) {
+      const firebaseDbUrl = (environment as any).firebaseDbUrl;
+      const payloadShopCodes = this.extractShopCodesFromPayload(payload);
+      const shopsToFetch =
+        payloadShopCodes.length > 0
+          ? this.shopList.filter((shop) => payloadShopCodes.includes(shop.ShopCode))
+          : this.shopList;
+
+      if (firebaseDbUrl && shopsToFetch.length > 0) {
+        const normalizedFirebase = firebaseDbUrl.replace(/\/$/, "");
+        const shopsData: any[] = [];
+        const failedShops: string[] = [];
+
+        await Promise.all(
+          shopsToFetch.map(async (shop) => {
+            try {
+              const url = `${normalizedFirebase}/shops/${shop.ShopCode}/upharma_data/sales_speed.json`;
+              console.log(`[Firebase Fetch] Đang tải sales_speed cho shop ${shop.ShopCode} từ: ${url}`);
+              const response = await fetch(url);
+              if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
               }
-            })
-          );
-          
-          const combined = {
-            success: true,
-            resource: "sales_speed",
-            data: shopsData,
-            fetchedAt: new Date().toISOString(),
-          };
-          
-          if (shopsData.length === 0) {
-            this.triggerGithubCronjob();
-          }
 
-          return combined as unknown as T;
-        }
+              const json = await response.json();
+              if (json && Array.isArray(json.data)) {
+                shopsData.push(...json.data);
+              } else {
+                failedShops.push(`${shop.ShopCode}: Firebase không có mảng data hợp lệ`);
+              }
+            } catch (err) {
+              const message = err instanceof Error ? err.message : String(err);
+              failedShops.push(`${shop.ShopCode}: ${message}`);
+              console.warn(`Lỗi tải sales_speed của shop ${shop.ShopCode}:`, err);
+            }
+          }),
+        );
 
+        const combined = {
+          success: true,
+          resource: "sales_speed",
+          shops: shopsToFetch,
+          failedShops,
+          data: shopsData,
+          fetchedAt: new Date().toISOString(),
+        };
+
+        return combined as unknown as T;
+      }
+
+      if ((environment as any).useStaticData) {
         const url = this.getStaticDataUrl("assets/data/sales_speed.json");
-        console.log(`[Firebase Fetch] Đang gọi API: ${url}`);
+        console.log(`[Firebase Fetch] Đang đọc fallback tĩnh: ${url}`);
         const response = await fetch(url);
         if (!response.ok) {
           const errText = await response.text();
@@ -209,16 +220,11 @@ export class UpharmaService {
           throw new Error(`Không thể đọc data tĩnh của sales_speed. Mã lỗi: ${response.status}`);
         }
         const json = await response.json();
-        console.log(`[Firebase Fetch] ✅ KẾT NỐI THÀNH CÔNG: Đã đọc được dữ liệu từ URL: ${url}`);
-        
-        const dataArr = (json as any).data || (json as any).DataLst || (json as any).Rows || [];
-        if (Array.isArray(dataArr) && dataArr.length === 0) {
-          this.triggerGithubCronjob();
-        }
-
+        console.log(`[Firebase Fetch] ✅ Đã đọc được dữ liệu tĩnh từ URL: ${url}`);
         return json as T;
       }
-      throw new Error(`API endpoint ${pathname} không được hỗ trợ ở chế độ tĩnh`);
+
+      throw new Error(`Không có Firebase hoặc dữ liệu shop để đọc ${pathname}`);
     }
 
     const normalizedPath = pathname.startsWith("/") ? pathname : `/${pathname}`;
@@ -254,7 +260,26 @@ export class UpharmaService {
 
     this.inFlightCalls.set(cacheKey, request);
 
-    return request;
+  return request;
+  }
+
+  private extractShopCodesFromPayload(payload: RawRecord): string[] {
+    const raw = payload["ShopLst"];
+
+    if (typeof raw === "string") {
+      return raw
+        .split(",")
+        .map((value) => value.trim())
+        .filter(Boolean);
+    }
+
+    if (Array.isArray(raw)) {
+      return raw
+        .map((value) => String(value).trim())
+        .filter(Boolean);
+    }
+
+    return [];
   }
 
   private async triggerGithubCronjob(): Promise<void> {
