@@ -98,6 +98,7 @@
               <th>STT</th>
               <th>Tên SP</th>
               <th>Mã SP</th>
+              <th>Tháng hết</th>
               <th>Tồn/SL</th>
               <th>Đơn vị</th>
             </tr>
@@ -121,6 +122,7 @@
                   placeholder="Mã SP"
                 />
               </th>
+              <th></th>
               <th>
                 <details class="out-stock-multi-filter">
                   <summary>{{ getMultiFilterLabel("quantityText") }}</summary>
@@ -153,17 +155,17 @@
           </thead>
           <tbody>
             <tr *ngIf="!loading && !hasActiveShopLoaded && outStockRefreshing">
-              <td colspan="5" class="empty-row">
+              <td colspan="6" class="empty-row">
                 Đang tải dữ liệu cho {{ activeShopCode }}. Chị vẫn có thể đổi shop hoặc chỉnh bộ lọc trong lúc chờ.
               </td>
             </tr>
             <tr *ngIf="!loading && !hasActiveShopLoaded && !outStockRefreshing">
-              <td colspan="5" class="empty-row">
+              <td colspan="6" class="empty-row">
                 Chọn một nhà thuốc ở phía trên để xem danh sách hàng đã hết của nhà thuốc đó.
               </td>
             </tr>
             <tr *ngIf="!loading && hasActiveShopLoaded && filteredRows.length === 0">
-              <td colspan="5" class="empty-row">
+              <td colspan="6" class="empty-row">
                 Chưa có dữ liệu từ API tốc độ tiêu thụ cho shop này.
               </td>
             </tr>
@@ -191,6 +193,7 @@
                 </button>
               </td>
               <td data-label="Mã SP">{{ item.productCode }}</td>
+              <td data-label="Tháng hết">{{ item.shortageMonth }}</td>
               <td data-label="Tồn/SL">
                 <span class="stock-quantity" [class.is-zero]="item.zeroStock">{{ item.quantityText }}</span>
               </td>
@@ -223,4 +226,3 @@
     <span class="loading-progress-percent">{{ loadingProgress }}%</span>
   </div>
 </div>
-
