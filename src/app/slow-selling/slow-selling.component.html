@@ -79,8 +79,9 @@
         <span class="mobile-filter-toggle-icon" aria-hidden="true">⌄</span>
       </button>
 
-      <div class="out-stock-table-scroll" (scroll)="onTableScroll($event)">
-        <table class="out-stock-table stable-table">
+      <div class="table-frame">
+        <div class="out-stock-table-scroll" (scroll)="onTableScroll($event)" (wheel)="onTableWheel($event)">
+          <table class="out-stock-table stable-table">
           <thead>
             <tr>
               <th>STT</th>
@@ -163,7 +164,8 @@
               </td>
             </tr>
           </tbody>
-        </table>
+          </table>
+        </div>
       </div>
       <div class="table-load-more" *ngIf="filteredRows.length > 0">
         <span>Đang hiển thị {{ displayedRows.length }} / {{ filteredRows.length }} dòng</span>

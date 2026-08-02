@@ -86,9 +86,10 @@
         </span>
         <span class="mobile-filter-toggle-icon" aria-hidden="true">⌄</span>
       </button>
-      <div class="table-scroll" (scroll)="onTableScroll($event)">
-        <table class="inventory-table">
-          <thead>
+      <div class="table-frame">
+        <div class="table-scroll" (scroll)="onTableScroll($event)" (wheel)="onTableWheel($event)">
+          <table class="inventory-table">
+            <thead>
             <tr>
               <th>STT</th>
               <th>Tên SP</th>
@@ -222,7 +223,8 @@
               <td class="number-cell" data-label="VAT(%)">{{ item.vat }}</td>
             </tr>
           </tbody>
-        </table>
+          </table>
+        </div>
       </div>
       <div class="table-load-more" *ngIf="filteredRows.length > 0">
         <span>Đang hiển thị {{ displayedRows.length }} / {{ filteredRows.length }} dòng</span>
@@ -309,4 +311,3 @@
     </section>
   </div>
 </dialog>
-

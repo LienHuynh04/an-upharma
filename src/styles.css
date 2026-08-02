@@ -1104,6 +1104,7 @@ select {
   flex: 1;
   overflow-x: hidden;
   overflow-y: auto;
+  height: auto;
   padding: 24px;
   gap: 20px;
 }
@@ -1672,6 +1673,7 @@ select {
   flex: 1 1 auto;
   overflow-x: hidden;
   overflow-y: auto;
+  overscroll-behavior-y: auto;
 }
 
 .table-load-more {
@@ -2942,7 +2944,7 @@ select {
 
 .out-stock-table-card {
   display: flex;
-  min-height: clamp(520px, 66vh, 900px);
+  min-height: 0;
   flex: 1;
   flex-direction: column;
   margin: 0 14px 14px;
@@ -3044,10 +3046,21 @@ select {
   width: 100%;
 }
 
+.table-frame {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: calc(100dvh - 360px);
+  max-height: calc(100dvh - 360px);
+  overflow: hidden;
+}
+
 .out-stock-table-scroll {
   min-height: 0;
-  flex: 1;
+  flex: 1 1 auto;
+  height: 100%;
   overflow: auto;
+  overscroll-behavior-y: auto;
 }
 
 .out-stock-mobile-filters {
@@ -4211,6 +4224,12 @@ select {
     min-height: 0;
   }
 
+  .content,
+  .page-content-wrapper,
+  .page-inner {
+    overflow-y: hidden;
+  }
+
   .sidebar {
     display: none;
   }
@@ -4341,6 +4360,11 @@ select {
     flex: 1 1 auto;
     overflow-x: hidden;
     overflow-y: auto;
+  }
+
+  .table-frame {
+    height: calc(100dvh - 300px);
+    max-height: calc(100dvh - 300px);
   }
 
   .table-load-more {
@@ -5207,6 +5231,24 @@ select {
     height: auto;
     min-height: 100dvh;
     overflow: visible;
+  }
+
+  .content,
+  .page-content-wrapper,
+  .page-inner {
+    height: auto;
+    overflow: auto;
+  }
+
+  .page-inner {
+    padding: 16px;
+    gap: 16px;
+  }
+
+  .table-frame {
+    min-height: 0;
+    height: calc(100dvh - 300px);
+    max-height: calc(100dvh - 300px);
   }
 
   .api-test-shell {
