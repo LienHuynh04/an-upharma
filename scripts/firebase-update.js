@@ -112,6 +112,18 @@ function getThreeMonthWindow(now = new Date()) {
   };
 }
 
+function getOneMonthWindow(now = new Date()) {
+  const end = new Date(now);
+  const start = new Date(now);
+
+  start.setMonth(start.getMonth() - 1);
+
+  return {
+    start: formatDateTime(start),
+    end: formatDateTime(end),
+  };
+}
+
 function getResourceConfig(resourceName, now = new Date()) {
   const currentTime = formatDateTime(now);
   const today = currentTime.slice(0, 10);
@@ -160,8 +172,8 @@ function getResourceConfig(resourceName, now = new Date()) {
     statistics_shop: {
       pathname: "/CancelProduct/GetStatisticsShop",
       payload: () => ({
-        TimeStart: `${formatDateTime(new Date(now.getFullYear(), now.getMonth(), 3, 0, 7, 10))}`,
-        TimeEnd: `${formatDateTime(new Date(now.getFullYear(), now.getMonth() + 1, 3, 0, 7, 10))}`,
+        TimeStart: getOneMonthWindow(now).start,
+        TimeEnd: getOneMonthWindow(now).end,
       }),
     },
     customer_new: {
