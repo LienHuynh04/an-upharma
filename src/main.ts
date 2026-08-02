@@ -10,11 +10,12 @@ import { RootComponent } from "./app/root.component";
 import { SlowSellingComponent } from "./app/slow-selling/slow-selling.component";
 import { StableConsumptionComponent } from "./app/stable-consumption/stable-consumption.component";
 import { LayoutComponent } from "./app/layout/layout.component";
+import { HomeComponent } from "./app/home/home.component";
 
 const routes: Routes = [
   {
     path: "",
-    redirectTo: "ton-kho",
+    redirectTo: "dashboard",
     pathMatch: "full",
   },
   {
@@ -27,13 +28,12 @@ const routes: Routes = [
     canActivate: [authGuard],
     children: [
       {
-        path: "ton-kho",
-        component: InventoryComponent,
+        path: "dashboard",
+        component: HomeComponent,
       },
       {
-        path: "dashboard",
-        redirectTo: "ton-kho",
-        pathMatch: "full",
+        path: "ton-kho",
+        component: InventoryComponent,
       },
       {
         path: "profile",

@@ -5,9 +5,6 @@
       <a routerLink="/hang-lap-tot"><span>✓</span>Hàng lặp tốt</a>
       <a routerLink="/hang-ban-cham"><span>↓</span>Hàng bán chậm</a>
       <a routerLink="/cronjob"><span>⚙</span>Hệ thống</a>
-      <a href="#n8n-expiry" (click)="openN8nExample('expiry', $event)">
-        <span class="n8n-menu-icon">n8n</span>Tự động hóa
-      </a>
     </nav>
 
     <section class="inventory-header">
@@ -250,64 +247,3 @@
     <span class="loading-progress-percent">{{ loadingProgressPercent }}%</span>
   </div>
 </div>
-
-<dialog class="n8n-dialog" [open]="n8nDialogOpen" aria-labelledby="n8nDialogTitle" (click)="closeN8nDialog()">
-  <div class="n8n-dialog-shell" (click)="$event.stopPropagation()">
-    <header class="n8n-dialog-header">
-      <div>
-        <span class="n8n-kicker">TỰ ĐỘNG HÓA</span>
-        <h2 id="n8nDialogTitle">n8n dùng để làm gì?</h2>
-      </div>
-      <button class="n8n-close" type="button" aria-label="Đóng" (click)="closeN8nDialog()">×</button>
-    </header>
-
-    <p class="n8n-intro">
-      n8n kết nối các hệ thống thành một quy trình tự chạy. Ví dụ: đến giờ đã đặt, n8n gọi API tồn kho,
-      lọc thuốc sắp hết hạn rồi gửi danh sách cho quản lý mà không cần thao tác thủ công.
-    </p>
-
-    <div class="n8n-example-tabs" role="tablist" aria-label="Quy trình n8n mẫu">
-      <button
-        type="button"
-        [class.is-active]="activeN8nWorkflowKey === 'expiry'"
-        (click)="activeN8nWorkflowKey = 'expiry'"
-      >
-        Sắp hết hạn
-      </button>
-      <button
-        type="button"
-        [class.is-active]="activeN8nWorkflowKey === 'inventory'"
-        (click)="activeN8nWorkflowKey = 'inventory'"
-      >
-        Đồng bộ tồn kho
-      </button>
-      <button
-        type="button"
-        [class.is-active]="activeN8nWorkflowKey === 'report'"
-        (click)="activeN8nWorkflowKey = 'report'"
-      >
-        Báo cáo cuối ngày
-      </button>
-    </div>
-
-    <section class="n8n-example-content" aria-live="polite">
-      <div class="n8n-example-heading">
-        <div>
-          <span>{{ activeN8nWorkflow.label }}</span>
-          <h3>{{ activeN8nWorkflow.title }}</h3>
-        </div>
-        <span class="n8n-demo-badge">Demo UI tĩnh</span>
-      </div>
-      <p>{{ activeN8nWorkflow.description }}</p>
-      <ol class="n8n-flow">
-        <li *ngFor="let step of activeN8nWorkflow.steps; let index = index">
-          <span class="n8n-step-number">{{ index + 1 }}</span>
-          <small>{{ step[0] }}</small>
-          <strong>{{ step[1] }}</strong>
-          <em>{{ step[2] }}</em>
-        </li>
-      </ol>
-      <div class="n8n-result">{{ activeN8nWorkflow.result }}</div>
-    </section>
-  </div>
-</dialog>

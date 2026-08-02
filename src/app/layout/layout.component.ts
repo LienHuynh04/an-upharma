@@ -23,13 +23,20 @@ export class LayoutComponent implements OnInit {
   };
   userTitle = "Đang tải...";
   brandShopText = "";
+  darkMode = false;
+  notificationsOpen = false;
 
   showLogoutConfirm = false;
 
   constructor(private upharma: UpharmaService, private router: Router) {}
 
   ngOnInit() {
+    this.darkMode = localStorage.getItem("upharma_dark_mode") === "true";
     this.checkSession();
+  }
+
+  get userInitial(): string {
+    return (this.userTitle.trim().split(/\s+/).at(-1) || "U").slice(0, 1).toUpperCase();
   }
 
   checkSession() {
@@ -46,6 +53,15 @@ export class LayoutComponent implements OnInit {
 
   toggleSidebar() {
     this.appClasses["is-sidebar-open"] = !this.appClasses["is-sidebar-open"];
+  }
+
+  toggleDarkMode() {
+    this.darkMode = !this.darkMode;
+    localStorage.setItem("upharma_dark_mode", String(this.darkMode));
+  }
+
+  toggleNotifications() {
+    this.notificationsOpen = !this.notificationsOpen;
   }
 
   setLayoutMode(mode: "left" | "top") {
