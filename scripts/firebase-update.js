@@ -123,16 +123,6 @@ function getResourceConfig(resourceName, now = new Date()) {
         NumberRow: 0,
       }),
     },
-    out_of_stock: {
-      pathname: "/SalesInvoice/GetReportSalesSpeed",
-      payload: () => ({
-        TimeStart: `${today} 00:00:00`,
-        TimeEnd: currentTime,
-        ProductID: "",
-        GetType: "Month",
-        ViewCity: 0,
-      }),
-    },
     sales_speed: {
       pathname: "/SalesInvoice/GetReportSalesSpeed",
       payload: () => ({
@@ -166,7 +156,6 @@ async function run() {
 
   const allShops = loginData.UserInfo?.ShopLst || [];
   const shops = allShops.filter((shop) => !EXCLUDED_SHOP_CODES.has(shop.ShopCode));
-  const syncStartedAt = new Date().toISOString();
   
   if (shops.length === 0) {
     console.error("Không có nhà thuốc hợp lệ sau khi filter.");
@@ -194,7 +183,7 @@ async function run() {
     console.log(`Đã push login data và allowed_shops cho ${UPHARMA_USERNAME} lên Firebase RTDB`);
   }
 
-  const resources = ['inventory', 'invoices', 'messages', 'employees', 'orders', 'out_of_stock', 'sales_speed'];
+  const resources = ['inventory', 'invoices', 'messages', 'employees', 'orders', 'sales_speed'];
   
   for (const resourceName of resources) {
     console.log(`Đang lấy data cho ${resourceName}...`);
@@ -249,7 +238,6 @@ async function run() {
       shops: shops,
       data,
       failedShops,
-      syncedAt: syncStartedAt,
       fetchedAt: new Date().toISOString(),
     };
 
