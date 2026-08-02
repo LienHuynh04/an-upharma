@@ -38,7 +38,11 @@ export class LayoutComponent implements OnInit {
   constructor(private upharma: UpharmaService, private router: Router) {}
 
   ngOnInit() {
-    this.darkMode = localStorage.getItem("upharma_dark_mode") === "true";
+    const savedDarkMode = localStorage.getItem("upharma_dark_mode");
+    this.darkMode = savedDarkMode === null ? true : savedDarkMode === "true";
+    if (savedDarkMode === null) {
+      localStorage.setItem("upharma_dark_mode", "true");
+    }
     this.checkSession();
     this.syncMenuState(this.router.url);
     this.router.events.subscribe((event) => {
