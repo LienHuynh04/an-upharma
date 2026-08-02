@@ -424,7 +424,7 @@ export class OutOfStockComponent implements OnInit {
         TimeStart: this.timeStart,
         TimeEnd: this.timeEnd,
         ProductID: "",
-        GetType: "Week",
+        GetType: "Month",
         ViewCity: 0,
         ShopLst: shop.ShopCode,
       };
