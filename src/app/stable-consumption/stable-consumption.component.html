@@ -39,22 +39,6 @@
           <span class="out-stock-current-shop">{{ activeShopCode || "--" }}</span>
           <h2>{{ activeShopName }}</h2>
         </div>
-        <!-- <section class="stable-time-filters">
-          <span class="stable-time-label">Khoảng xét</span>
-          <div class="stable-time-buttons">
-            <button type="button" class="btn btn-small" [class.is-active]="selectedMonthWindow === '1d'" (click)="setMonthWindow('1d')" [disabled]="loading || stableRefreshing">Hôm nay</button>
-            <button type="button" class="btn btn-small" [class.is-active]="selectedMonthWindow === '7d'" (click)="setMonthWindow('7d')" [disabled]="loading || stableRefreshing">7 ngày</button>
-            <button type="button" class="btn btn-small" [class.is-active]="selectedMonthWindow === '3m'" (click)="setMonthWindow('3m')" [disabled]="loading || stableRefreshing">
-              3 tháng
-            </button>
-            <button type="button" class="btn btn-small" [class.is-active]="selectedMonthWindow === '6m'" (click)="setMonthWindow('6m')" [disabled]="loading || stableRefreshing">
-              6 tháng
-            </button>
-            <button type="button" class="btn btn-small" [class.is-active]="selectedMonthWindow === '9m'" (click)="setMonthWindow('9m')" [disabled]="loading || stableRefreshing">
-              9 tháng
-            </button>
-          </div>
-        </section> -->
       </div>
 
       <p class="stable-table-note">
@@ -88,8 +72,9 @@
         <span class="mobile-filter-toggle-icon" aria-hidden="true">⌄</span>
       </button>
 
-      <div class="out-stock-table-scroll" (scroll)="onTableScroll($event)">
-        <table class="out-stock-table stable-table">
+      <div class="table-frame">
+        <div class="out-stock-table-scroll" (scroll)="onTableScroll($event)" (wheel)="onTableWheel($event)">
+          <table class="out-stock-table stable-table">
           <thead>
             <tr>
               <th>STT</th>
@@ -172,7 +157,8 @@
               </td>
             </tr>
           </tbody>
-        </table>
+          </table>
+        </div>
       </div>
       <div class="table-load-more" *ngIf="filteredRows.length > 0">
         <span>Đang hiển thị {{ displayedRows.length }} / {{ filteredRows.length }} dòng</span>

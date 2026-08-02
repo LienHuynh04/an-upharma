@@ -354,6 +354,16 @@ export class InventoryComponent implements OnInit {
     }
   }
 
+  onTableWheel(event: WheelEvent): void {
+    const target = event.currentTarget as HTMLElement;
+    const canScrollDown = target.scrollTop + target.clientHeight < target.scrollHeight;
+    const canScrollUp = target.scrollTop > 0;
+
+    if ((event.deltaY > 0 && canScrollDown) || (event.deltaY < 0 && canScrollUp)) {
+      event.stopPropagation();
+    }
+  }
+
   trackByInventory(_: number, row: InventoryItem): string {
     return row.rowKey;
   }

@@ -86,11 +86,11 @@
 </div>
 
 <!-- Logout Confirm Modal -->
-<div class="modal-overlay" *ngIf="showLogoutConfirm" (click)="cancelLogout()">
-  <div class="modal-content logout-modal" (click)="$event.stopPropagation()">
+<div class="confirm-overlay is-visible" *ngIf="showLogoutConfirm" (click)="cancelLogout()">
+  <div class="confirm-modal logout-modal" (click)="$event.stopPropagation()">
     <h3>Đăng xuất</h3>
     <p>Bạn có chắc chắn muốn đăng xuất khỏi UPHARMA không?</p>
-    <div class="modal-actions">
+    <div class="confirm-actions">
       <button class="btn-cancel" type="button" (click)="cancelLogout()">Hủy</button>
       <button class="btn-danger" type="button" (click)="confirmLogout()">Đăng xuất</button>
     </div>
