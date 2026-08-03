@@ -1,4 +1,5 @@
 import { Injectable } from "@angular/core";
+import { Router } from "@angular/router";
 import { environment } from "../environments/environment";
 
 export type RawRecord = Record<string, unknown>;
@@ -87,6 +88,8 @@ export class UpharmaService {
   private readonly inFlightCalls = new Map<string, Promise<unknown>>();
   private sessionData: LoginResponse | null = null;
   private shopList: ShopInfo[] = [];
+
+  constructor(private readonly router: Router) {}
 
   async login(credentials: { UserName: string; Password: string }): Promise<LoginResponse> {
     if (!credentials.UserName || !credentials.Password) {
@@ -827,6 +830,9 @@ export class UpharmaService {
     }
 
     if (!response.ok) {
+      if (response.status === 401 || response.status === 403 || this.isTokenErrorMessage(data)) {
+        this.handleInvalidToken();
+      }
       throw new Error(String(data["message"] || data["RespText"] || `${pathname}: HTTP ${response.status}`));
     }
 
@@ -837,8 +843,25 @@ export class UpharmaService {
 
   private assertBusinessResponse(pathname: string, data: RawRecord): void {
     if (Object.hasOwn(data, "RespCode") && Number(data["RespCode"]) !== 0) {
+      if (this.isTokenErrorMessage(data)) {
+        this.handleInvalidToken();
+      }
       throw new Error(String(data["RespText"] || `${pathname}: RespCode ${data["RespCode"]}`));
     }
+  }
+
+  private isTokenErrorMessage(data: RawRecord): boolean {
+    const text = String(data["RespText"] || data["message"] || "").toLowerCase();
+    return (
+      text.includes("token") &&
+      (text.includes("không hợp lệ") || text.includes("invalid") || text.includes("expired") || text.includes("hết hạn"))
+    );
+  }
+
+  private handleInvalidToken(): never {
+    this.clearSession();
+    void this.router.navigateByUrl("/login", { replaceUrl: true });
+    throw new Error("Token không hợp lệ, vui lòng đăng nhập lại");
   }
 
   private extractArray(data: unknown): RawRecord[] {
