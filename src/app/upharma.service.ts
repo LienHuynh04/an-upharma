@@ -759,9 +759,7 @@ export class UpharmaService {
       throw new Error(`${pathname}: HTTP ${response.status}`);
     }
 
-    if (Object.hasOwn(data, "RespCode") && Number(data["RespCode"]) !== 0) {
-      throw new Error(String(data["RespText"] || `${pathname}: RespCode ${data["RespCode"]}`));
-    }
+    this.assertBusinessResponse(pathname, data);
 
     return data as T;
   }
@@ -851,11 +849,8 @@ export class UpharmaService {
   }
 
   private isTokenErrorMessage(data: RawRecord): boolean {
-    const text = String(data["RespText"] || data["message"] || "").toLowerCase();
-    return (
-      text.includes("token") &&
-      (text.includes("không hợp lệ") || text.includes("invalid") || text.includes("expired") || text.includes("hết hạn"))
-    );
+    const text = String(data["RespText"] || data["message"] || "").trim().toLowerCase();
+    return text === "token không hợp lệ";
   }
 
   private handleInvalidToken(): never {

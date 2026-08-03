@@ -121,7 +121,9 @@ export class EmployeePlanComponent implements OnInit {
           tab.items = Array.isArray(response.EmployeePlanLst) ? response.EmployeePlanLst : [];
           tab.errorText = "";
         } catch (error) {
-          tab.errorText = error instanceof Error ? error.message : String(error);
+          if (!this.isInvalidTokenError(error)) {
+            tab.errorText = error instanceof Error ? error.message : String(error);
+          }
           tab.items = [];
         } finally {
           tab.loading = false;
@@ -132,5 +134,9 @@ export class EmployeePlanComponent implements OnInit {
 
   formatNumber(value: number): string {
     return new Intl.NumberFormat("vi-VN").format(value || 0);
+  }
+
+  private isInvalidTokenError(error: unknown): boolean {
+    return error instanceof Error && error.message.trim().toLowerCase() === "token không hợp lệ, vui lòng đăng nhập lại";
   }
 }
