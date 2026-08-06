@@ -72,6 +72,18 @@ export class LayoutComponent implements OnInit {
     this.appClasses["is-sidebar-open"] = !this.appClasses["is-sidebar-open"];
   }
 
+  closeSidebar(): void {
+    this.appClasses["is-sidebar-open"] = false;
+  }
+
+  get sidebarToggleLabel(): string {
+    return this.appClasses["is-sidebar-open"] ? "Đóng menu" : "Mở menu";
+  }
+
+  get sidebarToggleIcon(): string {
+    return this.appClasses["is-sidebar-open"] ? "×" : "☰";
+  }
+
   toggleDarkMode() {
     this.darkMode = !this.darkMode;
     localStorage.setItem("upharma_dark_mode", String(this.darkMode));

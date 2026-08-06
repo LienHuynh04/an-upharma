@@ -92,6 +92,9 @@ select option {
   color: var(--text);
   background: var(--bg);
 }
+.sidebar-backdrop {
+  display: none;
+}
 .sidebar {
   position: relative;
   z-index: 40;
@@ -2055,6 +2058,19 @@ select option {
     min-height: 100vh;
     overflow: visible;
   }
+  .app.is-sidebar-open {
+    overflow: hidden;
+  }
+  .sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 170;
+    display: block;
+    border: 0;
+    padding: 0;
+    background: rgba(34, 22, 12, 0.55);
+    cursor: pointer;
+  }
   .sidebar {
     position: fixed;
     inset: 0 auto 0 0;
@@ -2065,13 +2081,6 @@ select option {
   }
   .app.is-sidebar-open .sidebar {
     transform: none;
-  }
-  .app.is-sidebar-open::after {
-    position: fixed;
-    inset: 0;
-    z-index: 170;
-    background: rgba(34, 22, 12, 0.55);
-    content: "";
   }
   .content {
     min-height: 100vh;
