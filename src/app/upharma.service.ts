@@ -200,6 +200,8 @@ export class UpharmaService {
     if (pathname.includes("GetReportSalesSpeed")) {
       const firebaseDbUrl = (environment as any).firebaseDbUrl;
       const payloadShopCodes = this.extractShopCodesFromPayload(payload);
+      const getType = String(payload["GetType"] || payload["getType"] || "").toLowerCase();
+      const firebaseResourcePath = getType === "week" ? "derived/sales_speed_3m" : "shops";
       const shopsToFetch =
         payloadShopCodes.length > 0
           ? this.shopList.filter((shop) => payloadShopCodes.includes(shop.ShopCode))
@@ -213,7 +215,10 @@ export class UpharmaService {
         await Promise.all(
           shopsToFetch.map(async (shop) => {
             try {
-              const url = `${normalizedFirebase}/shops/${shop.ShopCode}/upharma_data/sales_speed.json`;
+              const url =
+                firebaseResourcePath === "shops"
+                  ? `${normalizedFirebase}/shops/${shop.ShopCode}/upharma_data/sales_speed.json`
+                  : `${normalizedFirebase}/derived/sales_speed_3m.json`;
               console.log(`[Firebase Fetch] Đang tải sales_speed cho shop ${shop.ShopCode} từ: ${url}`);
               const response = await fetch(url);
               if (!response.ok) {
@@ -221,8 +226,19 @@ export class UpharmaService {
               }
 
               const json = await response.json();
-              if (json && Array.isArray(json.data)) {
-                shopsData.push(...json.data);
+              const dataRows = Array.isArray(json?.data) ? json.data : [];
+
+              if (dataRows.length > 0) {
+                if (firebaseResourcePath === "shops") {
+                  shopsData.push(...dataRows);
+                } else {
+                  shopsData.push(
+                    ...dataRows.filter(
+                      (row: RawRecord) =>
+                        String(row?.["__shopCode"] || row?.["ShopCode"] || "") === shop.ShopCode,
+                    ),
+                  );
+                }
               } else {
                 failedShops.push(`${shop.ShopCode}: Firebase không có mảng data hợp lệ`);
               }

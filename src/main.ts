@@ -6,6 +6,7 @@ import { EmployeePlanComponent } from "./app/employee-plan/employee-plan.compone
 import { InventoryComponent } from "./app/inventory/inventory.component";
 import { LoginComponent } from "./app/login/login.component";
 import { LabelPrintComponent } from "./app/label-print/label-print.component";
+import { NationalInventoryComponent } from "./app/national-inventory/national-inventory.component";
 import { OutOfStockComponent } from "./app/out-of-stock/out-of-stock.component";
 import { ProfileComponent } from "./app/profile/profile.component";
 import { DashboardComponent } from "./app/dashboard/dashboard.component";
@@ -38,6 +39,10 @@ const routes: Routes = [
       {
         path: "ton-kho",
         component: InventoryComponent,
+      },
+      {
+        path: "ton-kho-toan-quoc",
+        component: NationalInventoryComponent,
       },
       {
         path: "profile",
