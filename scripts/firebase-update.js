@@ -148,6 +148,9 @@ function buildInventoryAvailability(resourceData) {
 }
 
 function buildOutOfStockDataset(resourceData, inventoryAvailability) {
+  const safeUser = resourceData?.user && typeof resourceData.user === "object" ? resourceData.user : {};
+  const safeShops = Array.isArray(resourceData?.shops) ? resourceData.shops : [];
+  const safeFailedShops = Array.isArray(resourceData?.failedShops) ? resourceData.failedShops : [];
   const grouped = new Map();
 
   for (const row of resourceData.data || []) {
@@ -209,10 +212,14 @@ function buildOutOfStockDataset(resourceData, inventoryAvailability) {
     success: true,
     resource: "out_of_stock",
     sourceResource: "sales_speed",
-    user: resourceData.user,
-    shops: resourceData.shops,
+    user: {
+      uPharmaID: safeUser.uPharmaID ?? "",
+      FullName: safeUser.FullName ?? "",
+      Email: safeUser.Email ?? "",
+    },
+    shops: safeShops,
     data,
-    failedShops: resourceData.failedShops,
+    failedShops: safeFailedShops,
     fetchedAt: new Date().toISOString(),
   };
 }
