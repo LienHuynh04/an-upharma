@@ -93,6 +93,150 @@ function extractArray(data) {
   return [];
 }
 
+function normalizeProductNameKey(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "D")
+    .replace(/\(\s*(?:S?DK)\s*[-:]?\s*\d+\s*\)/gi, "")
+    .replace(/\b(?:S?DK|SDK)\s*[-:]?\s*\d+\b/gi, "")
+    .replace(/\b(?:TH\d+|MP\d+|SP\d+|CODE\d+)\b/gi, "")
+    .replace(/\b\d{3,}\b/g, " ")
+    .replace(/[-–—>]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toUpperCase();
+}
+
+function extractProductName(row) {
+  return String(
+    row.ProductName ||
+      row.Product_Name ||
+      row.ProductFullName ||
+      row.Product_Name_Full ||
+      row.TenSP ||
+      row.TenSanPham ||
+      row.Name ||
+      row.ItemName ||
+      "",
+  ).trim();
+}
+
+function extractQuantity(row) {
+  return row.QuantityExist ?? row.ExistQuantity ?? row.Quantity ?? row.Qty ?? row.SL ?? row.SoLuong ?? row.TonKho ?? row.InventoryQuantity ?? row.RemainQty;
+}
+
+function buildInventoryAvailability(resourceData) {
+  const availability = new Set();
+
+  for (const row of resourceData.data || []) {
+    const quantity = extractQuantity(row);
+    if (Number(quantity) <= 0) {
+      continue;
+    }
+
+    const key = `${row.__shopCode || ""}|${normalizeProductNameKey(extractProductName(row))}`;
+    availability.add(key);
+  }
+
+  return availability;
+}
+
+function extractSdkVersion(productName, productCode) {
+  const candidates = [
+    String(productName || "").match(/\(\s*(?:S?DK)\s*[-:]?\s*(\d+)\s*\)/i)?.[1],
+    String(productName || "").match(/\b(?:S?DK)\s*[-:]?\s*(\d+)\b/i)?.[1],
+    String(productCode || "").match(/\b(?:TH|SDK|SDk|MP|TB|TC)?(\d{4,})\b/i)?.[1],
+  ].filter(Boolean);
+
+  const values = candidates
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value) && value > 0);
+
+  return values.length > 0 ? Math.max(...values) : 0;
+}
+
+function getCurrentMonthWindow(now = new Date()) {
+  const start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+  return {
+    start: formatDateOnly(start),
+    end: formatDateOnly(end),
+  };
+}
+
+function buildOutOfStockDataset(resourceData, inventoryAvailability) {
+  const grouped = new Map();
+
+  for (const row of resourceData.data || []) {
+    const quantity = extractQuantity(row);
+    if (Number(quantity) !== 0) {
+      continue;
+    }
+
+    const productName = extractProductName(row);
+    const shopCode = row.__shopCode || "";
+    const shopName = row.__shopName || shopCode;
+    const canonicalKey = `${shopCode}|${normalizeProductNameKey(productName)}`;
+
+    if (inventoryAvailability.has(canonicalKey)) {
+      continue;
+    }
+
+    const productCode = String(row.ProductID || row.ProductCode || row.Product_ID || row.MaSP || row.MaSanPham || row.ItemCode || row.Code || "");
+    const sdkVersion = extractSdkVersion(productName, productCode);
+    const shortageMonth = String(row.Session || row.Period || row.MonthLabel || row.Month || row.Thang || "").trim() || "--";
+
+    const item = {
+      rowKey: [shopCode, productName, sdkVersion, shortageMonth].join("|"),
+      shopCode,
+      shopName,
+      productName,
+      productNameKey: normalizeProductNameKey(productName),
+      productCode,
+      sdkLabel: sdkVersion > 0 ? `SDK-${sdkVersion}` : "",
+      sdkVersion,
+      quantityText: quantity === "" || quantity === undefined || quantity === null ? "--" : String(quantity),
+      shortageMonth,
+      zeroStock: true,
+      unit: String(row.UnitOfMeasure || row.UnitName || row.Unit || row.DonVi || row.DonViTinh || row.DVT || ""),
+      searchText: "",
+      expanded: false,
+    };
+
+    const bucket = grouped.get(canonicalKey);
+    if (bucket) {
+      bucket.push(item);
+    } else {
+      grouped.set(canonicalKey, [item]);
+    }
+  }
+
+  const data = Array.from(grouped.values()).map((bucket) =>
+    bucket.sort((first, second) => {
+      const firstSdkPriority = first.sdkVersion > 0 ? 0 : 1;
+      const secondSdkPriority = second.sdkVersion > 0 ? 0 : 1;
+      if (firstSdkPriority !== secondSdkPriority) {
+        return firstSdkPriority - secondSdkPriority;
+      }
+      return second.sdkVersion - first.sdkVersion;
+    })[0],
+  );
+
+  return {
+    success: true,
+    resource: "out_of_stock",
+    sourceResource: "sales_speed",
+    user: resourceData.user,
+    shops: resourceData.shops,
+    data,
+    failedShops: resourceData.failedShops,
+    fetchedAt: new Date().toISOString(),
+  };
+}
+
 function formatDateTime(date) {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Ho_Chi_Minh",
@@ -130,6 +274,10 @@ function getThreeMonthWindow(now = new Date()) {
     start: formatDateOnly(start),
     end: formatDateOnly(current),
   };
+}
+
+function getCurrentMonthSalesSpeedWindow(now = new Date()) {
+  return getCurrentMonthWindow(now);
 }
 
 function getOneMonthWindow(now = new Date()) {
@@ -177,8 +325,8 @@ function getResourceConfig(resourceName, now = new Date()) {
     sales_speed: {
       pathname: "/SalesInvoice/GetReportSalesSpeed",
       payload: () => ({
-        TimeStart: `${getThreeMonthWindow(now).start} 00:00:00`,
-        TimeEnd: `${getThreeMonthWindow(now).end} 23:59:59`,
+        TimeStart: `${getCurrentMonthSalesSpeedWindow(now).start} 00:00:00`,
+        TimeEnd: `${getCurrentMonthSalesSpeedWindow(now).end} 23:59:59`,
         ProductID: "",
         GetType: "month",
         ViewCity: 0,
@@ -273,6 +421,8 @@ async function run() {
   }
 
   const resources = ['inventory', 'invoices', 'messages', 'employees', 'orders', 'sales_speed', 'statistics_shop', 'customer_new'];
+  let inventoryResourceData = null;
+  let salesSpeedResourceData = null;
   
   for (const resourceName of resources) {
     console.log(`\n[resource] START ${resourceName} (${shops.length} shop)`);
@@ -299,6 +449,14 @@ async function run() {
           __shopCode: shop.ShopCode,
           __shopName: shop.ShopName,
         }));
+        if (resourceName === "inventory") {
+          inventoryResourceData = inventoryResourceData || { data: [] };
+          inventoryResourceData.data.push(...mappedArray);
+        }
+        if (resourceName === "sales_speed") {
+          salesSpeedResourceData = salesSpeedResourceData || { data: [] };
+          salesSpeedResourceData.data.push(...mappedArray);
+        }
 
         if (db) {
           await db.ref(`shops/${shop.ShopCode}/upharma_data/${resourceName}`).set({
@@ -345,6 +503,22 @@ async function run() {
     // Restore JSON output for frontend compatibility
     fs.writeFileSync(path.join(DATA_DIR, `${resourceName}.json`), JSON.stringify(resourceData, null, 2));
     console.log(`[resource] DONE ${resourceName}. Đã lưu ${resourceName}.json`);
+  }
+
+  if (salesSpeedResourceData) {
+    const inventoryAvailability = inventoryResourceData ? buildInventoryAvailability(inventoryResourceData) : new Set();
+    const outOfStockData = buildOutOfStockDataset(salesSpeedResourceData, inventoryAvailability);
+
+    fs.writeFileSync(path.join(DATA_DIR, "out_of_stock.json"), JSON.stringify(outOfStockData, null, 2));
+    console.log("[resource] DONE out_of_stock. Đã lưu out_of_stock.json");
+
+    if (db) {
+      await db.ref(`derived/out_of_stock`).set({
+        ...outOfStockData,
+        fetchedAt: new Date().toISOString(),
+      });
+      console.log("[resource] DONE out_of_stock lên Firebase RTDB");
+    }
   }
   
   console.log("Hoàn thành fetch data!");
