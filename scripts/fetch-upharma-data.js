@@ -287,6 +287,16 @@ function getCurrentMonthSalesSpeedWindow(now = new Date()) {
   return getCurrentMonthWindow(now);
 }
 
+function getPreviousThreeMonthWindow(now = new Date()) {
+  const end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+  const start = new Date(now.getFullYear(), now.getMonth() - 3, 1, 0, 0, 0, 0);
+
+  return {
+    start: formatDateOnly(start),
+    end: formatDateOnly(end),
+  };
+}
+
 function getOneMonthWindow(now = new Date()) {
   const end = new Date(now);
   const start = new Date(now);
@@ -430,6 +440,7 @@ async function run() {
   const resources = ['inventory', 'invoices', 'messages', 'employees', 'orders', 'sales_speed', 'statistics_shop', 'customer_new'];
   let inventoryResourceData = null;
   let salesSpeedResourceData = null;
+  let salesSpeedPrevious3MResourceData = null;
   
   for (const resourceName of resources) {
     console.log(`\n[resource] START ${resourceName} (${shops.length} shop)`);
@@ -525,6 +536,19 @@ async function run() {
         fetchedAt: new Date().toISOString(),
       });
       console.log("[resource] DONE out_of_stock lên Firebase RTDB");
+    }
+  }
+
+  if (salesSpeedPrevious3MResourceData) {
+    fs.writeFileSync(path.join(DATA_DIR, "sales_speed_3m.json"), JSON.stringify(salesSpeedPrevious3MResourceData, null, 2));
+    console.log("[resource] DONE sales_speed_3m. Đã lưu sales_speed_3m.json");
+
+    if (db) {
+      await db.ref(`derived/sales_speed_3m`).set({
+        ...salesSpeedPrevious3MResourceData,
+        fetchedAt: new Date().toISOString(),
+      });
+      console.log("[resource] DONE sales_speed_3m lên Firebase RTDB");
     }
   }
   

@@ -38,20 +38,25 @@
       </button>
     </section>
 
-    <section class="out-stock-table-card inventory-table-card">
+    <section class="out-stock-table-card inventory-table-card" [class.filters-collapsed]="filtersCollapsed">
       <div class="out-stock-table-toolbar">
         <div>
           <span class="out-stock-current-shop">{{ activeShopCode || "--" }}</span>
           <h2>{{ activeShopName }}</h2>
         </div>
-        <label class="out-stock-month-filter">
-          <span>Lọc tháng</span>
-          <select [(ngModel)]="monthFilter" (ngModelChange)="onMonthFilterChange()" aria-label="Lọc tháng hiển thị">
-            <option value="current">{{ getMonthOptionLabel("current") }}</option>
-            <option value="prev1">{{ getMonthOptionLabel("prev1") }}</option>
-            <option value="prev2">{{ getMonthOptionLabel("prev2") }}</option>
-          </select>
-        </label>
+        <button
+          class="mobile-filter-toggle"
+          type="button"
+          [attr.aria-expanded]="!filtersCollapsed"
+          aria-controls="outStockColumnFilters"
+          (click)="toggleFilters()"
+        >
+          <span class="mobile-filter-toggle-copy">
+            <strong>Tìm kiếm và bộ lọc</strong>
+            <small>{{ mobileFilterSummary }}</small>
+          </span>
+          <span class="mobile-filter-toggle-icon" aria-hidden="true">⌄</span>
+        </button>
       </div>
 
       <div class="inventory-cache-status out-stock-cache-status" *ngIf="outStockCacheStatus || outStockRefreshing">
@@ -74,24 +79,76 @@
               <th>STT</th>
               <th>Tên SP</th>
               <th>Mã SP</th>
+              <th>Shop</th>
               <th>Tháng hết</th>
               <th>Tồn/SL</th>
               <th>Đơn vị</th>
             </tr>
+            <tr class="column-filter-row" id="outStockColumnFilters">
+              <th></th>
+              <th>
+                <input
+                  [(ngModel)]="textFilters.productName"
+                  (ngModelChange)="onFilterChange()"
+                  type="search"
+                  placeholder="Lọc tên SP"
+                />
+              </th>
+              <th>
+                <input
+                  [(ngModel)]="textFilters.productCode"
+                  (ngModelChange)="onFilterChange()"
+                  type="search"
+                  placeholder="Mã SP"
+                />
+              </th>
+              <th>
+                <input
+                  [(ngModel)]="textFilters.shop"
+                  (ngModelChange)="onFilterChange()"
+                  type="search"
+                  placeholder="Shop"
+                />
+              </th>
+              <th>
+                <input
+                  [(ngModel)]="textFilters.shortageMonth"
+                  (ngModelChange)="onFilterChange()"
+                  type="search"
+                  placeholder="Tháng hết"
+                />
+              </th>
+              <th>
+                <input
+                  [(ngModel)]="textFilters.quantityText"
+                  (ngModelChange)="onFilterChange()"
+                  type="search"
+                  placeholder="Tồn/SL"
+                />
+              </th>
+              <th>
+                <input
+                  [(ngModel)]="textFilters.unit"
+                  (ngModelChange)="onFilterChange()"
+                  type="search"
+                  placeholder="Đơn vị"
+                />
+              </th>
+            </tr>
           </thead>
           <tbody>
             <tr *ngIf="!loading && !hasActiveShopLoaded && outStockRefreshing">
-              <td colspan="6" class="empty-row">
+              <td colspan="7" class="empty-row">
                 Đang tải dữ liệu cho {{ activeShopCode }}. Chị vẫn có thể đổi shop trong lúc chờ.
               </td>
             </tr>
             <tr *ngIf="!loading && !hasActiveShopLoaded && !outStockRefreshing">
-              <td colspan="6" class="empty-row">
+              <td colspan="7" class="empty-row">
                 Chọn một nhà thuốc ở phía trên để xem danh sách hàng đã hết của nhà thuốc đó.
               </td>
             </tr>
             <tr *ngIf="!loading && hasActiveShopLoaded && filteredRows.length === 0">
-              <td colspan="6" class="empty-row">
+              <td colspan="7" class="empty-row">
                 Chưa có dữ liệu từ API tốc độ tiêu thụ cho shop này.
               </td>
             </tr>
@@ -119,7 +176,8 @@
                 </button>
               </td>
               <td data-label="Mã SP">{{ item.productCode }}</td>
-              <td data-label="Tháng hết">{{ getMonthDisplayLabel(item.shortageMonth) }}</td>
+              <td data-label="Shop">{{ activeShopCode }}</td>
+              <td data-label="Tháng hết">{{ item.shortageMonth }}</td>
               <td data-label="Tồn/SL">
                 <span class="stock-quantity" [class.is-zero]="item.zeroStock">{{ item.quantityText }}</span>
               </td>

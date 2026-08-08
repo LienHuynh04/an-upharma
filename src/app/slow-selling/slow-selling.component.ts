@@ -464,9 +464,6 @@ export class SlowSellingComponent implements OnInit {
     return Array.from(groupedRows.entries()).flatMap(([productCode, productRows]) => {
       const monthTotals = this.buildMonthTotals(productRows);
       const slowWindow = this.buildThreeMonthWindow(monthTotals);
-      if (!slowWindow) {
-        return [];
-      }
       const totalQuantity = slowWindow.reduce((sum, month) => sum + month.quantity, 0);
 
       const hasAtLeastOneMonthBelowTwo = slowWindow.some((month) => month.quantity < 2);
@@ -529,12 +526,30 @@ export class SlowSellingComponent implements OnInit {
     return Array.from(monthMap.values()).sort((first, second) => first.date.getTime() - second.date.getTime());
   }
 
-  private buildThreeMonthWindow(months: SlowSellingMonth[]): SlowSellingMonth[] | null {
-    if (months.length < 3) {
-      return null;
+  private buildThreeMonthWindow(months: SlowSellingMonth[]): SlowSellingMonth[] {
+    const monthMap = new Map(months.map((month) => [month.key, month]));
+    const current = new Date();
+    const windowMonths: SlowSellingMonth[] = [];
+
+    for (let offset = 3; offset >= 1; offset -= 1) {
+      const date = new Date(current.getFullYear(), current.getMonth() - offset, 1);
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      const existing = monthMap.get(key);
+      const label = `${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()}`;
+
+      windowMonths.push(
+        existing || {
+          key,
+          sessionText: label,
+          label,
+          quantity: 0,
+          quantityText: "0",
+          date,
+        },
+      );
     }
 
-    return months.slice(-3);
+    return windowMonths;
   }
 
   private getMonthDate(row: RawRecord): Date | null {

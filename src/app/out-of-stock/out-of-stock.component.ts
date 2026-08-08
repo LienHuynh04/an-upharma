@@ -46,13 +46,13 @@ export class OutOfStockComponent implements OnInit {
   rows: OutOfStockItem[] = [];
   timeStart = "";
   timeEnd = "";
-  monthFilter = "current";
   userTitle = "Đang tải người dùng...";
   loading = false;
   loadingProgress = 0;
   outStockRefreshing = false;
   visibleLimit = this.renderBatchSize;
   isAppendingRows = false;
+  filtersCollapsed = true;
   outStockCacheStatus = "";
   errorText = "";
   sidebarCollapsed = false;
@@ -62,6 +62,14 @@ export class OutOfStockComponent implements OnInit {
     profile: false,
     goods: true,
     test: false,
+  };
+  textFilters: Record<"productName" | "productCode" | "shop" | "shortageMonth" | "quantityText" | "unit", string> = {
+    productName: "",
+    productCode: "",
+    shop: "",
+    shortageMonth: "",
+    quantityText: "",
+    unit: "",
   };
   private loadedShopKeys = new Set<string>();
   private loadingShopKeys = new Set<string>();
@@ -98,6 +106,8 @@ export class OutOfStockComponent implements OnInit {
   }
 
   get filteredRows(): OutOfStockItem[] {
+    const activeFilters = Object.entries(this.textFilters).filter(([, value]) => normalizeFilterText(value).trim());
+
     return this.rows.filter((row) => {
       if (row.shopCode !== this.activeShopCode) {
         return false;
@@ -107,21 +117,46 @@ export class OutOfStockComponent implements OnInit {
         return false;
       }
 
-      if (this.normalizeMonthKey(row.shortageMonth) !== this.getFilterMonthKey()) {
-        return false;
+      for (const [key, value] of activeFilters) {
+        const normalizedFilter = normalizeFilterText(value);
+        let normalizedText = "";
+
+        switch (key) {
+          case "productName":
+            normalizedText = normalizeFilterText(row.productName);
+            break;
+          case "productCode":
+            normalizedText = normalizeFilterText(row.productCode);
+            break;
+          case "shop":
+            normalizedText = normalizeFilterText(`${row.shopCode} ${this.activeShopName}`);
+            break;
+          case "shortageMonth":
+            normalizedText = normalizeFilterText(row.shortageMonth);
+            break;
+          case "quantityText":
+            normalizedText = normalizeFilterText(row.quantityText);
+            break;
+          case "unit":
+            normalizedText = normalizeFilterText(row.unit);
+            break;
+          default:
+            normalizedText = "";
+            break;
+        }
+
+        if (!normalizedText.includes(normalizedFilter)) {
+          return false;
+        }
       }
 
       return true;
-    }).sort((first, second) => {
-      const firstPriority = this.getMonthPriority(this.normalizeMonthKey(first.shortageMonth));
-      const secondPriority = this.getMonthPriority(this.normalizeMonthKey(second.shortageMonth));
+    }).sort((first, second) => PRODUCT_NAME_COLLATOR.compare(first.productName, second.productName));
+  }
 
-      if (firstPriority !== secondPriority) {
-        return firstPriority - secondPriority;
-      }
-
-      return PRODUCT_NAME_COLLATOR.compare(first.productName, second.productName);
-    });
+  get mobileFilterSummary(): string {
+    const activeFilterCount = Object.values(this.textFilters).filter((value) => value.trim()).length;
+    return activeFilterCount > 0 ? `${activeFilterCount} bộ lọc đang dùng` : "Chưa có bộ lọc";
   }
 
   get displayedRows(): OutOfStockItem[] {
@@ -179,14 +214,7 @@ export class OutOfStockComponent implements OnInit {
       ShopCode: this.activeShopCode,
       ShopName: this.activeShopName,
     };
-    const exportMonthKey = this.getFilterMonthKey();
-    const exportMonthRows = this.rows.filter((row) => row.zeroStock && this.normalizeMonthKey(row.shortageMonth) === exportMonthKey);
-
-    if (exportMonthRows.length === 0) {
-      return;
-    }
-
-    const shopRows = exportMonthRows.filter((row) => row.shopCode === activeShop.ShopCode);
+    const shopRows = this.filteredRows.filter((row) => row.shopCode === activeShop.ShopCode);
 
     if (shopRows.length === 0) {
       return;
@@ -202,7 +230,7 @@ export class OutOfStockComponent implements OnInit {
         "Đơn vị": row.unit || "--",
       }));
     const worksheet = xlsx.utils.json_to_sheet(sheetRows);
-    xlsx.utils.book_append_sheet(workbook, worksheet, this.makeSheetName(exportMonthKey));
+    xlsx.utils.book_append_sheet(workbook, worksheet, this.makeSheetName(this.getCurrentMonthKey()));
 
     const buffer = xlsx.write(workbook, {
       bookType: "xlsx",
@@ -256,83 +284,21 @@ export class OutOfStockComponent implements OnInit {
     row.expanded = !row.expanded;
   }
 
+  toggleFilters(): void {
+    this.filtersCollapsed = !this.filtersCollapsed;
+  }
+
+  onFilterChange(): void {
+    this.resetVisibleRows();
+  }
+
   private resetVisibleRows(): void {
     this.visibleLimit = this.renderBatchSize;
     this.isAppendingRows = false;
   }
 
-  onMonthFilterChange(): void {
-    this.resetVisibleRows();
-  }
-
-  get monthFilterLabel(): string {
-    const monthKey = this.getFilterMonthKey();
-    return monthKey === this.getCurrentMonthKey() ? "Tháng hiện tại" : `Tháng ${monthKey}`;
-  }
-
-  getMonthOptionLabel(filterKey: "current" | "prev1" | "prev2"): string {
-    const offset = filterKey === "current" ? 0 : filterKey === "prev1" ? 1 : 2;
-    const monthKey = this.getMonthKeyByOffset(offset);
-
-    if (filterKey === "current") {
-      return "Tháng hiện tại";
-    }
-
-    return `Tháng ${Number(monthKey)}`;
-  }
-
-  getMonthDisplayLabel(value: string): string {
-    const monthKey = this.normalizeMonthKey(value);
-    return monthKey === this.getCurrentMonthKey() ? "Tháng hiện tại" : `Tháng ${monthKey}`;
-  }
-
-  private normalizeMonthKey(value: string): string {
-    const trimmed = String(value || "").trim();
-
-    if (!trimmed || trimmed === "--") {
-      return "Unknown";
-    }
-
-    const numeric = trimmed.match(/\d+/)?.[0] || trimmed;
-    return numeric.padStart(2, "0");
-  }
-
   private getCurrentMonthKey(): string {
     return String(new Date().getMonth() + 1).padStart(2, "0");
-  }
-
-  private getMonthKeyByOffset(offset: number): string {
-    const currentMonth = new Date().getMonth() + 1;
-    const month = ((currentMonth - offset - 1 + 12) % 12) + 1;
-    return String(month).padStart(2, "0");
-  }
-
-  private getFilterMonthKey(): string {
-    const monthOffsets: Record<string, number> = {
-      current: 0,
-      prev1: 1,
-      prev2: 2,
-    };
-    const offset = monthOffsets[this.monthFilter] ?? 0;
-    return this.getMonthKeyByOffset(offset);
-  }
-
-  private getMonthPriority(monthKey: string): number {
-    if (monthKey === "Unknown") {
-      return 99;
-    }
-
-    const currentMonth = new Date().getMonth() + 1;
-    const month = Number(monthKey);
-    if (!Number.isFinite(month)) {
-      return 98;
-    }
-
-    const diff = (currentMonth - month + 12) % 12;
-    if (diff === 0) return 0;
-    if (diff === 1) return 1;
-    if (diff === 2) return 2;
-    return 3;
   }
 
   private makeSheetName(monthKey: string): string {

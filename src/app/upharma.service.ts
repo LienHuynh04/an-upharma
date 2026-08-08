@@ -41,6 +41,53 @@ export interface ResourceResponse {
   fetchedAt: string;
 }
 
+export interface ShopPlanApiItem {
+  RowID: number;
+  ShopCode: string;
+  Month: string;
+  TimeCreate: string;
+  TimeModify: string;
+  TimeApprove: string;
+  ApproveID: number;
+  ApproveName?: string;
+  Amount: number;
+  PointSales01: number;
+  QuaCustomer: number;
+  QuaCustomerNew: number;
+  QuaCustomerOld: number;
+  QuaInvoice: number;
+  SKU: number;
+  RatioSlowSales: number;
+  AmountR: number;
+  PointSales01R: number;
+  QuaCustomerR: number;
+  QuaCustomerNewR: number;
+  QuaCustomerOldR: number;
+  QuaInvoiceR: number;
+  SKUR: number;
+  RatioSlowSalesR: number;
+  QuantityHHS: number;
+  Status: number;
+  CusLevel1: number;
+  CusLevel2: number;
+  CusLevel3: number;
+  CusLevel4: number;
+  CusLevel5: number;
+  CusLevel6: number;
+  CusLevel1R: number;
+  CusLevel2R: number;
+  CusLevel3R: number;
+  CusLevel4R: number;
+  CusLevel5R: number;
+  CusLevel6R: number;
+}
+
+export interface ShopPlanApiResponse {
+  RespCode: number;
+  RespText: string;
+  ShopPlanLst: ShopPlanApiItem[];
+}
+
 export interface UserProfileResponse {
   user: RawRecord;
   raw: unknown;
@@ -196,6 +243,13 @@ export class UpharmaService {
           fetchedAt: new Date().toISOString(),
         };
 
+        if (shopsData.length === 0) {
+          console.warn(
+            "[Firebase Fetch] sales_speed từ Firebase rỗng, fallback về API gốc để tránh bảng trống.",
+          );
+          return this.request<T>(pathname, payload);
+        }
+
         return combined as unknown as T;
       }
 
@@ -250,6 +304,10 @@ export class UpharmaService {
     this.inFlightCalls.set(cacheKey, request);
 
   return request;
+  }
+
+  async loadShopPlanByTime(payload: RawRecord): Promise<ShopPlanApiResponse> {
+    return this.callEndpoint<ShopPlanApiResponse>("/ShopPlan/GetShopPlanByTime", payload);
   }
 
   private extractShopCodesFromPayload(payload: RawRecord): string[] {

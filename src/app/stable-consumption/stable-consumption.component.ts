@@ -480,10 +480,6 @@ export class StableConsumptionComponent implements OnInit {
       const monthTotals = this.buildMonthTotals(productRows);
       const stableWindow = this.buildThreeMonthWindow(monthTotals);
 
-      if (!stableWindow) {
-        return [];
-      }
-
       const isStable = stableWindow.every((month) => month.quantity >= 2);
 
       if (!isStable) {
@@ -562,12 +558,30 @@ export class StableConsumptionComponent implements OnInit {
     return new Date(Number(match[2]), Number(match[1]) - 1, 1);
   }
 
-  private buildThreeMonthWindow(months: StableMonth[]): StableMonth[] | null {
-    if (months.length < 3) {
-      return null;
+  private buildThreeMonthWindow(months: StableMonth[]): StableMonth[] {
+    const monthMap = new Map(months.map((month) => [month.key, month]));
+    const current = new Date();
+    const windowMonths: StableMonth[] = [];
+
+    for (let offset = 3; offset >= 1; offset -= 1) {
+      const date = new Date(current.getFullYear(), current.getMonth() - offset, 1);
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      const existing = monthMap.get(key);
+      const label = `${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()}`;
+
+      windowMonths.push(
+        existing || {
+          key,
+          sessionText: label,
+          label,
+          quantity: 0,
+          quantityText: "0",
+          date,
+        },
+      );
     }
 
-    return months.slice(-3);
+    return windowMonths;
   }
 
   private setDefaultDateRange(force = false): void {

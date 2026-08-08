@@ -1,6 +1,6 @@
 .employee-plan-page {
   display: grid;
-  gap: 18px;
+  gap: 12px;
 }
 
 .employee-plan-hero {
@@ -8,7 +8,7 @@
   justify-content: flex-end;
   align-items: end;
   gap: 12px;
-  padding: 19px 20px;
+  padding: 12px 14px;
   border-radius: 15px;
   background: var(--surface);
   border: 1px solid var(--line);
@@ -26,32 +26,32 @@
   display: grid;
   gap: 6px;
   min-width: 140px;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
-  color: #ffffff;
-    }
+  color: var(--muted);
+}
 
 .hero-meta input {
   min-width: 120px;
   border-radius: 9px;
   border: 1px solid var(--line);
-  padding: 10px 12px;
+  padding: 7px 10px;
   background: var(--surface);
   color: var(--text);
 }
 
 .view-button {
   display: inline-flex;
-  min-height: 38px;
+  min-height: 34px;
   align-items: center;
   justify-content: center;
   border: 1px solid var(--gold);
   border-radius: 9px;
-  padding: 0 16px;
+  padding: 0 12px;
   color: #fff;
   background: linear-gradient(135deg, var(--gold-light), var(--gold));
   box-shadow: 0 7px 18px rgba(163, 107, 20, 0.2);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
   cursor: pointer;
 }
@@ -77,7 +77,7 @@
   border-radius: 16px;
   border: 1px solid var(--line);
   background: var(--surface);
-  padding: 14px 15px;
+  padding: 10px 12px;
   box-shadow: var(--shadow);
   color: var(--text);
 }
@@ -89,14 +89,14 @@
 }
 
 .tab-code {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.08em;
   color: inherit;
 }
 
 .shop-tab strong {
-  font-size: 14px;
+  font-size: 12px;
   line-height: 1.35;
   color: inherit;
   display: -webkit-box;
@@ -106,7 +106,8 @@
 }
 
 .shop-tab small {
-  color: #64748b;
+  font-size: 9px;
+  color: #7d6a52;
 }
 
 @media (max-width: 900px) {
@@ -127,7 +128,7 @@
   border-radius: 22px;
   border: 1px solid var(--line);
   box-shadow: var(--shadow);
-  padding: 18px;
+  padding: 12px;
 }
 
 .state-card {
@@ -136,7 +137,7 @@
 
 .state-card strong {
   display: block;
-  font-size: 18px;
+  font-size: 16px;
   margin-bottom: 4px;
 }
 
@@ -144,7 +145,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 16px 0;
+  padding: 10px 0;
 }
 
 .shop-plan-grid {
@@ -158,7 +159,7 @@
   gap: 12px;
   background: var(--surface);
   border-radius: 18px;
-  padding: 16px;
+  padding: 12px;
   box-shadow: var(--shadow);
   border: 1px solid var(--line);
 }
@@ -174,7 +175,7 @@
 }
 
 .card-month {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.08em;
   color: var(--gold);
@@ -191,13 +192,13 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   color: var(--muted);
 }
 
 .card-icon {
-  font-size: 14px;
+  font-size: 12px;
   color: var(--muted);
 }
 
@@ -214,7 +215,7 @@
   min-height: 24px;
   border-radius: 999px;
   padding: 0 10px;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 800;
 }
 
@@ -242,8 +243,8 @@
   flex: 0 0 auto;
   place-items: center;
   border-radius: 10px;
-  color: var(--brown);
-  background: var(--gold-soft);
+  color: #7a4c17;
+  background: #fdf0cd;
 }
 
 .metric-content {
@@ -252,7 +253,7 @@
 }
 
 .metric-lbl {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 900;
   letter-spacing: 0.08em;
   color: var(--muted);
@@ -260,7 +261,7 @@
 
 .metric-val {
   margin-top: 2px;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 800;
   color: var(--text);
 }
@@ -271,7 +272,7 @@
 
 .metric-sub {
   margin-top: 2px;
-  font-size: 11px;
+  font-size: 10px;
   color: var(--muted);
 }
 
@@ -283,8 +284,9 @@
   place-items: center;
   border-radius: 999px;
   border: 2px solid transparent;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 900;
+  background: #fcf4e4;
 }
 
 .badge-ok {
@@ -311,20 +313,20 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 900;
   letter-spacing: 0.08em;
   color: var(--muted);
 }
 
 .tthhs-val {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 800;
   color: var(--green);
 }
 
 .tthhs-sub {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--muted);
 }
 
@@ -350,24 +352,24 @@
 }
 
 .cus-box--dark {
-  background: #3f2418;
+  background: #6a4622;
 }
 
 .cus-ttl {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.08em;
   color: inherit;
 }
 
 .cus-num {
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 800;
   color: inherit;
 }
 
 .cus-real {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
 }
 
@@ -376,7 +378,7 @@
 }
 
 .cus-real.white {
-  color: #fff;
+  color: #fff7e8;
 }
 
 .lv-grid {
@@ -395,19 +397,19 @@
 }
 
 .lv-lbl {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 900;
   color: var(--muted);
 }
 
 .lv-t {
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 800;
   color: var(--text);
 }
 
 .lv-r {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
   color: var(--muted);
 }
@@ -427,19 +429,19 @@
 }
 
 .bot-ico {
-  font-size: 18px;
+  font-size: 16px;
   color: var(--muted);
 }
 
 .bot-ttl {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 900;
   letter-spacing: 0.08em;
   color: var(--muted);
 }
 
 .bot-real {
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 800;
 }
 
@@ -452,7 +454,7 @@
 }
 
 .bot-tgt {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--muted);
 }
 
@@ -463,7 +465,7 @@
   margin-left: auto;
   border-radius: 999px;
   padding: 3px 8px;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 900;
 }
 
