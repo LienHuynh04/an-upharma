@@ -38,7 +38,7 @@
       </button>
     </section>
 
-    <section class="out-stock-table-card inventory-table-card">
+    <section class="out-stock-table-card inventory-table-card" [class.filters-collapsed]="filtersCollapsed">
       <div class="out-stock-table-toolbar">
         <div>
           <span class="out-stock-current-shop">{{ activeShopCode || "--" }}</span>
@@ -66,6 +66,20 @@
 
       <p class="api-test-error" *ngIf="errorText">{{ errorText }}</p>
 
+      <button
+        class="mobile-filter-toggle"
+        type="button"
+        [attr.aria-expanded]="!filtersCollapsed"
+        aria-controls="outStockColumnFilters"
+        (click)="toggleFilters()"
+      >
+        <span class="mobile-filter-toggle-copy">
+          <strong>Tìm kiếm và bộ lọc</strong>
+          <small>{{ mobileFilterSummary }}</small>
+        </span>
+        <span class="mobile-filter-toggle-icon" aria-hidden="true">⌄</span>
+      </button>
+
       <div class="table-frame">
         <div class="out-stock-table-scroll" (scroll)="onTableScroll($event)" (wheel)="onTableWheel($event)">
           <table class="out-stock-table">
@@ -77,6 +91,22 @@
               <th>Tháng hết</th>
               <th>Tồn/SL</th>
               <th>Đơn vị</th>
+            </tr>
+            <tr class="column-filter-row" id="outStockColumnFilters">
+              <th></th>
+              <th>
+                <input [(ngModel)]="textFilters.productName" (ngModelChange)="onFilterChange()" type="search" aria-label="Lọc tên sản phẩm" placeholder="Tên SP" />
+              </th>
+              <th>
+                <input [(ngModel)]="textFilters.productCode" (ngModelChange)="onFilterChange()" type="search" aria-label="Lọc mã sản phẩm" placeholder="Mã SP" />
+              </th>
+              <th></th>
+              <th>
+                <input [(ngModel)]="textFilters.quantityText" (ngModelChange)="onFilterChange()" type="search" aria-label="Lọc số lượng tồn" placeholder="Tồn/SL" />
+              </th>
+              <th>
+                <input [(ngModel)]="textFilters.unit" (ngModelChange)="onFilterChange()" type="search" aria-label="Lọc đơn vị" placeholder="Đơn vị" />
+              </th>
             </tr>
           </thead>
           <tbody>

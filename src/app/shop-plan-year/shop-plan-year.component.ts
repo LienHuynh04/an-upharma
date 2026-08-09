@@ -222,7 +222,9 @@ export class ShopPlanYearComponent implements OnInit {
         const response = await this.upharmaService.callEndpoint<ShopPlanResponse>(this.endpoint, { TimeStart: timeStart, TimeEnd: timeEnd, Token: session.Token, uPharmaID: String(session.UserInfo.uPharmaID), ShopCode: shop.ShopCode });
         tab.items = Array.isArray(response.ShopPlanLst) ? response.ShopPlanLst : [];
       } catch (error) {
-        tab.errorText = error instanceof Error ? error.message : String(error);
+        if (!this.isInvalidTokenError(error)) {
+          tab.errorText = error instanceof Error ? error.message : String(error);
+        }
         tab.items = [];
       } finally {
         tab.loading = false;
@@ -254,6 +256,10 @@ export class ShopPlanYearComponent implements OnInit {
 
   getBadgeClass(realValue: number, targetValue: number): string {
     return this.getPercent(realValue, targetValue) >= 100 ? "badge-ok" : "badge-warn";
+  }
+
+  private isInvalidTokenError(error: unknown): boolean {
+    return error instanceof Error && error.message.trim().toLowerCase() === "token không hợp lệ, vui lòng đăng nhập lại";
   }
 
   getApproveLabel(item: ShopPlanItem): string {

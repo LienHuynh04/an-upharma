@@ -142,7 +142,9 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
       }));
       this.renderSalesChart();
     } catch (error) {
-      this.dashboardErrorText = error instanceof Error ? error.message : String(error);
+      if (!this.isInvalidTokenError(error)) {
+        this.dashboardErrorText = error instanceof Error ? error.message : String(error);
+      }
     } finally {
       this.dashboardLoading = false;
       this.chartLoading = false;
@@ -313,5 +315,9 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
     }
 
     return `${value.slice(8, 10)}/${value.slice(5, 7)}`;
+  }
+
+  private isInvalidTokenError(error: unknown): boolean {
+    return error instanceof Error && error.message.trim().toLowerCase() === "token không hợp lệ, vui lòng đăng nhập lại";
   }
 }

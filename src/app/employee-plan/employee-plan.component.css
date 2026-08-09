@@ -1,6 +1,6 @@
 .employee-plan-page {
   display: grid;
-  gap: 18px;
+  gap: 12px;
 }
 
 .employee-plan-hero {
@@ -8,7 +8,7 @@
   justify-content: flex-end;
   gap: 12px;
   align-items: end;
-  padding: 19px 20px;
+  padding: 12px 14px;
   border-radius: 15px;
   background: var(--surface);
   border: 1px solid var(--line);
@@ -26,32 +26,32 @@
   display: grid;
   gap: 6px;
   min-width: 140px;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
-  color: #ffffff;
+  color: var(--muted);
 }
 
 .hero-meta input {
   min-width: 120px;
   border-radius: 9px;
   border: 1px solid var(--line);
-  padding: 10px 12px;
+  padding: 7px 10px;
   background: var(--surface);
   color: var(--text);
 }
 
 .view-button {
   display: inline-flex;
-  min-height: 38px;
+  min-height: 34px;
   align-items: center;
   justify-content: center;
   border: 1px solid var(--gold);
   border-radius: 9px;
-  padding: 0 16px;
+  padding: 0 12px;
   color: #fff;
   background: linear-gradient(135deg, var(--gold-light), var(--gold));
   box-shadow: 0 7px 18px rgba(163, 107, 20, 0.2);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
   cursor: pointer;
 }
@@ -77,7 +77,7 @@
   border-radius: 16px;
   border: 1px solid var(--line);
   background: var(--surface);
-  padding: 14px 15px;
+  padding: 10px 12px;
   box-shadow: var(--shadow);
   color: var(--text);
 }
@@ -89,7 +89,7 @@
 }
 
 .tab-code {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.08em;
   color: inherit;
@@ -101,7 +101,7 @@
 }
 
 .shop-tab strong {
-  font-size: 14px;
+  font-size: 12px;
   line-height: 1.35;
   color: inherit;
   display: -webkit-box;
@@ -111,7 +111,8 @@
 }
 
 .shop-tab small {
-  color: #64748b;
+  font-size: 9px;
+  color: #7d6a52;
 }
 
 @media (max-width: 900px) {
@@ -132,7 +133,7 @@
   border-radius: 22px;
   border: 1px solid var(--line);
   box-shadow: var(--shadow);
-  padding: 18px;
+  padding: 12px;
 }
 
 .state-card {
@@ -141,7 +142,7 @@
 
 .state-card strong {
   display: block;
-  font-size: 18px;
+  font-size: 16px;
   margin-bottom: 4px;
 }
 
@@ -149,7 +150,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 16px 0;
+  padding: 10px 0;
 }
 
 .employee-plan-grid {
@@ -163,7 +164,7 @@
   gap: 12px;
   background: var(--surface);
   border-radius: 18px;
-  padding: 16px;
+  padding: 12px;
   box-shadow: var(--shadow);
   border: 1px solid var(--line);
 }
@@ -176,16 +177,16 @@
 
 .employee-plan-box h3 {
   margin: 0;
-  font-size: 20px;
+  font-size: 17px;
   line-height: 1.2;
-  color: #ffffff;
+  color: var(--text);
 }
 
 .title-wrap span {
   display: block;
   margin-top: 4px;
-  font-size: 16px;
-  color: #657995;
+  font-size: 13px;
+  color: #8a6e4b;
 }
 
 .employee-icons {
@@ -195,20 +196,20 @@
 }
 
 .money {
-  font-size: 19px;
+  font-size: 16px;
   font-weight: 700;
   margin-bottom: 4px;
   color: var(--text);
 }
 
 .moneyR {
-  font-size: 16px;
+  font-size: 13px;
   font-weight: 600;
   margin-bottom: 12px;
 }
 
 .section-label {
-  font-size: 14px;
+  font-size: 12px;
   margin-bottom: 4px;
   font-weight: 500;
   color: var(--text);
@@ -239,6 +240,7 @@
 }
 
 .number {
+  font-size: 13px;
   font-weight: 700;
   color: var(--text);
 }
@@ -246,16 +248,17 @@
 .real {
   min-width: 72px;
   text-align: right;
+  font-size: 12px;
   font-weight: 700;
   color: var(--text);
 }
 
 .real-good {
-  color: #16a34a;
+  color: #24885a;
 }
 
 .real-light {
-  color: #0f172a;
+  color: #5c4526;
 }
 
 .moneyR-good {

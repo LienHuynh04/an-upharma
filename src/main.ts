@@ -5,6 +5,8 @@ import { authGuard } from "./app/auth.guard";
 import { EmployeePlanComponent } from "./app/employee-plan/employee-plan.component";
 import { InventoryComponent } from "./app/inventory/inventory.component";
 import { LoginComponent } from "./app/login/login.component";
+import { LabelPrintComponent } from "./app/label-print/label-print.component";
+import { NationalInventoryComponent } from "./app/national-inventory/national-inventory.component";
 import { OutOfStockComponent } from "./app/out-of-stock/out-of-stock.component";
 import { ProfileComponent } from "./app/profile/profile.component";
 import { DashboardComponent } from "./app/dashboard/dashboard.component";
@@ -39,6 +41,10 @@ const routes: Routes = [
         component: InventoryComponent,
       },
       {
+        path: "ton-kho-toan-quoc",
+        component: NationalInventoryComponent,
+      },
+      {
         path: "profile",
         component: ProfileComponent,
       },
@@ -69,6 +75,10 @@ const routes: Routes = [
       {
         path: "hang-ban-cham",
         component: SlowSellingComponent,
+      },
+      {
+        path: "in-tem",
+        component: LabelPrintComponent,
       },
       {
         path: "cronjob",

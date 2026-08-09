@@ -72,6 +72,18 @@ export class LayoutComponent implements OnInit {
     this.appClasses["is-sidebar-open"] = !this.appClasses["is-sidebar-open"];
   }
 
+  closeSidebar(): void {
+    this.appClasses["is-sidebar-open"] = false;
+  }
+
+  get sidebarToggleLabel(): string {
+    return this.appClasses["is-sidebar-open"] ? "Đóng menu" : "Mở menu";
+  }
+
+  get sidebarToggleIcon(): string {
+    return this.appClasses["is-sidebar-open"] ? "×" : "☰";
+  }
+
   toggleDarkMode() {
     this.darkMode = !this.darkMode;
     localStorage.setItem("upharma_dark_mode", String(this.darkMode));
@@ -93,7 +105,14 @@ export class LayoutComponent implements OnInit {
   private syncMenuState(url: string): void {
     const isStatsRoute =
       url.includes("/chi-tieu-nhan-vien") || url.includes("/chi-tieu-nha-thuoc-trong-nam");
+    const isGoodsRoute =
+      url.includes("/ton-kho") ||
+      url.includes("/hang-da-het") ||
+      url.includes("/hang-lap-tot") ||
+      url.includes("/hang-ban-cham") ||
+      url.includes("/in-tem");
     this.menuGroups["stats"] = isStatsRoute;
+    this.menuGroups["goods"] = isGoodsRoute;
   }
 
   openLogoutConfirm(e: Event) {

@@ -32,6 +32,8 @@ interface OutOfStockCacheEntry {
   savedAt: number;
 }
 
+type OutOfStockTextFilterKey = "productName" | "productCode" | "quantityText" | "unit";
+
 @Component({
   selector: "app-out-of-stock",
   standalone: true,
@@ -58,6 +60,13 @@ export class OutOfStockComponent implements OnInit {
   sidebarCollapsed = false;
   mobileMenuOpen = false;
   logoutConfirmOpen = false;
+  filtersCollapsed = true;
+  textFilters: Record<OutOfStockTextFilterKey, string> = {
+    productName: "",
+    productCode: "",
+    quantityText: "",
+    unit: "",
+  };
   menuGroups: Record<string, boolean> = {
     profile: false,
     goods: true,
@@ -65,6 +74,7 @@ export class OutOfStockComponent implements OnInit {
   };
   private loadedShopKeys = new Set<string>();
   private loadingShopKeys = new Set<string>();
+  private inventoryAvailabilityPromise: Promise<Set<string>> | null = null;
 
   constructor(
     private readonly upharmaService: UpharmaService,
@@ -111,7 +121,7 @@ export class OutOfStockComponent implements OnInit {
         return false;
       }
 
-      return true;
+      return this.matchesColumnFilters(row);
     }).sort((first, second) => {
       const firstPriority = this.getMonthPriority(this.normalizeMonthKey(first.shortageMonth));
       const secondPriority = this.getMonthPriority(this.normalizeMonthKey(second.shortageMonth));
@@ -130,6 +140,11 @@ export class OutOfStockComponent implements OnInit {
 
   get hasActiveShopLoaded(): boolean {
     return this.loadedShopKeys.has(this.getLoadedShopKey(this.activeShopCode));
+  }
+
+  get mobileFilterSummary(): string {
+    const filterCount = Object.values(this.textFilters).filter((value) => value.trim()).length;
+    return filterCount > 0 ? `${filterCount} bộ lọc đang dùng` : "Chưa có bộ lọc";
   }
 
   async loadOutOfStock(): Promise<void> {
@@ -180,13 +195,7 @@ export class OutOfStockComponent implements OnInit {
       ShopName: this.activeShopName,
     };
     const exportMonthKey = this.getFilterMonthKey();
-    const exportMonthRows = this.rows.filter((row) => row.zeroStock && this.normalizeMonthKey(row.shortageMonth) === exportMonthKey);
-
-    if (exportMonthRows.length === 0) {
-      return;
-    }
-
-    const shopRows = exportMonthRows.filter((row) => row.shopCode === activeShop.ShopCode);
+    const shopRows = this.filteredRows.filter((row) => row.shopCode === activeShop.ShopCode);
 
     if (shopRows.length === 0) {
       return;
@@ -254,6 +263,14 @@ export class OutOfStockComponent implements OnInit {
 
   toggleRecord(row: OutOfStockItem): void {
     row.expanded = !row.expanded;
+  }
+
+  toggleFilters(): void {
+    this.filtersCollapsed = !this.filtersCollapsed;
+  }
+
+  onFilterChange(): void {
+    this.resetVisibleRows();
   }
 
   private resetVisibleRows(): void {
@@ -470,8 +487,11 @@ export class OutOfStockComponent implements OnInit {
         forceRefresh,
       });
       this.loadingProgress = 75;
+      const inventoryAvailability = await this.getInventoryAvailability(forceRefresh);
       const shopRows: OutOfStockItem[] = this.extractArray(response)
         .map((row, index) => this.normalizeSalesSpeedRow(row, shop, index))
+        .filter((row) => row.zeroStock)
+        .filter((row) => !inventoryAvailability.has(this.getInventoryProductKey(row.shopCode, row.productName)))
         .filter((row) => !row.productCode.trim().toUpperCase().startsWith("Y"))
         .sort((first, second) => PRODUCT_NAME_COLLATOR.compare(first.productName, second.productName));
       this.loadingProgress = 92;
@@ -524,7 +544,7 @@ export class OutOfStockComponent implements OnInit {
   private getCacheKey(shopCode: string, uPharmaID: number): string {
     return [
       "out-stock",
-      "v2",
+      "v3",
       uPharmaID,
       shopCode,
       this.timeStart,
@@ -591,6 +611,91 @@ export class OutOfStockComponent implements OnInit {
     const pad = (part: number) => String(part).padStart(2, "0");
 
     return `${pad(date.getHours())}:${pad(date.getMinutes())} ${pad(date.getDate())}-${pad(date.getMonth() + 1)}`;
+  }
+
+  private getInventoryAvailability(forceRefresh: boolean): Promise<Set<string>> {
+    if (!this.inventoryAvailabilityPromise || forceRefresh) {
+      this.inventoryAvailabilityPromise = this.upharmaService
+        .loadInventoryResource({ forceRefresh })
+        .then((resource) => {
+          const availability = new Set<string>();
+
+          for (const row of resource.data || []) {
+            const quantity = this.pick(row, [
+              "QuantityExist",
+              "ExistQuantity",
+              "Quantity",
+              "Qty",
+              "SL",
+              "SoLuong",
+              "TonKho",
+              "InventoryQuantity",
+              "StockQty",
+              "RemainQty",
+            ]);
+
+            if (this.toNumber(quantity) <= 0) {
+              continue;
+            }
+
+            const shopCode = String(row["__shopCode"] || row["ShopCode"] || "");
+            const productName = String(
+              this.pick(row, [
+                "ProductName",
+                "Product_Name",
+                "ProductFullName",
+                "Product_Name_Full",
+                "TenSP",
+                "TenSanPham",
+                "Name",
+                "ItemName",
+              ]),
+            );
+            const key = this.getInventoryProductKey(shopCode, productName);
+
+            if (shopCode && key) {
+              availability.add(key);
+            }
+          }
+
+          return availability;
+        })
+        .catch((error) => {
+          this.inventoryAvailabilityPromise = null;
+          throw error;
+        });
+    }
+
+    return this.inventoryAvailabilityPromise;
+  }
+
+  private getInventoryProductKey(shopCode: string, productName: string): string {
+    const canonicalName = normalizeFilterText(productName)
+      .replace(/\(\s*s?dk\s*[-:]?\s*[\d*]+\s*\)/gi, " ")
+      .replace(/\bs?dk\s*[-:]?\s*[\d*]+\b/gi, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    return canonicalName ? `${shopCode}|${canonicalName}` : "";
+  }
+
+  private matchesColumnFilters(row: OutOfStockItem): boolean {
+    const textTargets: Record<OutOfStockTextFilterKey, string> = {
+      productName: row.productName,
+      productCode: row.productCode,
+      quantityText: row.quantityText,
+      unit: row.unit,
+    };
+
+    for (const [key, filterValue] of Object.entries(this.textFilters) as [OutOfStockTextFilterKey, string][]) {
+      const normalizedFilter = normalizeFilterText(filterValue);
+
+      if (normalizedFilter && !normalizeFilterText(textTargets[key]).includes(normalizedFilter)) {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   private normalizeSalesSpeedRow(row: RawRecord, shop: ShopInfo, rowIndex: number): OutOfStockItem {

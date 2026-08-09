@@ -6,10 +6,10 @@
   --text: #2b2117;
   --muted: #786d61;
   --line: #e8dfd1;
-  --gold: #b77912;
-  --gold-light: #e1aa2c;
-  --gold-soft: #f8eccb;
-  --brown: #4b311a;
+  --gold: #c98c1f;
+  --gold-light: #f0bf4a;
+  --gold-soft: #fbf0cf;
+  --brown: #6b4420;
   --sidebar: #2d2015;
   --green: #24885a;
   --red: #dc3e38;
@@ -63,8 +63,8 @@ select {
   background: var(--bg);
   outline: 0;
   border-radius: 9px;
-  padding: 11px 12px;
-  min-height: 42px;
+  padding: 8px 10px;
+  min-height: 36px;
 }
 
 select:hover {
@@ -92,6 +92,9 @@ select option {
   color: var(--text);
   background: var(--bg);
 }
+.sidebar-backdrop {
+  display: none;
+}
 .sidebar {
   position: relative;
   z-index: 40;
@@ -100,7 +103,7 @@ select option {
   flex-direction: column;
   overflow: hidden;
   color: #d9cec1;
-  background: linear-gradient(180deg, #291d13 0%, #3b2717 100%);
+  background: linear-gradient(247deg, #624126 0%, #6d3c15 100%);
   box-shadow: 4px 0 28px rgba(46, 29, 16, 0.12);
 }
 .brand {
@@ -466,13 +469,13 @@ select option {
 .profile-content-inner,
 .cronjob-container {
   width: 100%;
-  padding: 26px 28px;
+  padding: 12px 16px;
 }
 .page-inner {
   display: flex;
   min-height: 100%;
   flex-direction: column;
-  gap: 18px;
+  gap: 9px;
 }
 .profile-content-inner,
 .cronjob-container {
@@ -503,8 +506,8 @@ select option {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
-  padding: 19px 20px;
+  gap: 12px;
+  padding: 10px 12px;
 }
 .inventory-header h1,
 .out-stock-hero h1,
@@ -512,7 +515,7 @@ select option {
 .api-test-header h1 {
   margin: 0;
   color: var(--text);
-  font-size: 20px;
+  font-size: 16px;
   letter-spacing: -0.35px;
 }
 .out-stock-hero p,
@@ -521,8 +524,8 @@ select option {
   max-width: 760px;
   margin: 5px 0 0;
   color: var(--muted);
-  font-size: 11px;
-  line-height: 1.55;
+  font-size: 9px;
+  line-height: 1.45;
 }
 .btn,
 .out-stock-hero-actions button,
@@ -530,7 +533,7 @@ select option {
 .api-test-header > button,
 .table-load-more button {
   display: inline-flex;
-  min-height: 38px;
+  min-height: 34px;
   align-items: center;
   justify-content: center;
   border: 1px solid var(--line);
@@ -576,8 +579,8 @@ select option {
 .expiry-legend {
   display: flex;
   flex-wrap: wrap;
-  gap: 13px;
-  margin-top: 7px;
+  gap: 10px;
+  margin-top: 5px;
   color: var(--muted);
   font-size: 9px;
   font-weight: 700;
@@ -607,18 +610,18 @@ select option {
 .expiry-dashboard {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 11px;
+  gap: 7px;
 }
 .expiry-dashboard article {
   position: relative;
   display: flex;
-  min-height: 80px;
+  min-height: 52px;
   flex-direction: column;
   justify-content: space-between;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 13px;
-  padding: 14px 16px;
+  padding: 8px 10px;
   background: var(--surface);
   box-shadow: var(--shadow);
   cursor: pointer;
@@ -647,11 +650,11 @@ select option {
 }
 .expiry-dashboard span {
   color: var(--muted);
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 800;
 }
 .expiry-dashboard strong {
-  font-size: 23px;
+  font-size: 16px;
   text-align: right;
 }
 .expiry-dashboard article.is-active {
@@ -661,30 +664,30 @@ select option {
 .shop-filter-section {
   border: 1px solid var(--line);
   border-radius: 15px;
-  padding: 16px;
+  padding: 10px;
   background: var(--surface);
   box-shadow: var(--shadow);
 }
 .shop-filter-section h2 {
-  margin: 0 0 11px;
-  font-size: 13px;
+  margin: 0 0 6px;
+  font-size: 12px;
 }
 .shop-dashboard,
 .out-stock-tabs {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 9px;
+  gap: 6px;
 }
 .shop-filter-card,
 .out-stock-tabs button {
   display: flex;
   min-width: 0;
-  min-height: 66px;
+  min-height: 48px;
   align-items: center;
   gap: 9px;
   border: 1px solid var(--line);
   border-radius: 11px;
-  padding: 10px 12px;
+  padding: 7px 9px;
   color: var(--text);
   background: var(--surface-2);
   text-align: left;
@@ -707,14 +710,14 @@ select option {
 }
 .shop-filter-card b,
 .out-stock-tabs button > span {
-  font-size: 11px;
+  font-size: 9px;
 }
 .shop-filter-card small,
 .out-stock-tabs button small {
   overflow: hidden;
   margin-top: 3px;
   color: var(--muted);
-  font-size: 9px;
+  font-size: 7px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -722,15 +725,15 @@ select option {
 .out-stock-tabs button > strong {
   margin-left: auto;
   color: var(--gold);
-  font-size: 18px;
+  font-size: 15px;
   white-space: nowrap;
 }
 .inventory-cache-status {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   border: 1px solid #dbeadf;
   border-radius: 11px;
-  padding: 11px 13px;
+  padding: 9px 11px;
   color: #37654d;
   background: #f3fbf6;
 }
@@ -738,7 +741,7 @@ select option {
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  font-size: 10px;
+  font-size: 9px;
 }
 .inventory-cache-status-copy span:last-child {
   color: var(--gold);
@@ -767,8 +770,8 @@ select option {
 }
 .table-frame {
   min-width: 0;
-  min-height: 360px;
-  max-height: calc(100vh - 410px);
+  min-height: 240px;
+  max-height: calc(100vh - 280px);
   overflow: auto;
 }
 .table-scroll,
@@ -794,7 +797,7 @@ select option {
 .runs-table th,
 .runs-table td {
   border-bottom: 1px solid var(--line);
-  padding: 11px 13px;
+  padding: 9px 11px;
   text-align: left;
 }
 .inventory-table thead th,
@@ -805,28 +808,28 @@ select option {
   z-index: 4;
   color: #6e5740;
   background: #f7f0e3;
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 0.35px;
 }
 .column-filter-row th {
-  top: 37px !important;
-  padding: 7px !important;
+  top: 31px !important;
+  padding: 5px !important;
   background: #fbf7ef !important;
 }
 .column-filter-row input,
 .column-filter-row select {
   width: 100%;
-  min-width: 76px;
-  height: 32px;
+  min-width: 66px;
+  height: 28px;
   border: 1px solid #d9cdbd;
   border-radius: 7px;
   padding: 0 8px;
   outline: 0;
   color: var(--text);
   background: var(--surface);
-  font-size: 9px;
+  font-size: 8px;
 }
 .column-filter-row input:focus,
 .column-filter-row select:focus {
@@ -1975,7 +1978,7 @@ select option {
 /* Dark mode uses one coherent palette */
 .dark-mode {
   color-scheme: dark;
-  --bg: #19140f;
+  --bg: #ae8154;
   --surface: #241d16;
   --surface-2: #2d241b;
   --text: #f7eddd;
@@ -2055,6 +2058,19 @@ select option {
     min-height: 100vh;
     overflow: visible;
   }
+  .app.is-sidebar-open {
+    overflow: hidden;
+  }
+  .sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 170;
+    display: block;
+    border: 0;
+    padding: 0;
+    background: rgba(34, 22, 12, 0.55);
+    cursor: pointer;
+  }
   .sidebar {
     position: fixed;
     inset: 0 auto 0 0;
@@ -2065,13 +2081,6 @@ select option {
   }
   .app.is-sidebar-open .sidebar {
     transform: none;
-  }
-  .app.is-sidebar-open::after {
-    position: fixed;
-    inset: 0;
-    z-index: 170;
-    background: rgba(34, 22, 12, 0.55);
-    content: "";
   }
   .content {
     min-height: 100vh;
@@ -2091,7 +2100,7 @@ select option {
   .page-inner,
   .profile-content-inner,
   .cronjob-container {
-    padding: 18px 15px;
+    padding: 14px 12px;
   }
   .dashboard-page {
     padding: 20px 15px;
@@ -2111,7 +2120,7 @@ select option {
     grid-template-columns: repeat(2, 1fr);
   }
   .table-frame {
-    max-height: 65vh;
+    max-height: 58vh;
   }
   .notification-dropdown {
     right: 12px;
