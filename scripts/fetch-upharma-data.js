@@ -119,10 +119,12 @@ function formatDateOnly(date) {
   return `${values.year}-${values.month}-${values.day}`;
 }
 
-function getThreeMonthWindow(now = new Date()) {
+function getSalesSpeedWindow(now = new Date()) {
   const current = new Date(now);
   const start = new Date(now);
-  start.setMonth(start.getMonth() - 2, 1);
+  // Keep the current month for out-of-stock and the three fully completed
+  // months for fast/slow sales classification in the same Firebase payload.
+  start.setMonth(start.getMonth() - 3, 1);
   start.setHours(0, 0, 0, 0);
   current.setHours(23, 59, 59, 999);
 
@@ -177,8 +179,8 @@ function getResourceConfig(resourceName, now = new Date()) {
     sales_speed: {
       pathname: "/SalesInvoice/GetReportSalesSpeed",
       payload: () => ({
-        TimeStart: `${getThreeMonthWindow(now).start} 00:00:00`,
-        TimeEnd: `${getThreeMonthWindow(now).end} 23:59:59`,
+        TimeStart: `${getSalesSpeedWindow(now).start} 00:00:00`,
+        TimeEnd: `${getSalesSpeedWindow(now).end} 23:59:59`,
         ProductID: "",
         GetType: "month",
         ViewCity: 0,

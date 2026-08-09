@@ -74,7 +74,7 @@ export class OutOfStockComponent implements OnInit {
   };
   private loadedShopKeys = new Set<string>();
   private loadingShopKeys = new Set<string>();
-  private inventoryAvailabilityPromise: Promise<Set<string>> | null = null;
+  private inventoryAvailabilityPromises = new Map<string, Promise<Set<string>>>();
 
   constructor(
     private readonly upharmaService: UpharmaService,
@@ -487,7 +487,7 @@ export class OutOfStockComponent implements OnInit {
         forceRefresh,
       });
       this.loadingProgress = 75;
-      const inventoryAvailability = await this.getInventoryAvailability(forceRefresh);
+      const inventoryAvailability = await this.getInventoryAvailability(shop.ShopCode, forceRefresh);
       const shopRows: OutOfStockItem[] = this.extractArray(response)
         .map((row, index) => this.normalizeSalesSpeedRow(row, shop, index))
         .filter((row) => row.zeroStock)
@@ -544,7 +544,7 @@ export class OutOfStockComponent implements OnInit {
   private getCacheKey(shopCode: string, uPharmaID: number): string {
     return [
       "out-stock",
-      "v3",
+      "v4",
       uPharmaID,
       shopCode,
       this.timeStart,
@@ -613,10 +613,10 @@ export class OutOfStockComponent implements OnInit {
     return `${pad(date.getHours())}:${pad(date.getMinutes())} ${pad(date.getDate())}-${pad(date.getMonth() + 1)}`;
   }
 
-  private getInventoryAvailability(forceRefresh: boolean): Promise<Set<string>> {
-    if (!this.inventoryAvailabilityPromise || forceRefresh) {
-      this.inventoryAvailabilityPromise = this.upharmaService
-        .loadInventoryResource({ forceRefresh })
+  private getInventoryAvailability(shopCode: string, forceRefresh: boolean): Promise<Set<string>> {
+    if (!this.inventoryAvailabilityPromises.has(shopCode) || forceRefresh) {
+      const request = this.upharmaService
+        .loadInventoryResource({ forceRefresh, shopCodes: [shopCode] })
         .then((resource) => {
           const availability = new Set<string>();
 
@@ -661,17 +661,19 @@ export class OutOfStockComponent implements OnInit {
           return availability;
         })
         .catch((error) => {
-          this.inventoryAvailabilityPromise = null;
+          this.inventoryAvailabilityPromises.delete(shopCode);
           throw error;
         });
+
+      this.inventoryAvailabilityPromises.set(shopCode, request);
     }
 
-    return this.inventoryAvailabilityPromise;
+    return this.inventoryAvailabilityPromises.get(shopCode)!;
   }
 
   private getInventoryProductKey(shopCode: string, productName: string): string {
     const canonicalName = normalizeFilterText(productName)
-      .replace(/\(\s*s?dk\s*[-:]?\s*[\d*]+\s*\)/gi, " ")
+      .replace(/\(\s*s?dk(?:\s*[-:]?\s*[\d*]+)?\s*\)/gi, " ")
       .replace(/\bs?dk\s*[-:]?\s*[\d*]+\b/gi, " ")
       .replace(/\s+/g, " ")
       .trim();

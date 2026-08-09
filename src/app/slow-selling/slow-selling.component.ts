@@ -3,6 +3,7 @@ import { Component, OnInit } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { Router, RouterLink } from "@angular/router";
 import { normalizeFilterText, PRODUCT_NAME_COLLATOR } from "../inventory-utils";
+import { getCompletedMonthRange, selectCompletedMonths } from "../sales-period-utils";
 import { RawRecord, ShopInfo, UpharmaService } from "../upharma.service";
 
 interface SlowSellingShopTab {
@@ -530,11 +531,7 @@ export class SlowSellingComponent implements OnInit {
   }
 
   private buildThreeMonthWindow(months: SlowSellingMonth[]): SlowSellingMonth[] | null {
-    if (months.length < 3) {
-      return null;
-    }
-
-    return months.slice(-3);
+    return selectCompletedMonths(months, 3);
   }
 
   private getMonthDate(row: RawRecord): Date | null {
@@ -573,9 +570,11 @@ export class SlowSellingComponent implements OnInit {
     } else if (this.selectedRange === '7d') {
       start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6, 0, 0, 0);
     } else {
-      start = new Date(now.getFullYear(), now.getMonth() - 2, 1, 0, 0, 0); // 3 months
+      start = getCompletedMonthRange(3, now).start;
     }
-    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 0);
+    const end = this.selectedRange === '1d' || this.selectedRange === '7d'
+      ? new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 0)
+      : getCompletedMonthRange(3, now).end;
 
     this.timeStart = this.upharmaService.formatUpharmaDateTime(start);
     this.timeEnd = this.upharmaService.formatUpharmaDateTime(end);
@@ -590,7 +589,7 @@ export class SlowSellingComponent implements OnInit {
   private getCacheKey(shopCode: string, uPharmaID: number): string {
     return [
       "slow-selling",
-      "v1",
+      "v2",
       uPharmaID,
       shopCode,
       this.selectedRange,

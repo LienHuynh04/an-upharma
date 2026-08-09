@@ -118,6 +118,17 @@ interface CachedCall {
   data: unknown;
 }
 
+interface ResourceLoadOptions {
+  onFresh?: (data: ResourceResponse) => void;
+  forceRefresh?: boolean;
+  shopCodes?: string[];
+}
+
+interface CachedFirebaseRows {
+  savedAt: number;
+  data: RawRecord[];
+}
+
 @Injectable({ providedIn: "root" })
 export class UpharmaService {
   readonly resourceNames = ["inventory", "invoices", "messages", "employees", "orders"] as const;
@@ -133,6 +144,8 @@ export class UpharmaService {
   private readonly useBackendProxy = environment.useBackendProxy;
   private readonly inFlightResources = new Map<string, Promise<ResourceResponse>>();
   private readonly inFlightCalls = new Map<string, Promise<unknown>>();
+  private readonly firebaseSalesSpeedCache = new Map<string, CachedFirebaseRows>();
+  private readonly firebaseSalesSpeedInFlight = new Map<string, Promise<RawRecord[]>>();
   private sessionData: LoginResponse | null = null;
   private shopList: ShopInfo[] = [];
 
@@ -213,23 +226,41 @@ export class UpharmaService {
         await Promise.all(
           shopsToFetch.map(async (shop) => {
             try {
-              const url = `${normalizedFirebase}/shops/${shop.ShopCode}/upharma_data/sales_speed.json`;
-              console.log(`[Firebase Fetch] Đang tải sales_speed cho shop ${shop.ShopCode} từ: ${url}`);
-              const response = await fetch(url);
-              if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
+              const cached = options.forceRefresh ? undefined : this.firebaseSalesSpeedCache.get(shop.ShopCode);
+              if (cached && Date.now() - cached.savedAt < this.callCacheTtlMs) {
+                shopsData.push(...cached.data);
+                return;
               }
 
-              const json = await response.json();
-              if (json && Array.isArray(json.data)) {
-                shopsData.push(...json.data);
-              } else {
-                failedShops.push(`${shop.ShopCode}: Firebase không có mảng data hợp lệ`);
+              let request = this.firebaseSalesSpeedInFlight.get(shop.ShopCode);
+              if (!request) {
+                request = (async () => {
+                  const url = `${normalizedFirebase}/shops/${shop.ShopCode}/upharma_data/sales_speed.json`;
+                  console.log(`[Firebase Fetch] Đang tải sales_speed cho shop ${shop.ShopCode} từ: ${url}`);
+                  const response = await fetch(url);
+                  if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                  }
+
+                  const json = await response.json();
+                  if (!json || !Array.isArray(json.data)) {
+                    throw new Error("Firebase không có mảng data hợp lệ");
+                  }
+
+                  return json.data as RawRecord[];
+                })();
+                this.firebaseSalesSpeedInFlight.set(shop.ShopCode, request);
               }
+
+              const rows = await request;
+              this.firebaseSalesSpeedCache.set(shop.ShopCode, { savedAt: Date.now(), data: rows });
+              shopsData.push(...rows);
             } catch (err) {
               const message = err instanceof Error ? err.message : String(err);
               failedShops.push(`${shop.ShopCode}: ${message}`);
               console.warn(`Lỗi tải sales_speed của shop ${shop.ShopCode}:`, err);
+            } finally {
+              this.firebaseSalesSpeedInFlight.delete(shop.ShopCode);
             }
           }),
         );
@@ -432,7 +463,7 @@ export class UpharmaService {
   }
 
   async loadInventoryResource(
-    options: { onFresh?: (data: ResourceResponse) => void; forceRefresh?: boolean } = {},
+    options: ResourceLoadOptions = {},
   ): Promise<ResourceResponse> {
     if (!this.sessionData) {
       this.ensureLogin();
@@ -442,6 +473,9 @@ export class UpharmaService {
   }
 
   clearResourceCache(): void {
+    this.firebaseSalesSpeedCache.clear();
+    this.firebaseSalesSpeedInFlight.clear();
+
     for (const key of Object.keys(localStorage)) {
       if (key.startsWith(this.cacheStorageKeyPrefix) || key.startsWith(this.callCacheKeyPrefix)) {
         localStorage.removeItem(key);
@@ -493,7 +527,7 @@ export class UpharmaService {
 
   private async fetchResource(
     resourceName: keyof RemoteDatasets,
-    options: { onFresh?: (data: ResourceResponse) => void; forceRefresh?: boolean } = {},
+    options: ResourceLoadOptions = {},
   ): Promise<ResourceResponse> {
     const session = this.sessionData;
 
@@ -509,11 +543,15 @@ export class UpharmaService {
       const firebaseDbUrl = (environment as any).firebaseDbUrl;
       if (firebaseDbUrl && this.shopList.length > 0) {
         const normalizedFirebase = firebaseDbUrl.replace(/\/$/, "");
+        const requestedShopCodes = new Set(options.shopCodes || []);
+        const shopsToFetch = requestedShopCodes.size > 0
+          ? this.shopList.filter((shop) => requestedShopCodes.has(shop.ShopCode))
+          : this.shopList;
         const shopsData: any[] = [];
         const failedShops: string[] = [];
         
         await Promise.all(
-          this.shopList.map(async (shop) => {
+          shopsToFetch.map(async (shop) => {
             try {
               const url = `${normalizedFirebase}/shops/${shop.ShopCode}/upharma_data/${resourceName}.json`;
               console.log(`[Firebase Fetch] Đang tải ${resourceName} cho shop ${shop.ShopCode} từ: ${url}`);
@@ -540,7 +578,7 @@ export class UpharmaService {
             FullName: session.UserInfo.FullName,
             Email: session.UserInfo.Email,
           },
-          shops: this.shopList,
+          shops: shopsToFetch,
           data: shopsData,
           failedShops,
           fetchedAt: new Date().toISOString(),

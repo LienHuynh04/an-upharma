@@ -3,6 +3,7 @@ import { Component, OnInit } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { Router, RouterLink } from "@angular/router";
 import { normalizeFilterText, PRODUCT_NAME_COLLATOR } from "../inventory-utils";
+import { getCompletedMonthRange, selectCompletedMonths } from "../sales-period-utils";
 import { RawRecord, ShopInfo, UpharmaService } from "../upharma.service";
 
 interface StableShopTab {
@@ -563,11 +564,7 @@ export class StableConsumptionComponent implements OnInit {
   }
 
   private buildThreeMonthWindow(months: StableMonth[]): StableMonth[] | null {
-    if (months.length < 3) {
-      return null;
-    }
-
-    return months.slice(-3);
+    return selectCompletedMonths(months, 3);
   }
 
   private setDefaultDateRange(force = false): void {
@@ -585,9 +582,12 @@ export class StableConsumptionComponent implements OnInit {
       let m = 3;
       if (this.selectedMonthWindow === '6m') m = 6;
       if (this.selectedMonthWindow === '9m') m = 9;
-      start = new Date(now.getFullYear(), now.getMonth() - m + 1, 1, 0, 0, 0);
+      const completedRange = getCompletedMonthRange(m, now);
+      start = completedRange.start;
     }
-    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 0);
+    const end = this.selectedMonthWindow === '1d' || this.selectedMonthWindow === '7d'
+      ? new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 0)
+      : getCompletedMonthRange(3, now).end;
 
     this.timeStart = this.upharmaService.formatUpharmaDateTime(start);
     this.timeEnd = this.upharmaService.formatUpharmaDateTime(end);
@@ -602,7 +602,7 @@ export class StableConsumptionComponent implements OnInit {
   private getCacheKey(shopCode: string, uPharmaID: number): string {
     return [
       "stable-consumption",
-      "v1",
+      "v2",
       uPharmaID,
       shopCode,
       this.selectedMonthWindow,
