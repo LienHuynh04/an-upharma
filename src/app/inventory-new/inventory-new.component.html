@@ -1,10 +1,10 @@
 <div class="page-inner">
     <nav class="top-menu" aria-label="Menu ngang">
-      <a class="active" routerLink="/ton-kho"><span>▥</span>Hàng Hoá</a>
-      <a routerLink="/hang-da-het"><span>0</span>Hàng đã hết</a>
-      <a routerLink="/hang-lap-tot"><span>✓</span>Hàng lặp tốt</a>
-      <a routerLink="/hang-ban-cham"><span>↓</span>Hàng bán chậm</a>
-      <a routerLink="/cronjob"><span>⚙</span>Hệ thống</a>
+      <a routerLink="/ton-kho" routerLinkActive="active"><span>▥</span>Hàng Hoá</a>
+      <a routerLink="/hang-da-het" routerLinkActive="active"><span>0</span>Hàng đã hết</a>
+      <a routerLink="/hang-lap-tot" routerLinkActive="active"><span>✓</span>Hàng lặp tốt</a>
+      <a routerLink="/hang-ban-cham" routerLinkActive="active"><span>↓</span>Hàng bán chậm</a>
+      <a routerLink="/cronjob" routerLinkActive="active"><span>⚙</span>Hệ thống</a>
     </nav>
 
     <section class="inventory-header">
@@ -16,6 +16,11 @@
           <span><i class="blue"></i> 6 Tháng</span>
           <span><i class="green"></i> 1 Năm</span>
         </div>
+        <p class="inventory-total-note">
+          Tổng giá trị đang hiển thị:
+          <strong>{{ filteredInventoryValueLabel }} VNĐ</strong>
+          <span>({{ filteredRows.length }} dòng)</span>
+        </p>
       </div>
     </section>
 
@@ -29,6 +34,7 @@
         <span>{{ card.label }}</span>
         <strong>{{ card.key === 'all' ? activeExpiryTotal : expirySummary[card.countKey!] }}</strong>
         <small>{{ getInventoryValueLabel(card.key) }} VNĐ</small>
+        <small class="expiry-rate">{{ getInventoryRateLabel(card.key) }}%</small>
       </article>
     </section>
 

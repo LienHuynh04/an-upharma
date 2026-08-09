@@ -464,6 +464,29 @@ select option {
   font-size: 9px;
 }
 
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 78px;
+  min-height: 26px;
+  padding: 4px 10px;
+  border: 1px solid #d8d0c3;
+  border-radius: 999px;
+  color: #75695b;
+  background: #f4efe6;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.status-chip--planned {
+  border-color: rgba(36, 136, 90, 0.22);
+  color: #1e7a50;
+  background: rgba(36, 136, 90, 0.12);
+}
+
 /* Shared page structure */
 .page-inner,
 .profile-content-inner,
@@ -657,9 +680,35 @@ select option {
   font-size: 16px;
   text-align: right;
 }
+.expiry-dashboard small {
+  display: block;
+  color: #6f5130;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: right;
+}
+.expiry-dashboard .expiry-rate {
+  margin-top: 2px;
+  color: #111827;
+  font-size: 12px;
+  font-weight: 800;
+}
 .expiry-dashboard article.is-active {
   border-color: var(--gold);
   background: var(--gold-soft);
+}
+.expiry-dashboard article.is-active small {
+  color: #ffcb80;
+  font-size: 12px;
+}
+.expiry-dashboard article.is-active .expiry-rate {
+  color: #111827;
+  font-size: 12px;
+}
+.dark-mode .expiry-dashboard .expiry-rate,
+.dark-mode .expiry-dashboard article.is-active .expiry-rate {
+  color: #fff;
 }
 .shop-filter-section {
   border: 1px solid var(--line);

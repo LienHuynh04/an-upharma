@@ -77,12 +77,14 @@
             ><span class="menu-chevron">⌄</span>
           </button>
           <ul class="menu-child">
+            <!-- Trang tồn kho cũ được giữ lại trong source để backup. -->
             <li>
               <a routerLink="/ton-kho" routerLinkActive="active" (click)="closeSidebar()">Tồn kho</a>
             </li>
+            <!-- Trang Tồn kho toàn quốc được giữ lại trong source để backup. -->
             <li>
-              <a routerLink="/ton-kho-toan-quoc" routerLinkActive="active" (click)="closeSidebar()"
-                >Tồn kho toàn quốc</a
+              <a routerLink="/lay-bao-cao-don-hang" routerLinkActive="active"
+                >Lấy báo cáo đơn hàng</a
               >
             </li>
             <li>
@@ -149,9 +151,9 @@
       >
         {{ sidebarToggleIcon }}
       </button>
-      <label class="global-search">
+      <!-- <label class="global-search">
         <span>⌕</span><input type="search" placeholder="Tìm kiếm nhanh..." />
-      </label>
+      </label> -->
       <div class="topbar-spacer"></div>
       <button
         class="topbar-icon"

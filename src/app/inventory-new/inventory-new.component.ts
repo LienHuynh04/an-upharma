@@ -12,6 +12,9 @@ import {
   normalizeFilterText,
   normalizeInventoryRow,
   PRODUCT_NAME_COLLATOR,
+  UNDER_12_MONTHS_DAYS,
+  UNDER_3_MONTHS_DAYS,
+  UNDER_6_MONTHS_DAYS,
 } from "../inventory-utils";
 import { STATIC_DATA } from "../static-data";
 import { RemoteDatasets, ResourceResponse, ShopInfo, UpharmaService } from "../upharma.service";
@@ -58,12 +61,12 @@ interface InventoryCacheRecord {
 }
 
 @Component({
-  selector: "app-inventory",
+  selector: "app-inventory-new",
   standalone: true,
   imports: [CommonModule, FormsModule, RouterLink],
-  templateUrl: "./inventory.component.html",
+  templateUrl: "./inventory-new.component.html",
 })
-export class InventoryComponent implements OnInit {
+export class InventoryNewComponent implements OnInit {
   readonly renderBatchSize = 200;
   readonly searchDebounceMs = 500;
   readonly expiryCards: { key: ExpiryCardKey; label: string; countKey?: keyof ExpirySummary }[] = [
@@ -212,7 +215,7 @@ export class InventoryComponent implements OnInit {
   }
 
   get activeExpiryTotal(): number {
-    return Object.values(this.expirySummary).reduce((sum, count) => sum + count, 0);
+    return this.countUniqueProducts(this.getRowsForActiveShop());
   }
 
   get activeInventoryValueLabel(): string {
@@ -227,8 +230,12 @@ export class InventoryComponent implements OnInit {
   }
 
   get totalInventoryValueLabel(): string {
-    const totalValue = Object.values(this.expiryValueSummary).reduce(
-      (sum, value) => sum + (Number(value) || 0),
+    return formatMoney(this.getTotalInventoryValue());
+  }
+
+  get filteredInventoryValueLabel(): string {
+    const totalValue = this.filteredRows.reduce(
+      (sum, item) => sum + (Number(item.stockValue) || 0),
       0,
     );
     return formatMoney(totalValue);
@@ -242,17 +249,30 @@ export class InventoryComponent implements OnInit {
     return formatMoney(this.expiryValueSummary[cardKey] || 0);
   }
 
+  getInventoryRateLabel(cardKey: ExpiryCardKey): string {
+    const totalValue = this.getTotalInventoryValue();
+    const cardValue = cardKey === "all" ? totalValue : this.expiryValueSummary[cardKey] || 0;
+    const rate = totalValue > 0 ? (cardValue / totalValue) * 100 : 0;
+
+    return new Intl.NumberFormat("vi-VN", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(rate);
+  }
+
   get shopCards(): ShopCard[] {
-    const shopCounts = this.normalizedRows.reduce((counts, row) => {
-      counts.set(row.shopCode, (counts.get(row.shopCode) || 0) + 1);
-      return counts;
-    }, new Map<string, number>());
+    const shopProducts = this.normalizedRows.reduce((productsByShop, row) => {
+      const productCodes = productsByShop.get(row.shopCode) || new Set<string>();
+      productCodes.add(this.getProductKey(row));
+      productsByShop.set(row.shopCode, productCodes);
+      return productsByShop;
+    }, new Map<string, Set<string>>());
 
     return this.shopList.map((shop) => ({
       shopCode: shop.ShopCode,
       shopName: shop.ShopName,
       label: shop.ShopCode,
-      count: shopCounts.get(shop.ShopCode) || 0,
+      count: shopProducts.get(shop.ShopCode)?.size || 0,
     }));
   }
 
@@ -442,7 +462,7 @@ export class InventoryComponent implements OnInit {
 
     try {
       this.inventoryRefreshProgress = Math.max(this.inventoryRefreshProgress, 65);
-      const inventoryData = await this.upharmaService.loadInventoryResource({ forceRefresh: true });
+      const inventoryData = await this.upharmaService.loadInventoryNewDirect({ forceRefresh: true });
       this.applyInventoryData(inventoryData);
       await this.writeInventoryCache({
         cacheKey,
@@ -492,7 +512,7 @@ export class InventoryComponent implements OnInit {
           __shopCode: shopCode,
           __shopName: String(row["__shopName"] || shop?.ShopName || shopCode),
         };
-    });
+      });
 
     this.normalizedRows = rawRows.map((row, index) => normalizeInventoryRow(row, index)).sort(compareInventoryItems);
     this.activeShopCode = this.getDefaultShopCode();
@@ -512,7 +532,7 @@ export class InventoryComponent implements OnInit {
   private getInventoryCacheKey(userId: number): string {
     const shopCodes = this.shopList.map((shop) => shop.ShopCode).join(",");
 
-    return `inventory:${userId}:${shopCodes}:v1`;
+    return `inventory_new:${userId}:${shopCodes}:v1`;
   }
 
   private async readInventoryCache(cacheKey: string): Promise<InventoryCacheRecord | null> {
@@ -579,23 +599,82 @@ export class InventoryComponent implements OnInit {
   }
 
   private updateExpiryDashboard(): void {
-    const rowsForSummary = this.normalizedRows.filter((item) => !this.activeShopCode || item.shopCode === this.activeShopCode);
-    this.expirySummary = rowsForSummary.reduce(
-      (counts, item) => {
-        counts[item.expiryStatus] += 1;
-        return counts;
-      },
-      {
-        expired: 0,
-        danger: 0,
-        warning: 0,
-        safe: 0,
-        normal: 0,
-      },
-    );
+    const rowsForSummary = this.getRowsForActiveShop();
+    const productCodes: Record<keyof ExpirySummary, Set<string>> = {
+      expired: new Set<string>(),
+      danger: new Set<string>(),
+      warning: new Set<string>(),
+      safe: new Set<string>(),
+      normal: new Set<string>(),
+    };
+
+    for (const item of rowsForSummary) {
+      const days = item.expiryDaysRemaining;
+      const productKey = this.getProductKey(item);
+
+      if (days === null) {
+        productCodes.normal.add(productKey);
+        continue;
+      }
+
+      if (days < 0) {
+        productCodes.expired.add(productKey);
+      }
+
+      if (days >= 0 && days <= UNDER_3_MONTHS_DAYS) {
+        productCodes.danger.add(productKey);
+      }
+
+      if (days > UNDER_3_MONTHS_DAYS && days <= UNDER_6_MONTHS_DAYS) {
+        productCodes.warning.add(productKey);
+      }
+
+      if (days >= 0 && days <= UNDER_12_MONTHS_DAYS) {
+        productCodes.safe.add(productKey);
+      }
+
+      if (days > UNDER_12_MONTHS_DAYS) {
+        productCodes.normal.add(productKey);
+      }
+    }
+
+    this.expirySummary = {
+      expired: productCodes.expired.size,
+      danger: productCodes.danger.size,
+      warning: productCodes.warning.size,
+      safe: productCodes.safe.size,
+      normal: productCodes.normal.size,
+    };
     this.expiryValueSummary = rowsForSummary.reduce(
       (counts, item) => {
-        counts[item.expiryStatus] += Number(item.stockValue) || 0;
+        const value = Number(item.stockValue) || 0;
+        const days = item.expiryDaysRemaining;
+
+        if (days === null) {
+          counts.normal += value;
+          return counts;
+        }
+
+        if (days < 0) {
+          counts.expired += value;
+        }
+
+        if (days >= 0 && days <= UNDER_3_MONTHS_DAYS) {
+          counts.danger += value;
+        }
+
+        if (days > UNDER_3_MONTHS_DAYS && days <= UNDER_6_MONTHS_DAYS) {
+          counts.warning += value;
+        }
+
+        if (days >= 0 && days <= UNDER_12_MONTHS_DAYS) {
+          counts.safe += value;
+        }
+
+        if (days > UNDER_12_MONTHS_DAYS) {
+          counts.normal += value;
+        }
+
         return counts;
       },
       {
@@ -624,6 +703,14 @@ export class InventoryComponent implements OnInit {
       }
 
       for (const [key, value] of filters) {
+        if (key === "expiryStatus") {
+          if (!this.matchesExpiryRange(item, value)) {
+            return false;
+          }
+
+          continue;
+        }
+
         if (!getColumnSearchText(item, key).includes(value)) {
           return false;
         }
@@ -636,6 +723,55 @@ export class InventoryComponent implements OnInit {
 
   private updateDisplayedRows(): void {
     this.displayedRows = this.filteredRows.slice(0, this.visibleLimit);
+  }
+
+  private getRowsForActiveShop(): InventoryItem[] {
+    return this.normalizedRows.filter((item) => !this.activeShopCode || item.shopCode === this.activeShopCode);
+  }
+
+  private getTotalInventoryValue(): number {
+    return this.getRowsForActiveShop().reduce(
+      (sum, item) => sum + (Number(item.stockValue) || 0),
+      0,
+    );
+  }
+
+  private countUniqueProducts(items: InventoryItem[]): number {
+    return new Set(items.map((item) => this.getProductKey(item))).size;
+  }
+
+  private getProductKey(item: InventoryItem): string {
+    return item.productCode.trim() || item.rowKey;
+  }
+
+  private matchesExpiryRange(item: InventoryItem, expiryFilter: string): boolean {
+    const days = item.expiryDaysRemaining;
+
+    if (days === null) {
+      return expiryFilter === "normal";
+    }
+
+    if (expiryFilter === "expired") {
+      return days < 0;
+    }
+
+    if (expiryFilter === "danger") {
+      return days >= 0 && days <= UNDER_3_MONTHS_DAYS;
+    }
+
+    if (expiryFilter === "warning") {
+      return days > UNDER_3_MONTHS_DAYS && days <= UNDER_6_MONTHS_DAYS;
+    }
+
+    if (expiryFilter === "safe") {
+      return days >= 0 && days <= UNDER_12_MONTHS_DAYS;
+    }
+
+    if (expiryFilter === "normal") {
+      return days > UNDER_12_MONTHS_DAYS;
+    }
+
+    return true;
   }
 
   private queueFilter(delay = this.searchDebounceMs): void {

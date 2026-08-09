@@ -18,6 +18,7 @@ interface OutOfStockItem {
   shopCode: string;
   productName: string;
   productCode: string;
+  status: "Đã dự trù" | "Rỗng";
   quantityText: string;
   shortageMonth: string;
   zeroStock: boolean;
@@ -32,7 +33,7 @@ interface OutOfStockCacheEntry {
   savedAt: number;
 }
 
-type OutOfStockTextFilterKey = "productName" | "productCode" | "quantityText" | "unit";
+type OutOfStockTextFilterKey = "productName" | "productCode" | "status" | "quantityText" | "unit";
 
 @Component({
   selector: "app-out-of-stock",
@@ -64,6 +65,7 @@ export class OutOfStockComponent implements OnInit {
   textFilters: Record<OutOfStockTextFilterKey, string> = {
     productName: "",
     productCode: "",
+    status: "",
     quantityText: "",
     unit: "",
   };
@@ -75,6 +77,7 @@ export class OutOfStockComponent implements OnInit {
   private loadedShopKeys = new Set<string>();
   private loadingShopKeys = new Set<string>();
   private inventoryAvailabilityPromises = new Map<string, Promise<Set<string>>>();
+  private stoppedProductPromises = new Map<string, Promise<Set<string>>>();
 
   constructor(
     private readonly upharmaService: UpharmaService,
@@ -177,7 +180,10 @@ export class OutOfStockComponent implements OnInit {
 
     if (!this.loadedShopKeys.has(this.getLoadedShopKey(shopCode))) {
       await this.loadActiveShop();
+      return;
     }
+
+    void this.refreshPlannedStatusForShop(shopCode);
   }
 
   async reloadActiveShop(): Promise<void> {
@@ -207,7 +213,8 @@ export class OutOfStockComponent implements OnInit {
       .map((row) => ({
         "Tên sp": row.productName,
         "Mã SP": row.productCode,
-        "Số lượng": row.quantityText,
+        "Trạng thái": row.status === "Đã dự trù" ? row.status : "",
+        "Tháng hết": this.getMonthDisplayLabel(row.shortageMonth),
         "Đơn vị": row.unit || "--",
       }));
     const worksheet = xlsx.utils.json_to_sheet(sheetRows);
@@ -436,6 +443,7 @@ export class OutOfStockComponent implements OnInit {
         this.applyShopRows(shop.ShopCode, cachedData.rows);
         this.loadedShopKeys.add(loadedShopKey);
         this.outStockCacheStatus = `Đang hiển thị dữ liệu đã lưu lúc ${this.formatCacheTime(cachedData.savedAt)}. Hệ thống đang cập nhật dữ liệu mới...`;
+        void this.refreshPlannedStatusForShop(shop.ShopCode);
         void this.refreshActiveShopFromApi(shop, cacheKey, true);
         return;
       }
@@ -487,11 +495,16 @@ export class OutOfStockComponent implements OnInit {
         forceRefresh,
       });
       this.loadingProgress = 75;
-      const inventoryAvailability = await this.getInventoryAvailability(shop.ShopCode, forceRefresh);
+      const [inventoryAvailability, plannedProductIds, stoppedProductIds] = await Promise.all([
+        this.getInventoryAvailability(shop.ShopCode, forceRefresh),
+        this.getTransferOrderProcessProductIds(shop.ShopCode, forceRefresh),
+        this.getStoppedProductIds(shop.ShopCode, forceRefresh),
+      ]);
       const shopRows: OutOfStockItem[] = this.extractArray(response)
-        .map((row, index) => this.normalizeSalesSpeedRow(row, shop, index))
+        .map((row, index) => this.normalizeSalesSpeedRow(row, shop, index, plannedProductIds))
         .filter((row) => row.zeroStock)
         .filter((row) => !inventoryAvailability.has(this.getInventoryProductKey(row.shopCode, row.productName)))
+        .filter((row) => !stoppedProductIds.has(row.productCode.trim()))
         .filter((row) => !row.productCode.trim().toUpperCase().startsWith("Y"))
         .sort((first, second) => PRODUCT_NAME_COLLATOR.compare(first.productName, second.productName));
       this.loadingProgress = 92;
@@ -544,7 +557,7 @@ export class OutOfStockComponent implements OnInit {
   private getCacheKey(shopCode: string, uPharmaID: number): string {
     return [
       "out-stock",
-      "v4",
+      "v5",
       uPharmaID,
       shopCode,
       this.timeStart,
@@ -671,6 +684,185 @@ export class OutOfStockComponent implements OnInit {
     return this.inventoryAvailabilityPromises.get(shopCode)!;
   }
 
+  private getTransferOrderProcessProductIds(shopCode: string, forceRefresh: boolean): Promise<Set<string>> {
+    const session = this.upharmaService.ensureLogin();
+    return this.upharmaService
+      .callEndpoint<unknown>("/TransferOrder/GetTransferOrderProcess", {
+        uPharmaID: session.UserInfo.uPharmaID,
+        Token: session.Token,
+        ShopCode: shopCode,
+      }, {
+        cache: false,
+        forceRefresh,
+      })
+      .then((response) => {
+        const productIds = new Set<string>();
+
+        for (const row of this.extractArray(response)) {
+          const dateExceed = this.toNumber(this.pick(row, [
+            "DateExceed",
+            "Date_Exceed",
+            "SoNgayVuot",
+            "DaysExceeded",
+          ]));
+          if (!Number.isFinite(dateExceed) || dateExceed > 60) {
+            continue;
+          }
+
+          const productId = String(this.pick(row, [
+            "ProductID",
+            "ProductCode",
+            "Product_ID",
+            "MaSP",
+            "MaSanPham",
+            "ItemCode",
+            "Code",
+          ])).trim();
+
+          if (productId) {
+            productIds.add(productId);
+          }
+        }
+
+        return productIds;
+      })
+      .catch((error) => {
+        console.warn("Không lấy được trạng thái dự trù từ TransferOrder/GetTransferOrderProcess:", error);
+        return new Set<string>();
+      });
+  }
+
+  private getStoppedProductIds(shopCode: string, forceRefresh: boolean): Promise<Set<string>> {
+    const requestKey = shopCode;
+
+    if (!this.stoppedProductPromises.has(requestKey) || forceRefresh) {
+      const session = this.upharmaService.ensureLogin();
+      const request = Promise.all([
+        this.upharmaService.callEndpoint<unknown>("/ProductOff/GetProductOff", {
+          uPharmaID: session.UserInfo.uPharmaID,
+          Token: session.Token,
+          ShopCode: shopCode,
+        }, {
+          cache: false,
+          forceRefresh,
+        }),
+        this.upharmaService.callEndpoint<unknown>("/Product/GetItemLstWithFollower", {
+          uPharmaID: session.UserInfo.uPharmaID,
+          Token: session.Token,
+          ShopCode: shopCode,
+          ProductType: "",
+          Search: "",
+          NumberRow: 0,
+          PageNumber: 0,
+        }, {
+          cache: false,
+          forceRefresh,
+        }),
+      ])
+        .then(([productOffResponse, followerResponse]) => {
+          const stoppedProductIds = new Set<string>();
+
+          for (const row of this.extractArray(productOffResponse)) {
+            const productId = String(this.pick(row, [
+              "ProductID",
+              "ProductCode",
+              "Product_ID",
+              "MaSP",
+              "MaSanPham",
+              "ItemCode",
+              "Code",
+            ])).trim();
+
+            if (productId) {
+              stoppedProductIds.add(productId);
+            }
+          }
+
+          for (const row of this.extractArray(followerResponse)) {
+            const registerType = String(this.pick(row, [
+              "RegisterType",
+              "Register_Type",
+              "LoaiDangKy",
+              "LoaiDK",
+            ])).trim().toLowerCase();
+            if (registerType !== "hàng dừng" && registerType !== "hang dung") {
+              continue;
+            }
+
+            const productId = String(this.pick(row, [
+              "ProductID",
+              "ProductCode",
+              "Product_ID",
+              "MaSP",
+              "MaSanPham",
+              "ItemCode",
+              "Code",
+            ])).trim();
+
+            if (productId) {
+              stoppedProductIds.add(productId);
+            }
+          }
+
+          return stoppedProductIds;
+        })
+        .catch((error) => {
+          this.stoppedProductPromises.delete(requestKey);
+          console.warn("Không lấy được danh sách hàng dừng từ ProductOff/GetProductOff + Product/GetItemLstWithFollower:", error);
+          return new Set<string>();
+        });
+
+      this.stoppedProductPromises.set(requestKey, request);
+    }
+
+    return this.stoppedProductPromises.get(requestKey)!;
+  }
+
+  private async refreshPlannedStatusForShop(shopCode: string): Promise<void> {
+    const shopRows = this.rows.filter((row) => row.shopCode === shopCode);
+
+    if (shopRows.length === 0) {
+      return;
+    }
+
+    const plannedProductIds = await this.getTransferOrderProcessProductIds(shopCode, true);
+    let changed = false;
+    const updatedRows: OutOfStockItem[] = this.rows.map((row) => {
+      if (row.shopCode !== shopCode) {
+        return row;
+      }
+
+      const nextStatus: OutOfStockItem["status"] = plannedProductIds.has(row.productCode.trim()) ? "Đã dự trù" : "Rỗng";
+      if (row.status !== nextStatus) {
+        changed = true;
+        return {
+          ...row,
+          status: nextStatus,
+        };
+      }
+
+      return row;
+    });
+
+    if (!changed) {
+      return;
+    }
+
+    this.rows = updatedRows;
+
+    try {
+      const session = this.upharmaService.ensureLogin();
+      const cacheKey = this.getCacheKey(shopCode, session.UserInfo.uPharmaID);
+      await this.writeOutStockCache({
+        cacheKey,
+        rows: updatedRows.filter((row) => row.shopCode === shopCode),
+        savedAt: Date.now(),
+      });
+    } catch (error) {
+      console.warn("Không cập nhật được cache trạng thái dự trù mới:", error);
+    }
+  }
+
   private getInventoryProductKey(shopCode: string, productName: string): string {
     const canonicalName = normalizeFilterText(productName)
       .replace(/\(\s*s?dk(?:\s*[-:]?\s*[\d*]+)?\s*\)/gi, " ")
@@ -685,6 +877,7 @@ export class OutOfStockComponent implements OnInit {
     const textTargets: Record<OutOfStockTextFilterKey, string> = {
       productName: row.productName,
       productCode: row.productCode,
+      status: row.status,
       quantityText: row.quantityText,
       unit: row.unit,
     };
@@ -700,7 +893,12 @@ export class OutOfStockComponent implements OnInit {
     return true;
   }
 
-  private normalizeSalesSpeedRow(row: RawRecord, shop: ShopInfo, rowIndex: number): OutOfStockItem {
+  private normalizeSalesSpeedRow(
+    row: RawRecord,
+    shop: ShopInfo,
+    rowIndex: number,
+    plannedProductIds: Set<string>,
+  ): OutOfStockItem {
     const productName = String(
       this.pick(row, ["ProductName", "Product_Name", "ProductFullName", "TenSP", "TenSanPham", "Name", "ItemName"]),
     ).trim();
@@ -720,11 +918,12 @@ export class OutOfStockComponent implements OnInit {
     const quantityText = quantity === "" ? "--" : String(quantity);
     const zeroStock = this.toNumber(quantity) === 0;
     const shortageMonth = this.getShortageMonthLabel(row);
-    const item = {
+    const item: OutOfStockItem = {
       rowKey: [shop.ShopCode, productCode, productName, rowIndex].join("|"),
       shopCode: shop.ShopCode,
       productName,
       productCode,
+      status: plannedProductIds.has(productCode.trim()) ? "Đã dự trù" : "Rỗng",
       quantityText,
       shortageMonth,
       zeroStock,

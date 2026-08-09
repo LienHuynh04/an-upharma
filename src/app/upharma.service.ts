@@ -472,6 +472,65 @@ export class UpharmaService {
     return this.fetchResource("inventory", options);
   }
 
+  async loadInventoryNewDirect(
+    options: ResourceLoadOptions = {},
+  ): Promise<ResourceResponse> {
+    const session = this.sessionData || this.ensureLogin();
+    const data: RawRecord[] = [];
+    const failedShops: string[] = [];
+    const shops = [...this.shopList];
+
+    const worker = async (): Promise<void> => {
+      for (let shop = shops.shift(); shop; shop = shops.shift()) {
+        try {
+          const responseData = await this.request<RawRecord>("/LocalStore/GetInventoryShop", {
+            uPharmaID: session.UserInfo.uPharmaID,
+            Token: session.Token,
+            ShopCode: shop.ShopCode,
+            BranchLst: "",
+            ProductID: "",
+            LotCode: "",
+            PackageID: null,
+            StoreType: "",
+          });
+
+          data.push(
+            ...this.extractArray(responseData).map((item) => ({
+              ...item,
+              __shopCode: shop.ShopCode,
+              __shopName: shop.ShopName,
+            })),
+          );
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          failedShops.push(`${shop.ShopCode}: ${message}`);
+        }
+      }
+    };
+
+    await Promise.all(
+      Array.from({ length: Math.min(this.shopConcurrency, this.shopList.length) }, () => worker()),
+    );
+
+    if (this.shopList.length > 0 && failedShops.length === this.shopList.length) {
+      throw new Error(`inventory_new: tất cả nhà thuốc đều lỗi (${failedShops.join(", ")})`);
+    }
+
+    return {
+      success: true,
+      resource: "inventory_new",
+      user: {
+        uPharmaID: session.UserInfo.uPharmaID,
+        FullName: session.UserInfo.FullName,
+        Email: session.UserInfo.Email,
+      },
+      shops: this.shopList,
+      data,
+      failedShops,
+      fetchedAt: new Date().toISOString(),
+    };
+  }
+
   clearResourceCache(): void {
     this.firebaseSalesSpeedCache.clear();
     this.firebaseSalesSpeedInFlight.clear();

@@ -88,6 +88,7 @@
               <th>STT</th>
               <th>Tên SP</th>
               <th>Mã SP</th>
+              <th>Trạng thái</th>
               <th>Tháng hết</th>
               <th>Tồn/SL</th>
               <th>Đơn vị</th>
@@ -100,6 +101,12 @@
               <th>
                 <input [(ngModel)]="textFilters.productCode" (ngModelChange)="onFilterChange()" type="search" aria-label="Lọc mã sản phẩm" placeholder="Mã SP" />
               </th>
+              <th>
+                <select [(ngModel)]="textFilters.status" (ngModelChange)="onFilterChange()" aria-label="Lọc trạng thái">
+                  <option value="">Tất cả</option>
+                  <option value="Đã dự trù">Đã dự trù</option>
+                </select>
+              </th>
               <th></th>
               <th>
                 <input [(ngModel)]="textFilters.quantityText" (ngModelChange)="onFilterChange()" type="search" aria-label="Lọc số lượng tồn" placeholder="Tồn/SL" />
@@ -111,17 +118,17 @@
           </thead>
           <tbody>
             <tr *ngIf="!loading && !hasActiveShopLoaded && outStockRefreshing">
-              <td colspan="6" class="empty-row">
+              <td colspan="7" class="empty-row">
                 Đang tải dữ liệu cho {{ activeShopCode }}. Chị vẫn có thể đổi shop trong lúc chờ.
               </td>
             </tr>
             <tr *ngIf="!loading && !hasActiveShopLoaded && !outStockRefreshing">
-              <td colspan="6" class="empty-row">
+              <td colspan="7" class="empty-row">
                 Chọn một nhà thuốc ở phía trên để xem danh sách hàng đã hết của nhà thuốc đó.
               </td>
             </tr>
             <tr *ngIf="!loading && hasActiveShopLoaded && filteredRows.length === 0">
-              <td colspan="6" class="empty-row">
+              <td colspan="7" class="empty-row">
                 Chưa có dữ liệu từ API tốc độ tiêu thụ cho shop này.
               </td>
             </tr>
@@ -149,6 +156,11 @@
                 </button>
               </td>
               <td data-label="Mã SP">{{ item.productCode }}</td>
+              <td data-label="Trạng thái">
+                <span *ngIf="item.status === 'Đã dự trù'" class="status-chip status-chip--planned">
+                  {{ item.status }}
+                </span>
+              </td>
               <td data-label="Tháng hết">{{ getMonthDisplayLabel(item.shortageMonth) }}</td>
               <td data-label="Tồn/SL">
                 <span class="stock-quantity" [class.is-zero]="item.zeroStock">{{ item.quantityText }}</span>

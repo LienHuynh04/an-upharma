@@ -133,7 +133,48 @@ export class EmployeePlanComponent implements OnInit {
   }
 
   formatNumber(value: number): string {
-    return new Intl.NumberFormat("vi-VN").format(value || 0);
+    return new Intl.NumberFormat("vi-VN", {
+      maximumFractionDigits: 0,
+      minimumFractionDigits: 0,
+    }).format(value || 0);
+  }
+
+  getProjectedValue(actualValue: number): number {
+    const now = new Date();
+    const isCurrentMonth = this.selectedYear === now.getFullYear() && this.selectedMonth === now.getMonth() + 1;
+    if (!isCurrentMonth) {
+      return Number(actualValue) || 0;
+    }
+
+    const completedDays = Math.max(1, now.getDate() - 1);
+    const totalDays = new Date(this.selectedYear, this.selectedMonth, 0).getDate();
+    return (Number(actualValue) || 0) / completedDays * totalDays;
+  }
+
+  buildProjectionHint(actualValue: number): string {
+    const now = new Date();
+    const isCurrentMonth = this.selectedYear === now.getFullYear() && this.selectedMonth === now.getMonth() + 1;
+    if (!isCurrentMonth) {
+      return `Giữ nguyên số thực tế ${this.formatNumber(actualValue)}.`;
+    }
+
+    const completedDays = Math.max(1, now.getDate() - 1);
+    const totalDays = new Date(this.selectedYear, this.selectedMonth, 0).getDate();
+    return `${this.formatNumber(actualValue)} / ${completedDays} x ${totalDays} ngày.`;
+  }
+
+  getWeightedPointRatio(item: EmployeePlanItem): number {
+    const numerator = (Number(item.PointRatioR) || 0) * 1000;
+    const denominator = Number(item.AmountR) || 0;
+    if (!denominator) {
+      return 0;
+    }
+
+    return (numerator / denominator) * 100;
+  }
+
+  formatPercent(value: number): string {
+    return `${Math.round(value)}%`;
   }
 
   private isInvalidTokenError(error: unknown): boolean {

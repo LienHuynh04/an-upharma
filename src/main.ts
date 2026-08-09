@@ -3,13 +3,15 @@ import { provideRouter, Routes, withHashLocation } from "@angular/router";
 import { ApiTestComponent } from "./app/api-test/api-test.component";
 import { authGuard } from "./app/auth.guard";
 import { EmployeePlanComponent } from "./app/employee-plan/employee-plan.component";
-import { InventoryComponent } from "./app/inventory/inventory.component";
+import { InventoryNewComponent } from "./app/inventory-new/inventory-new.component";
 import { LoginComponent } from "./app/login/login.component";
 import { LabelPrintComponent } from "./app/label-print/label-print.component";
-import { NationalInventoryComponent } from "./app/national-inventory/national-inventory.component";
+// Backup trang Tồn kho toàn quốc:
+// import { NationalInventoryComponent } from "./app/national-inventory/national-inventory.component";
 import { OutOfStockComponent } from "./app/out-of-stock/out-of-stock.component";
 import { ProfileComponent } from "./app/profile/profile.component";
 import { DashboardComponent } from "./app/dashboard/dashboard.component";
+import { SalesInvoiceReportComponent } from "./app/sales-invoice-report/sales-invoice-report.component";
 import { ShopPlanYearComponent } from "./app/shop-plan-year/shop-plan-year.component";
 import { RootComponent } from "./app/root.component";
 import { SlowSellingComponent } from "./app/slow-selling/slow-selling.component";
@@ -38,12 +40,18 @@ const routes: Routes = [
       },
       {
         path: "ton-kho",
-        component: InventoryComponent,
+        component: InventoryNewComponent,
       },
       {
-        path: "ton-kho-toan-quoc",
-        component: NationalInventoryComponent,
+        path: "ton-kho-new",
+        redirectTo: "ton-kho",
+        pathMatch: "full",
       },
+      // Backup trang Tồn kho toàn quốc:
+      // {
+      //   path: "ton-kho-toan-quoc",
+      //   component: NationalInventoryComponent,
+      // },
       {
         path: "profile",
         component: ProfileComponent,
@@ -51,6 +59,10 @@ const routes: Routes = [
       {
         path: "api-test",
         component: ApiTestComponent,
+      },
+      {
+        path: "lay-bao-cao-don-hang",
+        component: SalesInvoiceReportComponent,
       },
       {
         path: "chi-tieu-nhan-vien",

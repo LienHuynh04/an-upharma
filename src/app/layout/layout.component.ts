@@ -107,10 +107,12 @@ export class LayoutComponent implements OnInit {
       url.includes("/chi-tieu-nhan-vien") || url.includes("/chi-tieu-nha-thuoc-trong-nam");
     const isGoodsRoute =
       url.includes("/ton-kho") ||
+      url.includes("/ton-kho-new") ||
       url.includes("/hang-da-het") ||
       url.includes("/hang-lap-tot") ||
       url.includes("/hang-ban-cham") ||
-      url.includes("/in-tem");
+      url.includes("/in-tem") ||
+      url.includes("/lay-bao-cao-don-hang");
     this.menuGroups["stats"] = isStatsRoute;
     this.menuGroups["goods"] = isGoodsRoute;
   }

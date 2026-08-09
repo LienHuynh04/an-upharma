@@ -2,6 +2,11 @@ import { RawRecord } from "./upharma.service";
 
 export type ExpiryStatus = "expired" | "danger" | "warning" | "safe" | "normal";
 
+export const DAYS_PER_MONTH = 30;
+export const UNDER_3_MONTHS_DAYS = 3 * DAYS_PER_MONTH;
+export const UNDER_6_MONTHS_DAYS = 6 * DAYS_PER_MONTH;
+export const UNDER_12_MONTHS_DAYS = 12 * DAYS_PER_MONTH;
+
 export interface InventoryItem {
   rowKey: string;
   productName: string;
@@ -11,10 +16,13 @@ export interface InventoryItem {
   shop: string;
   price: unknown;
   priceText: string;
+  stockValue: number;
+  stockValueText: string;
   lot: string;
   expiry: unknown;
   expiryText: string;
   expiryStatus: ExpiryStatus;
+  expiryDaysRemaining: number | null;
   quantity: unknown;
   unit: string;
   vat: unknown;
@@ -26,13 +34,43 @@ export interface InventoryItem {
 export const PRODUCT_NAME_COLLATOR = new Intl.Collator("vi", { sensitivity: "base", numeric: true });
 
 export function formatMoney(value: unknown): string {
-  const number = Number(value);
+  const number = parseNumericValue(value);
 
   if (!Number.isFinite(number)) {
     return String(value ?? "");
   }
 
-  return new Intl.NumberFormat("vi-VN").format(number);
+  return new Intl.NumberFormat("vi-VN", {
+    maximumFractionDigits: 0,
+  }).format(number);
+}
+
+export function parseNumericValue(value: unknown): number {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  if (value === null || value === undefined) {
+    return 0;
+  }
+
+  const text = String(value).trim();
+  if (!text) {
+    return 0;
+  }
+
+  const normalized = text
+    .replace(/\s+/g, "")
+    .replace(/\.(?=\d{3}(\D|$))/g, "")
+    .replace(",", ".");
+
+  const parsed = Number(normalized);
+  if (Number.isFinite(parsed)) {
+    return parsed;
+  }
+
+  const fallback = Number(text.replace(/[^\d-]/g, ""));
+  return Number.isFinite(fallback) ? fallback : 0;
 }
 
 export function normalizeFilterText(value: unknown): string {
@@ -126,8 +164,13 @@ export function normalizeInventoryRow(row: RawRecord, rowIndex = 0): InventoryIt
   const lot = String(pick(row, ["LotCode", "LotNo", "Lo", "SoLo", "BatchNo", "BatchCode"]));
   const quantity = pick(row, ["Quantity", "Qty", "SL", "SoLuong", "InventoryQuantity", "StockQty", "TonKho", "RemainQty"]);
   const vat = pick(row, ["VAT", "Vat", "VATRate", "Tax"]);
+  const priceValue = parseNumericValue(price);
+  const quantityValue = parseNumericValue(quantity);
+  const stockValue = priceValue * quantityValue;
   const priceText = formatMoney(price);
+  const stockValueText = formatMoney(stockValue);
   const expiryText = formatInventoryDate(expiry);
+  const expiryDaysRemaining = getExpiryDaysRemaining(expiry);
   const expiryStatus = expiryClass(expiry);
   const item = {
     rowKey: [
@@ -144,10 +187,13 @@ export function normalizeInventoryRow(row: RawRecord, rowIndex = 0): InventoryIt
     shop: shopCode,
     price,
     priceText,
+    stockValue,
+    stockValueText,
     lot,
     expiry,
     expiryText,
     expiryStatus,
+    expiryDaysRemaining,
     quantity,
     unit,
     vat,
@@ -175,6 +221,8 @@ export function normalizeInventoryRow(row: RawRecord, rowIndex = 0): InventoryIt
       item.shopName,
       item.price,
       item.priceText,
+      item.stockValue,
+      item.stockValueText,
       item.lot,
       item.expiryText,
       item.quantity,
@@ -292,6 +340,21 @@ function parseDate(value: unknown): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+export function getExpiryDaysRemaining(value: unknown): number | null {
+  const date = parseDate(value);
+
+  if (!date) {
+    return null;
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const expiry = new Date(date);
+  expiry.setHours(0, 0, 0, 0);
+
+  return Math.floor((expiry.getTime() - today.getTime()) / 86400000);
+}
+
 function formatInventoryDate(value: unknown): string {
   const date = parseDate(value);
 
@@ -309,28 +372,25 @@ function formatInventoryDate(value: unknown): string {
 }
 
 function expiryClass(value: unknown): ExpiryStatus {
-  const date = parseDate(value);
+  const diffDays = getExpiryDaysRemaining(value);
 
-  if (!date) {
+  if (diffDays === null) {
     return "normal";
   }
-
-  const now = new Date();
-  const diffDays = Math.ceil((date.getTime() - now.getTime()) / 86400000);
 
   if (diffDays < 0) {
     return "expired";
   }
 
-  if (diffDays <= 90) {
+  if (diffDays <= UNDER_3_MONTHS_DAYS) {
     return "danger";
   }
 
-  if (diffDays <= 180) {
+  if (diffDays <= UNDER_6_MONTHS_DAYS) {
     return "warning";
   }
 
-  if (diffDays <= 365) {
+  if (diffDays <= UNDER_12_MONTHS_DAYS) {
     return "safe";
   }
 

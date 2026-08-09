@@ -62,6 +62,23 @@
 
         <div class="money">{{ formatNumber(item.Amount) }} VNĐ</div>
         <div class="moneyR moneyR-good">{{ formatNumber(item.AmountR) }} VNĐ</div>
+        <div class="projection-grid">
+          <div class="projection-card">
+            <div class="projection-label">Dự kiến doanh số</div>
+            <div class="projection-value">{{ formatNumber(getProjectedValue(item.AmountR)) }} VNĐ</div>
+            <div class="projection-sub">{{ buildProjectionHint(item.AmountR) }}</div>
+          </div>
+          <div class="projection-card">
+            <div class="projection-label">Dự kiến hệ số</div>
+            <div class="projection-value">{{ formatNumber(getProjectedValue(item.PointRatioR)) }}</div>
+            <div class="projection-sub">{{ buildProjectionHint(item.PointRatioR) }}</div>
+          </div>
+        </div>
+        <div class="ratio-row">
+          <div class="ratio-label">Tỉ trọng</div>
+          <div class="ratio-value">{{ formatPercent(getWeightedPointRatio(item)) }}</div>
+          <div class="ratio-sub">Điểm thực tế {{ formatNumber(item.PointRatioR) }} x 1000 / {{ formatNumber(item.AmountR) }}</div>
+        </div>
 
         <div class="section-label">Khách hàng</div>
         <div class="custom">
