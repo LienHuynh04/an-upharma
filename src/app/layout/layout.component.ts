@@ -107,6 +107,7 @@ export class LayoutComponent implements OnInit {
       url.includes("/chi-tieu-nhan-vien") || url.includes("/chi-tieu-nha-thuoc-trong-nam");
     const isGoodsRoute =
       url.includes("/ton-kho") ||
+      url.includes("/dieu-chuyen") ||
       url.includes("/hang-da-het") ||
       url.includes("/hang-lap-tot") ||
       url.includes("/hang-ban-cham") ||

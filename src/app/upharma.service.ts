@@ -330,6 +330,11 @@ export class UpharmaService {
   return request;
   }
 
+  async callLiveEndpoint<T>(pathname: string, payload: RawRecord): Promise<T> {
+    const normalizedPath = pathname.startsWith("/") ? pathname : `/${pathname}`;
+    return this.request<T>(normalizedPath, payload);
+  }
+
   async loadShopPlanByTime(payload: RawRecord): Promise<ShopPlanApiResponse> {
     return this.callEndpoint<ShopPlanApiResponse>("/ShopPlan/GetShopPlanByTime", payload);
   }

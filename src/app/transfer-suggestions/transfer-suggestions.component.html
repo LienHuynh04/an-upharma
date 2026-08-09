@@ -1,0 +1,223 @@
+<main class="transfer-page">
+  <section class="transfer-hero">
+    <div>
+      <p class="transfer-eyebrow">Hàng hóa · Điều chuyển</p>
+      <h1>Đề xuất điều chuyển thông minh</h1>
+      <p>Giữ đủ hàng tại shop nguồn của bạn, sau đó ưu tiên chuyển phần dư đến nhà thuốc toàn quốc bán nhanh nhưng sắp thiếu.</p>
+    </div>
+    <div class="transfer-actions">
+      <button type="button" class="transfer-button secondary" (click)="reload()" [disabled]="loading">
+        {{ loading ? "Đang phân tích..." : "Phân tích lại" }}
+      </button>
+      <button type="button" class="transfer-button primary" (click)="exportExcel()" [disabled]="selectedCount === 0">
+        Xuất {{ selectedCount }} đề xuất
+      </button>
+    </div>
+  </section>
+
+  <section class="transfer-status" [class.is-loading]="loading">
+    <div>
+      <span>{{ loading ? "Đang xử lý" : "Trạng thái dữ liệu" }}</span>
+      <strong>{{ statusText }}</strong>
+    </div>
+    <div class="transfer-progress"><i [style.width.%]="progress"></i></div>
+  </section>
+
+  <section class="transfer-warning" *ngIf="warningText">
+    <strong>Cảnh báo dữ liệu</strong>
+    <span>{{ warningText }}</span>
+  </section>
+
+  <section class="transfer-controls">
+    <label>
+      <span>Shop xuất hàng</span>
+      <select [(ngModel)]="sourceShopCode" (ngModelChange)="onSourceShopChange()">
+        <option *ngFor="let shop of sourceShops" [value]="shop.ShopCode">{{ shop.ShopCode }} · {{ shop.ShopName }}</option>
+      </select>
+    </label>
+    <label>
+      <span>Mức hàng cần giữ</span>
+      <select [(ngModel)]="targetCoverageDays" (ngModelChange)="onCoverageDaysChange()">
+        <option [ngValue]="15">Đủ bán 15 ngày</option>
+        <option [ngValue]="30">Đủ bán 30 ngày</option>
+        <option [ngValue]="45">Đủ bán 45 ngày</option>
+      </select>
+    </label>
+    <label>
+      <span>Lọc đề xuất</span>
+      <select [(ngModel)]="priorityFilter">
+        <option value="all">Tất cả đề xuất</option>
+        <option value="high">Chỉ ưu tiên cao</option>
+        <option value="selected">Đã chọn</option>
+      </select>
+    </label>
+    <label class="transfer-search">
+      <span>Tìm sản phẩm hoặc shop</span>
+      <input type="search" [(ngModel)]="searchText" placeholder="Nhập tên, mã SP, mã shop..." />
+    </label>
+  </section>
+
+  <section class="transfer-api-steps">
+    <article>
+      <div>
+        <span>Bước 1</span>
+        <strong>Lấy hàng của shop nguồn</strong>
+        <small>{{ sourceProducts.length }} sản phẩm từ Product/GetItemLstWithFollower</small>
+      </div>
+      <label>
+        <span>Chọn sản phẩm</span>
+        <select [(ngModel)]="selectedProductCode" (ngModelChange)="onSelectedProductChange()" [disabled]="productLoading || sourceProducts.length === 0">
+          <option value="">Chọn sản phẩm</option>
+          <option *ngFor="let product of sourceProducts" [value]="product.productCode">
+            {{ product.productCode }} · {{ product.productName }} · tồn {{ formatNumber(product.stock, 0) }}
+          </option>
+        </select>
+      </label>
+    </article>
+
+    <article>
+      <div>
+        <span>Bước 2</span>
+        <strong>Tìm shop toàn quốc có sản phẩm</strong>
+        <small>{{ productExistRows.length }} shop từ Report/GetExistProductLst</small>
+      </div>
+      <button type="button" class="transfer-button secondary" (click)="onSelectedProductChange()" [disabled]="existLoading || !selectedProductCode">
+        {{ existLoading ? "Đang lấy tồn..." : "Lấy lại tồn sản phẩm" }}
+      </button>
+    </article>
+  </section>
+
+  <section class="transfer-exist-table" *ngIf="selectedProductCode">
+    <div class="transfer-table-toolbar compact">
+      <div>
+        <h2>Shop toàn quốc đang có {{ selectedProduct?.productName || selectedProductCode }}</h2>
+        <p>{{ selectedProductCode }} · Tồn shop nguồn: {{ formatNumber(selectedProduct?.stock || 0, 0) }}</p>
+      </div>
+    </div>
+    <div class="transfer-table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Shop</th>
+            <th>Tên nhà thuốc</th>
+            <th>Tồn</th>
+            <th>Đơn vị</th>
+            <th>Địa chỉ</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of productExistRows">
+            <td><strong>{{ row.shopCode }}</strong></td>
+            <td>{{ row.shopName }}</td>
+            <td><strong>{{ formatNumber(row.stock, 0) }}</strong></td>
+            <td>{{ row.unit || "--" }}</td>
+            <td>{{ row.shopAddress || "--" }}</td>
+          </tr>
+          <tr *ngIf="!existLoading && productExistRows.length === 0">
+            <td colspan="5" class="transfer-empty">API chưa trả shop nào có tồn cho sản phẩm đang chọn.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="transfer-summary">
+    <article>
+      <span>Sản phẩm tại nguồn</span>
+      <strong>{{ sourceProductCount }}</strong>
+      <small>{{ sourceShopCode || "--" }}</small>
+    </article>
+    <article>
+      <span>Có thể điều chuyển</span>
+      <strong>{{ transferableProductCount }}</strong>
+      <small>Sau khi giữ tồn an toàn</small>
+    </article>
+    <article class="success">
+      <span>Shop nhận toàn quốc</span>
+      <strong>{{ destinationShopCount }}</strong>
+      <small>{{ suggestions.length }} sản phẩm có nơi nhận</small>
+    </article>
+    <article class="warning">
+      <span>Chưa tìm được nơi nhận</span>
+      <strong>{{ noDestinationCount }}</strong>
+      <small>Shop toàn quốc chưa bán nhanh hoặc đã đủ hàng</small>
+    </article>
+  </section>
+
+  <section class="transfer-table-card">
+    <div class="transfer-table-toolbar">
+      <div>
+        <h2>Danh sách đề xuất</h2>
+        <p>Dữ liệu bán: {{ salesMonthKeys.length ? salesMonthKeys.join(", ") : "chưa có" }} · Shop nhận: toàn quốc · Tổng SL chọn: {{ proposedTotal }}</p>
+      </div>
+      <div>
+        <button type="button" (click)="selectAllVisible(true)">Chọn tất cả đang xem</button>
+        <button type="button" (click)="selectAllVisible(false)">Bỏ chọn</button>
+      </div>
+    </div>
+
+    <div class="transfer-table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th class="check-column"></th>
+            <th>Sản phẩm</th>
+            <th>Shop nguồn</th>
+            <th>Shop nhận đề xuất</th>
+            <th>SL đề xuất</th>
+            <th>HSD gần nhất</th>
+            <th>Ưu tiên</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of filteredSuggestions; trackBy: trackBySuggestion" [class.is-selected]="row.selected">
+            <td class="check-column"><input type="checkbox" [(ngModel)]="row.selected" /></td>
+            <td>
+              <strong>{{ row.productName }}</strong>
+              <small>{{ row.productCode }} · {{ row.unit }}</small>
+              <p>{{ row.reason }}</p>
+            </td>
+            <td>
+              <strong>{{ row.sourceShopCode }}</strong>
+              <small>Tồn {{ formatNumber(row.sourceStock, 0) }} · bán TB {{ formatNumber(row.sourceAverageMonthlySales) }}/tháng</small>
+              <small>Giữ {{ row.sourceKeepQuantity }} · có thể chuyển {{ row.transferableQuantity }}</small>
+            </td>
+            <td>
+              <select [(ngModel)]="row.destinationShopCode" (ngModelChange)="onDestinationChange(row)">
+                <option *ngFor="let destination of row.destinations" [value]="destination.shopCode">
+                  {{ destination.shopCode }} · bán {{ formatNumber(destination.averageMonthlySales) }}/tháng
+                </option>
+              </select>
+              <small>{{ row.destinationShopName }}</small>
+              <small>Tồn {{ formatNumber(row.destinationStock, 0) }} · đủ khoảng {{ formatNumber(row.destinationCoverageDays, 0) }} ngày</small>
+            </td>
+            <td>
+              <input
+                class="quantity-input"
+                type="number"
+                min="0"
+                [max]="row.transferableQuantity < row.destinationNeededQuantity ? row.transferableQuantity : row.destinationNeededQuantity"
+                [(ngModel)]="row.proposedQuantity"
+                (change)="clampProposedQuantity(row)"
+              />
+              <small>Tối đa {{ row.transferableQuantity < row.destinationNeededQuantity ? row.transferableQuantity : row.destinationNeededQuantity }}</small>
+            </td>
+            <td>
+              <strong>{{ row.expiryText }}</strong>
+              <small *ngIf="row.expiryDays !== null">Còn {{ row.expiryDays }} ngày</small>
+            </td>
+            <td>
+              <span class="priority-badge" [class.high]="row.priority === 'high'">
+                {{ row.priority === "high" ? "Cao" : "Vừa" }}
+              </span>
+              <small>{{ row.destinations.length }} shop phù hợp</small>
+            </td>
+          </tr>
+          <tr *ngIf="!loading && filteredSuggestions.length === 0">
+            <td colspan="7" class="transfer-empty">Chưa có đề xuất phù hợp. Nếu shop nhận toàn quốc bằng 0, cần tài khoản/API có quyền xem tồn kho toàn quốc.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>

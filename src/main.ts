@@ -14,6 +14,7 @@ import { ShopPlanYearComponent } from "./app/shop-plan-year/shop-plan-year.compo
 import { RootComponent } from "./app/root.component";
 import { SlowSellingComponent } from "./app/slow-selling/slow-selling.component";
 import { StableConsumptionComponent } from "./app/stable-consumption/stable-consumption.component";
+import { TransferSuggestionsComponent } from "./app/transfer-suggestions/transfer-suggestions.component";
 import { LayoutComponent } from "./app/layout/layout.component";
 import { HomeComponent } from "./app/home/home.component";
 
@@ -43,6 +44,10 @@ const routes: Routes = [
       {
         path: "ton-kho-toan-quoc",
         component: NationalInventoryComponent,
+      },
+      {
+        path: "dieu-chuyen",
+        component: TransferSuggestionsComponent,
       },
       {
         path: "profile",

@@ -1,0 +1,375 @@
+:host {
+  display: block;
+}
+
+.transfer-page {
+  display: grid;
+  gap: 18px;
+  padding: 24px;
+  color: #f7f2e8;
+}
+
+.transfer-hero,
+.transfer-controls,
+.transfer-summary,
+.transfer-table-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.transfer-hero {
+  padding: 24px;
+  border: 1px solid rgba(255, 255, 255, .08);
+  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(20, 83, 45, .92), rgba(22, 44, 31, .9));
+}
+
+.transfer-eyebrow {
+  margin: 0 0 6px;
+  color: #9ee6b7;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.transfer-hero h1 {
+  margin: 0;
+  font-size: clamp(24px, 3vw, 34px);
+}
+
+.transfer-hero p:last-child {
+  max-width: 760px;
+  margin: 9px 0 0;
+  color: #d4e6d8;
+}
+
+.transfer-actions,
+.transfer-table-toolbar > div:last-child {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.transfer-button,
+.transfer-table-toolbar button {
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 11px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, .07);
+  color: #fff;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.transfer-button.primary {
+  border-color: #20b968;
+  background: #20b968;
+  color: #062412;
+}
+
+.transfer-button:disabled {
+  cursor: not-allowed;
+  opacity: .55;
+}
+
+.transfer-status,
+.transfer-warning,
+.transfer-controls,
+.transfer-api-steps article,
+.transfer-exist-table,
+.transfer-table-card {
+  border: 1px solid rgba(255, 255, 255, .08);
+  border-radius: 16px;
+  background: rgba(23, 20, 16, .82);
+}
+
+.transfer-status {
+  padding: 14px 16px;
+}
+
+.transfer-status > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 9px;
+}
+
+.transfer-status span,
+.transfer-controls span,
+.transfer-summary span,
+td small {
+  color: #bcae98;
+}
+
+.transfer-progress {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .08);
+}
+
+.transfer-progress i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #21b96a, #86e2a8);
+  transition: width .25s ease;
+}
+
+.transfer-warning {
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+  border-color: rgba(245, 158, 11, .4);
+  background: rgba(120, 70, 8, .24);
+  color: #f8d99a;
+}
+
+.transfer-controls {
+  align-items: end;
+  padding: 16px;
+}
+
+.transfer-controls label {
+  display: grid;
+  flex: 1 1 190px;
+  gap: 7px;
+}
+
+.transfer-controls label > span {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.transfer-controls select,
+.transfer-controls input,
+td select,
+.quantity-input {
+  width: 100%;
+  min-height: 40px;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: #211d18;
+  color: #fff;
+}
+
+.transfer-search {
+  flex-grow: 1.4 !important;
+}
+
+.transfer-api-steps {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.transfer-api-steps article {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, .9fr);
+  align-items: end;
+  gap: 14px;
+  padding: 16px;
+}
+
+.transfer-api-steps article > div,
+.transfer-api-steps label {
+  display: grid;
+  gap: 6px;
+}
+
+.transfer-api-steps span {
+  color: #9ee6b7;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.transfer-api-steps small {
+  color: #bcae98;
+}
+
+.transfer-exist-table {
+  overflow: hidden;
+}
+
+.transfer-table-toolbar.compact {
+  padding-block: 12px;
+}
+
+.transfer-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.transfer-summary article {
+  display: grid;
+  gap: 5px;
+  min-height: 112px;
+  padding: 18px;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, .08);
+  border-radius: 16px;
+  background: rgba(31, 27, 22, .82);
+}
+
+.transfer-summary article.success {
+  border-color: rgba(32, 185, 104, .35);
+}
+
+.transfer-summary article.warning {
+  border-color: rgba(245, 158, 11, .35);
+}
+
+.transfer-summary strong {
+  font-size: 30px;
+}
+
+.transfer-summary small {
+  color: #a89b87;
+}
+
+.transfer-table-card {
+  overflow: hidden;
+}
+
+.transfer-table-toolbar {
+  padding: 16px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, .07);
+}
+
+.transfer-table-toolbar h2,
+.transfer-table-toolbar p {
+  margin: 0;
+}
+
+.transfer-table-toolbar p {
+  margin-top: 5px;
+  color: #aa9c88;
+  font-size: 13px;
+}
+
+.transfer-table-scroll {
+  overflow: auto;
+}
+
+table {
+  width: 100%;
+  min-width: 1180px;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  padding: 13px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, .06);
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #252019;
+  color: #d8c9b2;
+  font-size: 11px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+tbody tr.is-selected {
+  background: rgba(32, 185, 104, .055);
+}
+
+td strong,
+td small,
+td p {
+  display: block;
+}
+
+td small {
+  margin-top: 5px;
+  font-size: 12px;
+}
+
+td p {
+  max-width: 360px;
+  margin: 8px 0 0;
+  color: #91d4aa;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.check-column {
+  width: 34px;
+  text-align: center;
+}
+
+.quantity-input {
+  width: 90px;
+  font-weight: 800;
+}
+
+.priority-badge {
+  display: inline-flex;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: rgba(59, 130, 246, .2);
+  color: #a9c8ff;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.priority-badge.high {
+  background: rgba(245, 158, 11, .2);
+  color: #ffd788;
+}
+
+.transfer-empty {
+  padding: 34px;
+  color: #b9aa94;
+  text-align: center;
+}
+
+@media (max-width: 1000px) {
+  .transfer-hero,
+  .transfer-table-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .transfer-controls {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .transfer-api-steps {
+    grid-template-columns: 1fr;
+  }
+
+  .transfer-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .transfer-page {
+    padding: 14px;
+  }
+
+  .transfer-controls,
+  .transfer-api-steps article,
+  .transfer-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .transfer-actions,
+  .transfer-actions .transfer-button {
+    width: 100%;
+  }
+}
