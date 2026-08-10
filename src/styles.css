@@ -672,17 +672,18 @@ select option {
   background: #efb812;
 }
 .expiry-dashboard span {
-  color: var(--muted);
+  color: var(--text);
   font-size: 9px;
   font-weight: 800;
 }
 .expiry-dashboard strong {
+  color: var(--text);
   font-size: 16px;
   text-align: right;
 }
 .expiry-dashboard small {
   display: block;
-  color: #6f5130;
+  color: var(--text);
   font-size: 9px;
   font-weight: 700;
   line-height: 1.35;
@@ -690,7 +691,7 @@ select option {
 }
 .expiry-dashboard .expiry-rate {
   margin-top: 2px;
-  color: #111827;
+  color: var(--text);
   font-size: 12px;
   font-weight: 800;
 }
@@ -699,16 +700,10 @@ select option {
   background: var(--gold-soft);
 }
 .expiry-dashboard article.is-active small {
-  color: #ffcb80;
-  font-size: 12px;
+  color: var(--text);
 }
 .expiry-dashboard article.is-active .expiry-rate {
-  color: #111827;
-  font-size: 12px;
-}
-.dark-mode .expiry-dashboard .expiry-rate,
-.dark-mode .expiry-dashboard article.is-active .expiry-rate {
-  color: #fff;
+  color: var(--text);
 }
 .shop-filter-section {
   border: 1px solid var(--line);

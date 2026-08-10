@@ -139,6 +139,10 @@
   color: var(--muted);
 }
 
+.card-time app-shop-plan-icon {
+  font-size: 14px;
+}
+
 .card-icon {
   font-size: 12px;
   color: var(--muted);
@@ -192,6 +196,10 @@
   border-radius: 10px;
   color: #7a4c17;
   background: #fdf0cd;
+}
+
+.metric-icon-wrap app-shop-plan-icon {
+  font-size: 20px;
 }
 
 .metric-content {
@@ -327,6 +335,10 @@
   margin-top: 2px;
 }
 
+.sec-lbl app-shop-plan-icon {
+  font-size: 16px;
+}
+
 .cus-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -342,10 +354,12 @@
 
 .cus-box--light {
   background: var(--surface-2);
+  color: var(--text);
 }
 
 .cus-box--dark {
   background: #6a4622;
+  color: #fff7e8;
 }
 
 .cus-ttl {

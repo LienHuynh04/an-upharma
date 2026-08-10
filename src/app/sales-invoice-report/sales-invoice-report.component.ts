@@ -41,11 +41,11 @@ interface SalesInvoiceReportCacheEntry {
   imports: [CommonModule, FormsModule],
   template: `
 <div class="page-inner sales-invoice-report-page">
-  <section class="report-hero">
+  <section class="inventory-header report-hero">
       <h1>Lấy báo cáo đơn hàng</h1>
   </section>
 
-  <section class="report-controls">
+  <section class="shop-filter-section report-controls">
     <label class="control-field">
       <span>Nhà thuốc</span>
       <select [(ngModel)]="selectedShopCode" name="selectedShopCode">
@@ -63,7 +63,6 @@ interface SalesInvoiceReportCacheEntry {
           (click)="selectRange(option.key)"
         >
           <strong>{{ option.label }}</strong>
-          <small>{{ getRangeItemCount(option.key) }} dòng</small>
         </button>
       </div>
     </div>
@@ -83,37 +82,11 @@ interface SalesInvoiceReportCacheEntry {
     <span>{{ errorText }}</span>
   </div>
 
-  <section class="report-metrics" *ngIf="!loading && !errorText">
-    <article class="summary-card summary-card--amount">
-      <span>Tổng giá trị</span>
-      <strong>{{ allEmployeeTotalAmount | number:'1.0-0' }} đ</strong>
-      <small>{{ selectedRangeLabel }} · {{ selectedDateRangeLabel }}</small>
-    </article>
-    <article class="summary-card">
-      <span>Số dòng</span>
-      <strong>{{ allEmployeeRowCount }}</strong>
-      <small>Đã lọc theo hạn bán</small>
-    </article>
-    <article class="summary-card">
-      <span>Nhân viên</span>
-      <strong>{{ employeeSummaries.length }}</strong>
-      <small>Đang có dữ liệu</small>
-    </article>
-    <article class="summary-card">
-      <span>Đang chọn</span>
-      <strong>{{ selectedEmployeeName || "Tất cả" }}</strong>
-      <small *ngIf="selectedEmployeeSummary; else allEmployeeState">{{ selectedEmployeeSummary.rowCount }} dòng · {{ selectedEmployeeSummary.totalAmount | number:'1.0-0' }} đ</small>
-      <ng-template #allEmployeeState>
-        <small>{{ filteredRowCount }} dòng · {{ filteredTotalAmount | number:'1.0-0' }} đ</small>
-      </ng-template>
-    </article>
-  </section>
-
   <section class="shop-filter-section employee-summary-section" *ngIf="!loading && !errorText" aria-labelledby="employeeSummaryTitle">
     <div class="section-head">
       <div>
         <h2 id="employeeSummaryTitle">Tổng quan theo nhân viên</h2>
-        <p>Chọn một nhân viên để làm nổi bật nhanh số dòng và tổng tiền.</p>
+        <p>Chọn một nhân viên để làm nổi bật nhanh số lượng và tổng tiền.</p>
       </div>
       <strong>{{ employeeSummaries.length }} nhân viên</strong>
     </div>
@@ -123,10 +96,9 @@ interface SalesInvoiceReportCacheEntry {
         type="button"
         [class.is-active]="!selectedEmployeeName"
         (click)="selectEmployee('')"
-      >
+        >
         <span class="shop-filter-copy">
           <b>Tất cả nhân viên</b>
-          <small>{{ allEmployeeRowCount }} dòng</small>
         </span>
         <strong>{{ allEmployeeTotalAmount | number:'1.0-0' }} đ</strong>
       </button>
@@ -137,10 +109,9 @@ interface SalesInvoiceReportCacheEntry {
         [class.is-active]="selectedEmployeeName === summary.employeeName"
         [attr.title]="summary.employeeName"
         (click)="selectEmployee(summary.employeeName)"
-      >
+        >
         <span class="shop-filter-copy">
           <b>{{ summary.employeeName }}</b>
-          <small>{{ summary.rowCount }} dòng</small>
         </span>
         <strong>{{ summary.totalAmount | number:'1.0-0' }} đ</strong>
       </button>
@@ -154,49 +125,254 @@ interface SalesInvoiceReportCacheEntry {
 </div>
   `,
   styles: [`
-    .sales-invoice-report-page { display: grid; gap: 14px; color: #f4eadc; }
-    .report-hero { display: flex; align-items: center; min-height: 76px; padding: 18px 20px; border: 1px solid rgba(255,255,255,.08); border-radius: 20px; background: linear-gradient(135deg, rgba(25, 18, 12, .96), rgba(53, 33, 17, .92)); box-shadow: 0 18px 40px rgba(0,0,0,.28); }
-    .report-hero h1 { margin: 0; font-size: clamp(22px, 3vw, 32px); line-height: 1.08; color: #fff3e0; letter-spacing: .01em; }
-    .report-controls { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(0, 2fr) auto; gap: 12px; align-items: end; padding: 14px; border: 1px solid rgba(255,255,255,.08); border-radius: 18px; background: linear-gradient(180deg, rgba(31, 23, 16, .96), rgba(20, 15, 10, .96)); box-shadow: 0 16px 32px rgba(0,0,0,.22); }
-    .control-field, .range-field { display: grid; gap: 7px; color: #c9b9a8; font-size: 10px; font-weight: 800; }
-    .control-field select { min-height: 42px; border: 1px solid rgba(255,255,255,.08); border-radius: 12px; background: rgba(255,255,255,.04); color: #f6ebde; padding: 0 12px; font: inherit; }
-    .range-field { min-width: 0; }
-    .range-field .range-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-    .range-field .range-options button { display: grid; gap: 2px; min-height: 42px; padding: 8px 12px; border: 1px solid rgba(255,255,255,.08); border-radius: 12px; color: #d2c2b3; background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02)); font: inherit; cursor: pointer; text-align: left; }
-    .range-field .range-options button strong { font-size: 11px; color: #f4eadc; }
-    .range-field .range-options button small { color: #b7a995; font-size: 9px; }
-    .range-field .range-options button.is-active { border-color: rgba(236, 176, 96, .35); color: #ffe7c2; background: linear-gradient(135deg, rgba(84, 53, 23, .92), rgba(47, 29, 11, .92)); box-shadow: 0 10px 22px rgba(0,0,0,.28); }
-    .view-button { display: inline-flex; min-height: 42px; align-items: center; justify-content: center; border: 1px solid rgba(236, 176, 96, .48); border-radius: 12px; padding: 0 16px; color: #fff3e0; background: linear-gradient(135deg, #7c4d1e, #c98c1f); box-shadow: 0 12px 24px rgba(0,0,0,.24); font-size: 10px; font-weight: 900; cursor: pointer; }
-    .view-button:not(:disabled):hover { transform: translateY(-1px); }
-    .report-loading { min-height: 110px; border: 1px solid rgba(255,255,255,.08); border-radius: 16px; background: linear-gradient(180deg, rgba(31,23,16,.96), rgba(19,14,10,.96)); box-shadow: 0 16px 32px rgba(0,0,0,.22); color: #d8c7b3; }
-    .report-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
-    .summary-card { display: grid; gap: 5px; background: linear-gradient(180deg, rgba(31,23,16,.98), rgba(22,16,11,.98)); border: 1px solid rgba(255,255,255,.08); border-radius: 16px; padding: 14px; box-shadow: 0 16px 32px rgba(0,0,0,.22); }
-    .summary-card span, .section-head p, .report-empty-state p { color: #c9b9a8; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
-    .summary-card strong { font-size: 18px; color: #fff4e2; line-height: 1.1; }
-    .summary-card small { color: #c1b09d; font-size: 10px; }
-    .summary-card--amount { border-color: rgba(236, 176, 96, .24); background: linear-gradient(180deg, rgba(42,27,12,.98), rgba(24,15,9,.98)); }
-    .summary-card--amount strong { color: #ffd08b; }
-    .report-error { display: grid; gap: 4px; padding: 14px 16px; border: 1px solid rgba(255, 110, 110, .22); border-radius: 14px; color: #ffb3b3; background: rgba(130, 31, 31, .24); font-size: 11px; }
-    .report-error strong { font-size: 12px; }
-    .section-head { display: flex; align-items: end; justify-content: space-between; gap: 12px; padding: 0 4px; }
-    .section-head h2 { margin: 0; font-size: 18px; color: #fff2df; }
-    .section-head p { margin: 4px 0 0; text-transform: none; letter-spacing: 0; font-weight: 600; }
-    .section-head strong { color: #ffd08b; font-size: 11px; font-weight: 900; white-space: nowrap; }
-    .employee-summary-section { display: grid; gap: 12px; padding: 16px; border: 1px solid rgba(255,255,255,.08); border-radius: 18px; background: linear-gradient(180deg, rgba(30,22,16,.98), rgba(17,12,8,.98)); box-shadow: 0 16px 32px rgba(0,0,0,.22); }
-    .employee-summary-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-    .employee-summary-card { min-height: 72px; align-items: center; }
-    .employee-summary-card .shop-filter-copy b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .employee-summary-card > strong { max-width: 46%; color: #ffd08b; font-size: 12px; text-align: right; }
-    .employee-summary-card.is-active { border-color: rgba(236, 176, 96, .28); background: linear-gradient(180deg, rgba(52,33,14,.98), rgba(31,21,11,.98)); }
-    .report-empty-state { display: grid; gap: 6px; padding: 20px; border: 1px dashed rgba(255,255,255,.12); border-radius: 18px; background: linear-gradient(180deg, rgba(24,18,12,.96), rgba(16,12,8,.96)); text-align: center; }
-    .report-empty-state strong { font-size: 14px; color: #fff3e0; }
-    .report-empty-state p { margin: 0; }
+    .sales-invoice-report-page {
+      display: grid;
+      gap: 14px;
+      color: var(--text);
+    }
+    .report-hero {
+      align-items: center;
+      min-height: 76px;
+      padding: 12px 14px;
+    }
+    .report-hero h1 {
+      margin: 0;
+      font-size: clamp(22px, 3vw, 30px);
+      line-height: 1.08;
+      color: var(--text);
+      letter-spacing: -0.02em;
+    }
+    .report-controls {
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) minmax(0, 2fr) auto;
+      gap: 12px;
+      align-items: end;
+      padding: 12px;
+    }
+    .control-field,
+    .range-field {
+      display: grid;
+      gap: 7px;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 800;
+    }
+    .control-field select {
+      min-height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--surface-2);
+      color: var(--text);
+      padding: 0 10px;
+      font: inherit;
+      font-size: 10px;
+    }
+    .range-field {
+      min-width: 0;
+    }
+    .range-field .range-options {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .range-field .range-options button {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: flex-start;
+      gap: 1px;
+      min-height: 34px;
+      padding: 6px 10px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      color: var(--text);
+      background: var(--surface-2);
+      font: inherit;
+      cursor: pointer;
+      text-align: left;
+    }
+    .range-field .range-options button strong {
+      margin: 0;
+      font-size: 10px;
+      line-height: 1.1;
+      color: var(--text);
+    }
+    .range-field .range-options button small {
+      color: var(--muted);
+      font-size: 8px;
+      line-height: 1.1;
+    }
+    .range-field .range-options button.is-active {
+      border-color: var(--gold);
+      color: var(--text);
+      background: var(--gold-soft);
+      box-shadow: inset 4px 0 var(--gold);
+    }
+    .view-button {
+      display: inline-flex;
+      min-height: 42px;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--gold);
+      border-radius: 12px;
+      padding: 0 16px;
+      color: #fff;
+      background: linear-gradient(135deg, var(--gold-light), var(--gold));
+      box-shadow: 0 12px 24px rgba(163, 107, 20, 0.2);
+      font-size: 10px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+    .view-button:not(:disabled):hover {
+      transform: translateY(-1px);
+    }
+    .report-loading {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-height: 92px;
+      padding: 12px 14px;
+      color: var(--muted);
+    }
+    .report-metrics {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .summary-card {
+      display: grid;
+      gap: 5px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 14px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+    .summary-card span,
+    .section-head p,
+    .report-empty-state p {
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      text-transform: none;
+    }
+    .summary-card strong {
+      font-size: 18px;
+      color: var(--text);
+      line-height: 1.1;
+    }
+    .summary-card small {
+      color: var(--muted);
+      font-size: 10px;
+    }
+    .summary-card--amount {
+      border-color: rgba(201, 140, 31, 0.28);
+      background: linear-gradient(180deg, var(--gold-soft), var(--surface));
+    }
+    .summary-card--amount strong {
+      color: var(--gold);
+    }
+    .report-error {
+      display: grid;
+      gap: 4px;
+      padding: 14px 16px;
+      border: 1px solid rgba(220, 62, 56, 0.18);
+      border-radius: 14px;
+      color: var(--red);
+      background: var(--surface);
+      font-size: 11px;
+    }
+    .report-error strong {
+      font-size: 12px;
+    }
+    .section-head {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 0 4px;
+    }
+    .section-head h2 {
+      margin: 0;
+      font-size: 18px;
+      color: var(--text);
+    }
+    .section-head p {
+      margin: 4px 0 0;
+      font-weight: 600;
+    }
+    .section-head strong {
+      color: var(--gold);
+      font-size: 11px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+    .employee-summary-section {
+      display: grid;
+      gap: 12px;
+      padding: 14px;
+    }
+    .employee-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .employee-summary-card {
+      min-height: 72px;
+      align-items: center;
+    }
+    .employee-summary-card .shop-filter-copy b {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .employee-summary-card > strong {
+      max-width: 46%;
+      color: var(--gold);
+      font-size: 12px;
+      text-align: right;
+    }
+    .employee-summary-card.is-active {
+      border-color: var(--gold);
+      background: var(--gold-soft);
+    }
+    .report-empty-state {
+      display: grid;
+      gap: 6px;
+      padding: 20px;
+      border: 1px dashed var(--line);
+      border-radius: 18px;
+      background: var(--surface);
+      text-align: center;
+    }
+    .report-empty-state strong {
+      font-size: 14px;
+      color: var(--text);
+    }
+    .report-empty-state p {
+      margin: 0;
+    }
     @media (max-width: 900px) {
-      .report-hero, .report-controls, .report-metrics, .employee-summary-grid { grid-template-columns: 1fr; }
-      .report-controls { align-items: stretch; }
-      .range-field .range-options { grid-template-columns: 1fr; }
-      .section-head { align-items: flex-start; flex-direction: column; }
-      .view-button { width: 100%; }
+      .report-hero,
+      .report-controls,
+      .report-metrics,
+      .employee-summary-grid {
+        grid-template-columns: 1fr;
+      }
+      .report-controls {
+        align-items: stretch;
+      }
+      .range-field .range-options {
+        grid-template-columns: 1fr;
+      }
+      .section-head {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+      .view-button {
+        width: 100%;
+      }
     }
   `],
 })

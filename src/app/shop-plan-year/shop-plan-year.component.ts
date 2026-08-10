@@ -1,5 +1,5 @@
 import { CommonModule } from "@angular/common";
-import { Component, OnInit } from "@angular/core";
+import { Component, Input, OnInit } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { UpharmaService } from "../upharma.service";
 
@@ -65,10 +65,41 @@ interface ShopMonthCard {
   item: ShopPlanItem | null;
 }
 
+type ShopPlanIconName = "clock" | "percent" | "settings" | "chart" | "cart" | "users" | "star" | "bag" | "receipt" | "inventory";
+
+@Component({
+  selector: "app-shop-plan-icon",
+  standalone: true,
+  imports: [CommonModule],
+  template: `
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <ng-container [ngSwitch]="name">
+        <g *ngSwitchCase="'clock'"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3.5 2"></path></g>
+        <g *ngSwitchCase="'percent'"><path d="M7 17 17 7"></path><circle cx="7.5" cy="7.5" r="2.5"></circle><circle cx="16.5" cy="16.5" r="2.5"></circle></g>
+        <g *ngSwitchCase="'settings'"><circle cx="12" cy="12" r="3"></circle><path d="M12 2.8v2M12 19.2v2M2.8 12h2M19.2 12h2M5.5 5.5l1.4 1.4M17.1 17.1l1.4 1.4M18.5 5.5l-1.4 1.4M6.9 17.1l-1.4 1.4"></path></g>
+        <g *ngSwitchCase="'chart'"><path d="M4 19V5M4 19h16"></path><path d="m7 15 4-4 3 2 5-6"></path></g>
+        <g *ngSwitchCase="'cart'"><path d="M3 4h2l2.1 10.2a2 2 0 0 0 2 1.6h7.8a2 2 0 0 0 2-1.6L20 8H6"></path><circle cx="9" cy="20" r="1"></circle><circle cx="17" cy="20" r="1"></circle></g>
+        <g *ngSwitchCase="'users'"><circle cx="9" cy="8" r="3"></circle><circle cx="17" cy="9" r="2.5"></circle><path d="M3.5 19c.5-4 2.4-6 5.5-6s5 2 5.5 6M14 14c3.8-.4 6 1.3 6.5 5"></path></g>
+        <g *ngSwitchCase="'star'"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-2.9-5.6 2.9 1.1-6.2L3 9.6l6.2-.9L12 3Z"></path></g>
+        <g *ngSwitchCase="'bag'"><path d="M5 8h14l-1 12H6L5 8Z"></path><path d="M9 9V6a3 3 0 0 1 6 0v3"></path></g>
+        <g *ngSwitchCase="'receipt'"><path d="M6 3h12v18l-2-1.5-2 1.5-2-1.5-2 1.5-2-1.5L6 21V3Z"></path><path d="M9 8h6M9 12h6M9 16h4"></path></g>
+        <g *ngSwitchCase="'inventory'"><rect x="4" y="5" width="16" height="15" rx="2"></rect><path d="M3 5h18V2H3v3ZM9 10h6"></path></g>
+      </ng-container>
+    </svg>
+  `,
+  styles: [`
+    :host { display: inline-flex; width: 1em; height: 1em; flex: 0 0 auto; }
+    svg { display: block; width: 100%; height: 100%; }
+  `],
+})
+export class ShopPlanIconComponent {
+  @Input({ required: true }) name!: ShopPlanIconName;
+}
+
 @Component({
   selector: "app-shop-plan-year",
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ShopPlanIconComponent],
   template: `
 <div class="page-inner employee-plan-page">
   <section class="employee-plan-hero">
@@ -108,19 +139,14 @@ interface ShopMonthCard {
         <div class="card-top">
           <span class="card-month">{{ card.shopCode }} · {{ formatMonthLabel(item.Month) }}</span>
           <div class="card-top-right">
-            <span class="card-time"><i class="mdi mdi-clock-outline"></i>{{ formatDateTime(item.TimeModify || item.TimeCreate) }}</span>
-            <i class="mdi mdi-percent card-icon"></i>
-            <i class="mdi mdi-cog card-icon"></i>
+            <span class="card-time"><app-shop-plan-icon name="clock"></app-shop-plan-icon>{{ formatDateTime(item.TimeModify || item.TimeCreate) }}</span>
+            <app-shop-plan-icon class="card-icon" name="percent"></app-shop-plan-icon>
+            <app-shop-plan-icon class="card-icon" name="settings"></app-shop-plan-icon>
           </div>
         </div>
 
-        <div class="card-status">
-          <span class="chip chip--code">{{ card.shopName }}</span>
-          <span class="chip chip--green">{{ getApproveLabel(item) }}</span>
-        </div>
-
         <div class="metric-row">
-          <div class="metric-icon-wrap"><i class="mdi mdi-chart-line"></i></div>
+          <div class="metric-icon-wrap"><app-shop-plan-icon name="chart"></app-shop-plan-icon></div>
           <div class="metric-content">
             <div class="metric-lbl">DOANH SỐ</div>
             <div class="metric-val green">{{ formatNumber(item.AmountR) }}</div>
@@ -130,7 +156,7 @@ interface ShopMonthCard {
         </div>
 
         <div class="metric-row">
-          <div class="metric-icon-wrap"><i class="mdi mdi-cart-outline"></i></div>
+          <div class="metric-icon-wrap"><app-shop-plan-icon name="cart"></app-shop-plan-icon></div>
           <div class="metric-content">
             <div class="metric-lbl">HHS</div>
             <div class="metric-val green">{{ formatNumber(item.PointSales01R) }}</div>
@@ -150,36 +176,29 @@ interface ShopMonthCard {
             <div class="projection-val">{{ formatRatio(getHhsDisplayValue(item), item.AmountR) }}</div>
           </div>
           <div class="projection-card">
-            <div class="projection-lbl">Dự kiến doanh số</div>
+            <div class="projection-lbl">Dự kiến DS</div>
             <div class="projection-val">{{ formatNumber(getProjectedValue(item.AmountR, item.Month)) }}</div>
           </div>
           <div class="projection-card">
-            <div class="projection-lbl">Dự kiến hệ số</div>
+            <div class="projection-lbl">Dự kiến HS</div>
             <div class="projection-val">{{ formatNumber(getProjectedValue(getHhsDisplayValue(item), item.Month)) }}</div>
           </div>
         </div>
 
-        <div class="sec-lbl"><i class="mdi mdi-account-group"></i> Khách hàng</div>
+        <div class="sec-lbl"><app-shop-plan-icon name="users"></app-shop-plan-icon> Khách hàng</div>
         <div class="cus-grid">
           <div class="cus-box cus-box--light"><div class="cus-ttl">Tổng</div><div class="cus-num">{{ formatNumber(item.QuaCustomer) }}</div><div class="cus-real red">{{ formatNumber(item.QuaCustomerR) }}</div></div>
-          <div class="cus-box cus-box--light"><div class="cus-ttl">Cũ</div><div class="cus-num">{{ formatNumber(item.QuaCustomerOld) }}</div><div class="cus-real red">{{ formatNumber(item.QuaCustomerOldR) }}</div></div>
-          <div class="cus-box cus-box--dark"><div class="cus-ttl">Mới</div><div class="cus-num">{{ formatNumber(item.QuaCustomerNew) }}</div><div class="cus-real white">{{ formatNumber(item.QuaCustomerNewR) }}</div></div>
+          <div class="cus-box cus-box--light"><div class="cus-ttl">Đơn bán</div><div class="cus-num">{{ formatNumber(item.QuaInvoiceR) }}</div><div class="cus-real red">{{ formatNumber(item.QuaInvoice) }}</div></div>
+          <div class="cus-box cus-box--light"><div class="cus-ttl">TB Bill</div><div class="cus-num">{{ formatNumber(item.PointSales01R) }}</div><div class="cus-real red">{{ formatNumber(item.PointSales01) }}</div></div>
         </div>
 
-        <div class="sec-lbl"><i class="mdi mdi-star-outline"></i> Khách đạt hạng</div>
+        <div class="sec-lbl"><app-shop-plan-icon name="star"></app-shop-plan-icon> Khách đạt hạng</div>
         <div class="lv-grid">
           <div class="lv-cell" *ngFor="let level of customerLevels">
             <div class="lv-lbl">{{ level.label }}</div>
             <div class="lv-t">{{ formatNumber(getLevelValue(item, level.key)) }}</div>
             <div class="lv-r">{{ formatNumber(getLevelRealValue(item, level.key)) }}</div>
           </div>
-        </div>
-
-        <div class="bot-grid">
-          <div class="bot-card"><i class="mdi mdi-shopping-outline bot-ico"></i><div class="bot-ttl">Đơn bán</div><div class="bot-real red">{{ formatNumber(item.QuaInvoiceR) }}</div><div class="bot-tgt">{{ formatNumber(item.QuaInvoice) }}</div><div class="bot-badge" [ngClass]="getBadgeClass(item.QuaInvoiceR, item.QuaInvoice)">{{ formatPercent(item.QuaInvoiceR, item.QuaInvoice) }}</div></div>
-          <div class="bot-card"><i class="mdi mdi-receipt-text-outline bot-ico"></i><div class="bot-ttl">TB Bill</div><div class="bot-real red">{{ formatNumber(item.PointSales01R) }}</div><div class="bot-tgt">{{ formatNumber(item.PointSales01) }}</div><div class="bot-badge" [ngClass]="getBadgeClass(item.PointSales01R, item.PointSales01)">{{ formatPercent(item.PointSales01R, item.PointSales01) }}</div></div>
-          <div class="bot-card"><i class="mdi mdi-package-variant-closed bot-ico"></i><div class="bot-ttl">Mặt hàng</div><div class="bot-real green">{{ formatNumber(item.SKUR) }}</div><div class="bot-tgt">{{ formatNumber(item.SKU) }}</div><div class="bot-badge" [ngClass]="getBadgeClass(item.SKUR, item.SKU)">{{ formatPercent(item.SKUR, item.SKU) }}</div></div>
-          <div class="bot-card"><i class="mdi mdi-percent-outline bot-ico"></i><div class="bot-ttl">Hàng chậm</div><div class="bot-real green">{{ formatNumber(item.RatioSlowSalesR) }}%</div><div class="bot-tgt">{{ formatNumber(item.RatioSlowSales) }}%</div><div class="bot-badge" [ngClass]="getBadgeClass(item.RatioSlowSalesR, item.RatioSlowSales)">{{ item.RatioSlowSalesR > item.RatioSlowSales ? "Đạt" : "Chưa đạt" }}</div></div>
         </div>
         </ng-container>
         <ng-template #emptyShopCard>
@@ -274,7 +293,9 @@ export class ShopPlanYearComponent implements OnInit {
   }
 
   formatNumber(value: number): string {
-    return new Intl.NumberFormat("vi-VN").format(value || 0);
+    return new Intl.NumberFormat("vi-VN", {
+      maximumFractionDigits: 0,
+    }).format(value || 0);
   }
 
   formatMonthLabel(value: string): string {
@@ -313,7 +334,7 @@ export class ShopPlanYearComponent implements OnInit {
     }
 
     const ratio = (Number(numerator) / Number(denominator)) * 100;
-    return `${ratio.toFixed(ratio % 1 === 0 ? 0 : 2)}%`;
+    return `${Math.round(ratio)}%`;
   }
 
   getHhsDisplayValue(item: ShopPlanItem): number {
@@ -395,7 +416,7 @@ export class ShopPlanYearComponent implements OnInit {
 
   formatPercent(realValue: number, targetValue: number): string {
     const percent = this.getPercent(realValue, targetValue);
-    return `${percent.toFixed(percent % 1 === 0 ? 0 : 1)}%`;
+    return `${Math.round(percent)}%`;
   }
 
   getBadgeClass(realValue: number, targetValue: number): string {

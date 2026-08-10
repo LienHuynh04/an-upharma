@@ -311,7 +311,6 @@
         </table>
       </div>
       <div class="table-load-more" *ngIf="filteredRows.length > 0">
-        <span>Đang hiển thị {{ displayedRows.length }} / {{ filteredRows.length }} dòng</span>
         <button type="button" *ngIf="displayedRows.length < filteredRows.length" (click)="loadMoreRows()">
           Xem thêm {{ filteredRows.length - displayedRows.length > renderBatchSize ? renderBatchSize : filteredRows.length - displayedRows.length }} dòng
         </button>
