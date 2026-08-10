@@ -42,7 +42,9 @@ interface SalesInvoiceReportCacheEntry {
   template: `
 <div class="page-inner sales-invoice-report-page">
   <section class="inventory-header report-hero">
+    <div>
       <h1>Lấy báo cáo đơn hàng</h1>
+    </div>
   </section>
 
   <section class="shop-filter-section report-controls">
@@ -132,15 +134,15 @@ interface SalesInvoiceReportCacheEntry {
     }
     .report-hero {
       align-items: center;
-      min-height: 76px;
-      padding: 12px 14px;
+      justify-content: flex-start;
+      padding: 10px 12px;
     }
     .report-hero h1 {
       margin: 0;
-      font-size: clamp(22px, 3vw, 30px);
-      line-height: 1.08;
+      font-size: 16px;
+      line-height: 1.1;
       color: var(--text);
-      letter-spacing: -0.02em;
+      letter-spacing: -0.35px;
     }
     .report-controls {
       display: grid;

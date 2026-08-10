@@ -154,6 +154,14 @@
       <!-- <label class="global-search">
         <span>⌕</span><input type="search" placeholder="Tìm kiếm nhanh..." />
       </label> -->
+      <button
+        class="topbar-report-btn"
+        type="button"
+        [disabled]="generatingReport"
+        (click)="generateAndOpenReport()"
+      >
+        <span>📊</span> {{ generatingReport ? "Đang tạo..." : "Tạo báo cáo" }}
+      </button>
       <div class="topbar-spacer"></div>
       <button
         class="topbar-icon"
