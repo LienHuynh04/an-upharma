@@ -1,11 +1,15 @@
 import { bootstrapApplication } from "@angular/platform-browser";
 import { provideRouter, Routes, withHashLocation } from "@angular/router";
 import { ApiTestComponent } from "./app/api-test/api-test.component";
+import { CheckInventoryTestComponent } from "./app/check-inventory-test/check-inventory-test.component";
+import { InventorySystemTestComponent } from "./app/inventory-system-test/inventory-system-test.component";
+import { InventoryExpirationTestComponent } from "./app/inventory-expiration-test/inventory-expiration-test.component";
 import { authGuard } from "./app/auth.guard";
 import { EmployeePlanComponent } from "./app/employee-plan/employee-plan.component";
 import { InventoryNewComponent } from "./app/inventory-new/inventory-new.component";
 import { LoginComponent } from "./app/login/login.component";
 import { LabelPrintComponent } from "./app/label-print/label-print.component";
+import { TransferSuggestionsComponent } from "./app/transfer-suggestions/transfer-suggestions.component";
 // Backup trang Tồn kho toàn quốc:
 // import { NationalInventoryComponent } from "./app/national-inventory/national-inventory.component";
 import { OutOfStockComponent } from "./app/out-of-stock/out-of-stock.component";
@@ -61,6 +65,18 @@ const routes: Routes = [
         component: ApiTestComponent,
       },
       {
+        path: "check-inventory-test",
+        component: CheckInventoryTestComponent,
+      },
+      {
+        path: "inventory-system-test",
+        component: InventorySystemTestComponent,
+      },
+      {
+        path: "inventory-expiration-test",
+        component: InventoryExpirationTestComponent,
+      },
+      {
         path: "lay-bao-cao-don-hang",
         component: SalesInvoiceReportComponent,
       },
@@ -87,6 +103,10 @@ const routes: Routes = [
       {
         path: "hang-ban-cham",
         component: SlowSellingComponent,
+      },
+      {
+        path: "goi-y-chuyen-hang",
+        component: TransferSuggestionsComponent,
       },
       {
         path: "in-tem",

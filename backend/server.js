@@ -2,6 +2,7 @@ const http = require("node:http");
 const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
+const syncService = require("./sync-service");
 
 loadEnvFile();
 
@@ -42,28 +43,32 @@ function loadEnvFile() {
     return;
   }
 
-  const lines = fs.readFileSync(envPath, "utf8").split(/\r?\n/);
+  const content = fs.readFileSync(envPath, "utf8");
+  const regex = /^\s*([^#=\s]+)\s*=\s*(.*)$/gm;
+  let match;
 
-  lines.forEach((line) => {
-    const trimmed = line.trim();
+  while ((match = regex.exec(content)) !== null) {
+    const key = match[1].trim();
+    let value = match[2].trim();
 
-    if (!trimmed || trimmed.startsWith("#")) {
-      return;
+    if (value.startsWith("'") || value.startsWith('"')) {
+      const quoteChar = value[0];
+      if (!value.endsWith(quoteChar) || value.length === 1) {
+        const startIndex = match.index + match[0].indexOf(quoteChar) + 1;
+        const endIndex = content.indexOf(quoteChar, startIndex);
+        if (endIndex !== -1) {
+          value = content.slice(startIndex, endIndex);
+          regex.lastIndex = endIndex + 1;
+        }
+      } else {
+        value = value.slice(1, -1);
+      }
     }
-
-    const separatorIndex = trimmed.indexOf("=");
-
-    if (separatorIndex === -1) {
-      return;
-    }
-
-    const key = trimmed.slice(0, separatorIndex).trim();
-    const value = trimmed.slice(separatorIndex + 1).trim();
 
     if (key && process.env[key] === undefined) {
       process.env[key] = value;
     }
-  });
+  }
 }
 
 function sendJson(res, statusCode, payload) {
@@ -705,6 +710,19 @@ async function handleLogin(req, res) {
   });
 }
 
+function anonymizeText(text) {
+  if (typeof text !== "string") return text;
+  // Match +84 or 0 followed by 9 digits
+  return text.replace(/(?:\+84|0)\s*\d{2,3}[\s.-]*\d{3,4}[\s.-]*\d{3,4}/g, (match) => {
+    const cleaned = match.replace(/[\s.-]/g, '');
+    if (cleaned.length >= 8) {
+      return cleaned.slice(0, 3) + "***" + cleaned.slice(-3);
+    }
+    return "***";
+  });
+}
+
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
 
@@ -772,6 +790,70 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === "POST" && url.pathname === "/api/gemini/analyze") {
+      const payload = await readJsonBody(req);
+      const rawPrompt = payload.prompt || "";
+      
+      if (!rawPrompt) {
+        sendJson(res, 400, { success: false, message: "Thiếu prompt phân tích" });
+        return;
+      }
+      
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        sendJson(res, 503, { success: false, message: "Khóa API Gemini chưa được cấu hình trên Backend" });
+        return;
+      }
+      
+      const sanitizedPrompt = anonymizeText(rawPrompt);
+      
+      try {
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+        const response = await fetch(geminiUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  { text: sanitizedPrompt }
+                ]
+              }
+            ]
+          }),
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+          sendJson(res, response.status, {
+            success: false,
+            message: data.error?.message || "Lỗi gọi API Gemini",
+            raw: data
+          });
+          return;
+        }
+        
+        const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text || "Không có kết quả trả về từ mô hình.";
+        
+        sendJson(res, 200, {
+          success: true,
+          result: resultText,
+          sanitizedPrompt: sanitizedPrompt
+        });
+      } catch (error) {
+        sendJson(res, 500, {
+          success: false,
+          message: "Lỗi hệ thống khi kết nối đến Gemini",
+          error: error.message
+        });
+      }
+      return;
+    }
+
+
     sendJson(res, 404, {
       message: "Route not found",
       path: url.pathname,
@@ -787,4 +869,8 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, () => {
   console.log(`Backend API running at http://localhost:${PORT}`);
   console.log(`n8n webhook URL: ${N8N_WEBHOOK_URL}`);
+  
+  // Start automatic background sync (default: 15 minutes)
+  const intervalMs = Number(process.env.UPHARMA_SYNC_INTERVAL_MS || 15 * 60 * 1000);
+  syncService.startAutoSync(intervalMs);
 });

@@ -478,7 +478,11 @@ export class UpharmaService {
     const session = this.sessionData || this.ensureLogin();
     const data: RawRecord[] = [];
     const failedShops: string[] = [];
-    const shops = [...this.shopList];
+    const requestedShopCodes = new Set(options.shopCodes || []);
+    const selectedShops = requestedShopCodes.size > 0
+      ? this.shopList.filter((shop) => requestedShopCodes.has(shop.ShopCode))
+      : [...this.shopList];
+    const shops = [...selectedShops];
 
     const worker = async (): Promise<void> => {
       for (let shop = shops.shift(); shop; shop = shops.shift()) {
@@ -509,10 +513,10 @@ export class UpharmaService {
     };
 
     await Promise.all(
-      Array.from({ length: Math.min(this.shopConcurrency, this.shopList.length) }, () => worker()),
+      Array.from({ length: Math.min(this.shopConcurrency, selectedShops.length) }, () => worker()),
     );
 
-    if (this.shopList.length > 0 && failedShops.length === this.shopList.length) {
+    if (selectedShops.length > 0 && failedShops.length === selectedShops.length) {
       throw new Error(`inventory_new: tất cả nhà thuốc đều lỗi (${failedShops.join(", ")})`);
     }
 
@@ -524,7 +528,7 @@ export class UpharmaService {
         FullName: session.UserInfo.FullName,
         Email: session.UserInfo.Email,
       },
-      shops: this.shopList,
+      shops: selectedShops,
       data,
       failedShops,
       fetchedAt: new Date().toISOString(),

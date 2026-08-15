@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Báo cáo tổng hợp UPHARMA tháng 8/2026</title>
+<style>
+:root{
+  --navy:#17365d;--navy-2:#254f7e;--blue:#2563eb;--green:#16a34a;
+  --amber:#d97706;--red:#dc2626;--purple:#8b5cf6;--slate:#64748b;
+  --bg:#f3f6fb;--card:#fff;--line:#dbe3ef;--soft:#f8fafc;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:#1e293b}
+header{background:linear-gradient(135deg,var(--navy),var(--navy-2));color:#fff;padding:25px 24px}
+header .inner,main{max-width:1400px;margin:auto}
+.header-row{display:flex;align-items:flex-end;justify-content:space-between;gap:28px}
+h1{margin:0 0 8px;font-size:30px}.subtitle{margin:0;opacity:.88}
+.filters{display:flex;align-items:flex-end;gap:10px}
+.field{display:grid;gap:5px}.field label{font-size:12px;font-weight:700;opacity:.9}
+.field select{min-width:115px;padding:9px 34px 9px 11px;border:1px solid rgba(255,255,255,.35);border-radius:8px;background:#fff;color:var(--navy);font-weight:800}
+.view-btn{padding:10px 17px;border:0;border-radius:8px;color:#fff;background:#d99a16;font-weight:800;box-shadow:0 2px 6px rgba(0,0,0,.18)}
+nav{position:sticky;top:0;z-index:20;background:#fff;border-bottom:1px solid var(--line);padding:10px 18px;display:flex;gap:8px;overflow:auto}
+nav a{color:var(--navy);text-decoration:none;font-weight:700;padding:8px 12px;border-radius:7px;background:#eef4fb;white-space:nowrap}
+main{padding:22px}
+section{background:var(--card);border-radius:14px;box-shadow:0 4px 18px rgba(15,23,42,.08);padding:22px;margin-bottom:22px}
+.section-title{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}
+.section-title h2{margin:0;color:var(--navy);font-size:22px}.section-title p{margin:0;color:var(--slate);font-size:13px;text-align:right}
+.dashboard-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
+.summary-kpi{padding:15px;border:1px solid var(--line);border-radius:11px;background:linear-gradient(180deg,#fff,#f8fbff)}
+.summary-kpi span{display:block;color:var(--slate);font-size:12px;margin-bottom:6px}.summary-kpi strong{color:var(--navy);font-size:21px}
+.chart-shell{position:relative;padding:12px 8px 4px 54px}
+.y-axis{position:absolute;left:0;top:12px;bottom:52px;width:48px;display:flex;flex-direction:column;justify-content:space-between;text-align:right;color:var(--slate);font-size:11px}
+.chart-area{height:380px;border-left:1px solid #94a3b8;border-bottom:1px solid #94a3b8;background:repeating-linear-gradient(to top,transparent 0,transparent calc(25% - 1px),#e5e7eb 25%);display:flex;align-items:stretch;justify-content:space-around;padding:20px 24px 0;gap:28px}
+.store-group{flex:1;min-width:240px;display:flex;flex-direction:column}.bars{height:320px;display:flex;align-items:flex-end;justify-content:center;gap:16px}
+.bar-item{height:100%;width:62px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end}
+.bar-value{font-size:11px;font-weight:800;margin-bottom:5px;white-space:nowrap;height:18px}.bar-track{height:250px;width:100%;display:flex;align-items:flex-end}
+.bar{width:100%;min-height:2px;border-radius:7px 7px 0 0;box-shadow:inset 0 1px rgba(255,255,255,.28)}
+.bar-ds{background:var(--blue)}.bar-hhs{background:var(--green)}.bar-label{font-size:10px;text-align:center;margin-top:6px;line-height:1.15}
+.store-name{text-align:center;font-weight:800;color:var(--navy);font-size:17px;margin-top:8px}
+.legend{display:flex;flex-wrap:wrap;gap:16px;justify-content:center;margin-top:15px}.legend span{display:flex;align-items:center;gap:6px;font-size:13px}.dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+.shop-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:20px}
+.shop-card{border:1px solid var(--line);border-radius:12px;padding:16px;background:#fbfdff}
+.shop-card-head{display:flex;justify-content:space-between;align-items:start;gap:10px;margin-bottom:13px}.shop-card h3{margin:0;color:var(--navy)}
+.updated{color:var(--slate);font-size:11px;text-align:right}.kpi-row{display:grid;grid-template-columns:92px repeat(3,1fr);gap:8px;margin-bottom:9px}
+.kpi-label{display:flex;align-items:center;font-weight:800;color:var(--navy);background:#eaf1f8;border:1px solid #cbd5e1;border-radius:8px;padding:9px}
+.kpi-cell{border-radius:8px;background:#fff;padding:9px;border:1px solid #e2e8f0;min-width:0}.kpi-cell span{display:block;font-size:10px;color:var(--slate);margin-bottom:4px}.kpi-cell strong{font-size:12px;display:block;overflow-wrap:anywhere}
+.attainment{display:block;margin-top:5px;color:#475569;font-size:10px;font-weight:700}.ratio-metric{margin-top:9px;border-radius:8px;background:#eef6ff;border:1px solid #bfdbfe;padding:10px}.ratio-metric span{display:block;font-size:10px;color:var(--slate);margin-bottom:4px}.ratio-metric strong{font-size:18px;color:var(--navy);display:block}
+.shop-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px}
+.shop-tab{padding:13px 15px;text-align:left;border:1px solid var(--line);border-radius:10px;background:#f8fafc;color:var(--navy);cursor:pointer}
+.shop-tab.active{color:#fff;border-color:var(--navy);background:linear-gradient(135deg,var(--navy),var(--navy-2))}.shop-tab strong,.shop-tab span,.shop-tab small{display:block}.shop-tab span{margin-top:5px;font-size:12px}.shop-tab small{margin-top:5px;opacity:.75}
+.inventory-hero{padding:18px 20px;border-radius:12px;color:#fff;background:linear-gradient(135deg,var(--navy),var(--navy-2));margin-bottom:14px}
+.inventory-hero h3{margin:0 0 8px;font-size:19px}.inventory-legend{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:18px}.inventory-legend span{display:flex;align-items:center;gap:6px;font-size:12px;opacity:.92}.legend-square{width:11px;height:11px;border-radius:3px}.sq-expired{background:#b9c0c4}.sq-3m{background:#ff3b43}.sq-6m{background:#5573f4}.sq-1y{background:#20a65a}
+.inventory-total{font-size:18px}.inventory-total strong{font-size:25px}
+.inventory-cards{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:14px}
+.inventory-card{position:relative;min-width:0;padding:13px 13px 13px 17px;border:1px solid var(--line);border-radius:11px;background:#fff;overflow:hidden}
+.inventory-card:before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;background:#e0a21c}.inventory-card.expired:before{background:#aeb7bc}.inventory-card.three:before{background:#ff3b43}.inventory-card.six:before{background:#5573f4}.inventory-card.year:before{background:#20a65a}.inventory-card.normal:before{background:#f2c400}
+.inventory-card span{display:block;color:var(--slate);font-size:11px;font-weight:700}.inventory-card strong{display:block;margin-top:7px;color:var(--navy);text-align:right;font-size:20px}.inventory-card small{display:block;margin-top:4px;text-align:right;color:#475569;font-weight:700}.inventory-card em{display:block;margin-top:5px;text-align:right;color:var(--navy);font-style:normal;font-weight:800}
+.inventory-shops{padding:14px;border:1px solid var(--line);border-radius:12px;background:#f8fafc}.inventory-shops h3{margin:0 0 11px;color:var(--navy);font-size:16px}.inventory-shop-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.inventory-shop{padding:12px;text-align:left;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--navy);cursor:pointer}.inventory-shop.active{border:2px solid #d99a16;background:#fff8e7}.inventory-shop strong{display:block}.inventory-shop span{display:block;margin-top:5px;color:var(--slate);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.inventory-shop b{float:right;color:#c9860e;font-size:18px}
+.expiry-order-controls{display:grid;grid-template-columns:1.3fr 2.5fr auto;gap:14px;align-items:end;padding:16px;border:1px solid var(--line);border-radius:12px;background:#f8fafc;margin-bottom:14px}
+.expiry-order-field{display:grid;gap:6px}.expiry-order-field label{color:var(--slate);font-size:12px;font-weight:800}.expiry-order-field select{width:100%;padding:11px 35px 11px 12px;border:1px solid #cbd5e1;border-radius:9px;background:#fff;color:var(--navy);font-weight:800}
+.range-buttons{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.range-btn{padding:11px 13px;text-align:left;border:1px solid #cbd5e1;border-radius:9px;background:#fff;color:var(--navy);font-weight:800;cursor:pointer}.range-btn.active{border:2px solid #d99a16;background:#fff8e7;box-shadow:inset 6px 0 #e1a21c}
+.reset-btn{padding:12px 18px;border:0;border-radius:9px;color:#fff;background:linear-gradient(180deg,#efb438,#d99a16);font-weight:800;cursor:pointer}
+.employee-order-panel{padding:18px;border:1px solid var(--line);border-radius:12px;background:#fff}.employee-order-head{display:flex;align-items:end;justify-content:space-between;gap:15px;margin-bottom:15px}.employee-order-head h3{margin:0 0 5px;color:var(--navy);font-size:19px}.employee-order-head p{margin:0;color:var(--slate);font-size:12px}.employee-count{color:#c9860e;font-weight:800;white-space:nowrap}
+.order-employee-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.order-employee-card{min-height:90px;padding:14px;display:flex;align-items:center;justify-content:space-between;gap:14px;border:1px solid var(--line);border-radius:10px;background:#f8fafc;color:#1e293b;cursor:pointer;text-align:left}.order-employee-card.active{border:2px solid #d99a16;background:#fff8e7;box-shadow:inset 6px 0 #e1a21c}.order-employee-card span{font-weight:800}.order-employee-card strong{color:#c9860e;font-size:18px;white-space:nowrap}.order-empty{grid-column:1/-1;padding:35px;text-align:center;color:var(--slate);border:1px dashed #cbd5e1;border-radius:10px}
+.operation-title{display:flex;align-items:center;gap:9px;margin:0 0 13px;color:var(--navy);font-size:18px}.operation-title:before{content:"";width:5px;height:24px;border-radius:999px;background:var(--blue)}
+.promotion-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px}.promotion-card{position:relative;padding:16px;border:1px solid var(--line);border-radius:11px;background:#fbfdff;overflow:hidden}.promotion-card:before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--blue)}.promotion-card:nth-child(2):before{background:var(--amber)}.promotion-card:nth-child(3):before{background:var(--purple)}
+.promotion-card-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}.promotion-card h4{margin:0;color:var(--navy);font-size:17px}.operation-status{padding:4px 7px;border-radius:999px;background:#dcfce7;color:#166534;font-size:10px;font-weight:800;white-space:nowrap}.operation-status.internal{background:#fff7ed;color:#9a3412}.operation-status.pending{background:#f3e8ff;color:#6b21a8}.promotion-card p{margin:0;color:#475569;font-size:13px;line-height:1.55}
+.operation-info-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.operation-info{padding:16px;border:1px solid var(--line);border-radius:11px;background:#fff}.operation-info h4{margin:0 0 9px;color:var(--navy);font-size:16px}.operation-info p{margin:0;color:#475569;font-size:13px;line-height:1.6}.operation-info strong{color:var(--navy)}
+.next-week-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.next-week-card{position:relative;padding:17px;border:1px solid var(--line);border-radius:11px;background:linear-gradient(180deg,#fff,#f8fbff);overflow:hidden}.next-week-card:before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--blue)}.next-week-card:nth-child(2):before{background:var(--green)}.next-week-card:nth-child(3):before{background:var(--purple)}.next-week-card h3{margin:0 0 11px;color:var(--navy);font-size:18px}.next-week-card ul{margin:0;padding-left:20px;color:#475569}.next-week-card li{margin:8px 0;line-height:1.5;font-size:13px}.next-week-card strong{color:var(--navy)}
+.table-wrap{overflow:auto;border:1px solid #cbd5e1;border-radius:10px}
+table{width:100%;min-width:1280px;border-collapse:collapse}th,td{border-right:1px solid #cbd5e1;border-bottom:1px solid #cbd5e1;padding:10px;text-align:left;vertical-align:middle}th:last-child,td:last-child{border-right:0}tbody tr:last-child td{border-bottom:0}
+th{background:var(--navy);color:#fff;text-align:center;font-size:12px;white-space:nowrap}tbody tr:nth-child(even){background:var(--soft)}tbody tr:hover{background:#eff6ff}
+.identity strong{display:block;color:var(--navy)}.identity span{display:block;margin-top:4px;color:var(--slate);font-size:12px}.cell-number{white-space:nowrap}.cell-number strong{display:block;color:var(--green)}.cell-number span{display:block;margin-top:4px;color:var(--slate);font-size:11px}
+.progress{height:6px;margin-top:6px;background:#e2e8f0;border-radius:999px;overflow:hidden}.progress i{display:block;height:100%;background:linear-gradient(90deg,var(--blue),#60a5fa);border-radius:inherit}
+.ratio-badge{display:inline-block;padding:5px 8px;border-radius:999px;background:#fff7ed;color:#9a3412;font-weight:800;font-size:12px}.summary-line{padding:12px 14px;background:#eef6ff;color:var(--navy);font-size:13px}.green{color:var(--green)!important}.amber{color:var(--amber)!important}
+footer{text-align:center;color:var(--slate);padding:12px 20px 30px;font-size:12px}
+@media(max-width:1050px){.header-row{align-items:flex-start;flex-direction:column}.dashboard-summary{grid-template-columns:repeat(2,1fr)}.shop-cards{grid-template-columns:1fr}.shop-tabs{overflow-x:auto;grid-template-columns:repeat(3,minmax(280px,1fr))}.chart-area{overflow-x:auto;justify-content:flex-start}.store-group{flex:0 0 270px}.inventory-cards{grid-template-columns:repeat(3,1fr)}.expiry-order-controls{grid-template-columns:1fr}.order-employee-grid{grid-template-columns:repeat(2,1fr)}.promotion-grid,.next-week-grid{grid-template-columns:1fr}}
+@media(max-width:620px){header{padding:22px 16px}h1{font-size:24px}.filters{width:100%;display:grid;grid-template-columns:1fr 1fr}.field select{width:100%}.view-btn{grid-column:1/-1}.section-title{align-items:flex-start;flex-direction:column}.section-title p{text-align:left}.dashboard-summary{grid-template-columns:1fr}.kpi-row{grid-template-columns:1fr}.inventory-cards{grid-template-columns:repeat(2,1fr)}.inventory-shop-grid{grid-template-columns:1fr}.range-buttons{grid-template-columns:1fr}.employee-order-head{align-items:flex-start;flex-direction:column}.order-employee-grid{grid-template-columns:1fr}.operation-info-grid{grid-template-columns:1fr}main{padding:12px}section{padding:16px}}
+@media print{nav,.filters{display:none}body{background:#fff}main{padding:0}section{box-shadow:none;border:1px solid #d1d5db;page-break-inside:avoid}}
+</style>
+</head>
+<body>
+<header><div class="inner header-row">
+  <div><h1>BÁO CÁO TỔNG HỢP 3 NHÀ THUỐC</h1><p class="subtitle">Chỉ tiêu nhà thuốc • Chỉ tiêu nhân viên • Tháng 8/2026</p></div>
+  <div class="filters">
+    <div class="field"><label for="month-select">Tháng</label><select id="month-select"><option value="8">8</option></select></div>
+    <div class="field"><label for="year-select">Năm</label><select id="year-select"><option value="2026">2026</option></select></div>
+    <button class="view-btn" id="view-btn" type="button">Xem báo cáo</button>
+  </div>
+</div></header>
+<nav><a href="#chi-tieu">Chỉ tiêu nhà thuốc</a><a href="#ton-kho">Tỷ lệ cận date</a><a href="#don-hang-can-date">Đơn hàng cận date</a><a href="#nhan-vien">Chỉ tiêu nhân viên</a><a href="#van-hanh">Vận hành</a><a href="#ke-hoach-tuan-toi">KH tuần tới</a></nav>
+<main>
+  <section id="chi-tieu">
+    <div class="section-title"><h2>📊 Dashboard chỉ tiêu 3 nhà thuốc</h2><p>Doanh số và HHS thực tế so với chỉ tiêu<br><small>Dữ liệu lũy kế 9 ngày, dự kiến trên 31 ngày</small></p></div>
+    <div class="dashboard-summary" id="dashboard-summary"></div>
+    <div class="chart-shell"><div class="y-axis"><span>150%</span><span>112,5%</span><span>75%</span><span>37,5%</span><span>0%</span></div><div class="chart-area" id="chart-area"></div></div>
+    <div class="legend"><span><i class="dot bar-ds"></i>DS thực tế</span><span><i class="dot bar-hhs"></i>HHS thực tế</span></div>
+    <div class="shop-cards" id="shop-cards"></div>
+  </section>
+  <section id="ton-kho">
+    <div class="section-title"><h2>📦 Tỷ lệ cận date</h2><p>Giá trị và tỷ lệ hàng hóa theo thời hạn sử dụng</p></div>
+    <div class="inventory-hero">
+      <h3>Danh mục tồn kho</h3>
+      <div class="inventory-legend"><span><i class="legend-square sq-expired"></i>Hết hạn</span><span><i class="legend-square sq-3m"></i>3 Tháng</span><span><i class="legend-square sq-6m"></i>6 Tháng</span><span><i class="legend-square sq-1y"></i>1 Năm</span></div>
+      <div class="inventory-total">Tổng giá trị đang hiển thị: <strong id="inventory-total-value">0 VNĐ</strong></div>
+    </div>
+    <div class="inventory-cards" id="inventory-cards"></div>
+    <div class="inventory-shops"><h3>Nhà thuốc</h3><div class="inventory-shop-grid" id="inventory-shop-grid"></div></div>
+  </section>
+  <section id="don-hang-can-date">
+    <div class="section-title"><h2>🧾 Đơn hàng cận date</h2><p>Tổng tiền hàng cận date theo nhà thuốc, khoảng lọc và nhân viên</p></div>
+    <div class="expiry-order-controls">
+      <div class="expiry-order-field"><label for="expiry-order-shop">Nhà thuốc</label><select id="expiry-order-shop"></select></div>
+      <div class="expiry-order-field"><label>Khoảng lọc</label><div class="range-buttons" id="expiry-range-buttons"></div></div>
+      <button class="reset-btn" id="expiry-reset-btn" type="button">Làm mới</button>
+    </div>
+    <div class="employee-order-panel">
+      <div class="employee-order-head"><div><h3>Tổng quan theo nhân viên</h3><p>Chọn một nhân viên để làm nổi bật nhanh tổng tiền.</p></div><div class="employee-count" id="expiry-employee-count"></div></div>
+      <div class="order-employee-grid" id="expiry-employee-grid"></div>
+    </div>
+  </section>
+  <section id="nhan-vien">
+    <div class="section-title"><h2>👥 Bảng chỉ tiêu nhân viên</h2><p id="employee-caption">Thực tế, chỉ tiêu và dự kiến theo từng nhân sự</p></div>
+    <div class="shop-tabs" id="shop-tabs"></div>
+    <div class="table-wrap" id="employee-table"></div>
+  </section>
+  <section id="van-hanh">
+    <div class="section-title"><h2>⚙️ Vận hành</h2><p>Chương trình khuyến mãi, hàng hoá và chăm sóc khách hàng</p></div>
+    <h3 class="operation-title">Chương trình khuyến mãi (CTKM)</h3>
+    <div class="promotion-grid">
+      <article class="promotion-card">
+        <div class="promotion-card-head"><h4>Nhà 25</h4><span class="operation-status">Đang chạy</span></div>
+        <p>Đang chạy CTKM hàng tháng, kèm chương trình dành cho khách hàng đạt hạng <strong>Gold, Silver và Titan</strong>.</p>
+      </article>
+      <article class="promotion-card">
+        <div class="promotion-card-head"><h4>Nhà 97</h4><span class="operation-status internal">Nội bộ</span></div>
+        <p>CTKM hàng tháng kết hợp chương trình nội bộ. Phản hồi hiện tại: chương trình kém hấp dẫn vì chỉ được giảm giá cho <strong>hàng hệ số</strong>.</p>
+      </article>
+      <article class="promotion-card">
+        <div class="promotion-card-head"><h4>Nhà 144</h4><span class="operation-status pending">Đang xin duyệt</span></div>
+        <p>Đang xin duyệt CTKM hàng tháng cùng các combo: <strong>mẹ bầu, tăng đề kháng và bổ sung calci cho mẹ và bé</strong>.</p>
+      </article>
+    </div>
+    <div class="operation-info-grid">
+      <article class="operation-info"><h4>📦 Hàng hoá</h4><p>Đã lọc và bổ sung <strong>97% các mã hàng key</strong>. Thực hiện lọc hàng hết <strong>2 lần mỗi tuần</strong>.</p></article>
+      <article class="operation-info"><h4>🤝 Chăm sóc khách hàng</h4><p>Hướng dẫn nhân viên lọc danh sách khách hàng cần ưu tiên chăm sóc và các chỉ tiêu dễ thăng hạng trên POS. Trong tháng đầu tiên, cố gắng tối ưu tỷ lệ chuyển đổi càng cao càng tốt theo KPI hệ thống đề ra.</p></article>
+    </div>
+  </section>
+  <section id="ke-hoach-tuan-toi">
+    <div class="section-title"><h2>🗓️ Kế hoạch tuần tới</h2><p>Các đầu việc ưu tiên theo từng nhà thuốc</p></div>
+    <div class="next-week-grid">
+      <article class="next-week-card"><h3>Nhà 25</h3><ul><li>Theo dõi <strong>doanh số chạy hàng cận date</strong>.</li><li>Tổng hợp <strong>số lượng khách tham gia chương trình member</strong>.</li></ul></article>
+      <article class="next-week-card"><h3>Nhà 97</h3><ul><li>Theo dõi <strong>doanh số tạo ra từ chương trình nội bộ</strong>.</li><li>Giám sát <strong>doanh số chạy hàng cận date</strong>.</li></ul></article>
+      <article class="next-week-card"><h3>Nhà 144</h3><ul><li>Chốt ngày khai trương dự kiến <strong>09–10/09</strong>.</li><li>Hoàn thiện <strong>chương trình khai trương</strong>.</li><li>Thực hiện kế hoạch <strong>giảm tồn kho nhà thuốc</strong>.</li></ul></article>
+    </div>
+  </section>
+</main>
+<footer>Hệ thống báo cáo UPHARMA • Dữ liệu tháng 8/2026</footer>
+<script>
+const REPORT_DAY=9,DAYS_IN_MONTH=31;
+const shops=[
+ {code:'SHOP0025',short:'Nhà 25',name:'Nhà thuốc số 25 - 170 Lê Đình Lý - Thanh Khê - Đà Nẵng',modified:'2026-08-06 09:29',amount:230000000,amountR:50660000,hhs:77000,hhsR:14767,slow:16,sku:289,customers:1200,customersR:369,invoices:1580,invoicesR:408,levels:[6,3,0,0,0,0],levelsR:[671,53,14,3,0,0]},
+ {code:'SHOP0097',short:'Nhà 97',name:'Nhà thuốc số 97 - 44 Nguyễn Lương Bằng, Liên Chiểu, Đà Nẵng',modified:'2026-08-06 09:32',amount:300000000,amountR:85318059,hhs:110000,hhsR:30215,slow:14,sku:318,customers:2350,customersR:713,invoices:2850,invoicesR:810,levels:[6,3,0,0,0,0],levelsR:[906,101,16,11,0,0]},
+ {code:'SHOP0144',short:'Nhà 144',name:'Nhà thuốc số 144 - 77-79 Lê Văn Hiến, Phường Ngũ Hành Sơn, Đà Nẵng',modified:'2026-08-06 09:08',amount:140000000,amountR:60064359,hhs:48000,hhsR:17330,slow:14,sku:310,customers:1000,customersR:303,invoices:1800,invoicesR:513,levels:[3,0,0,0,0,0],levelsR:[110,7,2,1,0,0]}
+];
+const inventoryByShop={
+ SHOP0025:{totalValue:387433088,all:{count:1717,value:387433088,rate:100},expired:{count:0,value:0,rate:0},three:{count:8,value:1450340,rate:.37},six:{count:30,value:4781210,rate:1.23},year:{count:194,value:39736277,rate:10.26},normal:{count:1547,value:347696811,rate:89.74}},
+ SHOP0097:{totalValue:558024644,all:{count:2161,value:558024644,rate:100},expired:{count:0,value:0,rate:0},three:{count:3,value:787000,rate:.14},six:{count:25,value:7069238,rate:1.27},year:{count:226,value:49717643,rate:8.91},normal:{count:1972,value:508307001,rate:91.09}},
+ SHOP0144:{totalValue:700450581,all:{count:2277,value:700450581,rate:100},expired:{count:0,value:0,rate:0},three:{count:3,value:446000,rate:.06},six:{count:13,value:5017894,rate:.72},year:{count:182,value:52867886,rate:7.55},normal:{count:2123,value:647582695,rate:92.45}}
+};
+const nearExpiryOrders={
+ SHOP0025:{
+  '3':{total:29640,employees:[{name:'Hà Thúc Nguyên Bảo',value:29640}]},
+  '6':{total:786700,employees:[{name:'ĐẶNG THỊ HỒNG NHUNG',value:348700},{name:'Hà Thúc Nguyên Bảo',value:409000},{name:'Viên Thị Lan Anh',value:29000}]},
+  '12':{total:6669969,employees:[{name:'ĐẶNG THỊ HỒNG NHUNG',value:3135414},{name:'Hà Thúc Nguyên Bảo',value:2637948},{name:'Viên Thị Lan Anh',value:896607}]}
+ },
+ SHOP0097:{
+  '3':{total:386000,employees:[{name:'Lê Thị Mỹ Lệ',value:24000},{name:'Nguyễn Hoài Lê',value:36000},{name:'Nguyễn Thị Diệu',value:326000}]},
+  '6':{total:2029771,employees:[{name:'Lê Thị Mỹ Lệ',value:273526},{name:'Nguyễn Hoài Lê',value:431635},{name:'Nguyễn Thị Diệu',value:1324610}]},
+  '12':{total:10429319,employees:[{name:'Lê Thị Mỹ Lệ',value:3128901},{name:'Nguyễn Hoài Lê',value:3498713},{name:'Nguyễn Thị Diệu',value:3801705}]}
+ },
+ SHOP0144:{
+  '6':{total:776926,employees:[{name:'Huỳnh Vân Quỳnh',value:408000},{name:'Trần Thị Trà My',value:218000},{name:'Viên Thị Lan Anh',value:150926}]},
+  '12':{total:4661481,employees:[{name:'0389146346',value:4666},{name:'Huỳnh Vân Quỳnh',value:3208989},{name:'Trần Thị Trà My',value:1197400},{name:'Viên Thị Lan Anh',value:250426}]}
+ }
+};
+const employees=[
+ {shop:'SHOP0097',name:'Nguyễn Thị Diệu',code:'UP000261',amount:110000000,amountR:33744597,invoices:1025,invoicesR:281,newCustomers:335,newCustomersR:76,customers:820,customersR:242,points:38000,pointsR:12811.86},
+ {shop:'SHOP0097',name:'Lê Thị Mỹ Lệ',code:'UP001370',amount:80000000,amountR:18969940,invoices:800,invoicesR:196,newCustomers:310,newCustomersR:59,customers:710,customersR:165,points:34000,pointsR:7125.04},
+ {shop:'SHOP0097',name:'Nguyễn Hoài Lê',code:'UP000184',amount:110000000,amountR:32603522,invoices:1025,invoicesR:333,newCustomers:335,newCustomersR:128,customers:820,customersR:306,points:38000,pointsR:10277.69},
+ {shop:'SHOP0025',name:'Viên Thị Lan Anh',code:'UP001175',amount:50000000,amountR:11707482,invoices:380,invoicesR:99,newCustomers:130,newCustomersR:18,customers:280,customersR:86,points:12000,pointsR:3112.56},
+ {shop:'SHOP0025',name:'Hà Thúc Nguyên Bảo',code:'UP001165',amount:80000000,amountR:20566227,invoices:500,invoicesR:167,newCustomers:170,newCustomersR:62,customers:420,customersR:147,points:25000,pointsR:5785.90},
+ {shop:'SHOP0025',name:'ĐẶNG THỊ HỒNG NHUNG',code:'UP001025',amount:100000000,amountR:18386291,invoices:700,invoicesR:142,newCustomers:200,newCustomersR:63,customers:500,customersR:136,points:30000,pointsR:5868.42},
+ {shop:'SHOP0144',name:'Trần Thị Trà My',code:'UP001590',amount:30000000,amountR:14499626,invoices:410,invoicesR:147,newCustomers:190,newCustomersR:49,customers:250,customersR:75,points:12000,pointsR:4679.77},
+ {shop:'SHOP0144',name:'Huỳnh Vân Quỳnh',code:'UP000860',amount:70000000,amountR:43201153,invoices:880,invoicesR:340,newCustomers:370,newCustomersR:152,customers:450,customersR:209,points:22000,pointsR:11990.28},
+ {shop:'SHOP0144',name:'Viên Thị Lan Anh',code:'UP001175',amount:10000000,amountR:2363580,invoices:100,invoicesR:26,newCustomers:40,newCustomersR:13,customers:50,customersR:19,points:2000,pointsR:659.82},
+ {shop:'SHOP0144',name:'0389146346',code:'UP001480',amount:30000000,amountR:0,invoices:410,invoicesR:0,newCustomers:90,newCustomersR:0,customers:250,customersR:0,points:12000,pointsR:0}
+];
+const fmt=v=>new Intl.NumberFormat('vi-VN',{maximumFractionDigits:0}).format(v||0);
+const pct=(a,t)=>t?Math.round(a/t*100):0;
+const project=v=>Math.round((v||0)/REPORT_DAY*DAYS_IN_MONTH);
+const ratio=(p,a)=>a?Math.round(p*1000/a*100):0;
+const fmtRate=v=>new Intl.NumberFormat('vi-VN',{minimumFractionDigits:2,maximumFractionDigits:2}).format(v||0)+'%';
+let activeShop='SHOP0025',activeInventory='SHOP0025',activeOrderShop='SHOP0025',activeOrderRange='3',activeOrderEmployee='all';
+function renderDashboard(){
+ const totals=shops.reduce((a,s)=>({amount:a.amount+s.amount,amountR:a.amountR+s.amountR,hhs:a.hhs+s.hhs,hhsR:a.hhsR+s.hhsR}),{amount:0,amountR:0,hhs:0,hhsR:0});
+ document.getElementById('dashboard-summary').innerHTML=`
+  <div class="summary-kpi"><span>Tổng doanh số thực tế</span><strong>${fmt(totals.amountR)} đ</strong></div>
+  <div class="summary-kpi"><span>Hoàn thành doanh số</span><strong>${pct(totals.amountR,totals.amount)}%</strong></div>
+  <div class="summary-kpi"><span>Tổng HHS thực tế</span><strong>${fmt(totals.hhsR)}</strong></div>
+  <div class="summary-kpi"><span>Hoàn thành HHS</span><strong>${pct(totals.hhsR,totals.hhs)}%</strong></div>`;
+ document.getElementById('chart-area').innerHTML=shops.map(s=>{
+  const ds=pct(s.amountR,s.amount),hs=pct(s.hhsR,s.hhs);
+  return `<div class="store-group"><div class="bars">
+   <div class="bar-item"><div class="bar-value">${ds}%</div><div class="bar-track"><div class="bar bar-ds" style="height:${Math.min(ds/150*100,100)}%"></div></div><div class="bar-label">DS thực tế</div></div>
+   <div class="bar-item"><div class="bar-value">${hs}%</div><div class="bar-track"><div class="bar bar-hhs" style="height:${Math.min(hs/150*100,100)}%"></div></div><div class="bar-label">HHS thực tế</div></div>
+  </div><div class="store-name">${s.short}</div></div>`}).join('');
+ document.getElementById('shop-cards').innerHTML=shops.map(s=>{
+  const ds=pct(s.amountR,s.amount),hs=pct(s.hhsR,s.hhs),w=ratio(s.hhsR,s.amountR);
+  return `<article class="shop-card"><div class="shop-card-head"><h3>${s.short}</h3><div class="updated">${s.code}<br>${s.modified}</div></div>
+   <div class="kpi-row"><div class="kpi-label">Doanh số</div><div class="kpi-cell"><span>Chỉ tiêu</span><strong>${fmt(s.amount)} đ</strong></div><div class="kpi-cell"><span>Thực tế</span><strong>${fmt(s.amountR)} đ</strong><small class="attainment">Đạt ${ds}%</small></div><div class="kpi-cell"><span>Dự kiến</span><strong>${fmt(project(s.amountR))} đ</strong></div></div>
+   <div class="kpi-row"><div class="kpi-label">HHS</div><div class="kpi-cell"><span>Chỉ tiêu</span><strong>${fmt(s.hhs)}</strong></div><div class="kpi-cell"><span>Thực tế</span><strong>${fmt(s.hhsR)}</strong><small class="attainment">Đạt ${hs}%</small></div><div class="kpi-cell"><span>Dự kiến</span><strong>${fmt(project(s.hhsR*1000))}</strong></div></div>
+   <div class="ratio-metric"><span>Tỷ trọng HHS thực tế / Doanh số thực tế</span><strong>${w}%</strong></div>
+  </article>`}).join('');
+}
+function renderTabs(){
+ document.getElementById('shop-tabs').innerHTML=shops.map(s=>`<button type="button" class="shop-tab ${s.code===activeShop?'active':''}" data-shop="${s.code}" aria-pressed="${s.code===activeShop}"><strong>${s.code}</strong><span>${s.name}</span><small>${employees.filter(e=>e.shop===s.code).length} nhân viên</small></button>`).join('');
+ document.querySelectorAll('.shop-tab').forEach(b=>b.addEventListener('click',()=>{activeShop=b.dataset.shop;renderTabs();renderEmployeeTable()}));
+}
+function renderInventory(){
+ const data=inventoryByShop[activeInventory];
+ const categories=[
+  {key:'all',label:'Tất cả',className:'all'},
+  {key:'expired',label:'Hết hạn',className:'expired'},
+  {key:'three',label:'3 Tháng',className:'three'},
+  {key:'six',label:'6 Tháng',className:'six'},
+  {key:'year',label:'1 Năm',className:'year'},
+  {key:'normal',label:'Hàng bình thường',className:'normal'}
+ ];
+ document.getElementById('inventory-total-value').textContent=fmt(data.totalValue)+' VNĐ';
+ document.getElementById('inventory-cards').innerHTML=categories.map(category=>{
+  const item=data[category.key];
+  return `<article class="inventory-card ${category.className}"><span>${category.label}</span><strong>${fmt(item.count)}</strong><small>${fmt(item.value)} VNĐ</small><em>${fmtRate(item.rate)}</em></article>`;
+ }).join('');
+ document.getElementById('inventory-shop-grid').innerHTML=shops.map(shop=>{
+  const item=inventoryByShop[shop.code].all;
+  return `<button type="button" class="inventory-shop ${shop.code===activeInventory?'active':''}" data-inventory-shop="${shop.code}" aria-pressed="${shop.code===activeInventory}"><b>${fmt(item.count)}</b><strong>${shop.code}</strong><span>${shop.name}</span></button>`;
+ }).join('');
+ document.querySelectorAll('[data-inventory-shop]').forEach(button=>button.addEventListener('click',()=>{activeInventory=button.dataset.inventoryShop;renderInventory()}));
+}
+function renderNearExpiryOrders(){
+ const shopSelect=document.getElementById('expiry-order-shop');
+ shopSelect.innerHTML=shops.map(shop=>`<option value="${shop.code}">${shop.code} - ${shop.name}</option>`).join('');
+ shopSelect.value=activeOrderShop;
+ shopSelect.onchange=()=>{activeOrderShop=shopSelect.value;activeOrderEmployee='all';renderNearExpiryOrders()};
+ const ranges=[{value:'3',label:'3 tháng'},{value:'6',label:'6 tháng'},{value:'12',label:'12 tháng'}];
+ document.getElementById('expiry-range-buttons').innerHTML=ranges.map(range=>`<button type="button" class="range-btn ${range.value===activeOrderRange?'active':''}" data-expiry-range="${range.value}" aria-pressed="${range.value===activeOrderRange}">${range.label}</button>`).join('');
+ document.querySelectorAll('[data-expiry-range]').forEach(button=>button.addEventListener('click',()=>{activeOrderRange=button.dataset.expiryRange;activeOrderEmployee='all';renderNearExpiryOrders()}));
+ const data=nearExpiryOrders[activeOrderShop]?.[activeOrderRange];
+ const countLabel=document.getElementById('expiry-employee-count');
+ const grid=document.getElementById('expiry-employee-grid');
+ if(!data){countLabel.textContent='';grid.innerHTML='<div class="order-empty">Chưa có dữ liệu đơn hàng cận date cho nhà thuốc này.</div>';return}
+ countLabel.textContent=`${data.employees.length} nhân viên`;
+ const cards=[{id:'all',name:'Tất cả nhân viên',value:data.total},...data.employees.map((employee,index)=>({id:String(index),...employee}))];
+ grid.innerHTML=cards.map(card=>`<button type="button" class="order-employee-card ${card.id===activeOrderEmployee?'active':''}" data-order-employee="${card.id}" aria-pressed="${card.id===activeOrderEmployee}"><span>${card.name}</span><strong>${fmt(card.value)} đ</strong></button>`).join('');
+ document.querySelectorAll('[data-order-employee]').forEach(button=>button.addEventListener('click',()=>{activeOrderEmployee=button.dataset.orderEmployee;renderNearExpiryOrders()}));
+}
+function employeeRow(e){
+ const done=pct(e.amountR,e.amount),weight=ratio(e.pointsR,e.amountR);
+ return `<tr><td><div class="identity"><strong>${e.name}</strong><span>${e.code}</span></div></td>
+  <td><div class="cell-number"><strong>${fmt(e.amountR)} đ</strong><span>Chỉ tiêu ${fmt(e.amount)} đ · ${done}%</span><div class="progress"><i style="width:${Math.min(done,100)}%"></i></div></div></td>
+  <td class="cell-number"><strong>${fmt(project(e.amountR))} đ</strong><span>${fmt(e.amountR)} / 9 × 31</span></td>
+  <td><div class="cell-number"><strong>${fmt(e.pointsR)}</strong><span>Chỉ tiêu ${fmt(e.points)}</span></div></td>
+  <td class="cell-number"><strong>${fmt(project(e.pointsR))}</strong><span>${fmt(e.pointsR)} / 9 × 31</span></td>
+  <td style="text-align:center"><span class="ratio-badge">${weight}%</span></td>
+  <td><div class="cell-number"><strong>${fmt(e.customersR)}</strong><span>Chỉ tiêu ${fmt(e.customers)}</span></div></td>
+  <td><div class="cell-number"><strong class="amber">${fmt(e.newCustomersR)}</strong><span>Chỉ tiêu ${fmt(e.newCustomers)}</span></div></td>
+  <td><div class="cell-number"><strong>${fmt(e.invoicesR)}</strong><span>Chỉ tiêu ${fmt(e.invoices)}</span></div></td></tr>`;
+}
+function renderEmployeeTable(){
+ const items=employees.filter(e=>e.shop===activeShop),shop=shops.find(s=>s.code===activeShop);
+ document.getElementById('employee-caption').textContent=`${shop.name} · ${items.length} nhân viên`;
+ const actual=items.reduce((a,e)=>a+e.amountR,0),target=items.reduce((a,e)=>a+e.amount,0);
+ document.getElementById('employee-table').innerHTML=`<table><thead><tr><th>Nhân viên</th><th>Doanh số thực tế / Chỉ tiêu</th><th>Dự kiến doanh số</th><th>HHS thực tế / Chỉ tiêu</th><th>Dự kiến HHS</th><th>Tỷ trọng</th><th>Khách hàng</th><th>Khách mới</th><th>Đơn hàng</th></tr></thead><tbody>${items.map(employeeRow).join('')}</tbody></table><div class="summary-line">Tổng doanh số: <strong class="green">${fmt(actual)} đ</strong> / ${fmt(target)} đ · Hoàn thành ${pct(actual,target)}%</div>`;
+}
+document.getElementById('expiry-reset-btn').addEventListener('click',()=>{activeOrderShop='SHOP0025';activeOrderRange='3';activeOrderEmployee='all';renderNearExpiryOrders()});
+document.getElementById('view-btn').addEventListener('click',()=>{renderDashboard();renderInventory();renderNearExpiryOrders();renderTabs();renderEmployeeTable()});
+renderDashboard();renderInventory();renderNearExpiryOrders();renderTabs();renderEmployeeTable();
+</script>
+</body>
+</html>

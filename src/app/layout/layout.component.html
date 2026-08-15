@@ -103,24 +103,33 @@
               >
             </li>
             <li>
+              <a routerLink="/goi-y-chuyen-hang" routerLinkActive="active" (click)="closeSidebar()"
+                >Gợi ý chuyển hàng cận hạn</a
+              >
+            </li>
+            <li>
               <a routerLink="/in-tem" routerLinkActive="active" (click)="closeSidebar()"
                 >In tem</a
               >
             </li>
           </ul>
         </li>
-<!-- 
         <li class="nav-section-label">HỆ THỐNG</li>
         <li class="menu-item">
-          <a routerLink="/cronjob" routerLinkActive="active">
-            <span class="menu-icon">◴</span><span>Quản lý Cronjob</span>
+          <a routerLink="/inventory-system-test" routerLinkActive="active" (click)="closeSidebar()">
+            <span class="menu-icon">🔬</span><span>Test GetInventoryShop</span>
           </a>
         </li>
         <li class="menu-item">
-          <a routerLink="/api-test" routerLinkActive="active">
-            <span class="menu-icon">↯</span><span>Kiểm tra API</span>
+          <a routerLink="/inventory-expiration-test" routerLinkActive="active" (click)="closeSidebar()">
+            <span class="menu-icon">⏳</span><span>Test GetInventoryExpiration</span>
           </a>
-        </li> -->
+        </li>
+        <li class="menu-item">
+          <a routerLink="/api-test" routerLinkActive="active" (click)="closeSidebar()">
+            <span class="menu-icon">↯</span><span>Test tốc độ tiêu thụ</span>
+          </a>
+        </li>
       </ul>
     </nav>
 

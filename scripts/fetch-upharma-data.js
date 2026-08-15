@@ -224,6 +224,41 @@ async function mapWithConcurrency(items, concurrency, mapper) {
   return results;
 }
 
+function sanitizePIIDeep(value) {
+  if (value === null || value === undefined) return value;
+  if (Array.isArray(value)) {
+    return value.map(sanitizePIIDeep);
+  }
+  if (typeof value === "object") {
+    const copy = {};
+    for (const [k, v] of Object.entries(value)) {
+      const lowerKey = k.toLowerCase();
+      if (typeof v === "string") {
+        if (lowerKey.includes("phone") || lowerKey.includes("mobile") || lowerKey === "sdt" || lowerKey === "tel") {
+          copy[k] = v.trim().replace(/^(\+?\d{2,4})\d+(\d{3})$/, "$1***$2");
+        } else if (lowerKey.includes("email") || lowerKey === "mail") {
+          copy[k] = v.split(';').map(email => email.trim().replace(/^([^@]{2})[^@]+(@.+)$/, "$1***$2")).join(';');
+        } else if (lowerKey.includes("customername") || lowerKey.includes("buyername") || lowerKey.includes("fullname") || lowerKey.includes("employeename") || lowerKey.includes("tenkhachhang")) {
+          const name = v.trim();
+          if (name.length > 2) {
+            copy[k] = name[0] + "***" + name[name.length - 1];
+          } else {
+            copy[k] = "***";
+          }
+        } else if (lowerKey.includes("address") || lowerKey.includes("diachi")) {
+          copy[k] = "Anonymized Address";
+        } else {
+          copy[k] = sanitizePIIDeep(v);
+        }
+      } else {
+        copy[k] = sanitizePIIDeep(v);
+      }
+    }
+    return copy;
+  }
+  return value;
+}
+
 async function run() {
   if (!UPHARMA_USERNAME || !UPHARMA_PASSWORD) {
     console.error("Thiếu UPHARMA_USERNAME hoặc UPHARMA_PASSWORD");
@@ -256,22 +291,27 @@ async function run() {
   // Rewrite ShopLst to only include valid shops
   loginData.UserInfo.ShopLst = shops;
 
-  // Restore JSON output for frontend compatibility
+  // Restore JSON output for frontend compatibility (sanitized)
   if (!fs.existsSync(DATA_DIR)) {
     fs.mkdirSync(DATA_DIR, { recursive: true });
   }
-  fs.writeFileSync(path.join(DATA_DIR, 'login.json'), JSON.stringify(loginData, null, 2));
-  console.log("Đã lưu login.json");
+  const sanitizedLoginData = sanitizePIIDeep(loginData);
+  fs.writeFileSync(path.join(DATA_DIR, 'login.json'), JSON.stringify(sanitizedLoginData, null, 2));
+  console.log("Đã lưu login.json (đã ẩn danh PII)");
 
   if (db) {
     await db.ref(`users_by_username/${UPHARMA_USERNAME}/login_info`).set({
       ...loginData,
       fetchedAt: new Date().toISOString()
     });
-    await db.ref(`users_by_username/${UPHARMA_USERNAME}/allowed_shops`).set(
-      shops.map(shop => shop.ShopCode)
-    );
-    console.log(`Đã push login data và allowed_shops cho ${UPHARMA_USERNAME} lên Firebase RTDB`);
+    
+    // Store allowed_shops as a map for Firebase Rules compatibility
+    const allowedShopsMap = {};
+    shops.forEach(shop => {
+      allowedShopsMap[shop.ShopCode] = true;
+    });
+    await db.ref(`users_by_username/${UPHARMA_USERNAME}/allowed_shops`).set(allowedShopsMap);
+    console.log(`Đã push login data và allowed_shops (dạng map) cho ${UPHARMA_USERNAME} lên Firebase RTDB`);
   }
 
   const resources = ['inventory', 'invoices', 'messages', 'employees', 'orders', 'sales_speed', 'statistics_shop', 'customer_new'];
@@ -344,9 +384,10 @@ async function run() {
       fetchedAt: new Date().toISOString(),
     };
 
-    // Restore JSON output for frontend compatibility
-    fs.writeFileSync(path.join(DATA_DIR, `${resourceName}.json`), JSON.stringify(resourceData, null, 2));
-    console.log(`[resource] DONE ${resourceName}. Đã lưu ${resourceName}.json`);
+    // Restore JSON output for frontend compatibility (sanitized)
+    const sanitizedResourceData = sanitizePIIDeep(resourceData);
+    fs.writeFileSync(path.join(DATA_DIR, `${resourceName}.json`), JSON.stringify(sanitizedResourceData, null, 2));
+    console.log(`[resource] DONE ${resourceName}. Đã lưu ${resourceName}.json (đã ẩn danh PII)`);
   }
   
   console.log("Hoàn thành fetch data!");
