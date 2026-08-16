@@ -63,12 +63,16 @@ async function run() {
       const items = Array.isArray(detailNode.data) ? detailNode.data : [];
       const shopName = (detailNode.shop && detailNode.shop.ShopName) ? detailNode.shop.ShopName : (shopInfo.shopName || sc);
 
-      const allItems = items.map(item => ({
-        productCode: item.productCode || '',
-        productName: item.productName || '',
-        unit: item.unit || '',
-        status: item.status || 'Chưa dự trù'
-      }));
+      const allItems = items.map(item => {
+        const rawStatus = (item.status || '').trim();
+        const statusVal = rawStatus === '' ? 'Chưa dự trù' : rawStatus;
+        return {
+          productCode: item.productCode || '',
+          productName: item.productName || '',
+          unit: item.unit || '',
+          status: statusVal
+        };
+      });
 
       shopsDetailList.push({
         shopCode: sc,
