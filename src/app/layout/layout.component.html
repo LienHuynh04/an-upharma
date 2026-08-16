@@ -126,7 +126,7 @@
               </div>
             </li>
 
-            <!-- Nhóm hệ thống test -->
+            <!-- Nhóm hệ thống test
             <li class="nav-item dropdown" [class.show]="openMenuId === 'test'" [class.active]="menuGroups['test']">
               <a
                 class="nav-link dropdown-toggle py-2"
@@ -161,14 +161,15 @@
                 >
               </div>
             </li>
+            -->
           </ul>
         </div>
       </div>
 
       <!-- Right actions (Theme, notification, user dropdown) -->
-      <div class="navbar-nav flex-row order-md-last align-items-center ms-auto">
+      <div class="navbar-nav flex-row order-md-last align-items-center ms-auto gap-2">
         <!-- Report button -->
-        <div class="nav-item me-2 d-none d-sm-block">
+        <div class="nav-item d-none d-sm-block">
           <button
             class="btn btn-sm btn-primary"
             type="button"
@@ -181,26 +182,27 @@
         </div>
 
         <!-- Theme toggle -->
-        <div class="nav-item me-2">
+        <div class="nav-item">
           <button
-            class="nav-link px-0 btn btn-link border-0 text-white-50"
+            class="btn btn-icon btn-ghost-light border-0 p-0 text-white-50"
             type="button"
             (click)="toggleDarkMode()"
             [title]="darkMode ? 'Chuyển sang giao diện sáng' : 'Chuyển sang giao diện tối'"
+            style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;"
           >
             <i class="ti" [class.ti-sun]="darkMode" [class.ti-moon]="!darkMode" style="font-size: 1.25rem;"></i>
           </button>
         </div>
 
         <!-- Logout icon directly next to avatar -->
-        <div class="nav-item ms-2">
+        <div class="nav-item">
           <button
             class="btn btn-ghost-danger btn-icon border-0 p-0"
             type="button"
             aria-label="Đăng xuất"
             title="Đăng xuất"
             (click)="openLogoutConfirm($event)"
-            style="width: 28px; height: 28px; line-height: 28px;"
+            style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;"
           >
             <i class="ti ti-logout" style="font-size: 1.2rem;"></i>
           </button>

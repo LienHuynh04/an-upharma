@@ -202,6 +202,16 @@ function getResourceConfig(resourceName, now = new Date()) {
         PageNumber: 0,
       }),
     },
+    sales_report: {
+      pathname: "/SalesInvoice/GetReportSalesByShop",
+      payload: () => {
+        const firstDayOfMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+        return {
+          TimeStart: `${firstDayOfMonth} 00:00:00`,
+          TimeEnd: currentTime,
+        };
+      },
+    },
   };
   return configs[resourceName];
 }
@@ -272,6 +282,7 @@ async function run() {
     'transfer_process',
     'product_off',
     'product_follower',
+    'sales_report',
   ];
   
   for (const resourceName of resources) {

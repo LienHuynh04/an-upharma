@@ -230,6 +230,7 @@ export class UpharmaService {
       pathname.includes("GetTransferOrderProcess") ||
       pathname.includes("GetProductOff") ||
       pathname.includes("GetItemLstWithFollower") ||
+      pathname.includes("GetReportSalesByShop") ||
       pathname.includes("GetStableConsumptionCalculated") ||
       pathname.includes("GetSlowSellingCalculated") ||
       pathname.includes("GetOutOfStockCalculated");
@@ -250,6 +251,8 @@ export class UpharmaService {
         resourceName = "product_off";
       } else if (pathname.includes("GetItemLstWithFollower")) {
         resourceName = "product_follower";
+      } else if (pathname.includes("GetReportSalesByShop")) {
+        resourceName = "sales_report";
       }
 
       const firebaseDbUrl = (environment as any).firebaseDbUrl;
