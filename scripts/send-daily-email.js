@@ -51,41 +51,32 @@ async function run() {
     let totalOutOfStock = 0;
     const shopsDetailList = [];
 
-    // 4. Duyệt qua từng shop để lấy chi tiết 10 mặt hàng hết tiêu biểu
+    // 4. Duyệt qua từng shop để lấy chi tiết tất cả mặt hàng hết
     for (const sc of shopCodes) {
       const shopInfo = summaryMap[sc];
       const count = Number(shopInfo.outOfStockCount) || 0;
       totalOutOfStock += count;
 
-      if (count > 0) {
-        console.log(`Đang tải chi tiết hàng đã hết cho shop: ${sc}...`);
-        const detailSnap = await db.ref(`shops/${sc}/upharma_data/out_of_stock_calculated`).once('value');
-        const detailNode = detailSnap.val();
-        const items = (detailNode && Array.isArray(detailNode.data)) ? detailNode.data : [];
-        
-        // Lấy 10 sản phẩm tiêu biểu đầu tiên
-        const sampleItems = items.slice(0, 10).map(item => ({
-          productCode: item.productCode || '',
-          productName: item.productName || '',
-          unit: item.unit || '',
-          quantityText: item.quantityText || '0',
-          zeroStock: item.zeroStock ? 'Hết sạch' : 'Cận hết'
-        }));
+      console.log(`Đang tải chi tiết hàng đã hết cho shop: ${sc}...`);
+      const detailSnap = await db.ref(`shops/${sc}/upharma_data/out_of_stock_calculated`).once('value');
+      const detailNode = detailSnap.val() || {};
+      const items = Array.isArray(detailNode.data) ? detailNode.data : [];
+      const shopName = (detailNode.shop && detailNode.shop.ShopName) ? detailNode.shop.ShopName : (shopInfo.shopName || sc);
 
-        shopsDetailList.push({
-          shopCode: sc,
-          shopName: shopInfo.shopName,
-          count,
-          sampleItems
-        });
-      } else {
-        shopsDetailList.push({
-          shopCode: sc,
-          shopName: shopInfo.shopName,
-          count,
-          sampleItems: []
-        });
-      }
+      const allItems = items.map(item => ({
+        productCode: item.productCode || '',
+        productName: item.productName || '',
+        unit: item.unit || '',
+        quantityText: item.quantityText || '0',
+        zeroStock: item.zeroStock ? 'Hết sạch' : 'Cận hết'
+      }));
+
+      shopsDetailList.push({
+        shopCode: sc,
+        shopName,
+        count,
+        items: allItems
+      });
     }
 
     if (totalOutOfStock === 0) {
@@ -103,7 +94,7 @@ async function run() {
     for (const shop of shopsDetailList) {
       summaryTableRows += `
         <tr style="border-bottom: 1px solid #e2e8f0;">
-          <td style="padding: 12px; font-weight: bold; color: #1e293b;">${shop.shopCode} - ${shop.shopName}</td>
+          <td style="padding: 12px; font-weight: bold; color: #1e293b;">${shop.shopCode}</td>
           <td style="padding: 12px; text-align: right; font-weight: bold; color: ${shop.count > 0 ? '#dc2626' : '#16a34a'};">
             ${shop.count} mã
           </td>
@@ -112,7 +103,7 @@ async function run() {
 
       if (shop.count > 0) {
         let itemRows = '';
-        shop.sampleItems.forEach((item, idx) => {
+        shop.items.forEach((item, idx) => {
           itemRows += `
             <tr style="border-bottom: 1px solid #f1f5f9; font-size: 13px;">
               <td style="padding: 8px; color: #64748b; text-align: center;">${idx + 1}</td>
@@ -132,24 +123,25 @@ async function run() {
         shopDetailHtml += `
           <div style="margin-top: 24px; padding: 16px; background: #fff; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
             <h3 style="margin: 0 0 12px 0; color: #0284c7; font-size: 15px; border-left: 4px solid #0284c7; padding-left: 8px;">
-              ${shop.shopCode} - ${shop.shopName} (Có ${shop.count} mã đã hết)
+              ${shop.shopCode} (Có ${shop.count} mã đã hết)
             </h3>
-            <table style="width: 100%; border-collapse: collapse; text-align: left;">
-              <thead>
-                <tr style="background-color: #f8fafc; border-bottom: 2px solid #e2e8f0; font-size: 12px; color: #475569; text-transform: uppercase;">
-                  <th style="padding: 8px; text-align: center; width: 40px;">STT</th>
-                  <th style="padding: 8px; width: 90px;">Mã SP</th>
-                  <th style="padding: 8px;">Tên Sản Phẩm</th>
-                  <th style="padding: 8px; text-align: center; width: 60px;">ĐVT</th>
-                  <th style="padding: 8px; text-align: center; width: 60px;">Tồn</th>
-                  <th style="padding: 8px; text-align: center; width: 90px;">Phân Loại</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${itemRows}
-              </tbody>
-            </table>
-            ${shop.count > 10 ? `<p style="margin: 12px 0 0 0; font-size: 12px; color: #64748b; font-style: italic; text-align: right;">...và ${shop.count - 10} sản phẩm khác. Vui lòng truy cập web để xem chi tiết đầy đủ.</p>` : ''}
+            <div style="overflow-x: auto;">
+              <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                <thead>
+                  <tr style="background-color: #f8fafc; border-bottom: 2px solid #e2e8f0; font-size: 12px; color: #475569; text-transform: uppercase;">
+                    <th style="padding: 8px; text-align: center; width: 40px;">STT</th>
+                    <th style="padding: 8px; width: 90px;">Mã SP</th>
+                    <th style="padding: 8px;">Tên Sản Phẩm</th>
+                    <th style="padding: 8px; text-align: center; width: 60px;">ĐVT</th>
+                    <th style="padding: 8px; text-align: center; width: 60px;">Tồn</th>
+                    <th style="padding: 8px; text-align: center; width: 90px;">Phân Loại</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${itemRows}
+                </tbody>
+              </table>
+            </div>
           </div>
         `;
       }
@@ -194,9 +186,9 @@ async function run() {
               </a>
             </div>
 
-            <!-- Chi tiết 10 mã tiêu biểu -->
+            <!-- Chi tiết tất cả mã -->
             <h2 style="margin: 32px 0 12px 0; font-size: 15px; color: #1e293b; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; font-weight: bold;">
-              📋 Chi tiết mặt hàng hết tiêu biểu
+              📋 Chi tiết tất cả mặt hàng hết
             </h2>
             ${shopDetailHtml}
 
@@ -242,3 +234,4 @@ async function run() {
 }
 
 run();
+
