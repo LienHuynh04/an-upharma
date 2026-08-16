@@ -143,10 +143,9 @@ export class OutOfStockComponent implements OnInit {
       if (isLoaded) {
         // When loaded, count should match the active month and filters
         count = this.rows.filter((row) => {
-          if (row.shopCode !== shop.ShopCode) return false;
-          if (!row.zeroStock) return false;
-          if (this.normalizeMonthKey(row.shortageMonth) !== this.getFilterMonthKey()) return false;
-          return this.matchesColumnFilters(row);
+          return row.shopCode === shop.ShopCode &&
+                 row.zeroStock &&
+                 this.normalizeMonthKey(row.shortageMonth) === this.getFilterMonthKey();
         }).length;
       } else if (this.shopsSummary && this.shopsSummary[shop.ShopCode] !== undefined) {
         count = this.shopsSummary[shop.ShopCode].outOfStockCount || 0;
