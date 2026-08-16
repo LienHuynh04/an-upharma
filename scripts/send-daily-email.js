@@ -104,11 +104,13 @@ async function run() {
       if (shop.count > 0) {
         let itemRows = '';
         shop.items.forEach((item, idx) => {
+          const isEven = idx % 2 === 1;
+          const rowBg = isEven ? '#f8fafc' : '#ffffff';
           itemRows += `
-            <tr style="border-bottom: 1px solid #f1f5f9; font-size: 13px;">
-              <td style="padding: 8px; color: #334155; font-weight: 600;">${item.productCode}</td>
-              <td style="padding: 8px; color: #1e293b;">${item.productName}</td>
-              <td style="padding: 8px; color: #64748b; text-align: center;">${item.unit}</td>
+            <tr style="border-bottom: 1px solid #f1f5f9; font-size: 13px; background-color: ${rowBg};">
+              <td style="padding: 10px 8px; color: #334155; font-weight: 600;">${item.productCode}</td>
+              <td style="padding: 10px 8px; color: #1e293b; line-height: 1.3;">${item.productName}</td>
+              <td style="padding: 10px 8px; color: #64748b; text-align: center;">${item.unit}</td>
             </tr>
           `;
         });
@@ -118,13 +120,13 @@ async function run() {
             <h3 style="margin: 0 0 12px 0; color: #0284c7; font-size: 15px; border-left: 4px solid #0284c7; padding-left: 8px; margin-bottom: 12px;">
               ${shop.shopCode} (Có ${shop.count} mã đã hết)
             </h3>
-            <div style="max-height: 350px; overflow-y: auto; overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 6px;">
+            <div class="scroll-container" style="max-height: 380px; overflow-y: auto; overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
               <table style="width: 100%; border-collapse: collapse; text-align: left;">
                 <thead>
-                  <tr style="position: sticky; top: 0; background-color: #f8fafc; border-bottom: 2px solid #e2e8f0; font-size: 12px; color: #475569; text-transform: uppercase; z-index: 10;">
-                    <th style="padding: 8px; width: 100px; background-color: #f8fafc; position: sticky; top: 0;">Mã SP</th>
-                    <th style="padding: 8px; background-color: #f8fafc; position: sticky; top: 0;">Tên Sản Phẩm</th>
-                    <th style="padding: 8px; text-align: center; width: 70px; background-color: #f8fafc; position: sticky; top: 0;">ĐVT</th>
+                  <tr style="position: sticky; top: 0; background-color: #f1f5f9; border-bottom: 2px solid #cbd5e1; font-size: 11px; color: #475569; text-transform: uppercase; z-index: 10; letter-spacing: 0.5px;">
+                    <th style="padding: 10px 8px; width: 100px; background-color: #f1f5f9; position: sticky; top: 0; font-weight: bold;">Mã SP</th>
+                    <th style="padding: 10px 8px; background-color: #f1f5f9; position: sticky; top: 0; font-weight: bold;">Tên Sản Phẩm</th>
+                    <th style="padding: 10px 8px; text-align: center; width: 70px; background-color: #f1f5f9; position: sticky; top: 0; font-weight: bold;">ĐVT</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -143,6 +145,24 @@ async function run() {
       <head>
         <meta charset="utf-8">
         <title>Cảnh báo hàng đã hết Upharma</title>
+        <style>
+          /* Tùy chỉnh thanh cuộn siêu mỏng cho các trình duyệt hỗ trợ */
+          .scroll-container::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+          }
+          .scroll-container::-webkit-scrollbar-track {
+            background: #f8fafc;
+            border-radius: 4px;
+          }
+          .scroll-container::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+          }
+          .scroll-container::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+          }
+        </style>
       </head>
       <body style="margin: 0; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; color: #1e293b;">
         <div style="max-width: 650px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03); border: 1px solid #e2e8f0;">
