@@ -44,16 +44,6 @@ jobs:
           UPHARMA_EXCLUDED_SHOPS: "SHOP0040"
         run: node scripts/fetch-upharma-data.js
 
-      - name: Send Daily Out Of Stock Email
-        env:
-          FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
-          EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }}
-          SMTP_HOST: ${{ secrets.SMTP_HOST }}
-          SMTP_PORT: ${{ secrets.SMTP_PORT }}
-          SMTP_USER: ${{ secrets.SMTP_USER }}
-          SMTP_PASS: ${{ secrets.SMTP_PASS }}
-        run: node scripts/send-daily-email.js
-
       - name: Build Angular Project
         run: npm run build -- --configuration production --base-href /an-upharma/
 

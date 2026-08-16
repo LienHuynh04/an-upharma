@@ -106,16 +106,9 @@ async function run() {
         shop.items.forEach((item, idx) => {
           itemRows += `
             <tr style="border-bottom: 1px solid #f1f5f9; font-size: 13px;">
-              <td style="padding: 8px; color: #64748b; text-align: center;">${idx + 1}</td>
               <td style="padding: 8px; color: #334155; font-weight: 600;">${item.productCode}</td>
               <td style="padding: 8px; color: #1e293b;">${item.productName}</td>
               <td style="padding: 8px; color: #64748b; text-align: center;">${item.unit}</td>
-              <td style="padding: 8px; text-align: center; color: #64748b;">${item.quantityText}</td>
-              <td style="padding: 8px; text-align: center;">
-                <span style="display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; background-color: ${item.zeroStock === 'Hết sạch' ? '#fee2e2; color: #ef4444;' : '#fef3c7; color: #d97706;'}">
-                  ${item.zeroStock}
-                </span>
-              </td>
             </tr>
           `;
         });
@@ -129,12 +122,9 @@ async function run() {
               <table style="width: 100%; border-collapse: collapse; text-align: left;">
                 <thead>
                   <tr style="background-color: #f8fafc; border-bottom: 2px solid #e2e8f0; font-size: 12px; color: #475569; text-transform: uppercase;">
-                    <th style="padding: 8px; text-align: center; width: 40px;">STT</th>
-                    <th style="padding: 8px; width: 90px;">Mã SP</th>
+                    <th style="padding: 8px; width: 100px;">Mã SP</th>
                     <th style="padding: 8px;">Tên Sản Phẩm</th>
-                    <th style="padding: 8px; text-align: center; width: 60px;">ĐVT</th>
-                    <th style="padding: 8px; text-align: center; width: 60px;">Tồn</th>
-                    <th style="padding: 8px; text-align: center; width: 90px;">Phân Loại</th>
+                    <th style="padding: 8px; text-align: center; width: 70px;">ĐVT</th>
                   </tr>
                 </thead>
                 <tbody>
