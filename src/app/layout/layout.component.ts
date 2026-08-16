@@ -602,6 +602,9 @@ if (mockOrders.length === 0) {
   @HostListener('document:keydown.escape')
   onEscapeKey() {
     this.openMenuId = null;
+    if (this.showLogoutConfirm) {
+      this.cancelLogout();
+    }
   }
 
   private syncMenuState(url: string): void {
