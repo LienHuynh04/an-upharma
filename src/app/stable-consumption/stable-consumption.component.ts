@@ -66,7 +66,7 @@ export class StableConsumptionComponent implements OnInit {
   loadingProgress = 0;
   stableRefreshing = false;
   currentPage = 1;
-  pageSize = 20;
+  pageSize = 25;
 
   get visibleLimit(): number {
     return this.currentPage * this.pageSize;
