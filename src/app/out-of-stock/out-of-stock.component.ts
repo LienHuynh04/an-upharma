@@ -116,6 +116,7 @@ export class OutOfStockComponent implements OnInit {
   private loadingShopKeys = new Set<string>();
   private inventoryAvailabilityPromises = new Map<string, Promise<Set<string>>>();
   private stoppedProductPromises = new Map<string, Promise<Set<string>>>();
+  private transferOrderProcessPromises = new Map<string, Promise<Set<string>>>();
 
   constructor(
     private readonly upharmaService: UpharmaService,
@@ -730,51 +731,58 @@ export class OutOfStockComponent implements OnInit {
   }
 
   private getTransferOrderProcessProductIds(shopCode: string, forceRefresh: boolean): Promise<Set<string>> {
-    const session = this.upharmaService.ensureLogin();
-    return this.upharmaService
-      .callEndpoint<unknown>("/TransferOrder/GetTransferOrderProcess", {
-        uPharmaID: session.UserInfo.uPharmaID,
-        Token: session.Token,
-        ShopCode: shopCode,
-      }, {
-        cache: false,
-        forceRefresh,
-      })
-      .then((response) => {
-        const productIds = new Set<string>();
+    if (!this.transferOrderProcessPromises.has(shopCode) || forceRefresh) {
+      const session = this.upharmaService.ensureLogin();
+      const request = this.upharmaService
+        .callEndpoint<unknown>("/TransferOrder/GetTransferOrderProcess", {
+          uPharmaID: session.UserInfo.uPharmaID,
+          Token: session.Token,
+          ShopCode: shopCode,
+        }, {
+          cache: false,
+          forceRefresh,
+        })
+        .then((response) => {
+          const productIds = new Set<string>();
 
-        for (const row of this.extractArray(response)) {
-          const dateExceed = this.toNumber(this.pick(row, [
-            "DateExceed",
-            "Date_Exceed",
-            "SoNgayVuot",
-            "DaysExceeded",
-          ]));
-          if (!Number.isFinite(dateExceed) || dateExceed > 60) {
-            continue;
+          for (const row of this.extractArray(response)) {
+            const dateExceed = this.toNumber(this.pick(row, [
+              "DateExceed",
+              "Date_Exceed",
+              "SoNgayVuot",
+              "DaysExceeded",
+            ]));
+            if (!Number.isFinite(dateExceed) || dateExceed > 60) {
+              continue;
+            }
+
+            const productId = String(this.pick(row, [
+              "ProductID",
+              "ProductCode",
+              "Product_ID",
+              "MaSP",
+              "MaSanPham",
+              "ItemCode",
+              "Code",
+            ])).trim();
+
+            if (productId) {
+              productIds.add(productId);
+            }
           }
 
-          const productId = String(this.pick(row, [
-            "ProductID",
-            "ProductCode",
-            "Product_ID",
-            "MaSP",
-            "MaSanPham",
-            "ItemCode",
-            "Code",
-          ])).trim();
+          return productIds;
+        })
+        .catch((error) => {
+          this.transferOrderProcessPromises.delete(shopCode);
+          console.warn("Không lấy được trạng thái dự trù từ TransferOrder/GetTransferOrderProcess:", error);
+          return new Set<string>();
+        });
 
-          if (productId) {
-            productIds.add(productId);
-          }
-        }
+      this.transferOrderProcessPromises.set(shopCode, request);
+    }
 
-        return productIds;
-      })
-      .catch((error) => {
-        console.warn("Không lấy được trạng thái dự trù từ TransferOrder/GetTransferOrderProcess:", error);
-        return new Set<string>();
-      });
+    return this.transferOrderProcessPromises.get(shopCode)!;
   }
 
   private getStoppedProductIds(shopCode: string, forceRefresh: boolean): Promise<Set<string>> {
@@ -870,7 +878,7 @@ export class OutOfStockComponent implements OnInit {
       return;
     }
 
-    const plannedProductIds = await this.getTransferOrderProcessProductIds(shopCode, true);
+    const plannedProductIds = await this.getTransferOrderProcessProductIds(shopCode, false);
     let changed = false;
     const updatedRows: OutOfStockItem[] = this.rows.map((row) => {
       if (row.shopCode !== shopCode) {
