@@ -725,6 +725,12 @@ function precalculateOutOfStock(salesSpeedRows, inventoryRows, transferProcessRo
       }
     }
 
+    const now = new Date();
+    const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    if (shortageMonth !== currentMonthStr) {
+      continue;
+    }
+
     outOfStockRows.push({
       rowKey: [sc, productCode, String(index)].join("|"),
       shopCode: sc,

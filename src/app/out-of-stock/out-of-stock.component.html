@@ -49,16 +49,7 @@
           <span class="badge bg-success-lt" *ngIf="hasActiveShopLoaded" style="font-size: 0.9rem; padding: 6px 12px;">Đã dự trù: {{ plannedCount }}</span>
           <span class="badge bg-warning-lt" *ngIf="hasActiveShopLoaded" style="font-size: 0.9rem; padding: 6px 12px;">Chưa dự trù: {{ unplannedCount }}</span>
         </div>
-        <div class="ms-auto">
-          <label class="d-flex align-items-center gap-2 m-0">
-            <span class="text-nowrap text-secondary small fw-bold text-uppercase" style="font-size: 10px;">Lọc tháng</span>
-            <select class="form-select form-select-sm" [(ngModel)]="monthFilter" (ngModelChange)="onMonthFilterChange()" aria-label="Lọc tháng hiển thị">
-              <option value="current">{{ getMonthOptionLabel("current") }}</option>
-              <option value="prev1">{{ getMonthOptionLabel("prev1") }}</option>
-              <option value="prev2">{{ getMonthOptionLabel("prev2") }}</option>
-            </select>
-          </label>
-        </div>
+
       </div>
       <div class="card-body p-0">
         <div class="table-responsive">

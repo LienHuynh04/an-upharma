@@ -140,7 +140,15 @@ export class OutOfStockComponent implements OnInit {
     return this.shops.map((shop) => {
       const isLoaded = this.loadedShopKeys.has(this.getLoadedShopKey(shop.ShopCode));
       let count = 0;
-      if (this.shopsSummary && this.shopsSummary[shop.ShopCode] !== undefined) {
+      if (isLoaded) {
+        // When loaded, count should match the active month and filters
+        count = this.rows.filter((row) => {
+          if (row.shopCode !== shop.ShopCode) return false;
+          if (!row.zeroStock) return false;
+          if (this.normalizeMonthKey(row.shortageMonth) !== this.getFilterMonthKey()) return false;
+          return this.matchesColumnFilters(row);
+        }).length;
+      } else if (this.shopsSummary && this.shopsSummary[shop.ShopCode] !== undefined) {
         count = this.shopsSummary[shop.ShopCode].outOfStockCount || 0;
       } else {
         count = this.rows.filter((row) => row.shopCode === shop.ShopCode).length;
@@ -390,6 +398,10 @@ export class OutOfStockComponent implements OnInit {
 
     if (!trimmed || trimmed === "--") {
       return "Unknown";
+    }
+
+    if (/^\d{4}-\d{2}$/.test(trimmed)) {
+      return trimmed.split("-")[1];
     }
 
     const numeric = trimmed.match(/\d+/)?.[0] || trimmed;
