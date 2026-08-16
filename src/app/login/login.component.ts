@@ -30,7 +30,7 @@ export class LoginComponent implements OnInit {
 
   ngOnInit(): void {
     if (this.upharmaService.isAuthenticated()) {
-      void this.router.navigateByUrl("/profile");
+      void this.router.navigateByUrl("/dashboard");
     }
   }
 
@@ -99,7 +99,7 @@ export class LoginComponent implements OnInit {
       this.loadingProgress = 85;
       this.upharmaService.prefetchSalesSpeed();
 
-      const returnUrl = this.route.snapshot.queryParamMap.get("returnUrl") || "/profile";
+      const returnUrl = this.route.snapshot.queryParamMap.get("returnUrl") || "/dashboard";
       this.loadingProgress = 100;
       await this.router.navigateByUrl(returnUrl);
     } catch (error) {

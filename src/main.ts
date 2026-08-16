@@ -26,12 +26,13 @@ import { LayoutComponent } from "./app/layout/layout.component";
 const routes: Routes = [
   {
     path: "",
-    redirectTo: "chi-tieu-nhan-vien",
+    redirectTo: "dashboard",
     pathMatch: "full",
   },
   {
     path: "login",
     component: LoginComponent,
+    title: "UPHARMA - Đăng nhập",
   },
   {
     path: "",
@@ -41,86 +42,98 @@ const routes: Routes = [
       {
         path: "dashboard",
         component: DashboardComponent,
+        title: "UPHARMA - Bảng điều khiển",
       },
       {
         path: "ton-kho",
         component: InventoryNewComponent,
+        title: "UPHARMA - Tồn kho",
       },
       {
         path: "ton-kho-new",
         redirectTo: "ton-kho",
         pathMatch: "full",
       },
-      // Backup trang Tồn kho toàn quốc:
-      // {
-      //   path: "ton-kho-toan-quoc",
-      //   component: NationalInventoryComponent,
-      // },
       {
         path: "profile",
         component: ProfileComponent,
+        title: "UPHARMA - Thông tin cá nhân",
       },
       {
         path: "api-test",
         component: ApiTestComponent,
+        title: "UPHARMA - Test API",
       },
       {
         path: "check-inventory-test",
         component: CheckInventoryTestComponent,
+        title: "UPHARMA - Test Kiểm kho",
       },
       {
         path: "inventory-system-test",
         component: InventorySystemTestComponent,
+        title: "UPHARMA - Test Hệ thống tồn kho",
       },
       {
         path: "inventory-expiration-test",
         component: InventoryExpirationTestComponent,
+        title: "UPHARMA - Test Hạn dùng",
       },
       {
         path: "lay-bao-cao-don-hang",
         component: SalesInvoiceReportComponent,
+        title: "UPHARMA - Báo cáo đơn hàng",
       },
       {
         path: "chi-tieu-nhan-vien",
         component: EmployeePlanComponent,
+        title: "UPHARMA - Chỉ tiêu nhân viên",
       },
       {
         path: "chi-tieu-nha-thuoc-trong-nam",
         component: ShopPlanYearComponent,
+        title: "UPHARMA - Chỉ tiêu nhà thuốc",
       },
       {
         path: "out-of-stock",
         component: OutOfStockComponent,
+        title: "UPHARMA - Hàng đã hết",
       },
       {
         path: "hang-lap-tot",
         component: StableConsumptionComponent,
+        title: "UPHARMA - Hàng lặp tốt",
       },
       {
         path: "hang-da-het",
         component: OutOfStockComponent,
+        title: "UPHARMA - Hàng đã hết",
       },
       {
         path: "hang-ban-cham",
         component: SlowSellingComponent,
+        title: "UPHARMA - Hàng bán chậm",
       },
       {
         path: "goi-y-chuyen-hang",
         component: TransferSuggestionsComponent,
+        title: "UPHARMA - Gợi ý chuyển hàng",
       },
       {
         path: "in-tem",
         component: LabelPrintComponent,
+        title: "UPHARMA - In tem nhãn",
       },
       {
         path: "cronjob",
         loadComponent: () => import("./app/cronjob/cronjob.component").then((m) => m.CronjobComponent),
+        title: "UPHARMA - Đồng bộ dữ liệu",
       },
     ],
   },
   {
     path: "**",
-    redirectTo: "chi-tieu-nhan-vien",
+    redirectTo: "dashboard",
   },
 ];
 
