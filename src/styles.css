@@ -644,6 +644,11 @@ header.navbar .dropdown-item.active {
   color: var(--tblr-success);
   background: rgba(47, 179, 68, 0.08);
 }
+.status-chip--unplanned {
+  border-color: rgba(214, 57, 57, 0.22);
+  color: var(--tblr-danger);
+  background: rgba(214, 57, 57, 0.08);
+}
 
 /* Expiry legend dots (used in topbar inventory context) */
 .expiry-dot {

@@ -119,7 +119,10 @@
               <td data-label="Mã SP">{{ item.productCode }}</td>
               <td data-label="Trạng thái">
                 <span *ngIf="item.status === 'Đã dự trù'" class="status-chip status-chip--planned">
-                  {{ item.status }}
+                  Đã dự trù
+                </span>
+                <span *ngIf="item.status !== 'Đã dự trù'" class="status-chip status-chip--unplanned">
+                  Chưa dự trù
                 </span>
               </td>
             </tr>
