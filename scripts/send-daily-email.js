@@ -180,7 +180,7 @@ async function run() {
           <!-- Content Body -->
           <div style="padding: 24px;">
             <p style="margin: 0 0 20px 0; font-size: 14px; line-height: 1.5; color: #475569;">
-              Xin chào chị quản lý, hệ thống đã quét tự động và nhận dạng thấy các nhà thuốc có tổng cộng <strong>${totalOutOfStock} mã sản phẩm</strong> đã hết hoặc cận hết hàng trong tháng này.
+              Xin chào chị quản lý, hệ thống đã quét tự động và nhận dạng thấy các nhà thuốc có tổng cộng <strong>${totalOutOfStock} mã sản phẩm</strong> đã hết hàng trong tháng này.
             </p>
 
             <!-- Tóm tắt số lượng -->
