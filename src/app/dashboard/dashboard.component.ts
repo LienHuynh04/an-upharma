@@ -231,6 +231,10 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
       return;
     }
 
+    const isDark = document.documentElement.getAttribute("data-bs-theme") === "dark";
+    const gridColor = isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.06)";
+    const textColor = isDark ? "#94a3b8" : "#64748b";
+
     const labels = this.salesDayLst.map((day) => this.formatDayLabel(day.Day));
     const amValues = this.salesDayLst.map((day) => Number(day.AM || 0) / 1000);
     const pmValues = this.salesDayLst.map((day) => Number(day.PM || 0) / 1000);
@@ -242,17 +246,17 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
         labels,
         datasets: [
           {
-            label: "Sáng",
+            label: "Ca Sáng",
             data: amValues,
-            backgroundColor: "#f4b400",
+            backgroundColor: "#c98c1f",
             borderRadius: 4,
             barPercentage: 0.55,
             categoryPercentage: 0.75,
           },
           {
-            label: "Tối",
+            label: "Ca Tối",
             data: pmValues,
-            backgroundColor: "#7c57d8",
+            backgroundColor: "#3b82f6",
             borderRadius: 4,
             barPercentage: 0.55,
             categoryPercentage: 0.75,
@@ -272,10 +276,10 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
             labels: {
               usePointStyle: true,
               pointStyle: "rectRounded",
-              boxWidth: 14,
-              color: "#6b7280",
+              boxWidth: 12,
+              color: textColor,
               font: {
-                size: 14,
+                size: 12,
               },
             },
           },
@@ -291,17 +295,17 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
               display: false,
             },
             ticks: {
-              color: "#6b7280",
+              color: textColor,
             },
           },
           y: {
             beginAtZero: true,
             ticks: {
-              color: "#6b7280",
+              color: textColor,
               callback: (value) => this.formatMoney(Number(value) * 1000).replace(" VNĐ", ""),
             },
             grid: {
-              color: "#e5e7eb",
+              color: gridColor,
             },
           },
         },

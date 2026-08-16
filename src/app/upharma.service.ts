@@ -105,7 +105,7 @@ export interface RemoteDatasets {
 
 interface ResourceConfig {
   pathname: string;
-  payload: () => RawRecord;
+  payload: (shopCode?: string) => RawRecord;
 }
 
 interface CachedResource {
@@ -210,7 +210,24 @@ export class UpharmaService {
     payload: RawRecord,
     options: { cache?: boolean; forceRefresh?: boolean } = {},
   ): Promise<T> {
-    if (pathname.includes("GetReportSalesSpeed")) {
+    const isFirebaseTarget =
+      pathname.includes("GetReportSalesSpeed") ||
+      pathname.includes("GetTransferOrderProcess") ||
+      pathname.includes("GetProductOff") ||
+      pathname.includes("GetItemLstWithFollower");
+
+    if (isFirebaseTarget) {
+      let resourceName = "";
+      if (pathname.includes("GetReportSalesSpeed")) {
+        resourceName = "sales_speed";
+      } else if (pathname.includes("GetTransferOrderProcess")) {
+        resourceName = "transfer_process";
+      } else if (pathname.includes("GetProductOff")) {
+        resourceName = "product_off";
+      } else if (pathname.includes("GetItemLstWithFollower")) {
+        resourceName = "product_follower";
+      }
+
       const firebaseDbUrl = (environment as any).firebaseDbUrl;
       const payloadShopCodes = this.extractShopCodesFromPayload(payload);
       const shopsToFetch =
@@ -226,17 +243,18 @@ export class UpharmaService {
         await Promise.all(
           shopsToFetch.map(async (shop) => {
             try {
-              const cached = options.forceRefresh ? undefined : this.firebaseSalesSpeedCache.get(shop.ShopCode);
+              const cacheKey = `${shop.ShopCode}:${resourceName}`;
+              const cached = options.forceRefresh ? undefined : this.firebaseSalesSpeedCache.get(cacheKey);
               if (cached && Date.now() - cached.savedAt < this.callCacheTtlMs) {
                 shopsData.push(...cached.data);
                 return;
               }
 
-              let request = this.firebaseSalesSpeedInFlight.get(shop.ShopCode);
+              let request = this.firebaseSalesSpeedInFlight.get(cacheKey);
               if (!request) {
                 request = (async () => {
-                  const url = `${normalizedFirebase}/shops/${shop.ShopCode}/upharma_data/sales_speed.json`;
-                  console.log(`[Firebase Fetch] Đang tải sales_speed cho shop ${shop.ShopCode} từ: ${url}`);
+                  const url = `${normalizedFirebase}/shops/${shop.ShopCode}/upharma_data/${resourceName}.json`;
+                  console.log(`[Firebase Fetch] Đang tải ${resourceName} cho shop ${shop.ShopCode} từ: ${url}`);
                   const response = await fetch(url);
                   if (!response.ok) {
                     throw new Error(`HTTP ${response.status}`);
@@ -249,25 +267,26 @@ export class UpharmaService {
 
                   return json.data as RawRecord[];
                 })();
-                this.firebaseSalesSpeedInFlight.set(shop.ShopCode, request);
+                this.firebaseSalesSpeedInFlight.set(cacheKey, request);
               }
 
               const rows = await request;
-              this.firebaseSalesSpeedCache.set(shop.ShopCode, { savedAt: Date.now(), data: rows });
+              this.firebaseSalesSpeedCache.set(cacheKey, { savedAt: Date.now(), data: rows });
               shopsData.push(...rows);
             } catch (err) {
               const message = err instanceof Error ? err.message : String(err);
               failedShops.push(`${shop.ShopCode}: ${message}`);
-              console.warn(`Lỗi tải sales_speed của shop ${shop.ShopCode}:`, err);
+              console.warn(`Lỗi tải ${resourceName} của shop ${shop.ShopCode}:`, err);
             } finally {
-              this.firebaseSalesSpeedInFlight.delete(shop.ShopCode);
+              const cacheKey = `${shop.ShopCode}:${resourceName}`;
+              this.firebaseSalesSpeedInFlight.delete(cacheKey);
             }
           }),
         );
 
         const combined = {
           success: true,
-          resource: "sales_speed",
+          resource: resourceName,
           shops: shopsToFetch,
           failedShops,
           data: shopsData,
@@ -278,13 +297,13 @@ export class UpharmaService {
       }
 
       if ((environment as any).useStaticData) {
-        const url = this.getStaticDataUrl("assets/data/sales_speed.json");
+        const url = this.getStaticDataUrl(`assets/data/${resourceName}.json`);
         console.log(`[Firebase Fetch] Đang đọc fallback tĩnh: ${url}`);
         const response = await fetch(url);
         if (!response.ok) {
           const errText = await response.text();
           console.error(`[Firebase Lỗi 404?] URL: ${url} - Trạng thái: ${response.status} - Chi tiết:`, errText);
-          throw new Error(`Không thể đọc data tĩnh của sales_speed. Mã lỗi: ${response.status}`);
+          throw new Error(`Không thể đọc data tĩnh của ${resourceName}. Mã lỗi: ${response.status}`);
         }
         const json = await response.json();
         console.log(`[Firebase Fetch] ✅ Đã đọc được dữ liệu tĩnh từ URL: ${url}`);
@@ -724,7 +743,7 @@ export class UpharmaService {
       for (let shop = shops.shift(); shop; shop = shops.shift()) {
         try {
           const responseData = await this.request<RawRecord>(config.pathname, {
-            ...config.payload(),
+            ...config.payload(shop.ShopCode),
             Token: session.Token,
             uPharmaID: String(session.UserInfo.uPharmaID),
             ShopCode: shop.ShopCode,
@@ -1076,8 +1095,8 @@ export class UpharmaService {
 
     const configs: Record<keyof RemoteDatasets, ResourceConfig> = {
       inventory: {
-        pathname: "/LocalStore/GetInventoryByShopID",
-        payload: () => ({ ProductID: "", LotCode: "", StoreType: "" }),
+        pathname: "/LocalStore/GetInventoryShop",
+        payload: (shopCode?: string) => ({ BranchLst: shopCode || "", ProductID: "", LotCode: "", PackageID: null, StoreType: "" }),
       },
       invoices: {
         pathname: "/InvoiceOnline/GetInvoiceOrderOnByTime",

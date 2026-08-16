@@ -1,136 +1,157 @@
-<div class="page-inner label-page">
-  <section class="label-hero">
-    <div>
-      <h1>In tem</h1>
-      <p>Thêm dòng, sửa thông tin trên tem và xem preview bên phải trước khi in.</p>
+<div class="page-header d-print-none">
+  <div class="container-xl">
+    <div class="row g-2 align-items-center">
+      <div class="col">
+        <div class="page-pretitle">TIỆN ÍCH</div>
+        <h2 class="page-title">In tem</h2>
+      </div>
+      <div class="col-auto ms-auto d-print-none">
+        <div class="btn-list">
+          <button type="button" class="btn btn-secondary" (click)="addItem()">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+            Thêm tem
+          </button>
+          <button type="button" class="btn btn-primary" (click)="addQuickPromotion()">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+            Tem khuyến mãi
+          </button>
+        </div>
+      </div>
     </div>
-    <div class="label-actions">
-      <button type="button" class="btn btn-secondary" (click)="addItem()">+ Thêm tem</button>
-      <button type="button" class="btn btn-primary" (click)="addQuickPromotion()">+ Tem khuyến mãi</button>
-    </div>
-  </section>
+  </div>
+</div>
 
-  <section class="label-workspace">
-    <aside class="label-editor">
-      <div class="editor-header">
-        <strong>Danh sách tem</strong>
-        <small>{{ items.length }} tem</small>
-      </div>
-
-      <div class="editor-list">
-        <article
-          class="editor-card"
-          *ngFor="let item of items"
-          [class.is-active]="item.id === selectedItemId"
-          (click)="selectItem(item.id)"
-        >
-          <div class="editor-card-top">
-            <strong>{{ item.title }}</strong>
-            <button type="button" class="icon-btn" (click)="duplicateItem(item); $event.stopPropagation()">⎘</button>
-            <button type="button" class="icon-btn danger" (click)="removeItem(item.id); $event.stopPropagation()">×</button>
+<div class="page-body">
+  <div class="container-xl">
+    <div class="row g-3">
+      <div class="col-lg-4 d-print-none">
+        <div class="card mb-3">
+          <div class="card-header">
+            <h3 class="card-title">Danh sách tem</h3>
+            <span class="text-secondary ms-auto">{{ items.length }} tem</span>
           </div>
-          <small>{{ item.subTitle || 'Chưa có mô tả' }}</small>
-          <div class="editor-mini">
-            <span>{{ item.productCode }}</span>
-            <span>{{ item.price }}</span>
-          </div>
-        </article>
-      </div>
-
-      <div class="editor-form" *ngIf="selectedItem as current">
-        <label>
-          Loại tem
-          <select [(ngModel)]="current.labelType">
-            <option value="normal">Tem thường</option>
-            <option value="promotion">Tem khuyến mãi</option>
-          </select>
-        </label>
-        <label>
-          Tiêu đề
-          <input [(ngModel)]="current.title" type="text" placeholder="Tên sản phẩm" />
-        </label>
-        <label>
-          Mô tả
-          <input [(ngModel)]="current.subTitle" type="text" placeholder="Khuyến mãi / mô tả" />
-        </label>
-        <label>
-          Giá cũ
-          <input [(ngModel)]="current.oldPrice" type="text" placeholder="89.000đ" />
-        </label>
-        <label>
-          Giá mới
-          <input [(ngModel)]="current.price" type="text" placeholder="69.000đ" />
-        </label>
-        <label>
-          Mã SP
-          <input [(ngModel)]="current.productCode" type="text" placeholder="SP002" />
-        </label>
-        <div class="two-cols">
-          <label>
-            Từ ngày
-            <input [(ngModel)]="current.startDate" type="text" placeholder="01/08/2026" />
-          </label>
-          <label>
-            Đến ngày
-            <input [(ngModel)]="current.endDate" type="text" placeholder="31/08/2026" />
-          </label>
-        </div>
-        <label>
-          Giảm giá
-          <input [(ngModel)]="current.discount" type="text" placeholder="-22%" />
-        </label>
-        <div class="switch-row">
-          <label class="switch">
-            <input type="checkbox" [(ngModel)]="showBrandName" />
-            <span>Hiện tên UPHARMA</span>
-          </label>
-          <label class="switch">
-            <input type="checkbox" [(ngModel)]="showCutLine" />
-            <span>Đường cắt nét đứt</span>
-          </label>
-        </div>
-      </div>
-    </aside>
-
-    <section class="label-preview">
-      <div class="paper-toolbar">
-        <span>Preview A4</span>
-        <div class="paper-settings">
-          <label>
-            Lề trang (mm)
-            <input type="number" [(ngModel)]="pageMargin" />
-          </label>
-          <label>
-            Khoảng cách tem (mm)
-            <input type="number" step="0.1" [(ngModel)]="gap" />
-          </label>
-        </div>
-      </div>
-
-      <div class="sheet" [style.padding.mm]="pageMargin">
-        <div class="sheet-grid" [style.gap.mm]="gap">
-          <article class="sheet-cell" *ngFor="let item of items">
-            <div class="label-card" [class.promotion]="item.labelType === 'promotion'">
-              <div class="label-top" [class.promotion]="item.labelType === 'promotion'">
-                <strong>{{ item.subTitle || 'TEM' }}</strong>
-                <span *ngIf="item.discount">{{ item.discount }}</span>
+          <div class="list-group list-group-flush" style="max-height: 300px; overflow-y: auto;">
+            <div
+              class="list-group-item list-group-item-action"
+              *ngFor="let item of items"
+              [class.active]="item.id === selectedItemId"
+              (click)="selectItem(item.id)"
+              style="cursor: pointer;"
+            >
+              <div class="d-flex w-100 justify-content-between align-items-center mb-1">
+                <h4 class="mb-0 text-truncate" [class.text-white]="item.id === selectedItemId">{{ item.title || 'Chưa có tiêu đề' }}</h4>
+                <div>
+                  <button type="button" class="btn btn-sm btn-icon border-0" [class.text-white]="item.id === selectedItemId" (click)="duplicateItem(item); $event.stopPropagation()">⎘</button>
+                  <button type="button" class="btn btn-sm btn-icon border-0 text-danger" (click)="removeItem(item.id); $event.stopPropagation()">×</button>
+                </div>
               </div>
-              <div class="label-body">
-                <div class="brand-line" *ngIf="showBrandName">UPHARMA</div>
-                <div class="label-title">{{ item.title }}</div>
-                <div class="price-row">
-                  <del *ngIf="item.oldPrice">{{ item.oldPrice }}</del>
-                  <strong>{{ item.price }}</strong>
-                </div>
-                <div class="footer-row">
-                  <span>Mã SP: {{ item.productCode }}</span>
-                  <span *ngIf="item.startDate || item.endDate">Áp dụng {{ item.startDate }} - {{ item.endDate }}</span>
-                </div>
+              <p class="mb-1 small text-truncate" [class.text-white-50]="item.id === selectedItemId" [class.text-secondary]="item.id !== selectedItemId">{{ item.subTitle || 'Chưa có mô tả' }}</p>
+              <div class="d-flex justify-content-between small">
+                <span [class.text-white-50]="item.id === selectedItemId" [class.text-secondary]="item.id !== selectedItemId">{{ item.productCode }}</span>
+                <span [class.text-white-50]="item.id === selectedItemId" [class.text-secondary]="item.id !== selectedItemId">{{ item.price }}</span>
               </div>
             </div>
-          </article>
+          </div>
+        </div>
+
+        <div class="card" *ngIf="selectedItem as current">
+          <div class="card-body">
+            <div class="mb-3">
+              <label class="form-label">Loại tem</label>
+              <select class="form-select" [(ngModel)]="current.labelType">
+                <option value="normal">Tem thường</option>
+                <option value="promotion">Tem khuyến mãi</option>
+              </select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Tiêu đề</label>
+              <input class="form-control" [(ngModel)]="current.title" type="text" placeholder="Tên sản phẩm" />
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Mô tả</label>
+              <input class="form-control" [(ngModel)]="current.subTitle" type="text" placeholder="Khuyến mãi / mô tả" />
+            </div>
+            <div class="row g-2 mb-3">
+              <div class="col">
+                <label class="form-label">Giá cũ</label>
+                <input class="form-control" [(ngModel)]="current.oldPrice" type="text" placeholder="89.000đ" />
+              </div>
+              <div class="col">
+                <label class="form-label">Giá mới</label>
+                <input class="form-control" [(ngModel)]="current.price" type="text" placeholder="69.000đ" />
+              </div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Mã SP</label>
+              <input class="form-control" [(ngModel)]="current.productCode" type="text" placeholder="SP002" />
+            </div>
+            <div class="row g-2 mb-3">
+              <div class="col">
+                <label class="form-label">Từ ngày</label>
+                <input class="form-control" [(ngModel)]="current.startDate" type="text" placeholder="01/08/2026" />
+              </div>
+              <div class="col">
+                <label class="form-label">Đến ngày</label>
+                <input class="form-control" [(ngModel)]="current.endDate" type="text" placeholder="31/08/2026" />
+              </div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Giảm giá</label>
+              <input class="form-control" [(ngModel)]="current.discount" type="text" placeholder="-22%" />
+            </div>
+            <div class="mb-3">
+              <label class="form-check">
+                <input class="form-check-input" type="checkbox" [(ngModel)]="showBrandName" />
+                <span class="form-check-label">Hiện tên UPHARMA</span>
+              </label>
+              <label class="form-check">
+                <input class="form-check-input" type="checkbox" [(ngModel)]="showCutLine" />
+                <span class="form-check-label">Đường cắt nét đứt</span>
+              </label>
+            </div>
+          </div>
         </div>
       </div>
-    </section>
-  </section>
+
+      <div class="col-lg-8">
+        <div class="card">
+          <div class="card-header d-print-none">
+            <h3 class="card-title">Preview A4</h3>
+            <div class="card-actions d-flex gap-2 align-items-center">
+              <label class="form-label mb-0 text-nowrap">Lề trang (mm)</label>
+              <input type="number" class="form-control form-control-sm w-auto" [(ngModel)]="pageMargin" />
+              <label class="form-label mb-0 ms-2 text-nowrap">Khoảng cách tem (mm)</label>
+              <input type="number" step="0.1" class="form-control form-control-sm w-auto" [(ngModel)]="gap" />
+            </div>
+          </div>
+          <div class="card-body p-0" style="overflow-x: auto;">
+            <div class="sheet" [style.padding.mm]="pageMargin">
+              <div class="sheet-grid" [style.gap.mm]="gap">
+                <article class="sheet-cell" *ngFor="let item of items">
+                  <div class="label-card" [class.promotion]="item.labelType === 'promotion'">
+                    <div class="label-top" [class.promotion]="item.labelType === 'promotion'">
+                      <strong>{{ item.subTitle || 'TEM' }}</strong>
+                      <span *ngIf="item.discount">{{ item.discount }}</span>
+                    </div>
+                    <div class="label-body">
+                      <div class="brand-line" *ngIf="showBrandName">UPHARMA</div>
+                      <div class="label-title">{{ item.title }}</div>
+                      <div class="price-row">
+                        <del *ngIf="item.oldPrice">{{ item.oldPrice }}</del>
+                        <strong>{{ item.price }}</strong>
+                      </div>
+                      <div class="footer-row">
+                        <span>Mã SP: {{ item.productCode }}</span>
+                        <span *ngIf="item.startDate || item.endDate">Áp dụng {{ item.startDate }} - {{ item.endDate }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </article>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>

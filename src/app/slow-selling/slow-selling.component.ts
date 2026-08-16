@@ -1,7 +1,7 @@
 import { CommonModule } from "@angular/common";
 import { Component, OnInit } from "@angular/core";
 import { FormsModule } from "@angular/forms";
-import { Router, RouterLink } from "@angular/router";
+import { Router } from "@angular/router";
 import { normalizeFilterText, PRODUCT_NAME_COLLATOR } from "../inventory-utils";
 import { getCompletedMonthRange, selectCompletedMonths } from "../sales-period-utils";
 import { RawRecord, ShopInfo, UpharmaService } from "../upharma.service";
@@ -47,12 +47,11 @@ type SlowSellingTextFilterKey = "productName" | "productCode";
 @Component({
   selector: "app-slow-selling",
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule],
   templateUrl: "./slow-selling.component.html",
 })
 export class SlowSellingComponent implements OnInit {
   readonly endpoint = "/SalesInvoice/GetReportSalesSpeed";
-  readonly renderBatchSize = 200;
   selectedRange: '1d' | '7d' | '3m' = '3m';
   shops: ShopInfo[] = [];
   activeShopCode = "";
@@ -65,7 +64,49 @@ export class SlowSellingComponent implements OnInit {
   loading = false;
   loadingProgress = 0;
   slowSellingRefreshing = false;
-  visibleLimit = this.renderBatchSize;
+  currentPage = 1;
+  pageSize = 20;
+
+  get visibleLimit(): number {
+    return this.currentPage * this.pageSize;
+  }
+
+  get totalPages(): number {
+    return Math.ceil(this.filteredRows.length / this.pageSize) || 1;
+  }
+
+  get pageNumbers(): number[] {
+    const total = this.totalPages;
+    const current = this.currentPage;
+    const maxVisible = 5;
+    
+    let start = Math.max(1, current - 2);
+    let end = Math.min(total, start + maxVisible - 1);
+    
+    if (end - start + 1 < maxVisible) {
+      start = Math.max(1, end - maxVisible + 1);
+    }
+    
+    const pages = [];
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    return pages;
+  }
+
+  setPage(page: number): void {
+    if (page < 1 || page > this.totalPages) return;
+    this.currentPage = page;
+  }
+
+  prevPage(): void {
+    this.setPage(this.currentPage - 1);
+  }
+
+  nextPage(): void {
+    this.setPage(this.currentPage + 1);
+  }
+
   isAppendingRows = false;
   slowSellingCacheStatus = "";
   errorText = "";
@@ -128,7 +169,9 @@ export class SlowSellingComponent implements OnInit {
   }
 
   get displayedRows(): SlowSellingItem[] {
-    return this.filteredRows.slice(0, this.visibleLimit);
+    const start = (this.currentPage - 1) * this.pageSize;
+    const end = start + this.pageSize;
+    return this.filteredRows.slice(start, end);
   }
 
   get hasActiveShopLoaded(): boolean {
@@ -168,6 +211,7 @@ export class SlowSellingComponent implements OnInit {
 
   async setActiveShop(shopCode: string): Promise<void> {
     this.activeShopCode = shopCode;
+    this.currentPage = 1;
     this.clearTableFilters();
 
     if (!this.loadedShopKeys.has(this.getLoadedShopKey(shopCode))) {
@@ -195,7 +239,6 @@ export class SlowSellingComponent implements OnInit {
     const sheetRows = rows.map((row) => ({
       "Tên SP": row.productName,
       "Mã SP": row.productCode,
-      "Đơn vị": row.unit || "--",
       "Tổng bán": row.totalQuantity,
       "Chi tiết tháng": row.slowMonths.map((month) => `${month.sessionText || month.label}: ${month.quantityText}`).join(" | "),
     }));
@@ -212,6 +255,7 @@ export class SlowSellingComponent implements OnInit {
   async applyDateFilter(): Promise<void> {
     this.timeStart = this.toApiDateTime(this.startDateInput);
     this.timeEnd = this.toApiDateTime(this.endDateInput);
+    this.currentPage = 1;
     this.clearTableFilters();
     this.rows = this.rows.filter((row) => row.shopCode !== this.activeShopCode);
     this.loadedShopKeys.delete(this.getLoadedShopKey(this.activeShopCode));
@@ -221,39 +265,6 @@ export class SlowSellingComponent implements OnInit {
 
   onFilterChange(): void {
     this.resetVisibleRows();
-  }
-
-  loadMoreRows(): void {
-    const filteredRows = this.filteredRows;
-
-    if (this.isAppendingRows || this.visibleLimit >= filteredRows.length) {
-      return;
-    }
-
-    this.isAppendingRows = true;
-    window.setTimeout(() => {
-      this.visibleLimit += this.renderBatchSize;
-      this.isAppendingRows = false;
-    }, 1000);
-  }
-
-  onTableScroll(event: Event): void {
-    const target = event.currentTarget as HTMLElement;
-    const distanceToBottom = target.scrollHeight - target.scrollTop - target.clientHeight;
-
-    if (distanceToBottom < 120) {
-      this.loadMoreRows();
-    }
-  }
-
-  onTableWheel(event: WheelEvent): void {
-    const target = event.currentTarget as HTMLElement;
-    const canScrollDown = target.scrollTop + target.clientHeight < target.scrollHeight;
-    const canScrollUp = target.scrollTop > 0;
-
-    if ((event.deltaY > 0 && canScrollDown) || (event.deltaY < 0 && canScrollUp)) {
-      event.stopPropagation();
-    }
   }
 
   trackByShop(_: number, shop: SlowSellingShopTab): string {
@@ -302,7 +313,7 @@ export class SlowSellingComponent implements OnInit {
   }
 
   private resetVisibleRows(): void {
-    this.visibleLimit = this.renderBatchSize;
+    this.currentPage = 1;
     this.isAppendingRows = false;
   }
 

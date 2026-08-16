@@ -101,124 +101,158 @@ export class ShopPlanIconComponent {
   standalone: true,
   imports: [CommonModule, FormsModule, ShopPlanIconComponent],
   template: `
-<div class="page-inner employee-plan-page">
-  <section class="employee-plan-hero">
-    <div class="hero-meta">
-      <label>
-        Tháng
-        <select [(ngModel)]="selectedMonth" name="selectedMonth">
-          <option *ngFor="let month of monthOptions" [ngValue]="month">{{ month }}</option>
-        </select>
-      </label>
-      <label>
-        Năm
-        <select [(ngModel)]="selectedYear" name="selectedYear">
-          <option *ngFor="let year of yearOptions" [ngValue]="year">{{ year }}</option>
-        </select>
-      </label>
-      <button class="view-button" type="button" (click)="loadAllShops()">Xem</button>
-    </div>
-  </section>
-
-  <section class="employee-plan-state" *ngIf="visibleCards.length === 0 && !isAnyTabLoading">
-    <div class="state-card">
-      <strong>Không có dữ liệu</strong>
-      <p>Không có chỉ tiêu của các nhà thuốc ở tháng {{ selectedMonth }}/{{ selectedYear }}.</p>
-    </div>
-  </section>
-
-  <section class="employee-plan-panel">
-    <div class="employee-plan-loading" *ngIf="isAnyTabLoading">
-      <span class="loader" aria-hidden="true"></span>
-      <strong>Đang tải dữ liệu nhà thuốc...</strong>
-    </div>
-
-    <div class="shop-plan-grid shop-plan-grid--three" *ngIf="!isAnyTabLoading">
-      <article class="shop-plan-card" *ngFor="let card of visibleCards">
-        <ng-container *ngIf="card.item as item; else emptyShopCard">
-        <div class="card-top">
-          <span class="card-month">{{ card.shopCode }} · {{ formatMonthLabel(item.Month) }}</span>
-          <div class="card-top-right">
-            <span class="card-time"><app-shop-plan-icon name="clock"></app-shop-plan-icon>{{ formatDateTime(item.TimeModify || item.TimeCreate) }}</span>
-            <app-shop-plan-icon class="card-icon" name="percent"></app-shop-plan-icon>
-            <app-shop-plan-icon class="card-icon" name="settings"></app-shop-plan-icon>
-          </div>
+<div class="page-wrapper">
+  <div class="page-header d-print-none">
+    <div class="container-xl">
+      <div class="row g-2 align-items-center">
+        <div class="col">
+          <div class="page-pretitle">KẾ HOẠCH</div>
+          <h2 class="page-title">Chỉ tiêu nhà thuốc trong năm</h2>
         </div>
-
-        <div class="metric-row">
-          <div class="metric-icon-wrap"><app-shop-plan-icon name="chart"></app-shop-plan-icon></div>
-          <div class="metric-content">
-            <div class="metric-lbl">DOANH SỐ</div>
-            <div class="metric-val green">{{ formatNumber(item.AmountR) }}</div>
-            <div class="metric-sub">{{ formatNumber(item.Amount) }}</div>
-          </div>
-          <div class="pct-circle" [ngClass]="getBadgeClass(item.AmountR, item.Amount)">{{ formatPercent(item.AmountR, item.Amount) }}</div>
-        </div>
-
-        <div class="metric-row">
-          <div class="metric-icon-wrap"><app-shop-plan-icon name="cart"></app-shop-plan-icon></div>
-          <div class="metric-content">
-            <div class="metric-lbl">HHS</div>
-            <div class="metric-val green">{{ formatNumber(item.PointSales01R) }}</div>
-            <div class="metric-sub">{{ formatNumber(item.PointSales01) }}</div>
-          </div>
-          <div class="pct-circle" [ngClass]="getBadgeClass(item.PointSales01R, item.PointSales01)">{{ formatPercent(item.PointSales01R, item.PointSales01) }}</div>
-          <div class="tthhs">
-            <div class="tthhs-lbl">TT HHS</div>
-            <div class="tthhs-val">{{ formatPercent(item.QuantityHHS, item.SKU) }}</div>
-            <div class="tthhs-sub">SKU HHS: {{ formatNumber(item.QuantityHHS) }}</div>
-          </div>
-        </div>
-
-        <div class="projection-grid">
-          <div class="projection-card">
-            <div class="projection-lbl">Tỉ trọng</div>
-            <div class="projection-val">{{ formatRatio(getHhsDisplayValue(item), item.AmountR) }}</div>
-          </div>
-          <div class="projection-card">
-            <div class="projection-lbl">Dự kiến DS</div>
-            <div class="projection-val">{{ formatNumber(getProjectedValue(item.AmountR, item.Month)) }}</div>
-          </div>
-          <div class="projection-card">
-            <div class="projection-lbl">Dự kiến HS</div>
-            <div class="projection-val">{{ formatNumber(getProjectedValue(getHhsDisplayValue(item), item.Month)) }}</div>
-          </div>
-        </div>
-
-        <div class="sec-lbl"><app-shop-plan-icon name="users"></app-shop-plan-icon> Khách hàng</div>
-        <div class="cus-grid">
-          <div class="cus-box cus-box--light"><div class="cus-ttl">Tổng</div><div class="cus-num">{{ formatNumber(item.QuaCustomer) }}</div><div class="cus-real red">{{ formatNumber(item.QuaCustomerR) }}</div></div>
-          <div class="cus-box cus-box--light"><div class="cus-ttl">Đơn bán</div><div class="cus-num">{{ formatNumber(item.QuaInvoiceR) }}</div><div class="cus-real red">{{ formatNumber(item.QuaInvoice) }}</div></div>
-          <div class="cus-box cus-box--light"><div class="cus-ttl">TB Bill</div><div class="cus-num">{{ formatNumber(item.PointSales01R) }}</div><div class="cus-real red">{{ formatNumber(item.PointSales01) }}</div></div>
-        </div>
-
-        <div class="sec-lbl"><app-shop-plan-icon name="star"></app-shop-plan-icon> Khách đạt hạng</div>
-        <div class="lv-grid">
-          <div class="lv-cell" *ngFor="let level of customerLevels">
-            <div class="lv-lbl">{{ level.label }}</div>
-            <div class="lv-t">{{ formatNumber(getLevelValue(item, level.key)) }}</div>
-            <div class="lv-r">{{ formatNumber(getLevelRealValue(item, level.key)) }}</div>
-          </div>
-        </div>
-        </ng-container>
-        <ng-template #emptyShopCard>
-          <div class="empty-shop-card">
-            <div class="card-top">
-              <span class="card-month">{{ card.shopCode }}</span>
+        <div class="col-auto ms-auto d-print-none">
+          <div class="d-flex align-items-center gap-2">
+            <div class="d-flex align-items-center gap-2">
+              <label class="form-label mb-0">Tháng</label>
+              <select class="form-select" [(ngModel)]="selectedMonth" name="selectedMonth">
+                <option *ngFor="let month of monthOptions" [ngValue]="month">{{ month }}</option>
+              </select>
             </div>
-            <div class="card-status">
-              <span class="chip chip--code">{{ card.shopName }}</span>
+            <div class="d-flex align-items-center gap-2">
+              <label class="form-label mb-0">Năm</label>
+              <select class="form-select" [(ngModel)]="selectedYear" name="selectedYear">
+                <option *ngFor="let year of yearOptions" [ngValue]="year">{{ year }}</option>
+              </select>
             </div>
-            <p class="api-test-error" *ngIf="card.errorText">{{ card.errorText }}</p>
-            <p class="empty-shop-copy" *ngIf="!card.errorText">Không có dữ liệu tháng {{ selectedMonth }}/{{ selectedYear }}.</p>
+            <button class="btn btn-primary" type="button" (click)="loadAllShops()">Xem</button>
           </div>
-        </ng-template>
-      </article>
+        </div>
+      </div>
     </div>
-  </section>
+  </div>
+
+  <div class="page-body">
+    <div class="container-xl">
+      <div class="card mb-3" *ngIf="visibleCards.length === 0 && !isAnyTabLoading">
+        <div class="card-body">
+          <h3 class="card-title">Không có dữ liệu</h3>
+          <p class="text-secondary mb-0">Không có chỉ tiêu của các nhà thuốc ở tháng {{ selectedMonth }}/{{ selectedYear }}.</p>
+        </div>
+      </div>
+
+      <div class="d-flex align-items-center justify-content-center py-5" *ngIf="isAnyTabLoading">
+        <div class="spinner-border text-primary me-2" role="status"></div>
+        <span class="text-secondary">Đang tải dữ liệu nhà thuốc...</span>
+      </div>
+
+      <div class="row row-deck row-cards" *ngIf="!isAnyTabLoading">
+        <div class="col-sm-6 col-lg-4" *ngFor="let card of visibleCards">
+          <div class="card">
+            <ng-container *ngIf="card.item as item; else emptyShopCard">
+              <div class="card-header">
+                <h3 class="card-title text-warning">{{ card.shopCode }} · {{ formatMonthLabel(item.Month) }}</h3>
+                <div class="card-actions text-secondary small d-flex align-items-center gap-2">
+                  <span><app-shop-plan-icon name="clock"></app-shop-plan-icon> {{ formatDateTime(item.TimeModify || item.TimeCreate) }}</span>
+                  <app-shop-plan-icon name="percent"></app-shop-plan-icon>
+                  <app-shop-plan-icon name="settings"></app-shop-plan-icon>
+                </div>
+              </div>
+              <div class="table-responsive">
+                <table class="table table-vcenter card-table">
+                  <tbody>
+                    <tr>
+                      <td class="w-1"><app-shop-plan-icon name="chart"></app-shop-plan-icon></td>
+                      <td>
+                        <div class="text-secondary small fw-bold mb-1">DOANH SỐ</div>
+                        <div class="h3 mb-0 text-success">{{ formatNumber(item.AmountR) }}</div>
+                        <div class="text-secondary small">{{ formatNumber(item.Amount) }}</div>
+                      </td>
+                      <td class="text-end">
+                        <span class="badge" [ngClass]="item.AmountR >= item.Amount ? 'bg-green-lt' : 'bg-yellow-lt'">{{ formatPercent(item.AmountR, item.Amount) }}</span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td class="w-1"><app-shop-plan-icon name="cart"></app-shop-plan-icon></td>
+                      <td>
+                        <div class="text-secondary small fw-bold mb-1">HHS</div>
+                        <div class="h3 mb-0 text-success">{{ formatNumber(item.PointSales01R) }}</div>
+                        <div class="text-secondary small">{{ formatNumber(item.PointSales01) }}</div>
+                      </td>
+                      <td class="text-end">
+                        <span class="badge mb-1" [ngClass]="item.PointSales01R >= item.PointSales01 ? 'bg-green-lt' : 'bg-yellow-lt'">{{ formatPercent(item.PointSales01R, item.PointSales01) }}</span>
+                        <div class="text-secondary small fw-bold">TT HHS: <span class="text-success">{{ formatPercent(item.QuantityHHS, item.SKU) }}</span></div>
+                        <div class="text-secondary small">SKU HHS: {{ formatNumber(item.QuantityHHS) }}</div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="card-body border-bottom">
+                <div class="row g-2 text-center">
+                  <div class="col-4">
+                    <div class="text-secondary small fw-bold">Tỉ trọng</div>
+                    <div class="h4 mb-0">{{ formatRatio(getHhsDisplayValue(item), item.AmountR) }}</div>
+                  </div>
+                  <div class="col-4">
+                    <div class="text-secondary small fw-bold">Dự kiến DS</div>
+                    <div class="h4 mb-0">{{ formatNumber(getProjectedValue(item.AmountR, item.Month)) }}</div>
+                  </div>
+                  <div class="col-4">
+                    <div class="text-secondary small fw-bold">Dự kiến HS</div>
+                    <div class="h4 mb-0">{{ formatNumber(getProjectedValue(getHhsDisplayValue(item), item.Month)) }}</div>
+                  </div>
+                </div>
+              </div>
+              <div class="card-body border-bottom">
+                <div class="h4 mb-3 d-flex align-items-center gap-2"><app-shop-plan-icon name="users"></app-shop-plan-icon> Khách hàng</div>
+                <div class="row g-2 text-center">
+                  <div class="col-4 bg-light rounded p-2">
+                    <div class="text-secondary small fw-bold">Tổng</div>
+                    <div class="h3 mb-0">{{ formatNumber(item.QuaCustomer) }}</div>
+                    <div class="text-danger small fw-bold">{{ formatNumber(item.QuaCustomerR) }}</div>
+                  </div>
+                  <div class="col-4 bg-light rounded p-2">
+                    <div class="text-secondary small fw-bold">Đơn bán</div>
+                    <div class="h3 mb-0">{{ formatNumber(item.QuaInvoiceR) }}</div>
+                    <div class="text-danger small fw-bold">{{ formatNumber(item.QuaInvoice) }}</div>
+                  </div>
+                  <div class="col-4 bg-light rounded p-2">
+                    <div class="text-secondary small fw-bold">TB Bill</div>
+                    <div class="h3 mb-0">{{ formatNumber(item.PointSales01R) }}</div>
+                    <div class="text-danger small fw-bold">{{ formatNumber(item.PointSales01) }}</div>
+                  </div>
+                </div>
+              </div>
+              <div class="card-body">
+                <div class="h4 mb-3 d-flex align-items-center gap-2"><app-shop-plan-icon name="star"></app-shop-plan-icon> Khách đạt hạng</div>
+                <div class="row g-2 text-center">
+                  <div class="col-2 bg-light rounded p-2" *ngFor="let level of customerLevels">
+                    <div class="text-secondary small fw-bold">{{ level.label }}</div>
+                    <div class="h4 mb-0">{{ formatNumber(getLevelValue(item, level.key)) }}</div>
+                    <div class="text-secondary small fw-bold">{{ formatNumber(getLevelRealValue(item, level.key)) }}</div>
+                  </div>
+                </div>
+              </div>
+            </ng-container>
+            <ng-template #emptyShopCard>
+              <div class="card-header">
+                <h3 class="card-title">{{ card.shopCode }}</h3>
+              </div>
+              <div class="card-body">
+                <div class="mb-3">
+                  <span class="badge bg-yellow-lt">{{ card.shopName }}</span>
+                </div>
+                <p class="text-danger mb-0" *ngIf="card.errorText">{{ card.errorText }}</p>
+                <p class="text-secondary mb-0" *ngIf="!card.errorText">Không có dữ liệu tháng {{ selectedMonth }}/{{ selectedYear }}.</p>
+              </div>
+            </ng-template>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
   `,
-  styleUrls: ["./shop-plan-year.component.css"],
+  styles: [],
 })
 export class ShopPlanYearComponent implements OnInit {
   readonly endpoint = "/ShopPlan/GetShopPlanByTime";

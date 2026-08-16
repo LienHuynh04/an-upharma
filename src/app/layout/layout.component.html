@@ -1,243 +1,255 @@
-<div
-  class="app adminhmd-shell"
-  [class.dark-mode]="darkMode"
-  [ngClass]="appClasses"
->
-  <button
-    *ngIf="appClasses['is-sidebar-open']"
-    class="sidebar-backdrop"
-    type="button"
-    aria-label="Đóng menu"
-    (click)="closeSidebar()"
-  ></button>
-  <aside class="sidebar">
-    <div class="brand">
-      <div class="brand-logo">U</div>
-      <div>
-        <strong>UPHARMA</strong>
-        <span>QUẢN LÝ NHÀ THUỐC</span>
-      </div>
-    </div>
-
-    <nav class="nav-list sidebar-menu" aria-label="Menu chính">
-      <ul class="menu-list">
-        <li class="menu-item">
-          <a routerLink="/profile" routerLinkActive="active" (click)="closeSidebar()">
-            <span class="menu-icon">◎</span><span>Hồ sơ cá nhân</span>
-          </a>
-        </li>
-        <!-- <li class="menu-item">
-          <a routerLink="/dashboard" routerLinkActive="active">
-            <span class="menu-icon">⌂</span><span>Tổng quan</span>
-          </a>
-        </li> -->
-
-        <li class="nav-section-label">CHỈ TIÊU</li>
-        <li class="menu-item menu-group" [class.is-open]="menuGroups['stats']">
-          <button
-            class="menu-parent"
-            type="button"
-            [attr.aria-expanded]="menuGroups['stats']"
-            (click)="toggleMenuGroup('stats')"
-          >
-            <span class="menu-icon">⟡</span
-            ><span class="menu-label">Thống kê</span
-            ><span class="menu-chevron">⌄</span>
-          </button>
-          <ul class="menu-child">
-            <li>
-              <a routerLink="/chi-tieu-nhan-vien" routerLinkActive="active"
-                (click)="closeSidebar()"
-                >Chỉ tiêu nhân viên</a
-              >
-            </li>
-            <li>
-              <a
-                routerLink="/chi-tieu-nha-thuoc-trong-nam"
-                routerLinkActive="active"
-                (click)="closeSidebar()"
-                >Chỉ tiêu nhà thuốc trong năm</a
-              >
-            </li>
-          </ul>
-        </li>
-
-        <!-- Trang Tổng quan tạm ẩn để deploy trước -->
-
-        <li class="nav-section-label">QUẢN LÝ</li>
-        <li class="menu-item menu-group" [class.is-open]="menuGroups['goods']">
-          <button
-            class="menu-parent"
-            type="button"
-            [attr.aria-expanded]="menuGroups['goods']"
-            (click)="toggleMenuGroup('goods')"
-          >
-            <span class="menu-icon">▥</span
-            ><span class="menu-label">Hàng hóa</span
-            ><span class="menu-chevron">⌄</span>
-          </button>
-          <ul class="menu-child">
-            <!-- Trang tồn kho cũ được giữ lại trong source để backup. -->
-            <li>
-              <a routerLink="/ton-kho" routerLinkActive="active" (click)="closeSidebar()">Tồn kho</a>
-            </li>
-            <!-- Trang Tồn kho toàn quốc được giữ lại trong source để backup. -->
-            <li>
-              <a routerLink="/lay-bao-cao-don-hang" routerLinkActive="active"
-                >Lấy báo cáo đơn hàng</a
-              >
-            </li>
-            <li>
-              <a routerLink="/hang-da-het" routerLinkActive="active" (click)="closeSidebar()"
-                >Hàng đã hết</a
-              >
-            </li>
-            <li>
-              <a routerLink="/hang-lap-tot" routerLinkActive="active" (click)="closeSidebar()"
-                >Hàng lặp tốt</a
-              >
-            </li>
-            <li>
-              <a routerLink="/hang-ban-cham" routerLinkActive="active" (click)="closeSidebar()"
-                >Hàng bán chậm</a
-              >
-            </li>
-            <li>
-              <a routerLink="/goi-y-chuyen-hang" routerLinkActive="active" (click)="closeSidebar()"
-                >Gợi ý chuyển hàng cận hạn</a
-              >
-            </li>
-            <li>
-              <a routerLink="/in-tem" routerLinkActive="active" (click)="closeSidebar()"
-                >In tem</a
-              >
-            </li>
-          </ul>
-        </li>
-        <li class="nav-section-label">HỆ THỐNG</li>
-        <li class="menu-item">
-          <a routerLink="/inventory-system-test" routerLinkActive="active" (click)="closeSidebar()">
-            <span class="menu-icon">🔬</span><span>Test GetInventoryShop</span>
-          </a>
-        </li>
-        <li class="menu-item">
-          <a routerLink="/inventory-expiration-test" routerLinkActive="active" (click)="closeSidebar()">
-            <span class="menu-icon">⏳</span><span>Test GetInventoryExpiration</span>
-          </a>
-        </li>
-        <li class="menu-item">
-          <a routerLink="/api-test" routerLinkActive="active" (click)="closeSidebar()">
-            <span class="menu-icon">↯</span><span>Test tốc độ tiêu thụ</span>
-          </a>
-        </li>
-      </ul>
-    </nav>
-
-    <div class="sidebar-account">
-      <span class="user-avatar">{{ userInitial }}</span>
-      <div>
-        <strong>{{ userTitle }}</strong
-        ><small>{{ brandShopText || "UPHARMA" }}</small>
-      </div>
+<div class="page">
+  <!-- Combined Header & Navigation Bar -->
+  <header class="navbar navbar-expand-md navbar-dark d-print-none" style="background: #0d172d; border-bottom: 1px solid rgba(255, 255, 255, 0.08); min-height: 56px; padding: 0.5rem 0;">
+    <div class="container-xl">
+      <!-- Hamburger for mobile menu toggling navigation -->
       <button
+        class="navbar-toggler"
         type="button"
-        aria-label="Đăng xuất"
-        title="Đăng xuất"
-        (click)="openLogoutConfirm($event)"
-      >
-        ↪
-      </button>
-    </div>
-  </aside>
-
-  <main class="content">
-    <header class="topbar adminhmd-topbar">
-      <button
-        class="menu-btn"
-        type="button"
-        [attr.aria-label]="sidebarToggleLabel"
         (click)="toggleSidebar()"
+        [attr.aria-expanded]="appClasses['is-sidebar-open']"
+        aria-label="Toggle navigation"
       >
-        {{ sidebarToggleIcon }}
+        <span class="navbar-toggler-icon"></span>
       </button>
-      <!-- <label class="global-search">
-        <span>⌕</span><input type="search" placeholder="Tìm kiếm nhanh..." />
-      </label> -->
-      <button
-        class="topbar-report-btn"
-        type="button"
-        [disabled]="generatingReport"
-        (click)="generateAndOpenReport()"
-      >
-        <span>📊</span> {{ generatingReport ? "Đang tạo..." : "Tạo báo cáo" }}
-      </button>
-      <div class="topbar-spacer"></div>
-      <button
-        class="topbar-icon"
-        type="button"
-        [attr.aria-label]="
-          darkMode ? 'Chuyển sang giao diện sáng' : 'Chuyển sang giao diện tối'
-        "
-        (click)="toggleDarkMode()"
-      >
-        {{ darkMode ? "☀" : "☾" }}
-      </button>
-      <button
-        class="topbar-icon notification-button"
-        type="button"
-        aria-label="Thông báo"
-        (click)="toggleNotifications()"
-      >
-        ♢<i></i>
-      </button>
-      <div class="topbar-user">
-        <span class="user-avatar">{{ userInitial }}</span>
-        <div>
-          <strong>{{ userTitle }}</strong
-          ><small>Đang hoạt động</small>
+
+      <!-- Brand -->
+      <h1 class="navbar-brand navbar-brand-autodark pe-0 pe-md-3 me-3">
+        <a routerLink="/dashboard" class="text-decoration-none d-flex align-items-center text-white">
+          <span class="avatar avatar-sm bg-primary text-white me-2" style="width: 32px; height: 32px; line-height: 32px; font-weight: bold;">U</span>
+          <strong style="font-size: 18px; letter-spacing: 0.5px;">UPHARMA</strong>
+        </a>
+      </h1>
+
+      <!-- Navigation Menu (inline on desktop, collapsible on mobile) -->
+      <div class="collapse navbar-collapse" [class.show]="appClasses['is-sidebar-open']" id="navbar-menu">
+        <div class="d-flex flex-column flex-md-row flex-fill align-items-stretch align-items-md-center justify-content-between">
+          <ul class="navbar-nav align-items-md-center">
+            <!-- Dashboard link -->
+            <li class="nav-item">
+              <a class="nav-link py-2" routerLink="/dashboard" routerLinkActive="active" (click)="closeSidebar()">
+                <span class="nav-link-icon d-md-none d-lg-inline-block"><i class="ti ti-home" style="font-size: 1.1rem;"></i></span>
+                <span class="nav-link-title" style="font-size: 13.5px;">Dashboard</span>
+              </a>
+            </li>
+
+            <!-- Nhóm chỉ tiêu -->
+            <li class="nav-item dropdown" [class.show]="openMenuId === 'stats'" [class.active]="menuGroups['stats']">
+              <a
+                class="nav-link dropdown-toggle py-2"
+                href="javascript:void(0)"
+                (click)="toggleMenuGroup('stats', $event)"
+                [attr.aria-expanded]="openMenuId === 'stats'"
+              >
+                <span class="nav-link-icon d-md-none d-lg-inline-block"><i class="ti ti-chart-bar" style="font-size: 1.1rem;"></i></span>
+                <span class="nav-link-title" style="font-size: 13.5px;">Thống kê chỉ tiêu</span>
+              </a>
+              <div class="dropdown-menu" [class.show]="openMenuId === 'stats'" (click)="$event.stopPropagation()">
+                <a
+                  class="dropdown-item"
+                  routerLink="/chi-tieu-nhan-vien"
+                  routerLinkActive="active"
+                  (click)="closeSidebar(); openMenuId = null"
+                  >Chỉ tiêu nhân viên</a
+                >
+                <a
+                  class="dropdown-item"
+                  routerLink="/chi-tieu-nha-thuoc-trong-nam"
+                  routerLinkActive="active"
+                  (click)="closeSidebar(); openMenuId = null"
+                  >Chỉ tiêu nhà thuốc trong năm</a
+                >
+              </div>
+            </li>
+
+            <!-- Nhóm hàng hóa -->
+            <li class="nav-item dropdown" [class.show]="openMenuId === 'goods'" [class.active]="menuGroups['goods']">
+              <a
+                class="nav-link dropdown-toggle py-2"
+                href="javascript:void(0)"
+                (click)="toggleMenuGroup('goods', $event)"
+                [attr.aria-expanded]="openMenuId === 'goods'"
+              >
+                <span class="nav-link-icon d-md-none d-lg-inline-block"><i class="ti ti-packages" style="font-size: 1.1rem;"></i></span>
+                <span class="nav-link-title" style="font-size: 13.5px;">Hàng hóa</span>
+              </a>
+              <div class="dropdown-menu" [class.show]="openMenuId === 'goods'" (click)="$event.stopPropagation()">
+                <a
+                  class="dropdown-item"
+                  routerLink="/ton-kho"
+                  routerLinkActive="active"
+                  (click)="closeSidebar(); openMenuId = null"
+                  >Tồn kho</a
+                >
+                <a
+                  class="dropdown-item"
+                  routerLink="/lay-bao-cao-don-hang"
+                  routerLinkActive="active"
+                  (click)="closeSidebar(); openMenuId = null"
+                  >Lấy báo cáo đơn hàng</a
+                >
+                <a
+                  class="dropdown-item"
+                  routerLink="/hang-da-het"
+                  routerLinkActive="active"
+                  (click)="closeSidebar(); openMenuId = null"
+                  >Hàng đã hết</a
+                >
+                <a
+                  class="dropdown-item"
+                  routerLink="/hang-lap-tot"
+                  routerLinkActive="active"
+                  (click)="closeSidebar(); openMenuId = null"
+                  >Hàng lặp tốt</a
+                >
+                <a
+                  class="dropdown-item"
+                  routerLink="/hang-ban-cham"
+                  routerLinkActive="active"
+                  (click)="closeSidebar(); openMenuId = null"
+                  >Hàng bán chậm</a
+                >
+                <a
+                  class="dropdown-item"
+                  routerLink="/goi-y-chuyen-hang"
+                  routerLinkActive="active"
+                  (click)="closeSidebar(); openMenuId = null"
+                  >Gợi ý chuyển hàng cận hạn</a
+                >
+                <a
+                  class="dropdown-item"
+                  routerLink="/in-tem"
+                  routerLinkActive="active"
+                  (click)="closeSidebar(); openMenuId = null"
+                  >In tem</a
+                >
+              </div>
+            </li>
+
+            <!-- Nhóm hệ thống test -->
+            <li class="nav-item dropdown" [class.show]="openMenuId === 'test'" [class.active]="menuGroups['test']">
+              <a
+                class="nav-link dropdown-toggle py-2"
+                href="javascript:void(0)"
+                (click)="toggleMenuGroup('test', $event)"
+                [attr.aria-expanded]="openMenuId === 'test'"
+              >
+                <span class="nav-link-icon d-md-none d-lg-inline-block"><i class="ti ti-flask" style="font-size: 1.1rem;"></i></span>
+                <span class="nav-link-title" style="font-size: 13.5px;">Hệ thống test</span>
+              </a>
+              <div class="dropdown-menu" [class.show]="openMenuId === 'test'" (click)="$event.stopPropagation()">
+                <a
+                  class="dropdown-item"
+                  routerLink="/inventory-system-test"
+                  routerLinkActive="active"
+                  (click)="closeSidebar(); openMenuId = null"
+                  >Test GetInventoryShop</a
+                >
+                <a
+                  class="dropdown-item"
+                  routerLink="/inventory-expiration-test"
+                  routerLinkActive="active"
+                  (click)="closeSidebar(); openMenuId = null"
+                  >Test GetInventoryExpiration</a
+                >
+                <a
+                  class="dropdown-item"
+                  routerLink="/api-test"
+                  routerLinkActive="active"
+                  (click)="closeSidebar(); openMenuId = null"
+                  >Test tốc độ tiêu thụ</a
+                >
+              </div>
+            </li>
+          </ul>
         </div>
       </div>
-    </header>
 
-    <section class="notification-dropdown" *ngIf="notificationsOpen">
-      <header>
-        <strong>Thông báo</strong
-        ><button type="button" (click)="toggleNotifications()">×</button>
-      </header>
-      <a routerLink="/hang-da-het" (click)="toggleNotifications()"
-        ><b>Cập nhật hàng đã hết</b
-        ><small>Kiểm tra dữ liệu mới nhất tại các nhà thuốc.</small></a
-      >
-      <a routerLink="/cronjob" (click)="toggleNotifications()"
-        ><b>Cronjob đã sẵn sàng</b
-        ><small>Bạn có thể chạy đồng bộ dữ liệu ngay.</small></a
-      >
-      <a routerLink="/profile" (click)="toggleNotifications()"
-        ><b>Phiên đăng nhập đang hoạt động</b
-        ><small>Thông tin tài khoản đã được xác thực.</small></a
-      >
-    </section>
+      <!-- Right actions (Theme, notification, user dropdown) -->
+      <div class="navbar-nav flex-row order-md-last align-items-center ms-auto">
+        <!-- Report button -->
+        <div class="nav-item me-2 d-none d-sm-block">
+          <button
+            class="btn btn-sm btn-primary"
+            type="button"
+            [disabled]="generatingReport"
+            (click)="generateAndOpenReport()"
+            style="font-size: 12px; font-weight: bold; padding: 4px 10px;"
+          >
+            📊 {{ generatingReport ? "Đang tạo..." : "Báo cáo" }}
+          </button>
+        </div>
 
-    <div class="page-content-wrapper"><router-outlet></router-outlet></div>
-  </main>
+        <!-- Theme toggle -->
+        <div class="nav-item me-2">
+          <button
+            class="nav-link px-0 btn btn-link border-0 text-white-50"
+            type="button"
+            (click)="toggleDarkMode()"
+            [title]="darkMode ? 'Chuyển sang giao diện sáng' : 'Chuyển sang giao diện tối'"
+          >
+            <i class="ti" [class.ti-sun]="darkMode" [class.ti-moon]="!darkMode" style="font-size: 1.25rem;"></i>
+          </button>
+        </div>
+
+        <!-- Logout icon directly next to avatar -->
+        <div class="nav-item ms-2">
+          <button
+            class="btn btn-ghost-danger btn-icon border-0 p-0"
+            type="button"
+            aria-label="Đăng xuất"
+            title="Đăng xuất"
+            (click)="openLogoutConfirm($event)"
+            style="width: 28px; height: 28px; line-height: 28px;"
+          >
+            <i class="ti ti-logout" style="font-size: 1.2rem;"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Page Wrapper -->
+  <div class="page-wrapper" style="padding-top: 0px;">
+    <!-- Main Content Area -->
+    <div class="page-body m-0 p-0">
+      <div class="container-xl page-content-wrapper">
+        <router-outlet (activate)="onActivate($event)" (deactivate)="onDeactivate()"></router-outlet>
+      </div>
+    </div>
+  </div>
 </div>
 
+<!-- Logout Confirm Modal -->
 <div
-  class="confirm-overlay is-visible"
+  class="modal modal-blur fade show"
   *ngIf="showLogoutConfirm"
+  style="display: block; background: rgba(0,0,0,0.5); z-index: 1050;"
   (click)="cancelLogout()"
 >
-  <div class="confirm-modal logout-modal" (click)="$event.stopPropagation()">
-    <div class="confirm-symbol">↪</div>
-    <h3>Đăng xuất</h3>
-    <p>Bạn có chắc chắn muốn đăng xuất khỏi UPHARMA không?</p>
-    <div class="confirm-actions">
-      <button class="btn-cancel" type="button" (click)="cancelLogout()">
-        Hủy
-      </button>
-      <button class="btn-danger" type="button" (click)="confirmLogout()">
-        Đăng xuất
-      </button>
+  <div class="modal-dialog modal-sm modal-dialog-centered" role="document" (click)="$event.stopPropagation()">
+    <div class="modal-content shadow-lg border-0">
+      <div class="modal-body text-center py-4">
+        <div class="avatar avatar-lg bg-danger-lt text-danger mb-3"><i class="ti ti-logout" style="font-size: 24px;"></i></div>
+        <h3>Đăng xuất</h3>
+        <div class="text-muted">Bạn có chắc chắn muốn đăng xuất khỏi UPHARMA không?</div>
+      </div>
+      <div class="modal-footer border-0 pt-0">
+        <div class="w-100">
+          <div class="row">
+            <div class="col">
+              <button class="btn btn-link w-100 text-muted text-decoration-none" (click)="cancelLogout()">
+                Hủy
+              </button>
+            </div>
+            <div class="col">
+              <button class="btn btn-danger w-100" (click)="confirmLogout()">
+                Đăng xuất
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </div>

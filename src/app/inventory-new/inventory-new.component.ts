@@ -1,7 +1,7 @@
 import { CommonModule } from "@angular/common";
 import { Component, OnInit } from "@angular/core";
 import { FormsModule } from "@angular/forms";
-import { Router, RouterLink } from "@angular/router";
+import { Router } from "@angular/router";
 import { environment } from "../../environments/environment";
 import {
   compareInventoryItems,
@@ -63,7 +63,7 @@ interface InventoryCacheRecord {
 @Component({
   selector: "app-inventory-new",
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule],
   templateUrl: "./inventory-new.component.html",
 })
 export class InventoryNewComponent implements OnInit {
@@ -140,7 +140,46 @@ export class InventoryNewComponent implements OnInit {
   normalizedRows: InventoryItem[] = [];
   filteredRows: InventoryItem[] = [];
   displayedRows: InventoryItem[] = [];
-  visibleLimit = this.renderBatchSize;
+  currentPage = 1;
+  pageSize = 20;
+
+  get totalPages(): number {
+    return Math.ceil(this.filteredRows.length / this.pageSize) || 1;
+  }
+
+  get pageNumbers(): number[] {
+    const total = this.totalPages;
+    const current = this.currentPage;
+    const maxVisible = 5;
+    
+    let start = Math.max(1, current - 2);
+    let end = Math.min(total, start + maxVisible - 1);
+    
+    if (end - start + 1 < maxVisible) {
+      start = Math.max(1, end - maxVisible + 1);
+    }
+    
+    const pages = [];
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    return pages;
+  }
+
+  setPage(page: number): void {
+    if (page < 1 || page > this.totalPages) return;
+    this.currentPage = page;
+    this.updateDisplayedRows();
+  }
+
+  prevPage(): void {
+    this.setPage(this.currentPage - 1);
+  }
+
+  nextPage(): void {
+    this.setPage(this.currentPage + 1);
+  }
+
   isAppendingRows = false;
   expirySummary: ExpirySummary = {
     expired: 0,
@@ -385,37 +424,7 @@ export class InventoryNewComponent implements OnInit {
     this.n8nDialogOpen = false;
   }
 
-  loadMoreRows(): void {
-    if (this.isAppendingRows || this.displayedRows.length >= this.filteredRows.length) {
-      return;
-    }
 
-    this.isAppendingRows = true;
-    window.setTimeout(() => {
-      this.visibleLimit += this.renderBatchSize;
-      this.updateDisplayedRows();
-      this.isAppendingRows = false;
-    }, 1000);
-  }
-
-  onTableScroll(event: Event): void {
-    const target = event.currentTarget as HTMLElement;
-    const distanceToBottom = target.scrollHeight - target.scrollTop - target.clientHeight;
-
-    if (distanceToBottom < 120) {
-      this.loadMoreRows();
-    }
-  }
-
-  onTableWheel(event: WheelEvent): void {
-    const target = event.currentTarget as HTMLElement;
-    const canScrollDown = target.scrollTop + target.clientHeight < target.scrollHeight;
-    const canScrollUp = target.scrollTop > 0;
-
-    if ((event.deltaY > 0 && canScrollDown) || (event.deltaY < 0 && canScrollUp)) {
-      event.stopPropagation();
-    }
-  }
 
   trackByInventory(_: number, row: InventoryItem): string {
     return row.rowKey;
@@ -462,7 +471,7 @@ export class InventoryNewComponent implements OnInit {
 
     try {
       this.inventoryRefreshProgress = Math.max(this.inventoryRefreshProgress, 65);
-      const inventoryData = await this.upharmaService.loadInventoryNewDirect({ forceRefresh: true });
+      const inventoryData = await this.upharmaService.loadInventoryResource({ forceRefresh: true });
       this.applyInventoryData(inventoryData);
       await this.writeInventoryCache({
         cacheKey,
@@ -692,7 +701,7 @@ export class InventoryNewComponent implements OnInit {
       .map(([key, value]) => [key, normalizeFilterText(value)] as const)
       .filter(([, value]) => value);
 
-    this.visibleLimit = this.renderBatchSize;
+    this.currentPage = 1;
     this.isAppendingRows = false;
     const hasActiveShop = Boolean(this.activeShopCode);
     const activeShopCode = this.activeShopCode;
@@ -722,7 +731,9 @@ export class InventoryNewComponent implements OnInit {
   }
 
   private updateDisplayedRows(): void {
-    this.displayedRows = this.filteredRows.slice(0, this.visibleLimit);
+    const start = (this.currentPage - 1) * this.pageSize;
+    const end = start + this.pageSize;
+    this.displayedRows = this.filteredRows.slice(start, end);
   }
 
   private getRowsForActiveShop(): InventoryItem[] {

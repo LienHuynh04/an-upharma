@@ -156,8 +156,8 @@ function getResourceConfig(resourceName, now = new Date()) {
 
   const configs = {
     inventory: {
-      pathname: "/LocalStore/GetInventoryByShopID",
-      payload: () => ({ ProductID: "", LotCode: "", StoreType: "" }),
+      pathname: "/LocalStore/GetInventoryShop",
+      payload: (shop) => ({ BranchLst: shop ? shop.ShopCode : "", ProductID: "", LotCode: "", PackageID: null, StoreType: "" }),
     },
     invoices: {
       pathname: "/InvoiceOnline/GetInvoiceOrderOnByTime",
@@ -343,7 +343,7 @@ async function syncData() {
       const shopResults = await mapWithConcurrency(shops, SHOP_CONCURRENCY, async (shop) => {
         try {
           const responseData = await requestUpharma(config.pathname, {
-            ...config.payload(),
+            ...config.payload(shop),
             Token: loginData.Token,
             uPharmaID: String(loginData.UserInfo.uPharmaID),
             ShopCode: shop.ShopCode,
@@ -351,11 +351,28 @@ async function syncData() {
           });
 
           const arrayData = extractArray(responseData);
-          const mappedArray = arrayData.map((item) => ({
+          let mappedArray = arrayData.map((item) => ({
             ...item,
             __shopCode: shop.ShopCode,
             __shopName: shop.ShopName,
           }));
+
+          if (resourceName === "inventory") {
+            mappedArray = mappedArray.filter((item) => {
+              const qtyVal = parseFloat(
+                item.Quantity ||
+                item.Qty ||
+                item.SL ||
+                item.SoLuong ||
+                item.InventoryQuantity ||
+                item.StockQty ||
+                item.TonKho ||
+                item.RemainQty ||
+                0
+              );
+              return qtyVal > 0;
+            });
+          }
 
           // Push to Firebase RTDB (secured node)
           if (db) {

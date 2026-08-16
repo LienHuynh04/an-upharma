@@ -40,343 +40,119 @@ interface SalesInvoiceReportCacheEntry {
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-<div class="page-inner sales-invoice-report-page">
-  <section class="inventory-header report-hero">
-    <div>
-      <h1>Lấy báo cáo đơn hàng</h1>
-    </div>
-  </section>
-
-  <section class="shop-filter-section report-controls">
-    <label class="control-field">
-      <span>Nhà thuốc</span>
-      <select [(ngModel)]="selectedShopCode" name="selectedShopCode">
-        <option *ngFor="let shop of shops" [ngValue]="shop.ShopCode">{{ shop.ShopCode }} - {{ shop.ShopName }}</option>
-      </select>
-    </label>
-
-    <div class="range-field">
-      <span>Khoảng lọc</span>
-      <div class="range-options" aria-label="Lọc hạn khi bán">
-        <button
-          *ngFor="let option of rangeChoices"
-          type="button"
-          [class.is-active]="selectedRange === option.key"
-          (click)="selectRange(option.key)"
-        >
-          <strong>{{ option.label }}</strong>
-        </button>
+<div class="page-wrapper">
+  <div class="page-header d-print-none">
+    <div class="container-xl">
+      <div class="row g-2 align-items-center">
+        <div class="col">
+          <div class="page-pretitle">BÁO CÁO</div>
+          <h2 class="page-title">Báo cáo đơn hàng</h2>
+        </div>
       </div>
     </div>
-
-    <button class="view-button report-action-button" type="button" [disabled]="loading || !selectedShopCode" (click)="loadData(true)">
-      {{ loading ? "Đang tải..." : "Làm mới" }}
-    </button>
-  </section>
-
-  <div class="employee-plan-loading report-loading" *ngIf="loading">
-    <span class="loader" aria-hidden="true"></span>
-    <strong>Đang lấy báo cáo đơn hàng...</strong>
   </div>
 
-  <div class="report-error" role="alert" *ngIf="errorText">
-    <strong>Không thể lấy báo cáo</strong>
-    <span>{{ errorText }}</span>
-  </div>
-
-  <section class="shop-filter-section employee-summary-section" *ngIf="!loading && !errorText" aria-labelledby="employeeSummaryTitle">
-    <div class="section-head">
-      <div>
-        <h2 id="employeeSummaryTitle">Tổng quan theo nhân viên</h2>
-        <p>Chọn một nhân viên để làm nổi bật nhanh số lượng và tổng tiền.</p>
+  <div class="page-body">
+    <div class="container-xl">
+      <div class="card mb-3">
+        <div class="card-body">
+          <div class="row g-3 align-items-end">
+            <div class="col-md-4">
+              <label class="form-label">Nhà thuốc</label>
+              <select class="form-select" [(ngModel)]="selectedShopCode" name="selectedShopCode">
+                <option *ngFor="let shop of shops" [ngValue]="shop.ShopCode">{{ shop.ShopCode }} - {{ shop.ShopName }}</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Khoảng lọc</label>
+              <div class="btn-group w-100" role="group">
+                <button
+                  *ngFor="let option of rangeChoices"
+                  type="button"
+                  class="btn"
+                  [class.btn-primary]="selectedRange === option.key"
+                  [class.btn-outline-primary]="selectedRange !== option.key"
+                  (click)="selectRange(option.key)"
+                >
+                  {{ option.label }}
+                </button>
+              </div>
+            </div>
+            <div class="col-md-2">
+              <button class="btn btn-primary w-100" type="button" [disabled]="loading || !selectedShopCode" (click)="loadData(true)">
+                {{ loading ? "Đang tải..." : "Làm mới" }}
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
-      <strong>{{ employeeSummaries.length }} nhân viên</strong>
-    </div>
-    <div class="employee-summary-grid">
-      <button
-        class="shop-filter-card employee-summary-card"
-        type="button"
-        [class.is-active]="!selectedEmployeeName"
-        (click)="selectEmployee('')"
-        >
-        <span class="shop-filter-copy">
-          <b>Tất cả nhân viên</b>
-        </span>
-        <strong>{{ allEmployeeTotalAmount | number:'1.0-0' }} đ</strong>
-      </button>
-      <button
-        *ngFor="let summary of employeeSummaries; trackBy: trackByEmployeeSummary"
-        class="shop-filter-card employee-summary-card"
-        type="button"
-        [class.is-active]="selectedEmployeeName === summary.employeeName"
-        [attr.title]="summary.employeeName"
-        (click)="selectEmployee(summary.employeeName)"
-        >
-        <span class="shop-filter-copy">
-          <b>{{ summary.employeeName }}</b>
-        </span>
-        <strong>{{ summary.totalAmount | number:'1.0-0' }} đ</strong>
-      </button>
-    </div>
-  </section>
 
-  <section class="report-empty-state" *ngIf="!loading && !errorText && items.length === 0">
-    <strong>Không có dữ liệu phù hợp bộ lọc</strong>
-    <p>Thử đổi nhà thuốc, chọn lại khoảng hạn hoặc bấm Làm mới để lấy dữ liệu mới nhất.</p>
-  </section>
+      <div class="alert alert-info d-flex align-items-center" *ngIf="loading">
+        <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+        <strong>Đang lấy báo cáo đơn hàng...</strong>
+      </div>
+
+      <div class="alert alert-danger" role="alert" *ngIf="errorText">
+        <h4 class="alert-title">Không thể lấy báo cáo</h4>
+        <div class="text-secondary">{{ errorText }}</div>
+      </div>
+
+      <ng-container *ngIf="!loading && !errorText">
+        <div class="mb-3 d-flex align-items-end justify-content-between">
+          <div>
+            <h2 class="h3 mb-1" id="employeeSummaryTitle">Tổng quan theo nhân viên</h2>
+            <p class="text-secondary mb-0">Chọn một nhân viên để làm nổi bật nhanh số lượng và tổng tiền.</p>
+          </div>
+          <span class="badge bg-primary-lt">{{ employeeSummaries.length }} nhân viên</span>
+        </div>
+        
+        <div class="row row-deck row-cards mb-3">
+          <div class="col-sm-6 col-lg-3">
+            <div 
+              class="card cursor-pointer" 
+              style="cursor: pointer;"
+              [class.bg-primary-lt]="!selectedEmployeeName"
+              (click)="selectEmployee('')"
+            >
+              <div class="card-body">
+                <div class="d-flex align-items-center">
+                  <div class="subheader">Tất cả nhân viên</div>
+                </div>
+                <div class="h1 mb-3">{{ allEmployeeTotalAmount | number:'1.0-0' }} đ</div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="col-sm-6 col-lg-3" *ngFor="let summary of employeeSummaries; trackBy: trackByEmployeeSummary">
+            <div 
+              class="card cursor-pointer"
+              style="cursor: pointer;"
+              [class.bg-primary-lt]="selectedEmployeeName === summary.employeeName"
+              [attr.title]="summary.employeeName"
+              (click)="selectEmployee(summary.employeeName)"
+            >
+              <div class="card-body">
+                <div class="d-flex align-items-center">
+                  <div class="subheader text-truncate" [title]="summary.employeeName">{{ summary.employeeName }}</div>
+                </div>
+                <div class="h1 mb-3">{{ summary.totalAmount | number:'1.0-0' }} đ</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" *ngIf="items.length === 0">
+          <div class="card-body text-center py-5">
+            <h3 class="card-title">Không có dữ liệu phù hợp bộ lọc</h3>
+            <p class="text-secondary">Thử đổi nhà thuốc, chọn lại khoảng hạn hoặc bấm Làm mới để lấy dữ liệu mới nhất.</p>
+          </div>
+        </div>
+      </ng-container>
+    </div>
+  </div>
 </div>
   `,
-  styles: [`
-    .sales-invoice-report-page {
-      display: grid;
-      gap: 14px;
-      color: var(--text);
-    }
-    .report-hero {
-      align-items: center;
-      justify-content: flex-start;
-      padding: 10px 12px;
-    }
-    .report-hero h1 {
-      margin: 0;
-      font-size: 16px;
-      line-height: 1.1;
-      color: var(--text);
-      letter-spacing: -0.35px;
-    }
-    .report-controls {
-      display: grid;
-      grid-template-columns: minmax(220px, 1fr) minmax(0, 2fr) auto;
-      gap: 12px;
-      align-items: end;
-      padding: 12px;
-    }
-    .control-field,
-    .range-field {
-      display: grid;
-      gap: 7px;
-      color: var(--muted);
-      font-size: 10px;
-      font-weight: 800;
-    }
-    .control-field select {
-      min-height: 34px;
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      background: var(--surface-2);
-      color: var(--text);
-      padding: 0 10px;
-      font: inherit;
-      font-size: 10px;
-    }
-    .range-field {
-      min-width: 0;
-    }
-    .range-field .range-options {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 8px;
-    }
-    .range-field .range-options button {
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: flex-start;
-      gap: 1px;
-      min-height: 34px;
-      padding: 6px 10px;
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      color: var(--text);
-      background: var(--surface-2);
-      font: inherit;
-      cursor: pointer;
-      text-align: left;
-    }
-    .range-field .range-options button strong {
-      margin: 0;
-      font-size: 10px;
-      line-height: 1.1;
-      color: var(--text);
-    }
-    .range-field .range-options button small {
-      color: var(--muted);
-      font-size: 8px;
-      line-height: 1.1;
-    }
-    .range-field .range-options button.is-active {
-      border-color: var(--gold);
-      color: var(--text);
-      background: var(--gold-soft);
-      box-shadow: inset 4px 0 var(--gold);
-    }
-    .view-button {
-      display: inline-flex;
-      min-height: 42px;
-      align-items: center;
-      justify-content: center;
-      border: 1px solid var(--gold);
-      border-radius: 12px;
-      padding: 0 16px;
-      color: #fff;
-      background: linear-gradient(135deg, var(--gold-light), var(--gold));
-      box-shadow: 0 12px 24px rgba(163, 107, 20, 0.2);
-      font-size: 10px;
-      font-weight: 900;
-      cursor: pointer;
-    }
-    .view-button:not(:disabled):hover {
-      transform: translateY(-1px);
-    }
-    .report-loading {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      min-height: 92px;
-      padding: 12px 14px;
-      color: var(--muted);
-    }
-    .report-metrics {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 10px;
-    }
-    .summary-card {
-      display: grid;
-      gap: 5px;
-      border: 1px solid var(--line);
-      border-radius: 16px;
-      padding: 14px;
-      background: var(--surface);
-      box-shadow: var(--shadow);
-    }
-    .summary-card span,
-    .section-head p,
-    .report-empty-state p {
-      color: var(--muted);
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.02em;
-      text-transform: none;
-    }
-    .summary-card strong {
-      font-size: 18px;
-      color: var(--text);
-      line-height: 1.1;
-    }
-    .summary-card small {
-      color: var(--muted);
-      font-size: 10px;
-    }
-    .summary-card--amount {
-      border-color: rgba(201, 140, 31, 0.28);
-      background: linear-gradient(180deg, var(--gold-soft), var(--surface));
-    }
-    .summary-card--amount strong {
-      color: var(--gold);
-    }
-    .report-error {
-      display: grid;
-      gap: 4px;
-      padding: 14px 16px;
-      border: 1px solid rgba(220, 62, 56, 0.18);
-      border-radius: 14px;
-      color: var(--red);
-      background: var(--surface);
-      font-size: 11px;
-    }
-    .report-error strong {
-      font-size: 12px;
-    }
-    .section-head {
-      display: flex;
-      align-items: end;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 0 4px;
-    }
-    .section-head h2 {
-      margin: 0;
-      font-size: 18px;
-      color: var(--text);
-    }
-    .section-head p {
-      margin: 4px 0 0;
-      font-weight: 600;
-    }
-    .section-head strong {
-      color: var(--gold);
-      font-size: 11px;
-      font-weight: 900;
-      white-space: nowrap;
-    }
-    .employee-summary-section {
-      display: grid;
-      gap: 12px;
-      padding: 14px;
-    }
-    .employee-summary-grid {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 10px;
-    }
-    .employee-summary-card {
-      min-height: 72px;
-      align-items: center;
-    }
-    .employee-summary-card .shop-filter-copy b {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .employee-summary-card > strong {
-      max-width: 46%;
-      color: var(--gold);
-      font-size: 12px;
-      text-align: right;
-    }
-    .employee-summary-card.is-active {
-      border-color: var(--gold);
-      background: var(--gold-soft);
-    }
-    .report-empty-state {
-      display: grid;
-      gap: 6px;
-      padding: 20px;
-      border: 1px dashed var(--line);
-      border-radius: 18px;
-      background: var(--surface);
-      text-align: center;
-    }
-    .report-empty-state strong {
-      font-size: 14px;
-      color: var(--text);
-    }
-    .report-empty-state p {
-      margin: 0;
-    }
-    @media (max-width: 900px) {
-      .report-hero,
-      .report-controls,
-      .report-metrics,
-      .employee-summary-grid {
-        grid-template-columns: 1fr;
-      }
-      .report-controls {
-        align-items: stretch;
-      }
-      .range-field .range-options {
-        grid-template-columns: 1fr;
-      }
-      .section-head {
-        align-items: flex-start;
-        flex-direction: column;
-      }
-      .view-button {
-        width: 100%;
-      }
-    }
-  `],
+  styles: [],
 })
 export class SalesInvoiceReportComponent implements OnInit {
   readonly endpoint = "/SalesInvoice/GetReportSalesByShop";

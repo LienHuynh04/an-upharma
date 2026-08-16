@@ -1,80 +1,123 @@
-<div class="profile-content-inner">
-    <section class="profile-hero">
-      <div class="profile-avatar-wrap">
-        <div class="profile-avatar">{{ avatarInitial }}</div>
-        <span class="profile-status">Online</span>
+<div class="page-header d-print-none">
+  <div class="container-xl">
+    <div class="row g-2 align-items-center">
+      <div class="col-auto">
+        <span class="avatar avatar-xl bg-primary text-white">{{ avatarInitial }}</span>
       </div>
-      <div class="profile-hero-copy">
-        <h1>Xin chào, {{ displayName }}</h1>
-        <p>{{ role }} • ID {{ userId }} • {{ shopList.length }} nhà thuốc</p>
+      <div class="col">
+        <div class="page-pretitle">HỒ SƠ</div>
+        <h2 class="page-title">Xin chào, {{ displayName }}</h2>
+        <div class="text-secondary mt-1">
+          {{ role }} • ID {{ userId }} • {{ shopList.length }} nhà thuốc
+          <span class="badge bg-success ms-2">Online</span>
+        </div>
       </div>
-      <button type="button" (click)="loadProfile()" [disabled]="loading">
-        {{ loading ? "Đang tải..." : "Tải lại profile" }}
-      </button>
-    </section>
+      <div class="col-auto ms-auto d-print-none">
+        <div class="btn-list">
+          <button class="btn btn-primary" type="button" (click)="loadProfile()" [disabled]="loading">
+            {{ loading ? "Đang tải..." : "Tải lại profile" }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
-    <p class="api-test-error" *ngIf="errorText">{{ errorText }}</p>
+<div class="page-body">
+  <div class="container-xl">
+    <div class="alert alert-danger" *ngIf="errorText">{{ errorText }}</div>
 
-    <section class="profile-grid">
-      <article class="profile-card">
-        <span>Mã người dùng</span>
-        <strong>{{ userId }}</strong>
-        <small>ID tài khoản</small>
-      </article>
-      <article class="profile-card">
-        <span>Email</span>
-        <strong>{{ email }}</strong>
-        <small>Tài khoản làm việc</small>
-      </article>
-      <article class="profile-card">
-        <span>Vai trò</span>
-        <strong>{{ role }}</strong>
-        <small>Mã quyền: {{ accountType }}</small>
-      </article>
-      <article class="profile-card">
-        <span>Nhà thuốc</span>
-        <strong>{{ shopList.length }}</strong>
-        <small>Shop đang được phép xem</small>
-      </article>
-    </section>
-
-    <section class="profile-main-grid">
-      <article class="profile-panel profile-info-panel">
-        <div class="profile-panel-heading">
-          <div>
-            <span>Hồ sơ</span>
-            <h2>Thông tin cá nhân</h2>
+    <div class="row row-deck row-cards mb-3">
+      <div class="col-sm-6 col-lg-3">
+        <div class="card">
+          <div class="card-body">
+            <div class="text-secondary">Mã người dùng</div>
+            <div class="h1 mb-1">{{ userId }}</div>
+            <div class="text-secondary">ID tài khoản</div>
           </div>
         </div>
-        <dl class="profile-info-list">
-          <div *ngFor="let item of profileDetails">
-            <dt>{{ item.label }}</dt>
-            <dd>{{ item.value }}</dd>
+      </div>
+      <div class="col-sm-6 col-lg-3">
+        <div class="card">
+          <div class="card-body">
+            <div class="text-secondary">Email</div>
+            <div class="h3 mb-1">{{ email }}</div>
+            <div class="text-secondary">Tài khoản làm việc</div>
           </div>
-        </dl>
-        <p class="profile-empty" *ngIf="profileDetails.length === 0">Chưa có thông tin profile để hiển thị.</p>
-      </article>
-
-      <article class="profile-panel profile-shop-panel">
-        <div class="profile-panel-heading">
-          <div>
-            <span>Nhà thuốc</span>
-            <h2>Danh sách shop</h2>
-          </div>
-          <strong>{{ shopList.length }}</strong>
         </div>
-        <div class="profile-shop-list">
-          <article *ngFor="let shop of shopList">
-            <strong>{{ shop.ShopCode }}</strong>
+      </div>
+      <div class="col-sm-6 col-lg-3">
+        <div class="card">
+          <div class="card-body">
+            <div class="text-secondary">Vai trò</div>
+            <div class="h1 mb-1">{{ role }}</div>
+            <div class="text-secondary">Mã quyền: {{ accountType }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-sm-6 col-lg-3">
+        <div class="card">
+          <div class="card-body">
+            <div class="text-secondary">Nhà thuốc</div>
+            <div class="h1 mb-1">{{ shopList.length }}</div>
+            <div class="text-secondary">Shop đang được phép xem</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row row-cards">
+      <div class="col-lg-6">
+        <div class="card">
+          <div class="card-header">
             <div>
-              <span>{{ shop.ShopName }}</span>
-              <small>{{ shop.ShopAddress || "Chưa có địa chỉ" }}</small>
+              <div class="card-subtitle">Hồ sơ</div>
+              <h3 class="card-title">Thông tin cá nhân</h3>
             </div>
-            <em>{{ shop.EmRole || "Không có vai trò" }}</em>
-          </article>
+          </div>
+          <div class="card-body">
+            <div class="datagrid" *ngIf="profileDetails.length > 0">
+              <div class="datagrid-item" *ngFor="let item of profileDetails">
+                <div class="datagrid-title">{{ item.label }}</div>
+                <div class="datagrid-content">{{ item.value }}</div>
+              </div>
+            </div>
+            <p class="text-secondary" *ngIf="profileDetails.length === 0">Chưa có thông tin profile để hiển thị.</p>
+          </div>
         </div>
-      </article>
-    </section>
+      </div>
+
+      <div class="col-lg-6">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-subtitle">Nhà thuốc</div>
+              <h3 class="card-title">Danh sách shop</h3>
+            </div>
+            <div class="card-actions">
+              <strong>{{ shopList.length }}</strong>
+            </div>
+          </div>
+          <div class="list-group list-group-flush" *ngIf="shopList.length > 0">
+            <div class="list-group-item" *ngFor="let shop of shopList">
+              <div class="row align-items-center">
+                <div class="col-auto">
+                  <strong>{{ shop.ShopCode }}</strong>
+                </div>
+                <div class="col text-truncate">
+                  <div>{{ shop.ShopName }}</div>
+                  <div class="text-secondary"><small>{{ shop.ShopAddress || "Chưa có địa chỉ" }}</small></div>
+                </div>
+                <div class="col-auto">
+                  <span class="text-secondary">{{ shop.EmRole || "Không có vai trò" }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div class="loading-overlay" [class.is-visible]="loading" aria-live="polite">

@@ -21,7 +21,7 @@ import { RootComponent } from "./app/root.component";
 import { SlowSellingComponent } from "./app/slow-selling/slow-selling.component";
 import { StableConsumptionComponent } from "./app/stable-consumption/stable-consumption.component";
 import { LayoutComponent } from "./app/layout/layout.component";
-import { HomeComponent } from "./app/home/home.component";
+
 
 const routes: Routes = [
   {

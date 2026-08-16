@@ -29,8 +29,12 @@
                 "output": "assets"
               }
             ],
-            "styles": ["src/styles.css"],
-            "scripts": []
+            "styles": [
+              "src/styles.css"
+            ],
+            "scripts": [
+              "node_modules/@tabler/core/dist/js/tabler.min.js"
+            ]
           },
           "configurations": {
             "production": {
@@ -43,8 +47,8 @@
               "budgets": [
                 {
                   "type": "initial",
-                  "maximumWarning": "800kB",
-                  "maximumError": "1.5MB"
+                  "maximumWarning": "2MB",
+                  "maximumError": "3MB"
                 }
               ],
               "outputHashing": "all"

@@ -1,209 +1,10 @@
-.label-page {
-  display: grid;
-  gap: 12px;
-}
-
-.label-hero {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: center;
-  padding: 12px 14px;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: var(--surface);
-  box-shadow: var(--shadow);
-}
-
-.label-hero h1 {
-  margin: 0;
-  font-size: 18px;
-}
-
-.label-hero p {
-  margin: 4px 0 0;
-  color: var(--muted);
-  font-size: 11px;
-}
-
-.label-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.label-workspace {
-  display: grid;
-  grid-template-columns: 360px minmax(0, 1fr);
-  gap: 12px;
-  min-height: 0;
-}
-
-.label-editor,
-.label-preview {
-  min-height: 0;
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  background: var(--surface);
-  box-shadow: var(--shadow);
-  overflow: hidden;
-}
-
-.label-editor {
-  display: grid;
-  grid-template-rows: auto 1fr auto;
-}
-
-.editor-header,
-.paper-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--line);
-  background: var(--surface-2);
-}
-
-.editor-header strong,
-.paper-toolbar span {
-  font-size: 13px;
-  font-weight: 900;
-}
-
-.editor-header small {
-  color: var(--muted);
-}
-
-.editor-list {
-  display: grid;
-  gap: 8px;
-  padding: 12px 14px;
-  overflow: auto;
-  max-height: 300px;
-}
-
-.editor-card {
-  display: grid;
-  gap: 4px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 10px 12px;
-  background: var(--surface-2);
-  cursor: pointer;
-}
-
-.editor-card.is-active {
-  border-color: var(--gold);
-  background: var(--gold-soft);
-}
-
-.editor-card-top {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.editor-card-top strong {
-  flex: 1;
-  font-size: 12px;
-}
-
-.icon-btn {
-  width: 24px;
-  height: 24px;
-  border: 0;
-  border-radius: 999px;
-  background: var(--surface);
-  color: var(--text);
-  cursor: pointer;
-}
-
-.icon-btn.danger {
-  color: var(--red);
-}
-
-.editor-card small,
-.editor-mini {
-  color: var(--muted);
-  font-size: 10px;
-}
-
-.editor-mini {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.editor-form {
-  display: grid;
-  gap: 8px;
-  padding: 12px 14px;
-  border-top: 1px solid var(--line);
-}
-
-.editor-form label,
-.paper-settings label {
-  display: grid;
-  gap: 4px;
-  font-size: 10px;
-  font-weight: 800;
-  color: var(--muted);
-}
-
-.editor-form input,
-.editor-form select,
-.paper-settings input {
-  width: 100%;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 7px 10px;
-  background: var(--surface);
-  color: var(--text);
-}
-
-.two-cols {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.switch-row {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.switch {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 10px;
-  color: var(--text);
-}
-
-.label-preview {
-  display: grid;
-  grid-template-rows: auto 1fr;
-}
-
-.paper-settings {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.paper-settings label {
-  min-width: 130px;
-}
-
 .sheet {
   overflow: auto;
   padding: 10px;
   background:
     linear-gradient(90deg, rgba(0, 0, 0, 0.03) 1px, transparent 1px),
     linear-gradient(rgba(0, 0, 0, 0.03) 1px, transparent 1px),
-    var(--surface);
+    var(--surface, #fff);
   background-size: 33.333% 33.333%;
 }
 
@@ -303,42 +104,14 @@
   color: #444;
 }
 
-.btn {
-  min-height: 34px;
-}
-
-@media (max-width: 1180px) {
-  .label-workspace {
-    grid-template-columns: 1fr;
-  }
-
-  .editor-list {
-    max-height: none;
-  }
-}
-
 @media print {
-  .label-hero,
-  .label-editor,
-  .paper-toolbar,
-  .btn,
-  .sheet-grid .sheet-cell:not(:nth-child(-n + 18)) {
-    display: none !important;
+  body {
+    background: #fff;
   }
-
-  .label-workspace {
-    display: block;
-  }
-
-  .label-preview,
-  .sheet {
-    border: 0;
-    box-shadow: none;
-  }
-
+  
   .sheet {
     background: #fff;
-    padding: 0;
+    padding: 0 !important;
   }
 
   .sheet-grid {
@@ -347,5 +120,9 @@
 
   .sheet-cell {
     break-inside: avoid;
+  }
+  
+  .sheet-cell:not(:nth-child(-n + 18)) {
+    display: none !important;
   }
 }

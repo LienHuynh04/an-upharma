@@ -1,7 +1,7 @@
 import { CommonModule } from "@angular/common";
 import { Component, OnInit } from "@angular/core";
 import { FormsModule } from "@angular/forms";
-import { Router, RouterLink } from "@angular/router";
+import { Router } from "@angular/router";
 import { formatMoney, normalizeFilterText, PRODUCT_NAME_COLLATOR } from "../inventory-utils";
 import { RawRecord, ShopInfo, UpharmaService } from "../upharma.service";
 
@@ -38,12 +38,11 @@ type OutOfStockTextFilterKey = "productName" | "productCode" | "status" | "quant
 @Component({
   selector: "app-out-of-stock",
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule],
   templateUrl: "./out-of-stock.component.html",
 })
 export class OutOfStockComponent implements OnInit {
   readonly endpoint = "/SalesInvoice/GetReportSalesSpeed";
-  readonly renderBatchSize = 200;
   shops: ShopInfo[] = [];
   activeShopCode = "";
   rows: OutOfStockItem[] = [];
@@ -54,7 +53,46 @@ export class OutOfStockComponent implements OnInit {
   loading = false;
   loadingProgress = 0;
   outStockRefreshing = false;
-  visibleLimit = this.renderBatchSize;
+  currentPage = 1;
+  pageSize = 25;
+  readonly renderBatchSize = 25;
+
+  get totalPages(): number {
+    return Math.ceil(this.filteredRows.length / this.pageSize) || 1;
+  }
+
+  get pageNumbers(): number[] {
+    const total = this.totalPages;
+    const current = this.currentPage;
+    const maxVisible = 5;
+    
+    let start = Math.max(1, current - 2);
+    let end = Math.min(total, start + maxVisible - 1);
+    
+    if (end - start + 1 < maxVisible) {
+      start = Math.max(1, end - maxVisible + 1);
+    }
+    
+    const pages = [];
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    return pages;
+  }
+
+  setPage(page: number): void {
+    if (page < 1 || page > this.totalPages) return;
+    this.currentPage = page;
+  }
+
+  prevPage(): void {
+    this.setPage(this.currentPage - 1);
+  }
+
+  nextPage(): void {
+    this.setPage(this.currentPage + 1);
+  }
+
   isAppendingRows = false;
   outStockCacheStatus = "";
   errorText = "";
@@ -138,7 +176,9 @@ export class OutOfStockComponent implements OnInit {
   }
 
   get displayedRows(): OutOfStockItem[] {
-    return this.filteredRows.slice(0, this.visibleLimit);
+    const start = (this.currentPage - 1) * this.pageSize;
+    const end = start + this.pageSize;
+    return this.filteredRows.slice(start, end);
   }
 
   get hasActiveShopLoaded(): boolean {
@@ -177,6 +217,7 @@ export class OutOfStockComponent implements OnInit {
 
   async setActiveShop(shopCode: string): Promise<void> {
     this.activeShopCode = shopCode;
+    this.currentPage = 1;
 
     if (!this.loadedShopKeys.has(this.getLoadedShopKey(shopCode))) {
       await this.loadActiveShop();
@@ -227,39 +268,6 @@ export class OutOfStockComponent implements OnInit {
     this.downloadExcelBuffer(buffer, `hang-het-nha-${activeShop.ShopCode}.xlsx`);
   }
 
-  loadMoreRows(): void {
-    const filteredRows = this.filteredRows;
-
-    if (this.isAppendingRows || this.visibleLimit >= filteredRows.length) {
-      return;
-    }
-
-    this.isAppendingRows = true;
-    window.setTimeout(() => {
-      this.visibleLimit += this.renderBatchSize;
-      this.isAppendingRows = false;
-    }, 1000);
-  }
-
-  onTableScroll(event: Event): void {
-    const target = event.currentTarget as HTMLElement;
-    const distanceToBottom = target.scrollHeight - target.scrollTop - target.clientHeight;
-
-    if (distanceToBottom < 120) {
-      this.loadMoreRows();
-    }
-  }
-
-  onTableWheel(event: WheelEvent): void {
-    const target = event.currentTarget as HTMLElement;
-    const canScrollDown = target.scrollTop + target.clientHeight < target.scrollHeight;
-    const canScrollUp = target.scrollTop > 0;
-
-    if ((event.deltaY > 0 && canScrollDown) || (event.deltaY < 0 && canScrollUp)) {
-      event.stopPropagation();
-    }
-  }
-
   trackByShop(_: number, shop: OutOfStockShopTab): string {
     return shop.shopCode;
   }
@@ -280,8 +288,45 @@ export class OutOfStockComponent implements OnInit {
     this.resetVisibleRows();
   }
 
+  onTableScroll(event: Event): void {
+    const target = event.target as HTMLElement | null;
+    if (!target) {
+      return;
+    }
+
+    const threshold = 160;
+    const reachedBottom = target.scrollTop + target.clientHeight >= target.scrollHeight - threshold;
+    if (reachedBottom && this.displayedRows.length < this.filteredRows.length && !this.isAppendingRows) {
+      this.loadMoreRows();
+    }
+  }
+
+  onTableWheel(event: WheelEvent): void {
+    const target = event.currentTarget as HTMLElement | null;
+    if (!target || event.deltaY <= 0) {
+      return;
+    }
+
+    const reachedBottom = target.scrollTop + target.clientHeight >= target.scrollHeight - 80;
+    if (reachedBottom && this.displayedRows.length < this.filteredRows.length && !this.isAppendingRows) {
+      this.loadMoreRows();
+    }
+  }
+
+  loadMoreRows(): void {
+    if (this.isAppendingRows || this.displayedRows.length >= this.filteredRows.length) {
+      return;
+    }
+
+    this.isAppendingRows = true;
+    this.currentPage = Math.min(this.totalPages, this.currentPage + 1);
+    window.setTimeout(() => {
+      this.isAppendingRows = false;
+    }, 150);
+  }
+
   private resetVisibleRows(): void {
-    this.visibleLimit = this.renderBatchSize;
+    this.currentPage = 1;
     this.isAppendingRows = false;
   }
 
@@ -490,16 +535,16 @@ export class OutOfStockComponent implements OnInit {
         ShopLst: shop.ShopCode,
       };
       this.loadingProgress = 45;
-      const response = await this.upharmaService.callEndpoint<unknown>(this.endpoint, payload, {
-        cache: true,
-        forceRefresh,
-      });
-      this.loadingProgress = 75;
-      const [inventoryAvailability, plannedProductIds, stoppedProductIds] = await Promise.all([
+      const [response, inventoryAvailability, plannedProductIds, stoppedProductIds] = await Promise.all([
+        this.upharmaService.callEndpoint<unknown>(this.endpoint, payload, {
+          cache: true,
+          forceRefresh,
+        }),
         this.getInventoryAvailability(shop.ShopCode, forceRefresh),
         this.getTransferOrderProcessProductIds(shop.ShopCode, forceRefresh),
         this.getStoppedProductIds(shop.ShopCode, forceRefresh),
       ]);
+      this.loadingProgress = 85;
       const shopRows: OutOfStockItem[] = this.extractArray(response)
         .map((row, index) => this.normalizeSalesSpeedRow(row, shop, index, plannedProductIds))
         .filter((row) => row.zeroStock)
@@ -507,7 +552,7 @@ export class OutOfStockComponent implements OnInit {
         .filter((row) => !stoppedProductIds.has(row.productCode.trim()))
         .filter((row) => !row.productCode.trim().toUpperCase().startsWith("Y"))
         .sort((first, second) => PRODUCT_NAME_COLLATOR.compare(first.productName, second.productName));
-      this.loadingProgress = 92;
+      this.loadingProgress = 95;
 
       this.applyShopRows(shop.ShopCode, shopRows);
       this.loadedShopKeys.add(this.getLoadedShopKey(shop.ShopCode));

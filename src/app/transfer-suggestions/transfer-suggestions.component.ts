@@ -1,7 +1,7 @@
 import { CommonModule } from "@angular/common";
 import { Component, OnInit } from "@angular/core";
 import { FormsModule } from "@angular/forms";
-import { RouterLink } from "@angular/router";
+
 import { normalizeFilterText, normalizeInventoryRow, parseNumericValue } from "../inventory-utils";
 import { RawRecord, ShopInfo, UpharmaService } from "../upharma.service";
 import { NationalInventoryService } from "../national-inventory.service";
@@ -45,278 +45,215 @@ interface SuggestionRow {
 @Component({
   selector: "app-transfer-suggestions",
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule],
   template: `
-    <main class="transfer-page">
-      <!-- 1. Menu Ngang tương tự screenshot -->
-      <div class="top-header-menu">
-        <nav class="horizontal-menu">
-          <span class="active-category">▥ Hàng Hoá</span>
-          <a routerLink="/ton-kho">Chủ Nhật Này</a>
-          <a routerLink="/ton-kho">Đặt Hàng</a>
-          <a routerLink="/goi-y-chuyen-hang" class="active-subtab">📁 Điều Chuyển</a>
-          <a routerLink="/hang-lap-tot">Hàng Thường Trực</a>
-          <a routerLink="/hang-lap-tot">Hàng Lặp Tốt</a>
-          <a routerLink="/hang-ban-cham">Phân Tích</a>
-        </nav>
+    <div class="page-header d-print-none">
+      <div class="container-xl">
+        <div class="row g-2 align-items-center">
+          <div class="col">
+            <div class="page-pretitle">HÀNG HÓA</div>
+            <h2 class="page-title">Gợi ý điều chuyển hàng cận hạn</h2>
+          </div>
+        </div>
       </div>
+    </div>
+    <div class="page-body">
+      <div class="container-xl">
+        <div class="row row-cards">
+          
+          <!-- Khởi tạo dữ liệu nền -->
+          <div class="col-12">
+            <div class="card">
+              <div class="card-body d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+                <div>
+                  <strong>Chuẩn bị dữ liệu điều chuyển:</strong> 
+                  <span class="ms-1">Đã load {{ products.length }} sản phẩm danh mục & {{ expiringStock.length }} lô cận hạn &lt; 365 ngày của 3 nhà thuốc.</span>
+                </div>
+                <button type="button" class="btn btn-primary" (click)="loadSteps()" [disabled]="loading || loadingExpiringStock">
+                  {{ loading || loadingExpiringStock ? "Đang tải dữ liệu nguồn..." : "↺ Tải lại dữ liệu gốc" }}
+                </button>
+              </div>
+            </div>
+          </div>
 
-      <!-- Khởi tạo dữ liệu nền (Step 1 & 2) -->
-      <section class="init-data-bar">
-        <div class="init-info">
-          <strong>Chuẩn bị dữ liệu điều chuyển:</strong> 
-          <span>Đã load {{ products.length }} sản phẩm danh mục & {{ expiringStock.length }} lô cận hạn &lt; 365 ngày của 3 nhà thuốc.</span>
+          <!-- DCS sub-tabs -->
+          <div class="col-12">
+            <div class="card">
+              <div class="card-body">
+                <div class="btn-group w-100">
+                  <button type="button" class="btn btn-outline-success active">
+                    ✔️ DCS Khẩn (Cận Date) <span class="badge bg-green text-green-fg ms-2">{{ totalSuggestedCount }}</span>
+                  </button>
+                  <button type="button" class="btn btn-outline-secondary disabled">
+                    📁 DCS Cân Bằng Ngân Sách <span class="badge bg-secondary text-secondary-fg ms-2">165</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Nguyên tắc điều chuyển -->
+          <div class="col-12">
+            <div class="alert alert-info mb-0">
+              📢 <strong>Nguyên tắc:</strong> Nguồn chỉ giữ phần lẻ (số lượng không đủ 1 tem - không chuyển được), đẩy đi toàn bộ tem nguyên; đích nhận tối đa 1 tháng bán - ưu tiên khu vực (nội + ngoại tỉnh) rồi @ shop toàn quốc bán tốt; giữ lại nếu là &lt;1 tem hoặc không nhà nào bán.
+            </div>
+          </div>
+
+          <!-- Kiểm tra tồn kho đối chứng -->
+          <div class="col-12">
+            <div class="card">
+              <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                  <div>
+                    <h3 class="card-title mb-1">⚡ Kiểm tra tồn kho đối chứng toàn quốc</h3>
+                    <p class="text-secondary mb-0">Cần chạy đối chiếu để biết các shop khác toàn quốc có nhu cầu nhận hay không trước khi tạo bảng đề xuất.</p>
+                  </div>
+                  <div class="btn-list">
+                    <button type="button" class="btn btn-success" (click)="runStep3(false)" [disabled]="loadingStep3 || expiringStock.length === 0">
+                      ⚡ Tra cứu (Dùng cache)
+                    </button>
+                    <button type="button" class="btn btn-secondary" (click)="runStep3(true)" [disabled]="loadingStep3 || expiringStock.length === 0">
+                      🔄 Tải mới
+                    </button>
+                    <button type="button" class="btn btn-danger" (click)="clearCache()" [disabled]="loadingStep3">
+                      🗑 Xóa cache
+                    </button>
+                  </div>
+                </div>
+
+                <div *ngIf="loadingStep3 || progressPercent > 0" class="mt-4">
+                  <div class="progress progress-sm">
+                    <div class="progress-bar bg-green" [style.width.%]="progressPercent"></div>
+                  </div>
+                  <div class="d-flex justify-content-between mt-2 text-secondary fs-5">
+                    <span>Đang đối chiếu: <b>{{ progressPercent }}%</b> ({{ progressFromCache + progressFromApi }}/{{ expiringProductCount }} SP)</span>
+                    <span>⚡ Cache: <b>{{ progressFromCache }}</b> | 🌐 API: <b>{{ progressFromApi }}</b></span>
+                  </div>
+                  <p class="mt-1 text-secondary fs-5 mb-0" *ngIf="progressCurrentProduct">Đang kiểm tra: <code>{{ progressCurrentProduct }}</code></p>
+                </div>
+
+                <p class="mt-2 text-secondary fs-5 mb-0" *ngIf="step3StatusText">
+                  Trạng thái xử lý: <code>{{ step3StatusText }}</code>
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Summary & Export Bar -->
+          <div class="col-12">
+            <div class="card">
+              <div class="card-body d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                <button type="button" class="btn btn-warning" (click)="exportAuditExcel()" [disabled]="expiringStock.length === 0">
+                  ⚙️ Xuất audit cận date ({{ expiringStock.length }})
+                </button>
+                
+                <div class="text-center">
+                  <span><b>{{ expiringStock.length }}</b> mã cận date</span>
+                  <span class="mx-2 text-secondary">→</span>
+                  <span class="text-success">Đề xuất chuyển: <b>{{ totalSuggestedCount }}</b></span>
+                  <span class="mx-2 text-secondary">|</span>
+                  <span>Lẻ &lt;1 tem: <b>{{ countFractional }}</b></span>
+                  <span class="mx-2 text-secondary">|</span>
+                  <span>Không nhà nào bán được: <b>{{ countNoBuyer }}</b></span>
+                  <div class="text-secondary fs-5 mt-1">
+                    💡 chỉ nhóm <strong>Đề xuất chuyển</strong> mới cần điều chuyển; <b>{{ countFractional + countNoBuyer }}</b> mã còn lại không cần hoặc không thể chuyển.
+                  </div>
+                </div>
+
+                <button type="button" class="btn btn-success" (click)="exportSuggestedExcel()" [disabled]="filteredSuggestions.length === 0">
+                  📥 Xuất Excel
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Filter Bar -->
+          <div class="col-12">
+            <div class="card">
+              <div class="card-body">
+                <div class="row g-3">
+                  <div class="col-md-4">
+                    <label class="form-label">Mã / Tên sản phẩm</label>
+                    <input class="form-control" [(ngModel)]="filterProduct" placeholder="Lọc theo mã hoặc tên" />
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">Từ NT</label>
+                    <select class="form-select" [(ngModel)]="filterFromShop">
+                      <option value="">Tất cả shop nguồn ({{ uniqueFromShops.length }})</option>
+                      <option *ngFor="let s of uniqueFromShops" [value]="s">{{ s }}</option>
+                    </select>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">Đến NT</label>
+                    <select class="form-select" [(ngModel)]="filterToShop">
+                      <option value="">Tất cả shop đích ({{ uniqueToShops.length }})</option>
+                      <option *ngFor="let s of uniqueToShops" [value]="s">{{ s }}</option>
+                    </select>
+                  </div>
+                  <div class="col-md-2 d-flex align-items-end">
+                    <button type="button" class="btn btn-light w-100" (click)="clearFilters()">Xóa bộ lọc</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bảng Đề Xuất Điều Chuyển -->
+          <div class="col-12">
+            <div class="card">
+              <div class="table-responsive">
+                <table class="table table-vcenter card-table">
+                  <thead>
+                    <tr>
+                      <th>Sản phẩm</th>
+                      <th>Từ NT</th>
+                      <th>Đến NT</th>
+                      <th class="text-end">SL đề xuất</th>
+                      <th>ĐV</th>
+                      <th class="text-end">HSD còn</th>
+                      <th>Ưu tiên</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let row of filteredSuggestions">
+                      <td data-label="Sản phẩm">
+                        <div class="font-weight-medium">{{ row.productName }}</div>
+                        <div class="text-secondary mt-1">{{ row.productCode }}</div>
+                      </td>
+                      <td data-label="Từ NT">
+                        <span class="badge bg-red-lt">{{ row.fromShopCode }}</span>
+                        <div class="text-secondary mt-1">{{ row.fromShopName }}</div>
+                      </td>
+                      <td data-label="Đến NT">
+                        <span class="badge bg-blue-lt">→ {{ row.toShopCode }}</span>
+                        <div class="text-secondary mt-1">{{ row.toShopName }}</div>
+                      </td>
+                      <td class="text-end" data-label="SL đề xuất"><strong>{{ row.suggestedQty }}</strong></td>
+                      <td data-label="ĐV">{{ row.unit }}</td>
+                      <td class="text-end text-danger" data-label="HSD còn"><strong>{{ row.daysRemaining }}N HSD</strong></td>
+                      <td data-label="Ưu tiên">
+                        <span [class]="row.isSameProvince ? 'badge bg-green-lt' : 'badge bg-red-lt'">
+                          {{ row.isSameProvince ? '✓ Nội tỉnh' : 'Ngoại tỉnh' }}
+                        </span>
+                      </td>
+                    </tr>
+                    <tr *ngIf="filteredSuggestions.length === 0">
+                      <td colspan="7" class="text-center py-4 text-secondary">
+                        Chưa có đề xuất điều chuyển nào phù hợp bộ lọc.<br/>
+                        <em>Nhấn <strong>"Tra cứu"</strong> ở trên để cập nhật đề xuất!</em>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
         </div>
-        <button type="button" class="btn-init-reload" (click)="loadSteps()" [disabled]="loading || loadingExpiringStock">
-          {{ loading || loadingExpiringStock ? "Đang tải dữ liệu nguồn..." : "↺ Tải lại dữ liệu gốc" }}
-        </button>
-      </section>
-
-      <!-- 2. DCS sub-tabs -->
-      <div class="dcs-tabs">
-        <button type="button" class="dcs-tab-btn active">
-          ✔️ DCS Khẩn (Cận Date) <span class="badge">{{ totalSuggestedCount }}</span>
-        </button>
-        <button type="button" class="dcs-tab-btn disabled-tab">
-          📁 DCS Cân Bằng Ngân Sách <span class="badge">165</span>
-        </button>
       </div>
-
-      <!-- 3. Nguyên tắc điều chuyển (Rule Box) -->
-      <div class="rule-box">
-        📢 <strong>Nguyên tắc:</strong> Nguồn chỉ giữ phần lẻ (số lượng không đủ 1 tem - không chuyển được), đẩy đi toàn bộ tem nguyên; đích nhận tối đa 1 tháng bán - ưu tiên khu vực (nội + ngoại tỉnh) rồi @ shop toàn quốc bán tốt; giữ lại nếu là &lt;1 tem hoặc không nhà nào bán.
-      </div>
-
-      <!-- Progress bar của bộ lọc toàn quốc (Firebase/API resolution) -->
-      <section class="resolution-control-box">
-        <div class="resolution-info">
-          <h3>⚡ Kiểm tra tồn kho đối chứng toàn quốc</h3>
-          <p>Cần chạy đối chiếu để biết các shop khác toàn quốc có nhu cầu nhận hay không trước khi tạo bảng đề xuất.</p>
-        </div>
-        <div class="resolution-actions">
-          <button type="button" class="btn-resolve" (click)="runStep3(false)" [disabled]="loadingStep3 || expiringStock.length === 0">
-            ⚡ Tra cứu tồn kho toàn quốc (Dùng cache)
-          </button>
-          <button type="button" class="btn-resolve btn-secondary" (click)="runStep3(true)" [disabled]="loadingStep3 || expiringStock.length === 0">
-            🔄 Tải mới (Bypass cache)
-          </button>
-          <button type="button" class="btn-resolve btn-danger" (click)="clearCache()" [disabled]="loadingStep3">
-            🗑 Xóa cache Firebase
-          </button>
-        </div>
-      </section>
-
-      <!-- Progress bar khi đang load đối chứng -->
-      <div class="progress-container" *ngIf="loadingStep3 || progressPercent > 0">
-        <div class="progress-bar-wrapper">
-          <div class="progress-bar-fill" [style.width.%]="progressPercent"></div>
-        </div>
-        <div class="progress-stats">
-          <span>Đang đối chiếu: <b>{{ progressPercent }}%</b> ({{ progressFromCache + progressFromApi }}/{{ expiringProductCount }} SP)</span>
-          <span>⚡ Cache: <b>{{ progressFromCache }}</b> | 🌐 API: <b>{{ progressFromApi }}</b></span>
-        </div>
-        <p class="progress-current" *ngIf="progressCurrentProduct">Đang kiểm tra: <code>{{ progressCurrentProduct }}</code></p>
-      </div>
-
-      <p class="step-note" *ngIf="step3StatusText">
-        Trạng thái xử lý đối chiếu: <code>{{ step3StatusText }}</code>
-      </p>
-
-      <!-- 4. Summary & Export Bar -->
-      <div class="summary-export-bar">
-        <button type="button" class="btn-audit" (click)="exportAuditExcel()" [disabled]="expiringStock.length === 0">
-          ⚙️ Xuất audit cận date ({{ expiringStock.length }})
-        </button>
-        
-        <div class="stats-label">
-          <span><b>{{ expiringStock.length }}</b> mã cận date</span>
-          <span class="divider">→</span>
-          <span class="highlight">Đề xuất chuyển: <b>{{ totalSuggestedCount }}</b></span>
-          <span class="divider">|</span>
-          <span>Lẻ &lt;1 tem: <b>{{ countFractional }}</b></span>
-          <span class="divider">|</span>
-          <span>Không nhà nào bán được: <b>{{ countNoBuyer }}</b></span>
-        </div>
-
-        <button type="button" class="btn-excel" (click)="exportSuggestedExcel()" [disabled]="filteredSuggestions.length === 0">
-          📥 Xuất Excel
-        </button>
-      </div>
-
-      <div class="sub-stats-label-bar">
-        💡 chỉ nhóm <strong>Đề xuất chuyển</strong> mới cần điều chuyển; <b>{{ countFractional + countNoBuyer }}</b> mã còn lại không cần hoặc không thể chuyển.
-      </div>
-
-      <!-- 5. Filter Bar -->
-      <div class="filter-bar">
-        <div class="filter-item">
-          <label>Mã / Tên sản phẩm</label>
-          <input [(ngModel)]="filterProduct" placeholder="Lọc theo mã hoặc tên" />
-        </div>
-        <div class="filter-item">
-          <label>Từ NT</label>
-          <select [(ngModel)]="filterFromShop">
-            <option value="">Tất cả shop nguồn ({{ uniqueFromShops.length }})</option>
-            <option *ngFor="let s of uniqueFromShops" [value]="s">{{ s }}</option>
-          </select>
-        </div>
-        <div class="filter-item">
-          <label>Đến NT</label>
-          <select [(ngModel)]="filterToShop">
-            <option value="">Tất cả shop đích ({{ uniqueToShops.length }})</option>
-            <option *ngFor="let s of uniqueToShops" [value]="s">{{ s }}</option>
-          </select>
-        </div>
-        <button type="button" class="btn-clear-filters" (click)="clearFilters()">Xóa bộ lọc</button>
-      </div>
-
-      <!-- 6. Bảng Đề Xuất Điều Chuyển -->
-      <section class="table-card">
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Sản phẩm</th>
-                <th>Từ NT</th>
-                <th>Đến NT</th>
-                <th class="number">SL đề xuất</th>
-                <th>ĐV</th>
-                <th class="number">HSD còn</th>
-                <th>Ưu tiên</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let row of filteredSuggestions">
-                <td>
-                  <strong>{{ row.productName }}</strong>
-                  <small class="product-id-sub">{{ row.productCode }}</small>
-                </td>
-                <td>
-                  <span class="shop-code-badge">{{ row.fromShopCode }}</span>
-                  <small class="shop-name-sub">{{ row.fromShopName }}</small>
-                </td>
-                <td>
-                  <span class="shop-code-badge dest">→ {{ row.toShopCode }}</span>
-                  <small class="shop-name-sub">{{ row.toShopName }}</small>
-                </td>
-                <td class="number"><strong>{{ row.suggestedQty }}</strong></td>
-                <td>{{ row.unit }}</td>
-                <td class="number text-danger"><strong>{{ row.daysRemaining }}N HSD</strong></td>
-                <td>
-                  <span [class]="row.isSameProvince ? 'badge-priority local' : 'badge-priority regional'">
-                    {{ row.isSameProvince ? '✓ Nội tỉnh' : 'Ngoại tỉnh' }}
-                  </span>
-                </td>
-              </tr>
-              <tr *ngIf="filteredSuggestions.length === 0">
-                <td colspan="7" class="empty">
-                  Chưa có đề xuất điều chuyển nào phù hợp bộ lọc.<br/>
-                  <em>Nhấn <strong>"Tra cứu tồn kho toàn quốc"</strong> ở trên để cập nhật đề xuất!</em>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-    </main>
+    </div>
   `,
-  styles: [`
-    .transfer-page { padding: 20px; display: flex; flex-direction: column; gap: 14px; color: #2d3748; font-family: system-ui, -apple-system, sans-serif; background: #fafafa; min-height: 100vh; }
-    
-    /* 1. Horizontal top menu */
-    .top-header-menu { background: #17365d; border-radius: 10px; padding: 10px 16px; margin-bottom: 5px; }
-    .horizontal-menu { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
-    .horizontal-menu a, .horizontal-menu span { color: rgba(255,255,255,0.7); text-decoration: none; font-size: 13px; font-weight: 500; cursor: pointer; }
-    .horizontal-menu a:hover { color: #fff; }
-    .horizontal-menu .active-category { color: #fff; font-weight: 700; border-right: 1px solid rgba(255,255,255,0.3); padding-right: 18px; }
-    .horizontal-menu .active-subtab { background: #059669; color: #fff !important; padding: 5px 12px; border-radius: 6px; font-weight: bold; }
-
-    /* Initial Data Loader */
-    .init-data-bar { display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 10px 16px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 12px; }
-    .init-info strong { color: #1e293b; }
-    .btn-init-reload { border: 0; background: #334155; color: #fff; padding: 6px 12px; border-radius: 6px; font-weight: bold; cursor: pointer; }
-    .btn-init-reload:disabled { opacity: 0.6; }
-
-    /* 2. DCS Sub Tabs */
-    .dcs-tabs { display: flex; gap: 8px; }
-    .dcs-tab-btn { border: 1px solid #cbd5e1; background: #fff; color: #475569; padding: 8px 16px; border-radius: 6px; font-weight: bold; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
-    .dcs-tab-btn.active { border-color: #059669; color: #059669; background: #f0fdf4; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-    .dcs-tab-btn .badge { background: #e2e8f0; color: #475569; font-size: 11px; padding: 1px 6px; border-radius: 99px; }
-    .dcs-tab-btn.active .badge { background: #059669; color: #fff; }
-    .disabled-tab { opacity: 0.6; cursor: not-allowed; }
-
-    /* 3. Rule box */
-    .rule-box { background: #fff1f2; border: 1px solid #fecaca; border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #991b1b; line-height: 1.5; }
-    .rule-box strong { color: #7f1d1d; }
-
-    /* Resolution Controls */
-    .resolution-control-box { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; gap: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); }
-    .resolution-info h3 { margin: 0 0 4px; font-size: 14px; color: #1e293b; }
-    .resolution-info p { margin: 0; font-size: 12px; color: #64748b; }
-    .resolution-actions { display: flex; gap: 8px; }
-    .btn-resolve { border: 0; background: #059669; color: #fff; padding: 8px 14px; border-radius: 6px; font-weight: bold; font-size: 12px; cursor: pointer; }
-    .btn-resolve.btn-secondary { background: #475569; }
-    .btn-resolve.btn-danger { background: #dc2626; }
-    .btn-resolve:disabled { opacity: 0.5; cursor: not-allowed; }
-
-    /* Progress bar */
-    .progress-container { padding: 14px 16px; background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; }
-    .progress-bar-wrapper { height: 8px; background: #cbd5e1; border-radius: 4px; overflow: hidden; }
-    .progress-bar-fill { height: 100%; background: #10b981; transition: width 0.2s ease-out; }
-    .progress-stats { display: flex; justify-content: space-between; margin-top: 8px; font-size: 12px; color: #475569; }
-    .progress-current { font-size: 11px; margin: 4px 0 0; color: #64748b; }
-    .step-note { margin: 0; font-size: 11px; color: #64748b; font-family: monospace; }
-
-    /* 4. Summary & Export bar */
-    .summary-export-bar { display: flex; align-items: center; justify-content: space-between; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.02); }
-    .btn-audit { border: 1px solid #f97316; background: #fff8f5; color: #ea580c; padding: 8px 14px; border-radius: 6px; font-weight: bold; font-size: 12px; cursor: pointer; }
-    .btn-audit:hover { background: #ffedd5; }
-    .btn-audit:disabled { opacity: 0.5; cursor: not-allowed; }
-    .stats-label { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #475569; }
-    .stats-label b { color: #1e293b; }
-    .stats-label .divider { color: #cbd5e1; }
-    .stats-label .highlight { color: #059669; font-weight: bold; }
-    .sub-stats-label-bar { font-size: 12px; color: #64748b; padding-left: 12px; margin-top: -8px; margin-bottom: 4px; }
-    .btn-excel { border: 0; background: #16a34a; color: #fff; padding: 8px 16px; border-radius: 6px; font-weight: bold; font-size: 12px; cursor: pointer; }
-    .btn-excel:hover { background: #15803d; }
-    .btn-excel:disabled { opacity: 0.5; cursor: not-allowed; }
-
-    /* 5. Filter Bar */
-    .filter-bar { display: flex; gap: 12px; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; flex-wrap: wrap; align-items: flex-end; }
-    .filter-item { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 150px; }
-    .filter-item label { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; }
-    .filter-item select, .filter-item input { border: 1px solid #cbd5e1; padding: 6px 10px; border-radius: 6px; font-size: 13px; outline: 0; background: #fff; }
-    .btn-clear-filters { border: 1px solid #cbd5e1; background: #f8fafc; color: #475569; padding: 6px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; height: 32px; font-weight: 500; }
-
-    /* 6. Main Table & scrollable design */
-    .table-card { background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.03); }
-    .table-wrap { max-height: 500px; overflow: auto; }
-    table { width: 100%; border-collapse: collapse; min-width: 900px; }
-    th, td { padding: 10px 14px; border-bottom: 1px solid #cbd5e1; text-align: left; vertical-align: middle; }
-    th { position: sticky; top: 0; background: #f0fdf4; color: #166534; font-size: 11px; letter-spacing: .06em; font-weight: bold; text-transform: uppercase; z-index: 10; box-shadow: inset 0 -1px 0 #cbd5e1; }
-    
-    td strong { font-size: 13px; color: #1e293b; display: block; }
-    .product-id-sub { display: block; font-size: 11px; color: #64748b; font-family: monospace; margin-top: 2px; }
-    
-    .shop-code-badge { background: #fecaca; color: #991b1b; font-size: 11px; font-weight: bold; padding: 3px 6px; border-radius: 4px; display: inline-block; }
-    .shop-code-badge.dest { background: #dbeafe; color: #1e40af; }
-    .shop-name-sub { display: block; font-size: 11px; color: #64748b; margin-top: 2px; }
-    
-    .number { text-align: right; }
-    .text-danger { color: #dc2626; }
-    
-    .badge-priority { font-size: 11px; font-weight: bold; padding: 3px 8px; border-radius: 4px; display: inline-block; }
-    .badge-priority.local { background: #dcfce7; color: #166534; }
-    .badge-priority.regional { background: #fee2e2; color: #991b1b; }
-    
-    .empty { text-align: center; color: #64748b; padding: 40px; font-style: italic; line-height: 1.6; }
-
-    @media (max-width: 768px) {
-      .init-data-bar, .resolution-control-box, .summary-export-bar { flex-direction: column; align-items: stretch; gap: 10px; }
-      .stats-label { flex-direction: column; align-items: flex-start; gap: 4px; }
-      .stats-label .divider { display: none; }
-    }
-  `]
+  styles: []
 })
 export class TransferSuggestionsComponent implements OnInit {
   products: NationalProduct[] = [];

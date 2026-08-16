@@ -1,5 +1,5 @@
 import { CommonModule } from "@angular/common";
-import { Component, OnInit } from "@angular/core";
+import { Component, OnInit, HostListener } from "@angular/core";
 import {
   NavigationEnd,
   Router,
@@ -34,8 +34,17 @@ export class LayoutComponent implements OnInit {
   notificationsOpen = false;
 
   generatingReport = false;
+  activeComponent: any = null;
 
-  constructor(private upharma: UpharmaService, private router: Router) {}
+  constructor(public upharma: UpharmaService, public router: Router) {}
+
+  onActivate(componentRef: any) {
+    this.activeComponent = componentRef;
+  }
+
+  onDeactivate() {
+    this.activeComponent = null;
+  }
 
   async generateAndOpenReport() {
     this.generatingReport = true;
@@ -510,6 +519,7 @@ if (mockOrders.length === 0) {
     if (savedDarkMode === null) {
       localStorage.setItem("upharma_dark_mode", "true");
     }
+    this.applyDarkMode();
     this.checkSession();
     this.syncMenuState(this.router.url);
     this.router.events.subscribe((event) => {
@@ -554,6 +564,15 @@ if (mockOrders.length === 0) {
   toggleDarkMode() {
     this.darkMode = !this.darkMode;
     localStorage.setItem("upharma_dark_mode", String(this.darkMode));
+    this.applyDarkMode();
+  }
+
+  private applyDarkMode() {
+    if (this.darkMode) {
+      document.documentElement.setAttribute("data-bs-theme", "dark");
+    } else {
+      document.documentElement.removeAttribute("data-bs-theme");
+    }
   }
 
   toggleNotifications() {
@@ -565,8 +584,24 @@ if (mockOrders.length === 0) {
     this.appClasses["layout-top"] = mode === "top";
   }
 
-  toggleMenuGroup(group: string) {
-    this.menuGroups[group] = !this.menuGroups[group];
+  openMenuId: string | null = null;
+
+  toggleMenuGroup(group: string, event?: Event) {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    this.openMenuId = this.openMenuId === group ? null : group;
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: Event) {
+    this.openMenuId = null;
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscapeKey() {
+    this.openMenuId = null;
   }
 
   private syncMenuState(url: string): void {

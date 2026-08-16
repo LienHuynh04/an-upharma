@@ -73,6 +73,22 @@ export class EmployeePlanComponent implements OnInit {
     return this.tabs.find((tab) => tab.shopCode === this.activeShopCode);
   }
 
+  get shopTargetAmount(): number {
+    return this.activeTab?.items.reduce((sum, item) => sum + (Number(item.Amount) || 0), 0) || 0;
+  }
+
+  get shopActualAmount(): number {
+    return this.activeTab?.items.reduce((sum, item) => sum + (Number(item.AmountR) || 0), 0) || 0;
+  }
+
+  get shopTargetPoints(): number {
+    return this.activeTab?.items.reduce((sum, item) => sum + (Number(item.PointRatio) || 0), 0) || 0;
+  }
+
+  get shopActualPoints(): number {
+    return this.activeTab?.items.reduce((sum, item) => sum + (Number(item.PointRatioR) || 0), 0) || 0;
+  }
+
   private initTabs(): void {
     const shops = this.upharmaService.getActiveShops();
     this.tabs = shops.map((shop) => ({

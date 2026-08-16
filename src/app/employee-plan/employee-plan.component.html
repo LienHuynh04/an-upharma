@@ -1,121 +1,253 @@
-<div class="page-inner employee-plan-page">
-  <section class="employee-plan-hero">
-    <div class="hero-meta">
-      <label>
-        Tháng
-        <select [(ngModel)]="selectedMonth" name="selectedMonth">
-          <option *ngFor="let month of monthOptions" [ngValue]="month">{{ month }}</option>
-        </select>
-      </label>
-      <label>
-        Năm
-        <select [(ngModel)]="selectedYear" name="selectedYear">
-          <option *ngFor="let year of yearOptions" [ngValue]="year">{{ year }}</option>
-        </select>
-      </label>
-      <button class="view-button" type="button" (click)="loadAllShops()">Xem</button>
+<div class="page-header d-print-none">
+  <div class="container-xl">
+    <div class="row g-2 align-items-center">
+      <div class="col">
+        <div class="page-pretitle">KẾ HOẠCH & CHỈ TIÊU</div>
+        <h2 class="page-title">Chỉ tiêu nhân viên</h2>
+      </div>
     </div>
-  </section>
+  </div>
+</div>
 
-  <section class="employee-plan-tabs" *ngIf="tabs.length > 0">
-    <button
-      type="button"
-      *ngFor="let tab of tabs"
-      class="shop-tab"
-      [class.is-active]="activeShopCode === tab.shopCode"
-      (click)="activeShopCode = tab.shopCode"
-    >
-      <span class="tab-code">{{ tab.shopCode }}</span>
-      <strong>{{ tab.shopName }}</strong>
-      <small>{{ tab.items.length }} nhân viên</small>
-    </button>
-  </section>
-
-  <section class="employee-plan-state" *ngIf="!activeTab">
-    <div class="state-card">
-      <strong>Không có dữ liệu</strong>
-      <p>Chọn shop khác hoặc kiểm tra phiên đăng nhập.</p>
-    </div>
-  </section>
-
-  <section class="employee-plan-panel" *ngIf="activeTab as currentTab">
-    <div class="employee-plan-loading" *ngIf="currentTab.loading">
-      <span class="loader" aria-hidden="true"></span>
-      <strong>Đang tải {{ currentTab.shopCode }}...</strong>
-    </div>
-
-    <p class="api-test-error" *ngIf="currentTab.errorText">{{ currentTab.errorText }}</p>
-
-    <div class="employee-plan-grid" *ngIf="!currentTab.loading && !currentTab.errorText">
-      <article class="employee-plan-box" *ngFor="let item of currentTab.items">
-        <div class="top">
-          <div class="title-wrap">
-            <h3>{{ item.EmployeeName }}</h3>
-            <span>{{ item.EmployeeCode }}</span>
-          </div>
-          <div class="employee-icons" aria-hidden="true">
-            <span class="mdi mdi-percent"></span>
-            <span class="mdi mdi-cog"></span>
-            <span class="mdi mdi-file"></span>
-          </div>
-        </div>
-
-        <div class="money">{{ formatNumber(item.Amount) }} VNĐ</div>
-        <div class="moneyR moneyR-good">{{ formatNumber(item.AmountR) }} VNĐ</div>
-        <div class="projection-grid">
-          <div class="projection-card">
-            <div class="projection-label">Dự kiến DS</div>
-            <div class="projection-value">{{ formatNumber(getProjectedValue(item.AmountR)) }} VNĐ</div>
-            <div class="projection-sub">{{ buildProjectionHint(item.AmountR) }}</div>
-          </div>
-          <div class="projection-card">
-            <div class="projection-label">Dự kiến HS</div>
-            <div class="projection-value">{{ formatNumber(getProjectedValue(item.PointRatioR)) }}</div>
-            <div class="projection-sub">{{ buildProjectionHint(item.PointRatioR) }}</div>
-          </div>
-        </div>
-        <div class="ratio-row">
-          <div class="ratio-label">Tỉ trọng</div>
-          <div class="ratio-value">{{ formatPercent(getWeightedPointRatio(item)) }}</div>
-          <div class="ratio-sub">Điểm thực tế {{ formatNumber(item.PointRatioR) }} x 1000 / {{ formatNumber(item.AmountR) }}</div>
-        </div>
-
-        <div class="section-label">Khách hàng</div>
-        <div class="custom">
-          <div class="item-cus">
-            <div>Tổng:</div>
-            <div class="quan">
-              <div class="number">{{ formatNumber(item.QuantityCus) }}</div>
-              <div class="real real-good">{{ formatNumber(item.QuantityCusR) }}</div>
+<div class="page-body">
+  <div class="container-xl">
+    <!-- Filter Card -->
+    <div class="card mb-3">
+      <div class="card-body py-3">
+        <div class="row g-3 align-items-center">
+          <div class="col-md-3 col-sm-6">
+            <div class="d-flex align-items-center gap-2">
+              <span class="text-secondary small fw-bold text-uppercase" style="font-size: 10px; min-width: 50px;">Tháng</span>
+              <select class="form-select form-select-sm" [(ngModel)]="selectedMonth" name="selectedMonth">
+                <option *ngFor="let month of monthOptions" [ngValue]="month">{{ month }}</option>
+              </select>
             </div>
           </div>
-          <div class="item-cus new">
-            <div>Mới:</div>
-            <div class="quan">
-              <div class="number">{{ formatNumber(item.QuantityCusNew) }}</div>
-              <div class="real real-light">{{ formatNumber(item.QuantityCusNewR) }}</div>
+          <div class="col-md-3 col-sm-6">
+            <div class="d-flex align-items-center gap-2">
+              <span class="text-secondary small fw-bold text-uppercase" style="font-size: 10px; min-width: 50px;">Năm</span>
+              <select class="form-select form-select-sm" [(ngModel)]="selectedYear" name="selectedYear">
+                <option *ngFor="let year of yearOptions" [ngValue]="year">{{ year }}</option>
+              </select>
+            </div>
+          </div>
+          <div class="col-md-3 col-sm-6">
+            <button class="btn btn-sm btn-primary w-100" type="button" (click)="loadAllShops()">Xem chỉ tiêu</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Shop Tabs Selection -->
+    <div class="card mb-3" *ngIf="tabs.length > 0">
+      <div class="card-header p-0">
+        <ul class="nav nav-tabs card-header-tabs nav-fill w-100 m-0">
+          <li class="nav-item" *ngFor="let tab of tabs">
+            <a
+              href="javascript:void(0)"
+              class="nav-link py-3"
+              [class.active]="activeShopCode === tab.shopCode"
+              (click)="activeShopCode = tab.shopCode"
+            >
+              <i class="ti ti-building-store me-2" style="font-size: 1.15rem;"></i>
+              <strong>{{ tab.shopCode }}</strong>
+              <span class="badge bg-primary-lt ms-2" [attr.title]="tab.shopName">{{ tab.items.length }} nhân viên</span>
+            </a>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Empty State -->
+    <div class="card" *ngIf="!activeTab">
+      <div class="card-body text-center py-5">
+        <div class="avatar avatar-md bg-secondary-lt text-secondary mb-3"><i class="ti ti-folder-off" style="font-size: 20px;"></i></div>
+        <h3>Không có dữ liệu</h3>
+        <p class="text-secondary">Chọn shop khác hoặc kiểm tra phiên đăng nhập.</p>
+      </div>
+    </div>
+
+    <!-- Active Shop content -->
+    <div *ngIf="activeTab as currentTab">
+      <!-- Loading State -->
+      <div class="card mb-3" *ngIf="currentTab.loading">
+        <div class="card-body d-flex align-items-center justify-content-center py-5">
+          <div class="spinner-border text-primary me-2" role="status"></div>
+          <strong>Đang tải dữ liệu {{ currentTab.shopCode }}...</strong>
+        </div>
+      </div>
+
+      <!-- Error State -->
+      <div class="alert alert-danger" *ngIf="currentTab.errorText">{{ currentTab.errorText }}</div>
+
+      <!-- Active Content Grid -->
+      <div *ngIf="!currentTab.loading && !currentTab.errorText">
+        <!-- Shop Level KPI Summary Cards -->
+        <div class="row row-cards mb-3">
+          <div class="col-sm-6 col-lg-3">
+            <div class="card card-sm">
+              <div class="card-body">
+                <div class="row align-items-center">
+                  <div class="col-auto">
+                    <span class="bg-primary-lt text-primary avatar"><i class="ti ti-target" style="font-size: 1.25rem;"></i></span>
+                  </div>
+                  <div class="col">
+                    <div class="text-secondary small fw-bold">Chỉ tiêu doanh số</div>
+                    <div class="h3 mb-0">{{ formatNumber(shopTargetAmount) }} đ</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-sm-6 col-lg-3">
+            <div class="card card-sm">
+              <div class="card-body">
+                <div class="row align-items-center">
+                  <div class="col-auto">
+                    <span class="bg-success-lt text-success avatar"><i class="ti ti-trending-up" style="font-size: 1.25rem;"></i></span>
+                  </div>
+                  <div class="col">
+                    <div class="text-secondary small fw-bold">Doanh số thực tế</div>
+                    <div class="h3 mb-0">{{ formatNumber(shopActualAmount) }} đ</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-sm-6 col-lg-3">
+            <div class="card card-sm">
+              <div class="card-body">
+                <div class="row align-items-center">
+                  <div class="col-auto">
+                    <span class="bg-warning-lt text-warning avatar"><i class="ti ti-award" style="font-size: 1.25rem;"></i></span>
+                  </div>
+                  <div class="col">
+                    <div class="text-secondary small fw-bold">Chỉ tiêu hệ số</div>
+                    <div class="h3 mb-0">{{ formatNumber(shopTargetPoints) }}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-sm-6 col-lg-3">
+            <div class="card card-sm">
+              <div class="card-body">
+                <div class="row align-items-center">
+                  <div class="col-auto">
+                    <span class="bg-info-lt text-info avatar"><i class="ti ti-chart-arrows-vertical" style="font-size: 1.25rem;"></i></span>
+                  </div>
+                  <div class="col">
+                    <div class="text-secondary small fw-bold">Hệ số thực tế</div>
+                    <div class="h3 mb-0">{{ formatNumber(shopActualPoints) }}</div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
-        <div class="section-label">Cá nhân</div>
-        <div class="custom">
-          <div class="item-cus">
-            <div>Đơn hàng:</div>
-            <div class="quan">
-              <div class="number">{{ formatNumber(item.QuantityInvoice) }}</div>
-              <div class="real real-good">{{ formatNumber(item.QuantityInvoiceR) }}</div>
-            </div>
-          </div>
-          <div class="item-cus new">
-            <div>Điểm:</div>
-            <div class="quan">
-              <div class="number">{{ formatNumber(item.PointRatio) }}</div>
-              <div class="real real-light">{{ formatNumber(item.PointRatioR) }}</div>
+        <!-- Employee Cards Grid -->
+        <div class="row row-deck row-cards">
+          <div class="col-sm-6 col-lg-4" *ngFor="let item of currentTab.items">
+            <div class="card">
+              <div class="card-body">
+                <div class="d-flex align-items-center mb-3">
+                  <div class="me-auto">
+                    <h3 class="card-title mb-0" style="font-size: 15px;">{{ item.EmployeeName }}</h3>
+                    <div class="text-secondary small">Mã: <code>{{ item.EmployeeCode }}</code></div>
+                  </div>
+                  <span class="badge" [class.bg-success-lt]="item.AmountR >= item.Amount" [class.bg-danger-lt]="item.AmountR < item.Amount">
+                    {{ item.AmountR >= item.Amount ? 'ĐẠT' : 'CHƯA ĐẠT' }}
+                  </span>
+                </div>
+
+                <div class="mb-3">
+                  <div class="text-secondary small">Chỉ tiêu doanh số: <strong>{{ formatNumber(item.Amount) }} đ</strong></div>
+                  <div class="h3 mb-0 text-success">{{ formatNumber(item.AmountR) }} đ</div>
+                  <!-- Progress bar achievement -->
+                  <div class="progress mt-2" style="height: 6px;">
+                    <div class="progress-bar bg-success" [style.width.%]="(item.Amount > 0 ? (item.AmountR / item.Amount) * 100 : 0)"></div>
+                  </div>
+                  <div class="text-end small text-secondary mt-1">Đạt: {{ (item.Amount > 0 ? (item.AmountR / item.Amount) * 100 : 0) | number:'1.0-1' }}%</div>
+                </div>
+
+                <div class="row g-2 mb-3">
+                  <div class="col-6">
+                    <div class="p-2 rounded bg-dark-lt" style="background: rgba(0, 0, 0, 0.15) !important;">
+                      <div class="text-secondary small font-weight-bold text-uppercase mb-1" style="font-size: 9px;">Dự kiến DS</div>
+                      <div class="font-weight-bold text-body" style="font-size: 12px;">{{ formatNumber(getProjectedValue(item.AmountR)) }} đ</div>
+                      <div class="text-muted" style="font-size: 9px;">{{ buildProjectionHint(item.AmountR) }}</div>
+                    </div>
+                  </div>
+                  <div class="col-6">
+                    <div class="p-2 rounded bg-dark-lt" style="background: rgba(0, 0, 0, 0.15) !important;">
+                      <div class="text-secondary small font-weight-bold text-uppercase mb-1" style="font-size: 9px;">Dự kiến HS</div>
+                      <div class="font-weight-bold text-body" style="font-size: 12px;">{{ formatNumber(getProjectedValue(item.PointRatioR)) }}</div>
+                      <div class="text-muted" style="font-size: 9px;">{{ buildProjectionHint(item.PointRatioR) }}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="p-2 rounded mb-3 bg-dark-lt" style="background: rgba(0, 0, 0, 0.15) !important;">
+                  <div class="text-secondary small font-weight-bold text-uppercase mb-1" style="font-size: 9px;">Tỉ trọng</div>
+                  <div class="font-weight-bold text-body" style="font-size: 12px;">{{ formatPercent(getWeightedPointRatio(item)) }}</div>
+                  <div class="text-muted" style="font-size: 9px;">Điểm thực tế {{ formatNumber(item.PointRatioR) }} x 1000 / {{ formatNumber(item.AmountR) }}</div>
+                </div>
+
+                <h4 class="card-title mt-4 mb-2" style="font-size: 12px;">Chỉ tiêu Khách hàng</h4>
+                <div class="table-responsive mb-3">
+                  <table class="table table-vcenter table-sm card-table">
+                    <thead>
+                      <tr>
+                        <th class="small text-secondary">Loại</th>
+                        <th class="text-end small text-secondary">Chỉ tiêu</th>
+                        <th class="text-end small text-secondary">Thực tế</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td class="text-secondary small">Tổng khách</td>
+                        <td class="text-end font-weight-bold small text-body">{{ formatNumber(item.QuantityCus) }}</td>
+                        <td class="text-end text-success font-weight-bold small">{{ formatNumber(item.QuantityCusR) }}</td>
+                      </tr>
+                      <tr>
+                        <td class="text-secondary small">Khách mới</td>
+                        <td class="text-end font-weight-bold small text-body">{{ formatNumber(item.QuantityCusNew) }}</td>
+                        <td class="text-end text-warning font-weight-bold small">{{ formatNumber(item.QuantityCusNewR) }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <h4 class="card-title mt-4 mb-2" style="font-size: 12px;">Chỉ tiêu Cá nhân</h4>
+                <div class="table-responsive">
+                  <table class="table table-vcenter table-sm card-table">
+                    <thead>
+                      <tr>
+                        <th class="small text-secondary">Hạng mục</th>
+                        <th class="text-end small text-secondary">Chỉ tiêu</th>
+                        <th class="text-end small text-secondary">Thực tế</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td class="text-secondary small">Đơn hàng</td>
+                        <td class="text-end font-weight-bold small text-body">{{ formatNumber(item.QuantityInvoice) }}</td>
+                        <td class="text-end text-success font-weight-bold small">{{ formatNumber(item.QuantityInvoiceR) }}</td>
+                      </tr>
+                      <tr>
+                        <td class="text-secondary small">Điểm tích lũy</td>
+                        <td class="text-end font-weight-bold small text-body">{{ formatNumber(item.PointRatio) }}</td>
+                        <td class="text-end text-warning font-weight-bold small">{{ formatNumber(item.PointRatioR) }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           </div>
         </div>
-      </article>
+      </div>
     </div>
-  </section>
+  </div>
 </div>

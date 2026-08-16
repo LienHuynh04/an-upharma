@@ -1,71 +1,103 @@
-<div class="cronjob-container">
-  <div class="header">
-    <h2>⚙️ Quản lý Cronjob (Tự động lấy Data tĩnh)</h2>
-    <p>Trang này sử dụng API của GitHub để theo dõi và kích hoạt quá trình tự động lấy dữ liệu từ UPHARMA.</p>
-  </div>
-
-  <div class="card token-card">
-    <h3>1. Xác thực bằng GitHub Token</h3>
-    <p class="help-text">Vui lòng nhập GitHub Personal Access Token (PAT) có quyền <code>repo</code> và <code>workflow</code>. Token này chỉ lưu trên trình duyệt của bạn.</p>
-    
-    <div class="input-group">
-      <input type="password" [(ngModel)]="githubToken" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" class="token-input" />
-      <button (click)="saveToken()" class="btn btn-primary">Lưu Token & Tải DL</button>
-      <button (click)="clearToken()" class="btn btn-danger" *ngIf="githubToken">Xóa</button>
+<div class="page-header d-print-none">
+  <div class="container-xl">
+    <div class="row g-2 align-items-center">
+      <div class="col">
+        <div class="page-pretitle">HỆ THỐNG</div>
+        <h2 class="page-title">Cronjob</h2>
+        <div class="text-secondary mt-1">
+          Quản lý Cronjob (Tự động lấy Data tĩnh) qua GitHub Actions API
+        </div>
+      </div>
     </div>
-
-    <div *ngIf="errorMessage" class="alert alert-error">{{ errorMessage }}</div>
-    <div *ngIf="successMessage" class="alert alert-success">{{ successMessage }}</div>
   </div>
+</div>
 
-  <div class="card action-card" *ngIf="githubToken">
-    <h3>2. Điều khiển Cronjob</h3>
-    <div class="action-row">
-      <button (click)="triggerWorkflow()" [disabled]="triggering || loading" class="btn btn-trigger">
-        <span *ngIf="!triggering">🚀 CHẠY CRONJOB BÂY GIỜ</span>
-        <span *ngIf="triggering">Đang kích hoạt...</span>
-      </button>
-      <button (click)="fetchRuns()" [disabled]="loading" class="btn btn-secondary">
-        🔄 Làm mới danh sách
-      </button>
+<div class="page-body">
+  <div class="container-xl">
+    <div class="row row-cards">
+      <div class="col-12">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">1. Xác thực bằng GitHub Token</h3>
+          </div>
+          <div class="card-body">
+            <p class="text-secondary mb-3">
+              Vui lòng nhập GitHub Personal Access Token (PAT) có quyền <code>repo</code> và <code>workflow</code>. Token này chỉ lưu trên trình duyệt của bạn.
+            </p>
+            <div class="input-group mb-3">
+              <input type="password" [(ngModel)]="githubToken" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" class="form-control" />
+              <button (click)="saveToken()" class="btn btn-primary" type="button">Lưu Token & Tải DL</button>
+              <button (click)="clearToken()" class="btn btn-danger" type="button" *ngIf="githubToken">Xóa</button>
+            </div>
+            <div *ngIf="errorMessage" class="alert alert-danger mb-0">{{ errorMessage }}</div>
+            <div *ngIf="successMessage" class="alert alert-success mb-0">{{ successMessage }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12" *ngIf="githubToken">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">2. Điều khiển Cronjob</h3>
+          </div>
+          <div class="card-body">
+            <div class="btn-list">
+              <button (click)="triggerWorkflow()" [disabled]="triggering || loading" class="btn btn-primary">
+                <span *ngIf="!triggering">🚀 CHẠY CRONJOB BÂY GIỜ</span>
+                <span *ngIf="triggering">Đang kích hoạt...</span>
+              </button>
+              <button (click)="fetchRuns()" [disabled]="loading" class="btn btn-secondary">
+                🔄 Làm mới danh sách
+              </button>
+            </div>
+            <p class="text-secondary mt-3 mb-0">
+              Bấm <strong>Chạy Cronjob bây giờ</strong> để bắt hệ thống kéo dữ liệu từ UPHARMA xuống ngay lập tức (dữ liệu sẽ cập nhật sau khoảng 2-3 phút).
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12" *ngIf="githubToken">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">3. Lịch sử chạy Cronjob gần đây</h3>
+          </div>
+          <div class="card-body" *ngIf="loading">
+            <div class="text-secondary">Đang tải lịch sử...</div>
+          </div>
+          <div class="card-body" *ngIf="!loading && runs.length === 0">
+            <div class="text-secondary">Chưa có lịch sử chạy nào được tìm thấy.</div>
+          </div>
+          <div class="table-responsive" *ngIf="!loading && runs.length > 0">
+            <table class="table table-vcenter card-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Trạng thái</th>
+                  <th>Bắt đầu lúc</th>
+                  <th>Kết thúc lúc</th>
+                  <th class="w-1">Hành động</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let run of runs">
+                  <td data-label="ID">#{{ run.id }}</td>
+                  <td data-label="Trạng thái">
+                    <span class="badge" [ngClass]="getStatusClass(run)">
+                      {{ getStatusLabel(run) }}
+                    </span>
+                  </td>
+                  <td data-label="Bắt đầu lúc">{{ formatDate(run.created_at) }}</td>
+                  <td data-label="Kết thúc lúc">{{ run.updated_at === run.created_at && run.status !== 'completed' ? '-' : formatDate(run.updated_at) }}</td>
+                  <td data-label="Hành động">
+                    <a [href]="run.html_url" target="_blank" class="btn btn-sm btn-outline-secondary">Xem Log</a>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </div>
-    <p class="help-text mt-2">Bấm <strong>Chạy Cronjob bây giờ</strong> để bắt hệ thống kéo dữ liệu từ UPHARMA xuống ngay lập tức (dữ liệu sẽ cập nhật sau khoảng 2-3 phút).</p>
-  </div>
-
-  <div class="card list-card" *ngIf="githubToken">
-    <h3>3. Lịch sử chạy Cronjob gần đây</h3>
-    
-    <div *ngIf="loading" class="loading-state">Đang tải lịch sử...</div>
-    
-    <div *ngIf="!loading && runs.length === 0" class="empty-state">
-      Chưa có lịch sử chạy nào được tìm thấy.
-    </div>
-
-    <table class="runs-table" *ngIf="!loading && runs.length > 0">
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Trạng thái</th>
-          <th>Bắt đầu lúc</th>
-          <th>Kết thúc lúc</th>
-          <th>Hành động</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let run of runs">
-          <td>#{{ run.id }}</td>
-          <td>
-            <span class="status-badge" [ngClass]="getStatusClass(run)">
-              {{ getStatusLabel(run) }}
-            </span>
-          </td>
-          <td>{{ formatDate(run.created_at) }}</td>
-          <td>{{ run.updated_at === run.created_at && run.status !== 'completed' ? '-' : formatDate(run.updated_at) }}</td>
-          <td>
-            <a [href]="run.html_url" target="_blank" class="link-btn">Xem Log</a>
-          </td>
-        </tr>
-      </tbody>
-    </table>
   </div>
 </div>

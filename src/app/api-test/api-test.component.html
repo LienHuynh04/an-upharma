@@ -1,78 +1,114 @@
-<div class="page-inner">
-
-    <section class="api-test-header">
-      <div>
-        <span>POST</span>
-        <h1>{{ endpoint }}</h1>
-        <p>Trang test chỉ gọi API tốc độ tiêu thụ cho 3 nhà thuốc lấy từ response đăng nhập.</p>
+<div class="page-header d-print-none">
+  <div class="container-xl">
+    <div class="row g-2 align-items-center">
+      <div class="col">
+        <div class="page-pretitle">TIỆN ÍCH</div>
+        <h2 class="page-title">Test API</h2>
+        <div class="text-secondary mt-1">
+          <span class="badge bg-blue-lt me-1">POST</span>
+          <code>{{ endpoint }}</code> • Trang test chỉ gọi API tốc độ tiêu thụ cho 3 nhà thuốc lấy từ response đăng nhập.
+        </div>
       </div>
-      <button type="button" (click)="loginOnly()" [disabled]="loading">Lấy lại phiên</button>
-    </section>
+      <div class="col-auto ms-auto d-print-none">
+        <div class="btn-list">
+          <button type="button" class="btn btn-secondary" (click)="loginOnly()" [disabled]="loading">
+            Lấy lại phiên
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
-    <section class="api-test-grid">
-      <form class="api-test-panel" (ngSubmit)="callSpeedApi()">
-        <h2>Payload</h2>
-
-        <div class="api-test-shop-picker">
-          <div class="api-test-shop-heading">
-            <span>ShopLst</span>
+<div class="page-body">
+  <div class="container-xl">
+    <div class="row row-cards">
+      <div class="col-lg-6">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Payload</h3>
           </div>
-          <label class="api-test-check" *ngFor="let shop of shops">
-            <input
-              type="radio"
-              name="selectedShopCode"
-              [checked]="selectedShopCode === shop.ShopCode"
-              (change)="selectShop(shop.ShopCode)"
-            />
-            <span>{{ shop.ShopCode }} - {{ shop.ShopName }}</span>
-          </label>
-          <input [(ngModel)]="shopLst" name="shopLst" (ngModelChange)="updateRequestPreview()" />
+          <div class="card-body">
+            <form (ngSubmit)="callSpeedApi()">
+              <div class="mb-3">
+                <label class="form-label">ShopLst</label>
+                <div class="mb-2">
+                  <label class="form-check" *ngFor="let shop of shops">
+                    <input
+                      type="radio"
+                      class="form-check-input"
+                      name="selectedShopCode"
+                      [checked]="selectedShopCode === shop.ShopCode"
+                      (change)="selectShop(shop.ShopCode)"
+                    />
+                    <span class="form-check-label">{{ shop.ShopCode }} - {{ shop.ShopName }}</span>
+                  </label>
+                </div>
+                <input class="form-control" [(ngModel)]="shopLst" name="shopLst" (ngModelChange)="updateRequestPreview()" />
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label">TimeStart</label>
+                <input class="form-control" [(ngModel)]="timeStart" name="timeStart" (ngModelChange)="updateRequestPreview()" />
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label">TimeEnd</label>
+                <input class="form-control" [(ngModel)]="timeEnd" name="timeEnd" (ngModelChange)="updateRequestPreview()" />
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label">ProductID</label>
+                <input class="form-control" [(ngModel)]="productID" name="productID" placeholder="Để trống để lấy tất cả" (ngModelChange)="updateRequestPreview()" />
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label">GetType</label>
+                <input class="form-control" [(ngModel)]="getType" name="getType" placeholder="Ví dụ: duytri nếu API yêu cầu" (ngModelChange)="updateRequestPreview()" />
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label">ViewCity</label>
+                <input class="form-control" [(ngModel)]="viewCity" name="viewCity" type="number" (ngModelChange)="updateRequestPreview()" />
+              </div>
+
+              <button class="btn btn-primary w-100" type="submit" [disabled]="loading || !shopLst">
+                {{ loading ? "Đang gọi..." : "Gọi API tốc độ tiêu thụ" }}
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-6">
+        <div class="card mb-3">
+          <div class="card-header">
+            <div>
+              <div class="card-subtitle">SalesInvoice/GetReportSalesSpeed</div>
+              <h3 class="card-title">Request gửi đi</h3>
+            </div>
+          </div>
+          <div class="card-body">
+            <pre class="bg-body-tertiary p-3 rounded mb-0"><code>{{ requestPayload }}</code></pre>
+          </div>
         </div>
 
-        <label>
-          TimeStart
-          <input [(ngModel)]="timeStart" name="timeStart" (ngModelChange)="updateRequestPreview()" />
-        </label>
-
-        <label>
-          TimeEnd
-          <input [(ngModel)]="timeEnd" name="timeEnd" (ngModelChange)="updateRequestPreview()" />
-        </label>
-
-        <label>
-          ProductID
-          <input [(ngModel)]="productID" name="productID" placeholder="Để trống để lấy tất cả" (ngModelChange)="updateRequestPreview()" />
-        </label>
-
-        <label>
-          GetType
-          <input [(ngModel)]="getType" name="getType" placeholder="Ví dụ: duytri nếu API yêu cầu" (ngModelChange)="updateRequestPreview()" />
-        </label>
-
-        <label>
-          ViewCity
-          <input [(ngModel)]="viewCity" name="viewCity" type="number" (ngModelChange)="updateRequestPreview()" />
-        </label>
-
-        <button class="api-test-submit" type="submit" [disabled]="loading || !shopLst">
-          {{ loading ? "Đang gọi..." : "Gọi API tốc độ tiêu thụ" }}
-        </button>
-      </form>
-
-      <section class="api-test-panel">
-        <h2>Request gửi đi</h2>
-        <h3>SalesInvoice/GetReportSalesSpeed</h3>
-        <pre>{{ requestPayload }}</pre>
-      </section>
-    </section>
-
-    <section class="api-test-panel response-panel">
-      <h2>Response</h2>
-      <p class="api-test-error" *ngIf="errorText">{{ errorText }}</p>
-      <h3 *ngIf="responseText">SalesInvoice/GetReportSalesSpeed</h3>
-      <pre *ngIf="responseText">{{ responseText }}</pre>
-      <p *ngIf="!responseText && !errorText">Chưa có response. Bấm gọi API để kiểm tra.</p>
-    </section>
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-subtitle" *ngIf="responseText">SalesInvoice/GetReportSalesSpeed</div>
+              <h3 class="card-title">Response</h3>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="alert alert-danger" *ngIf="errorText">{{ errorText }}</div>
+            <pre class="bg-body-tertiary p-3 rounded mb-0" *ngIf="responseText"><code>{{ responseText }}</code></pre>
+            <p class="text-secondary mb-0" *ngIf="!responseText && !errorText">Chưa có response. Bấm gọi API để kiểm tra.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div class="loading-overlay" [class.is-visible]="loading" aria-live="polite">
@@ -85,4 +121,3 @@
     <span class="loading-progress-percent">{{ loadingProgress }}%</span>
   </div>
 </div>
-
