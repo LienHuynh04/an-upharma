@@ -52,6 +52,7 @@ type SlowSellingTextFilterKey = "productName" | "productCode";
 })
 export class SlowSellingComponent implements OnInit {
   readonly endpoint = "/SalesInvoice/GetSlowSellingCalculated";
+  shopsSummary: any = null;
   selectedRange: '1d' | '7d' | '3m' = '3m';
   shops: ShopInfo[] = [];
   activeShopCode = "";
@@ -145,13 +146,23 @@ export class SlowSellingComponent implements OnInit {
   }
 
   get tabs(): SlowSellingShopTab[] {
-    return this.shops.map((shop) => ({
-      shopCode: shop.ShopCode,
-      shopName: shop.ShopName,
-      count: this.rows.filter((row) => row.shopCode === shop.ShopCode).length,
-      loaded: this.loadedShopKeys.has(this.getLoadedShopKey(shop.ShopCode)),
-      loading: this.loadingShopKeys.has(this.getLoadedShopKey(shop.ShopCode)),
-    }));
+    return this.shops.map((shop) => {
+      const isLoaded = this.loadedShopKeys.has(this.getLoadedShopKey(shop.ShopCode));
+      let count = 0;
+      if (this.shopsSummary && this.shopsSummary[shop.ShopCode] !== undefined) {
+        count = this.shopsSummary[shop.ShopCode].slowCount || 0;
+      } else {
+        count = this.rows.filter((row) => row.shopCode === shop.ShopCode).length;
+      }
+
+      return {
+        shopCode: shop.ShopCode,
+        shopName: shop.ShopName,
+        count,
+        loaded: isLoaded || (this.shopsSummary && this.shopsSummary[shop.ShopCode] !== undefined),
+        loading: this.loadingShopKeys.has(this.getLoadedShopKey(shop.ShopCode)),
+      };
+    });
   }
 
   get activeShopName(): string {
@@ -196,6 +207,16 @@ export class SlowSellingComponent implements OnInit {
       this.activeShopCode = this.activeShopCode || this.shops[0]?.ShopCode || "";
       this.userTitle = `${session.UserInfo.FullName} (ID - ${session.UserInfo.uPharmaID}) - ${this.shops.length} nhà thuốc`;
       this.setDefaultDateRange();
+
+      try {
+        const summary = await this.upharmaService.callEndpoint<any>("/SalesInvoice/GetShopsSummaryCalculated", {});
+        if (summary && summary.data) {
+          this.shopsSummary = summary.data;
+        }
+      } catch (err) {
+        console.warn("Không tải được shops_summary:", err);
+      }
+
       this.loadingProgress = 25;
       shouldLoadActiveShop = Boolean(this.activeShopCode);
     } catch (error) {

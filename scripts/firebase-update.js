@@ -252,6 +252,14 @@ async function run() {
     console.log(`Đã push login data và allowed_shops cho ${UPHARMA_USERNAME} lên Firebase RTDB`);
   }
 
+  const allShopsData = {
+    inventory: {},
+    sales_speed: {},
+    transfer_process: {},
+    product_off: {},
+    product_follower: {}
+  };
+
   const resources = [
     'inventory',
     'invoices',
@@ -290,6 +298,10 @@ async function run() {
         }));
         data.push(...mappedArray);
 
+        if (allShopsData[resourceName]) {
+          allShopsData[resourceName][shop.ShopCode] = mappedArray;
+        }
+
         if (db) {
           await db.ref(`shops/${shop.ShopCode}/upharma_data/${resourceName}`).set({
             success: true,
@@ -303,37 +315,6 @@ async function run() {
           });
           console.log(`Đã push ${resourceName} của shop ${shop.ShopCode} lên Firebase RTDB (${mappedArray.length} records)`);
 
-          if (resourceName === 'sales_speed') {
-            try {
-              const { stableRows, slowRows } = precalculateSalesSpeed(mappedArray, shop);
-              
-              await db.ref(`shops/${shop.ShopCode}/upharma_data/stable_consumption_calculated`).set({
-                success: true,
-                resource: 'stable_consumption_calculated',
-                shop: {
-                  ShopCode: shop.ShopCode,
-                  ShopName: shop.ShopName,
-                },
-                data: stableRows,
-                fetchedAt: new Date().toISOString(),
-              });
-              console.log(`Đã push stable_consumption_calculated của shop ${shop.ShopCode} lên Firebase RTDB (${stableRows.length} items)`);
-
-              await db.ref(`shops/${shop.ShopCode}/upharma_data/slow_selling_calculated`).set({
-                success: true,
-                resource: 'slow_selling_calculated',
-                shop: {
-                  ShopCode: shop.ShopCode,
-                  ShopName: shop.ShopName,
-                },
-                data: slowRows,
-                fetchedAt: new Date().toISOString(),
-              });
-              console.log(`Đã push slow_selling_calculated của shop ${shop.ShopCode} lên Firebase RTDB (${slowRows.length} items)`);
-            } catch (err) {
-              console.warn(`Lỗi khi tính toán trước Hàng lặp tốt/chậm của shop ${shop.ShopCode}:`, err);
-            }
-          }
         }
       } catch (error) {
         failedShops.push(`${shop.ShopCode}: ${error.message}`);
@@ -358,6 +339,8 @@ async function run() {
     fs.writeFileSync(path.join(DATA_DIR, `${resourceName}.json`), JSON.stringify(resourceData, null, 2));
     console.log(`Đã lưu ${resourceName}.json`);
   }
+
+  await calculateAndUploadSummaries(shops, allShopsData, db);
   
   console.log("Hoàn thành fetch data!");
   if (db) {
@@ -540,4 +523,208 @@ function precalculateSalesSpeed(rows, shop) {
   }
 
   return { stableRows, slowRows };
+}
+
+function precalculateOutOfStock(salesSpeedRows, inventoryRows, transferProcessRows, productOffRows, productFollowerRows, shop) {
+  const inventoryAvailability = new Set();
+  for (const row of inventoryRows || []) {
+    const quantity = pick(row, ["QuantityExist", "ExistQuantity", "Quantity", "Qty", "SL", "SoLuong", "TonKho", "InventoryQuantity", "StockQty", "RemainQty"]);
+    if (toNumber(quantity) <= 0) {
+      continue;
+    }
+    const sc = String(row["__shopCode"] || row["ShopCode"] || "");
+    const productName = String(pick(row, ["ProductName", "Product_Name", "ProductFullName", "Product_Name_Full", "TenSP", "TenSanPham", "Name", "ItemName"]));
+    const key = [sc, productName].join("|").toLowerCase();
+    if (sc && key) {
+      inventoryAvailability.add(key);
+    }
+  }
+
+  const plannedProductIds = new Set();
+  for (const row of transferProcessRows || []) {
+    const dateExceed = toNumber(pick(row, ["DateExceed", "Date_Exceed", "SoNgayVuot", "DaysExceeded"]));
+    if (!Number.isFinite(dateExceed) || dateExceed > 60) {
+      continue;
+    }
+    const productId = String(pick(row, ["ProductID", "ProductCode", "Product_ID", "MaSP", "MaSanPham", "ItemCode", "Code"])).trim();
+    if (productId) {
+      plannedProductIds.add(productId);
+    }
+  }
+
+  const stoppedProductIds = new Set();
+  for (const row of productOffRows || []) {
+    const productId = String(pick(row, ["ProductID", "ProductCode", "Product_ID", "MaSP", "MaSanPham", "ItemCode", "Code"])).trim();
+    if (productId) {
+      stoppedProductIds.add(productId);
+    }
+  }
+  for (const row of productFollowerRows || []) {
+    const registerType = String(pick(row, ["RegisterType", "Register_Type", "LoaiDangKy", "LoaiDK"])).trim().toLowerCase();
+    if (registerType !== "hàng dừng" && registerType !== "hang dung") {
+      continue;
+    }
+    const productId = String(pick(row, ["ProductID", "ProductCode", "Product_ID", "MaSP", "MaSanPham", "ItemCode", "Code"])).trim();
+    if (productId) {
+      stoppedProductIds.add(productId);
+    }
+  }
+
+  const outOfStockRows = [];
+  const processedRows = [...(salesSpeedRows || [])];
+  
+  processedRows.sort((first, second) => {
+    const firstProduct = String(pick(first, ["ProductName", "Product_Name", "ProductFullName", "TenSP", "TenSanPham", "Name", "ItemName"])).trim();
+    const secondProduct = String(pick(second, ["ProductName", "Product_Name", "ProductFullName", "TenSP", "TenSanPham", "Name", "ItemName"])).trim();
+    return firstProduct.localeCompare(secondProduct, "vi");
+  });
+
+  let index = 0;
+  for (const row of processedRows) {
+    const productCode = String(pick(row, ["ProductID", "ProductCode", "Product_ID", "MaSP", "MaSanPham", "ItemCode", "Code"])).trim();
+    if (!productCode || productCode.toUpperCase().startsWith("Y")) {
+      continue;
+    }
+
+    if (stoppedProductIds.has(productCode)) {
+      continue;
+    }
+
+    const productName = String(pick(row, ["ProductName", "Product_Name", "ProductFullName", "TenSP", "TenSanPham", "Name", "ItemName"])).trim();
+    const sc = shop.ShopCode;
+    const invKey = [sc, productName].join("|").toLowerCase();
+    if (inventoryAvailability.has(invKey)) {
+      continue;
+    }
+
+    const isZeroStock = toNumber(pick(row, ["QuantityExist", "ExistQuantity", "TonKho", "InventoryQuantity", "RemainQty"])) <= 0;
+    if (!isZeroStock) {
+      continue;
+    }
+
+    const status = plannedProductIds.has(productCode) ? "Đã dự trù" : "Rỗng";
+    const quantity = pick(row, ["QuantityExist", "ExistQuantity", "TonKho", "InventoryQuantity", "RemainQty"]);
+    const quantityText = quantity === "" ? "0" : String(quantity);
+    const unit = String(pick(row, ["UnitOfMeasure", "UnitName", "Unit", "DonVi", "DonViTinh", "DVT"])) || "--";
+    
+    const timeBegin = String(pick(row, ["TimeBegin", "TimeStart", "BeginTime", "StartTime", "Date", "Ngay"]));
+    let shortageMonth = "";
+    if (timeBegin) {
+      const match = timeBegin.match(/^(\d{4})-(\d{2})/);
+      if (match) {
+        shortageMonth = `${match[1]}-${match[2]}`;
+      } else {
+        const viMatch = timeBegin.match(/^(\d{2})[/-](\d{2})[/-](\d{4})/);
+        if (viMatch) {
+          shortageMonth = `${viMatch[3]}-${viMatch[2]}`;
+        }
+      }
+    }
+    if (!shortageMonth) {
+      const session = String(pick(row, ["Session", "Ky", "Thang"]));
+      const match = session.match(/(\d{1,2}).*?(\d{4})/);
+      if (match) {
+        shortageMonth = `${match[2]}-${String(match[1]).padStart(2, "0")}`;
+      }
+    }
+
+    outOfStockRows.push({
+      rowKey: [sc, productCode, String(index)].join("|"),
+      shopCode: sc,
+      productName,
+      productCode,
+      status,
+      quantityText,
+      shortageMonth,
+      zeroStock: true,
+      unit,
+      searchText: [productName, productCode].join(" ").toLowerCase(),
+      expanded: false
+    });
+    index++;
+  }
+
+  return outOfStockRows;
+}
+
+async function calculateAndUploadSummaries(shops, allShopsData, db) {
+  console.log("\n[precalculation] Bắt đầu tính toán Hàng đã hết, Hàng lặp tốt, Hàng lặp chậm và Shops Summary...");
+  
+  const summaryMap = {};
+  
+  for (const shop of shops) {
+    const sc = shop.ShopCode;
+    summaryMap[sc] = {
+      outOfStockCount: 0,
+      stableCount: 0,
+      slowCount: 0
+    };
+
+    const salesSpeedRows = allShopsData.sales_speed[sc] || [];
+    const inventoryRows = allShopsData.inventory[sc] || [];
+    const transferProcessRows = allShopsData.transfer_process[sc] || [];
+    const productOffRows = allShopsData.product_off[sc] || [];
+    const productFollowerRows = allShopsData.product_follower[sc] || [];
+
+    const { stableRows, slowRows } = precalculateSalesSpeed(salesSpeedRows, shop);
+    
+    const outStockRows = precalculateOutOfStock(
+      salesSpeedRows,
+      inventoryRows,
+      transferProcessRows,
+      productOffRows,
+      productFollowerRows,
+      shop
+    );
+
+    summaryMap[sc].stableCount = stableRows.length;
+    summaryMap[sc].slowCount = slowRows.length;
+    summaryMap[sc].outOfStockCount = outStockRows.length;
+
+    if (db) {
+      try {
+        await db.ref(`shops/${sc}/upharma_data/stable_consumption_calculated`).set({
+          success: true,
+          resource: 'stable_consumption_calculated',
+          shop: { ShopCode: sc, ShopName: shop.ShopName },
+          data: stableRows,
+          fetchedAt: new Date().toISOString(),
+        });
+
+        await db.ref(`shops/${sc}/upharma_data/slow_selling_calculated`).set({
+          success: true,
+          resource: 'slow_selling_calculated',
+          shop: { ShopCode: sc, ShopName: shop.ShopName },
+          data: slowRows,
+          fetchedAt: new Date().toISOString(),
+        });
+
+        await db.ref(`shops/${sc}/upharma_data/out_of_stock_calculated`).set({
+          success: true,
+          resource: 'out_of_stock_calculated',
+          shop: { ShopCode: sc, ShopName: shop.ShopName },
+          data: outStockRows,
+          fetchedAt: new Date().toISOString(),
+        });
+        
+        console.log(`[precalculation] DONE ${sc}: Hàng đã hết (${outStockRows.length}), Lặp tốt (${stableRows.length}), Lặp chậm (${slowRows.length})`);
+      } catch (err) {
+        console.warn(`[precalculation] Lỗi khi upload kết quả tính toán cho shop ${sc}:`, err);
+      }
+    }
+  }
+
+  if (db) {
+    try {
+      await db.ref(`shops_summary`).set({
+        success: true,
+        resource: 'shops_summary',
+        data: summaryMap,
+        fetchedAt: new Date().toISOString()
+      });
+      console.log("[precalculation] DONE upload shops_summary lên Firebase RTDB!");
+    } catch (err) {
+      console.warn("[precalculation] Lỗi khi upload shops_summary:", err);
+    }
+  }
 }

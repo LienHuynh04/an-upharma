@@ -61,13 +61,13 @@
         <div class="alert alert-danger m-3" *ngIf="errorText">{{ errorText }}</div>
 
         <div class="table-responsive">
-          <table class="table table-vcenter card-table stable-table">
+          <table class="table table-vcenter card-table stable-table" style="table-layout: fixed; width: 980px !important; min-width: 980px !important;">
           <thead>
             <tr>
-              <th>STT</th>
-              <th>Tên SP</th>
-              <th>Mã SP</th>
-              <th>Tổng bán</th>
+              <th style="width: 60px;">STT</th>
+              <th style="width: 600px;">Tên SP</th>
+              <th style="width: 160px;">Mã SP</th>
+              <th style="width: 160px;">Tổng bán</th>
             </tr>
             <tr class="column-filter-row" id="slowSellingColumnFilters">
               <th></th>

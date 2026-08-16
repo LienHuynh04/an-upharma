@@ -42,7 +42,8 @@ type OutOfStockTextFilterKey = "productName" | "productCode" | "status" | "quant
   templateUrl: "./out-of-stock.component.html",
 })
 export class OutOfStockComponent implements OnInit {
-  readonly endpoint = "/SalesInvoice/GetReportSalesSpeed";
+  readonly endpoint = "/SalesInvoice/GetOutOfStockCalculated";
+  shopsSummary: any = null;
   shops: ShopInfo[] = [];
   activeShopCode = "";
   rows: OutOfStockItem[] = [];
@@ -136,13 +137,23 @@ export class OutOfStockComponent implements OnInit {
   }
 
   get tabs(): OutOfStockShopTab[] {
-    return this.shops.map((shop) => ({
-      shopCode: shop.ShopCode,
-      shopName: shop.ShopName,
-      count: this.rows.filter((row) => row.shopCode === shop.ShopCode).length,
-      loaded: this.loadedShopKeys.has(this.getLoadedShopKey(shop.ShopCode)),
-      loading: this.loadingShopKeys.has(this.getLoadedShopKey(shop.ShopCode)),
-    }));
+    return this.shops.map((shop) => {
+      const isLoaded = this.loadedShopKeys.has(this.getLoadedShopKey(shop.ShopCode));
+      let count = 0;
+      if (this.shopsSummary && this.shopsSummary[shop.ShopCode] !== undefined) {
+        count = this.shopsSummary[shop.ShopCode].outOfStockCount || 0;
+      } else {
+        count = this.rows.filter((row) => row.shopCode === shop.ShopCode).length;
+      }
+
+      return {
+        shopCode: shop.ShopCode,
+        shopName: shop.ShopName,
+        count,
+        loaded: isLoaded || (this.shopsSummary && this.shopsSummary[shop.ShopCode] !== undefined),
+        loading: this.loadingShopKeys.has(this.getLoadedShopKey(shop.ShopCode)),
+      };
+    });
   }
 
   get activeShopName(): string {
@@ -211,6 +222,16 @@ export class OutOfStockComponent implements OnInit {
       this.activeShopCode = this.activeShopCode || this.shops[0]?.ShopCode || "";
       this.userTitle = `${session.UserInfo.FullName} (ID - ${session.UserInfo.uPharmaID}) - ${this.shops.length} nhà thuốc`;
       this.setDefaultDateRange();
+
+      try {
+        const summary = await this.upharmaService.callEndpoint<any>("/SalesInvoice/GetShopsSummaryCalculated", {});
+        if (summary && summary.data) {
+          this.shopsSummary = summary.data;
+        }
+      } catch (err) {
+        console.warn("Không tải được shops_summary:", err);
+      }
+
       this.loadingProgress = 25;
       shouldLoadActiveShop = Boolean(this.activeShopCode);
     } catch (error) {
@@ -220,12 +241,7 @@ export class OutOfStockComponent implements OnInit {
     }
 
     if (shouldLoadActiveShop) {
-      // Tải cửa hàng hiện tại trước để hiển thị ngay lập tức
       await this.loadShop(this.activeShopCode);
-
-      // Tải ngầm các cửa hàng còn lại để hiển thị số lượng ở badge tab ngay khi vào trang
-      const otherShops = this.shops.filter((s) => s.ShopCode !== this.activeShopCode);
-      void Promise.all(otherShops.map((s) => this.loadShop(s.ShopCode)));
     }
   }
 
@@ -541,31 +557,17 @@ export class OutOfStockComponent implements OnInit {
       const payload = {
         uPharmaID: session.UserInfo.uPharmaID,
         Token: session.Token,
-        TimeStart: this.timeStart,
-        TimeEnd: this.timeEnd,
-        ProductID: "",
-        GetType: "Month",
-        ViewCity: 0,
         ShopLst: shop.ShopCode,
       };
       this.loadingProgress = 45;
-      const [response, inventoryAvailability, plannedProductIds, stoppedProductIds] = await Promise.all([
-        this.upharmaService.callEndpoint<unknown>(this.endpoint, payload, {
-          cache: true,
-          forceRefresh,
-        }),
-        this.getInventoryAvailability(shop.ShopCode, forceRefresh),
-        this.getTransferOrderProcessProductIds(shop.ShopCode, forceRefresh),
-        this.getStoppedProductIds(shop.ShopCode, forceRefresh),
-      ]);
+      const response = await this.upharmaService.callEndpoint<unknown>(this.endpoint, payload, {
+        cache: true,
+        forceRefresh,
+      });
       this.loadingProgress = 85;
-      const shopRows: OutOfStockItem[] = this.extractArray(response)
-        .map((row, index) => this.normalizeSalesSpeedRow(row, shop, index, plannedProductIds))
-        .filter((row) => row.zeroStock)
-        .filter((row) => !inventoryAvailability.has(this.getInventoryProductKey(row.shopCode, row.productName)))
-        .filter((row) => !stoppedProductIds.has(row.productCode.trim()))
-        .filter((row) => !row.productCode.trim().toUpperCase().startsWith("Y"))
-        .sort((first, second) => PRODUCT_NAME_COLLATOR.compare(first.productName, second.productName));
+      const shopRows: OutOfStockItem[] = (this.extractArray(response) as unknown as OutOfStockItem[]).sort((first, second) =>
+        PRODUCT_NAME_COLLATOR.compare(first.productName, second.productName),
+      );
       this.loadingProgress = 95;
 
       this.applyShopRows(shop.ShopCode, shopRows);

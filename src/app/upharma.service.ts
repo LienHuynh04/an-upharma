@@ -210,13 +210,28 @@ export class UpharmaService {
     payload: RawRecord,
     options: { cache?: boolean; forceRefresh?: boolean } = {},
   ): Promise<T> {
+    if (pathname.includes("GetShopsSummaryCalculated")) {
+      const firebaseDbUrl = (environment as any).firebaseDbUrl;
+      if (firebaseDbUrl) {
+        const url = `${firebaseDbUrl.replace(/\/$/, "")}/shops_summary.json`;
+        console.log(`[Firebase Fetch] Đang tải shops_summary từ: ${url}`);
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        const json = await response.json();
+        return json as unknown as T;
+      }
+    }
+
     const isFirebaseTarget =
       pathname.includes("GetReportSalesSpeed") ||
       pathname.includes("GetTransferOrderProcess") ||
       pathname.includes("GetProductOff") ||
       pathname.includes("GetItemLstWithFollower") ||
       pathname.includes("GetStableConsumptionCalculated") ||
-      pathname.includes("GetSlowSellingCalculated");
+      pathname.includes("GetSlowSellingCalculated") ||
+      pathname.includes("GetOutOfStockCalculated");
 
     if (isFirebaseTarget) {
       let resourceName = "";
@@ -226,6 +241,8 @@ export class UpharmaService {
         resourceName = "stable_consumption_calculated";
       } else if (pathname.includes("GetSlowSellingCalculated")) {
         resourceName = "slow_selling_calculated";
+      } else if (pathname.includes("GetOutOfStockCalculated")) {
+        resourceName = "out_of_stock_calculated";
       } else if (pathname.includes("GetTransferOrderProcess")) {
         resourceName = "transfer_process";
       } else if (pathname.includes("GetProductOff")) {
