@@ -65,7 +65,7 @@ async function run() {
 
       const allItems = items.map(item => {
         const rawStatus = (item.status || '').trim();
-        const statusVal = rawStatus === '' ? 'Chưa dự trù' : rawStatus;
+        const statusVal = (rawStatus === '' || rawStatus.toLowerCase() === 'rỗng') ? 'Chưa dự trù' : rawStatus;
         return {
           productCode: item.productCode || '',
           productName: item.productName || '',
