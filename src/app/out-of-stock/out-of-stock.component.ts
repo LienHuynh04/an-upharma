@@ -205,12 +205,30 @@ export class OutOfStockComponent implements OnInit {
     return this.loadedShopKeys.has(this.getLoadedShopKey(this.activeShopCode));
   }
 
+  get shopTotalCount(): number {
+    return this.rows.filter((row) => {
+      return row.shopCode === this.activeShopCode &&
+             row.zeroStock &&
+             this.normalizeMonthKey(row.shortageMonth) === this.getFilterMonthKey();
+    }).length;
+  }
+
   get plannedCount(): number {
-    return this.filteredRows.filter((row) => row.status === "Đã dự trù").length;
+    return this.rows.filter((row) => {
+      return row.shopCode === this.activeShopCode &&
+             row.zeroStock &&
+             this.normalizeMonthKey(row.shortageMonth) === this.getFilterMonthKey() &&
+             row.status === "Đã dự trù";
+    }).length;
   }
 
   get unplannedCount(): number {
-    return this.filteredRows.filter((row) => row.status !== "Đã dự trù").length;
+    return this.rows.filter((row) => {
+      return row.shopCode === this.activeShopCode &&
+             row.zeroStock &&
+             this.normalizeMonthKey(row.shortageMonth) === this.getFilterMonthKey() &&
+             row.status !== "Đã dự trù";
+    }).length;
   }
 
   get mobileFilterSummary(): string {

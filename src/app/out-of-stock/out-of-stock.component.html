@@ -45,7 +45,7 @@
     <div class="card" [class.filters-collapsed]="filtersCollapsed">
       <div class="card-header d-flex align-items-center justify-content-between">
         <div class="d-flex align-items-center flex-wrap gap-2">
-          <span class="badge bg-blue-lt" *ngIf="hasActiveShopLoaded" style="font-size: 0.9rem; padding: 6px 12px;">Tổng: {{ filteredRows.length }}</span>
+          <span class="badge bg-blue-lt" *ngIf="hasActiveShopLoaded" style="font-size: 0.9rem; padding: 6px 12px;">Tổng: {{ shopTotalCount }}</span>
           <span class="badge bg-success-lt" *ngIf="hasActiveShopLoaded" style="font-size: 0.9rem; padding: 6px 12px;">Đã dự trù: {{ plannedCount }}</span>
           <span class="badge bg-warning-lt" *ngIf="hasActiveShopLoaded" style="font-size: 0.9rem; padding: 6px 12px;">Chưa dự trù: {{ unplannedCount }}</span>
         </div>
