@@ -176,14 +176,12 @@
                     <div class="p-2 rounded bg-dark-lt" style="background: rgba(0, 0, 0, 0.15) !important;">
                       <div class="text-secondary small font-weight-bold text-uppercase mb-1" style="font-size: 9px;">Dự kiến DS</div>
                       <div class="font-weight-bold text-body" style="font-size: 12px;">{{ formatNumber(getProjectedValue(item.AmountR)) }} đ</div>
-                      <div class="text-muted" style="font-size: 9px;">{{ buildProjectionHint(item.AmountR) }}</div>
                     </div>
                   </div>
                   <div class="col-6">
                     <div class="p-2 rounded bg-dark-lt" style="background: rgba(0, 0, 0, 0.15) !important;">
                       <div class="text-secondary small font-weight-bold text-uppercase mb-1" style="font-size: 9px;">Dự kiến HS</div>
                       <div class="font-weight-bold text-body" style="font-size: 12px;">{{ formatNumber(getProjectedValue(item.PointRatioR)) }}</div>
-                      <div class="text-muted" style="font-size: 9px;">{{ buildProjectionHint(item.PointRatioR) }}</div>
                     </div>
                   </div>
                 </div>
@@ -191,11 +189,10 @@
                 <div class="p-2 rounded mb-3 bg-dark-lt" style="background: rgba(0, 0, 0, 0.15) !important;">
                   <div class="text-secondary small font-weight-bold text-uppercase mb-1" style="font-size: 9px;">Tỉ trọng</div>
                   <div class="font-weight-bold text-body" style="font-size: 12px;">{{ formatPercent(getWeightedPointRatio(item)) }}</div>
-                  <div class="text-muted" style="font-size: 9px;">Điểm thực tế {{ formatNumber(item.PointRatioR) }} x 1000 / {{ formatNumber(item.AmountR) }}</div>
                 </div>
 
                 <h4 class="card-title mt-4 mb-2" style="font-size: 12px;">Chỉ tiêu Khách hàng</h4>
-                <div class="table-responsive mb-3">
+                <div class="mb-3">
                   <table class="table table-vcenter table-sm card-table">
                     <thead>
                       <tr>
@@ -220,7 +217,7 @@
                 </div>
 
                 <h4 class="card-title mt-4 mb-2" style="font-size: 12px;">Chỉ tiêu Cá nhân</h4>
-                <div class="table-responsive">
+                <div>
                   <table class="table table-vcenter table-sm card-table">
                     <thead>
                       <tr>

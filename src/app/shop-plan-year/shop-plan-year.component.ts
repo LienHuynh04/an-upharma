@@ -156,35 +156,56 @@ export class ShopPlanIconComponent {
                   <app-shop-plan-icon name="settings"></app-shop-plan-icon>
                 </div>
               </div>
-              <div class="table-responsive">
-                <table class="table table-vcenter card-table">
-                  <tbody>
-                    <tr>
-                      <td class="w-1"><app-shop-plan-icon name="chart"></app-shop-plan-icon></td>
-                      <td>
-                        <div class="text-secondary small fw-bold mb-1">DOANH SỐ</div>
-                        <div class="h3 mb-0 text-success">{{ formatNumber(item.AmountR) }}</div>
-                        <div class="text-secondary small">{{ formatNumber(item.Amount) }}</div>
-                      </td>
-                      <td class="text-end">
-                        <span class="badge" [ngClass]="item.AmountR >= item.Amount ? 'bg-green-lt' : 'bg-yellow-lt'">{{ formatPercent(item.AmountR, item.Amount) }}</span>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td class="w-1"><app-shop-plan-icon name="cart"></app-shop-plan-icon></td>
-                      <td>
-                        <div class="text-secondary small fw-bold mb-1">HHS</div>
-                        <div class="h3 mb-0 text-success">{{ formatNumber(item.PointSales01R) }}</div>
-                        <div class="text-secondary small">{{ formatNumber(item.PointSales01) }}</div>
-                      </td>
-                      <td class="text-end">
-                        <span class="badge mb-1" [ngClass]="item.PointSales01R >= item.PointSales01 ? 'bg-green-lt' : 'bg-yellow-lt'">{{ formatPercent(item.PointSales01R, item.PointSales01) }}</span>
-                        <div class="text-secondary small fw-bold">TT HHS: <span class="text-success">{{ formatPercent(item.QuantityHHS, item.SKU) }}</span></div>
-                        <div class="text-secondary small">SKU HHS: {{ formatNumber(item.QuantityHHS) }}</div>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+              <!-- Doanh số Card Item -->
+              <div class="p-3 border-bottom">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                  <div class="d-flex align-items-center gap-2">
+                    <span class="avatar avatar-sm bg-success-lt text-success" style="width: 32px; height: 32px;">
+                      <app-shop-plan-icon name="chart"></app-shop-plan-icon>
+                    </span>
+                    <div>
+                      <div class="text-uppercase fw-bold text-secondary" style="font-size: 10px; letter-spacing: 0.5px;">Doanh số</div>
+                      <div class="h3 mb-0 text-success fw-bold">{{ formatNumber(item.AmountR) }} đ</div>
+                    </div>
+                  </div>
+                  <div class="text-end">
+                    <span class="badge px-2 py-1 fw-bold" [ngClass]="item.AmountR >= item.Amount ? 'bg-green-lt text-green' : 'bg-yellow-lt text-yellow'">
+                      {{ formatPercent(item.AmountR, item.Amount) }} đạt
+                    </span>
+                    <div class="text-secondary small mt-1">Mục tiêu: {{ formatNumber(item.Amount) }} đ</div>
+                  </div>
+                </div>
+                <div class="progress progress-sm mt-2" style="height: 6px;">
+                  <div class="progress-bar bg-success" [style.width.%]="getPercent(item.AmountR, item.Amount) > 100 ? 100 : getPercent(item.AmountR, item.Amount)"></div>
+                </div>
+              </div>
+
+              <!-- HHS Card Item -->
+              <div class="p-3 border-bottom">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                  <div class="d-flex align-items-center gap-2">
+                    <span class="avatar avatar-sm bg-primary-lt text-primary" style="width: 32px; height: 32px;">
+                      <app-shop-plan-icon name="cart"></app-shop-plan-icon>
+                    </span>
+                    <div>
+                      <div class="text-uppercase fw-bold text-secondary" style="font-size: 10px; letter-spacing: 0.5px;">Điểm HHS</div>
+                      <div class="h3 mb-0 text-primary fw-bold">{{ formatNumber(item.PointSales01R) }}</div>
+                    </div>
+                  </div>
+                  <div class="text-end">
+                    <span class="badge px-2 py-1 fw-bold" [ngClass]="item.PointSales01R >= item.PointSales01 ? 'bg-green-lt text-green' : 'bg-yellow-lt text-yellow'">
+                      {{ formatPercent(item.PointSales01R, item.PointSales01) }} đạt
+                    </span>
+                    <div class="text-secondary small mt-1">Mục tiêu: {{ formatNumber(item.PointSales01) }}</div>
+                  </div>
+                </div>
+                <div class="progress progress-sm mt-2 mb-2" style="height: 6px;">
+                  <div class="progress-bar bg-primary" [style.width.%]="getPercent(item.PointSales01R, item.PointSales01) > 100 ? 100 : getPercent(item.PointSales01R, item.PointSales01)"></div>
+                </div>
+                <div class="d-flex justify-content-between text-secondary small pt-1 border-top border-dashed" style="font-size: 11px;">
+                  <span>SKU HHS: <strong>{{ formatNumber(item.QuantityHHS) }}</strong></span>
+                  <span>Tỉ trọng HHS: <strong class="text-success">{{ formatPercent(item.QuantityHHS, item.SKU) }}</strong></span>
+                </div>
               </div>
               <div class="card-body border-bottom">
                 <div class="row g-2 text-center">
@@ -205,17 +226,17 @@ export class ShopPlanIconComponent {
               <div class="card-body border-bottom">
                 <div class="h4 mb-3 d-flex align-items-center gap-2"><app-shop-plan-icon name="users"></app-shop-plan-icon> Khách hàng</div>
                 <div class="row g-2 text-center">
-                  <div class="col-4 bg-light rounded p-2">
+                  <div class="col-4 rounded p-2" style="background: rgba(120, 120, 120, 0.1) !important;">
                     <div class="text-secondary small fw-bold">Tổng</div>
                     <div class="h3 mb-0">{{ formatNumber(item.QuaCustomer) }}</div>
                     <div class="text-danger small fw-bold">{{ formatNumber(item.QuaCustomerR) }}</div>
                   </div>
-                  <div class="col-4 bg-light rounded p-2">
+                  <div class="col-4 rounded p-2" style="background: rgba(120, 120, 120, 0.1) !important;">
                     <div class="text-secondary small fw-bold">Đơn bán</div>
                     <div class="h3 mb-0">{{ formatNumber(item.QuaInvoiceR) }}</div>
                     <div class="text-danger small fw-bold">{{ formatNumber(item.QuaInvoice) }}</div>
                   </div>
-                  <div class="col-4 bg-light rounded p-2">
+                  <div class="col-4 rounded p-2" style="background: rgba(120, 120, 120, 0.1) !important;">
                     <div class="text-secondary small fw-bold">TB Bill</div>
                     <div class="h3 mb-0">{{ formatNumber(item.PointSales01R) }}</div>
                     <div class="text-danger small fw-bold">{{ formatNumber(item.PointSales01) }}</div>
@@ -225,7 +246,7 @@ export class ShopPlanIconComponent {
               <div class="card-body">
                 <div class="h4 mb-3 d-flex align-items-center gap-2"><app-shop-plan-icon name="star"></app-shop-plan-icon> Khách đạt hạng</div>
                 <div class="row g-2 text-center">
-                  <div class="col-2 bg-light rounded p-2" *ngFor="let level of customerLevels">
+                  <div class="col-2 rounded p-2" style="background: rgba(120, 120, 120, 0.1) !important;" *ngFor="let level of customerLevels">
                     <div class="text-secondary small fw-bold">{{ level.label }}</div>
                     <div class="h4 mb-0">{{ formatNumber(getLevelValue(item, level.key)) }}</div>
                     <div class="text-secondary small fw-bold">{{ formatNumber(getLevelRealValue(item, level.key)) }}</div>

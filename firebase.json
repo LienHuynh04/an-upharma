@@ -25,7 +25,7 @@
         "headers": [
           {
             "key": "Content-Security-Policy",
-            "value": "default-src 'self' https://an-upharma-default-rtdb.firebaseio.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://an-upharma-default-rtdb.firebaseio.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://icpc1hn.work https://api.github.com http://localhost:3000 http://127.0.0.1:3000; frame-ancestors 'none';"
+            "value": "default-src 'self' https://an-upharma-default-rtdb.firebaseio.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net; img-src 'self' data: https:; connect-src 'self' https://an-upharma-default-rtdb.firebaseio.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://icpc1hn.work https://api.github.com http://localhost:3000 http://127.0.0.1:3000; frame-ancestors 'none';"
           },
           {
             "key": "X-Frame-Options",

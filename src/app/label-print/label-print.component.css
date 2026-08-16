@@ -1,30 +1,42 @@
 .sheet {
   overflow: auto;
   padding: 10px;
-  background:
-    linear-gradient(90deg, rgba(0, 0, 0, 0.03) 1px, transparent 1px),
-    linear-gradient(rgba(0, 0, 0, 0.03) 1px, transparent 1px),
-    var(--surface, #fff);
-  background-size: 33.333% 33.333%;
+  background: #f1f5f9;
+  border-radius: 8px;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .sheet-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  background: #fff;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  border-radius: 4px;
 }
 
 .sheet-cell {
-  min-height: 150px;
-  padding: 2px;
+  min-height: 155px;
+  padding: 8px;
+  transition: all 0.2s ease;
+}
+
+.sheet-cell.cut-line {
+  border: 1px dashed #d1d5db;
 }
 
 .label-card {
   display: grid;
   grid-template-rows: auto 1fr;
   height: 100%;
-  border: 1.5px solid #2a2a2a;
+  border: 2px solid #000;
+  border-radius: 4px;
   background: #fff;
   overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+}
+
+.label-card.promotion {
+  border-color: #dc3545;
 }
 
 .label-top {
@@ -32,19 +44,20 @@
   justify-content: space-between;
   gap: 8px;
   align-items: center;
-  padding: 7px 10px;
+  padding: 6px 10px;
   color: #fff;
-  background: #111;
+  background: #0284c7; /* Sky blue for standard tags */
 }
 
 .label-top.promotion {
-  background: #000;
+  background: #dc3545; /* Red for promotion tags */
 }
 
 .label-top strong {
-  font-size: 14px;
-  font-weight: 900;
+  font-size: 13px;
+  font-weight: 800;
   line-height: 1;
+  letter-spacing: 0.5px;
 }
 
 .label-top span {
@@ -52,77 +65,367 @@
   align-items: center;
   min-height: 18px;
   padding: 0 8px;
-  border-radius: 999px;
-  color: #000;
+  border-radius: 4px;
+  color: #dc3545;
   background: #fff;
   font-size: 11px;
   font-weight: 900;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .label-body {
-  display: grid;
-  align-content: space-between;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
   gap: 6px;
   padding: 8px 10px 10px;
-  color: #111;
+  color: #111827;
 }
 
 .brand-line {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 900;
-  letter-spacing: 0.08em;
+  color: #0284c7;
+  letter-spacing: 0.12em;
+  margin-bottom: 2px;
+}
+
+.label-card.promotion .brand-line {
+  color: #dc3545;
 }
 
 .label-title {
   font-size: 13px;
-  font-weight: 900;
-  line-height: 1.15;
+  font-weight: 800;
+  line-height: 1.2;
+  color: #1f2937;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .price-row {
   display: flex;
-  align-items: end;
+  align-items: baseline;
   gap: 8px;
+  margin: 4px 0;
 }
 
 .price-row del {
-  color: #666;
-  font-size: 10px;
+  color: #9ca3af;
+  font-size: 11px;
+  text-decoration: line-through;
 }
 
 .price-row strong {
-  font-size: 26px;
-  font-weight: 950;
+  font-size: 24px;
+  font-weight: 900;
+  color: #111827;
   line-height: 1;
+}
+
+.label-card.promotion .price-row strong {
+  color: #dc3545;
 }
 
 .footer-row {
   display: flex;
   justify-content: space-between;
+  align-items: flex-end;
   gap: 8px;
-  font-size: 10px;
-  color: #444;
+  font-size: 9px;
+  color: #6b7280;
+  border-top: 1px dashed #e5e7eb;
+  padding-top: 4px;
+}
+
+.barcode-mock {
+  height: 16px;
+  background: repeating-linear-gradient(
+    90deg,
+    #000,
+    #000 2px,
+    #fff 2px,
+    #fff 4px,
+    #000 4px,
+    #000 5px,
+    #fff 5px,
+    #fff 7px
+  );
+  width: 60px;
+  opacity: 0.7;
+  margin-top: 2px;
 }
 
 @media print {
   body {
-    background: #fff;
+    background: #fff !important;
   }
   
   .sheet {
-    background: #fff;
+    background: #fff !important;
     padding: 0 !important;
+    box-shadow: none !important;
   }
 
   .sheet-grid {
     gap: 0 !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
   }
 
   .sheet-cell {
     break-inside: avoid;
+    padding: 4px !important;
+  }
+
+  .sheet-cell.cut-line {
+    border: 1px dashed #999 !important;
   }
   
   .sheet-cell:not(:nth-child(-n + 18)) {
     display: none !important;
   }
+}
+
+/* Workspace Layout Styles */
+.label-page {
+  padding: 24px;
+}
+
+.label-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  border-bottom: 1px solid rgba(120, 120, 120, 0.15);
+  padding-bottom: 16px;
+}
+
+.label-hero h1 {
+  font-size: 24px;
+  font-weight: 800;
+  margin: 0 0 4px 0;
+}
+
+.label-hero p {
+  color: #6b7280;
+  margin: 0;
+  font-size: 14px;
+}
+
+.label-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.label-workspace {
+  display: grid;
+  grid-template-columns: 350px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+.label-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  background: var(--tblr-card-bg, #fff);
+  border-radius: 8px;
+  border: 1px solid rgba(120, 120, 120, 0.15);
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.editor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(120, 120, 120, 0.1);
+  padding-bottom: 12px;
+}
+
+.editor-header strong {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.editor-header small {
+  color: #9ca3af;
+  font-weight: 600;
+}
+
+.editor-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 250px;
+  overflow-y: auto;
+  padding-right: 4px;
+  border-bottom: 1px solid rgba(120, 120, 120, 0.1);
+  padding-bottom: 16px;
+}
+
+.editor-card {
+  padding: 12px;
+  background: rgba(120, 120, 120, 0.05);
+  border: 1px solid rgba(120, 120, 120, 0.15);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.editor-card:hover {
+  background: rgba(120, 120, 120, 0.1);
+}
+
+.editor-card.is-active {
+  background: rgba(2, 132, 199, 0.1);
+  border-color: #0284c7;
+}
+
+.editor-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.editor-card-top strong {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.icon-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 6px;
+  font-size: 14px;
+  color: #9ca3af;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.icon-btn:hover {
+  background: rgba(120, 120, 120, 0.15);
+  color: var(--tblr-body-color, #1f2937);
+}
+
+.icon-btn.danger:hover {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
+.editor-mini {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #6b7280;
+  margin-top: 6px;
+}
+
+.editor-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.editor-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--tblr-body-color, #4b5563);
+}
+
+.editor-form input, .editor-form select {
+  padding: 8px 12px;
+  border: 1px solid rgba(120, 120, 120, 0.2);
+  border-radius: 6px;
+  font-size: 13px;
+  transition: all 0.2s;
+  background: var(--tblr-card-bg, #fff);
+  color: var(--tblr-body-color, #1f2937);
+}
+
+.editor-form input:focus, .editor-form select:focus {
+  outline: none;
+  border-color: #0284c7;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+}
+
+.two-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.switch-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(120, 120, 120, 0.1);
+}
+
+.switch {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.switch input {
+  cursor: pointer;
+}
+
+.label-preview {
+  background: var(--tblr-card-bg, #fff);
+  border-radius: 8px;
+  border: 1px solid rgba(120, 120, 120, 0.15);
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.paper-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  border-bottom: 1px solid rgba(120, 120, 120, 0.1);
+  padding-bottom: 12px;
+}
+
+.paper-toolbar span {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.paper-settings {
+  display: flex;
+  gap: 16px;
+}
+
+.paper-settings label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--tblr-body-color, #4b5563);
+}
+
+.paper-settings input {
+  width: 70px;
+  padding: 4px 8px;
+  border: 1px solid rgba(120, 120, 120, 0.2);
+  border-radius: 6px;
+  font-size: 12px;
+  background: var(--tblr-card-bg, #fff);
+  color: var(--tblr-body-color, #1f2937);
 }

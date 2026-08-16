@@ -131,7 +131,7 @@ interface LabelItem {
 
       <div class="sheet" [style.padding.mm]="pageMargin">
         <div class="sheet-grid" [style.gap.mm]="gap">
-          <article class="sheet-cell" *ngFor="let item of items">
+          <article class="sheet-cell" *ngFor="let item of items" [class.cut-line]="showCutLine">
             <div class="label-card" [class.promotion]="item.labelType === 'promotion'">
               <div class="label-top" [class.promotion]="item.labelType === 'promotion'">
                 <strong>{{ item.subTitle || 'TEM' }}</strong>
@@ -141,12 +141,17 @@ interface LabelItem {
                 <div class="brand-line" *ngIf="showBrandName">UPHARMA</div>
                 <div class="label-title">{{ item.title }}</div>
                 <div class="price-row">
-                  <del *ngIf="item.oldPrice">{{ item.oldPrice }}</del>
-                  <strong>{{ item.price }}</strong>
+                  <del *ngIf="item.oldPrice && item.oldPrice !== '0' && item.oldPrice !== '0đ'">{{ item.oldPrice }}đ</del>
+                  <strong>{{ item.price }}đ</strong>
                 </div>
                 <div class="footer-row">
-                  <span>Mã SP: {{ item.productCode }}</span>
-                  <span *ngIf="item.startDate || item.endDate">Áp dụng {{ item.startDate }} - {{ item.endDate }}</span>
+                  <div class="d-flex flex-column align-items-start">
+                    <span>Mã SP: {{ item.productCode }}</span>
+                    <div class="barcode-mock"></div>
+                  </div>
+                  <span *ngIf="item.startDate || item.endDate" style="max-width: 65%; text-align: right; line-height: 1.2;">
+                    Áp dụng:<br>{{ item.startDate }} - {{ item.endDate }}
+                  </span>
                 </div>
               </div>
             </div>
