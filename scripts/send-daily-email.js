@@ -67,8 +67,7 @@ async function run() {
         productCode: item.productCode || '',
         productName: item.productName || '',
         unit: item.unit || '',
-        quantityText: item.quantityText || '0',
-        zeroStock: item.zeroStock ? 'Hết sạch' : 'Cận hết'
+        status: item.status || 'Chưa dự trù'
       }));
 
       shopsDetailList.push({
@@ -106,11 +105,15 @@ async function run() {
         shop.items.forEach((item, idx) => {
           const isEven = idx % 2 === 1;
           const rowBg = isEven ? '#f8fafc' : '#ffffff';
+          const isPlanned = item.status === 'Đã dự trù';
+          const statusBadge = `<span style="display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; background-color: ${isPlanned ? '#dcfce7; color: #16a34a;' : '#fee2e2; color: #ef4444;'}">${item.status}</span>`;
+          
           itemRows += `
             <tr style="border-bottom: 1px solid #f1f5f9; font-size: 13px; background-color: ${rowBg};">
               <td style="padding: 10px 8px; color: #334155; font-weight: 600;">${item.productCode}</td>
               <td style="padding: 10px 8px; color: #1e293b; line-height: 1.3;">${item.productName}</td>
               <td style="padding: 10px 8px; color: #64748b; text-align: center;">${item.unit}</td>
+              <td style="padding: 10px 8px; text-align: center;">${statusBadge}</td>
             </tr>
           `;
         });
@@ -127,6 +130,7 @@ async function run() {
                     <th style="padding: 10px 8px; width: 100px; background-color: #f1f5f9; position: sticky; top: 0; font-weight: bold;">Mã SP</th>
                     <th style="padding: 10px 8px; background-color: #f1f5f9; position: sticky; top: 0; font-weight: bold;">Tên Sản Phẩm</th>
                     <th style="padding: 10px 8px; text-align: center; width: 70px; background-color: #f1f5f9; position: sticky; top: 0; font-weight: bold;">ĐVT</th>
+                    <th style="padding: 10px 8px; text-align: center; width: 95px; background-color: #f1f5f9; position: sticky; top: 0; font-weight: bold;">Trạng Thái</th>
                   </tr>
                 </thead>
                 <tbody>
