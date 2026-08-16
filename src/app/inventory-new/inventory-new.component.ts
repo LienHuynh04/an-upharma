@@ -471,7 +471,27 @@ export class InventoryNewComponent implements OnInit {
 
     try {
       this.inventoryRefreshProgress = Math.max(this.inventoryRefreshProgress, 65);
-      const inventoryData = await this.upharmaService.loadInventoryResource({ forceRefresh: true });
+      
+      if (!runInBackground) {
+        this.normalizedRows = [];
+        this.recomputeAll();
+      }
+
+      const inventoryData = await this.upharmaService.loadInventoryResource({
+        forceRefresh: true,
+        onShopLoaded: (shopCode, shopData) => {
+          if (runInBackground) return;
+          const shopName = this.shopList.find(s => s.ShopCode === shopCode)?.ShopName || shopCode;
+          const mapped = shopData.map((row) => ({
+            ...row,
+            __shopCode: shopCode,
+            __shopName: shopName
+          }));
+          const normalized = mapped.map((row, index) => normalizeInventoryRow(row, this.normalizedRows.length + index));
+          this.normalizedRows = [...this.normalizedRows, ...normalized].sort(compareInventoryItems);
+          this.recomputeAll();
+        }
+      });
       this.applyInventoryData(inventoryData);
       await this.writeInventoryCache({
         cacheKey,

@@ -118,8 +118,9 @@ interface CachedCall {
   data: unknown;
 }
 
-interface ResourceLoadOptions {
+export interface ResourceLoadOptions {
   onFresh?: (data: ResourceResponse) => void;
+  onShopLoaded?: (shopCode: string, data: any[]) => void;
   forceRefresh?: boolean;
   shopCodes?: string[];
 }
@@ -667,6 +668,9 @@ export class UpharmaService {
               const json = await response.json();
               if (json && Array.isArray(json.data)) {
                 shopsData.push(...json.data);
+                if (options.onShopLoaded) {
+                  options.onShopLoaded(shop.ShopCode, json.data);
+                }
               }
             } catch (err: any) {
               console.warn(`Không tải được dữ liệu ${resourceName} của shop ${shop.ShopCode}:`, err);
