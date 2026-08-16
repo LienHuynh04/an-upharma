@@ -212,7 +212,12 @@ export class OutOfStockComponent implements OnInit {
     }
 
     if (shouldLoadActiveShop) {
-      await this.loadActiveShop();
+      // Tải cửa hàng hiện tại trước để hiển thị ngay lập tức
+      await this.loadShop(this.activeShopCode);
+
+      // Tải ngầm các cửa hàng còn lại để hiển thị số lượng ở badge tab ngay khi vào trang
+      const otherShops = this.shops.filter((s) => s.ShopCode !== this.activeShopCode);
+      void Promise.all(otherShops.map((s) => this.loadShop(s.ShopCode)));
     }
   }
 
@@ -221,7 +226,7 @@ export class OutOfStockComponent implements OnInit {
     this.currentPage = 1;
 
     if (!this.loadedShopKeys.has(this.getLoadedShopKey(shopCode))) {
-      await this.loadActiveShop();
+      await this.loadShop(shopCode);
       return;
     }
 
@@ -233,7 +238,7 @@ export class OutOfStockComponent implements OnInit {
       return;
     }
 
-    await this.loadActiveShop(true);
+    await this.loadShop(this.activeShopCode, true);
   }
 
   async exportExcel(): Promise<void> {
@@ -461,9 +466,9 @@ export class OutOfStockComponent implements OnInit {
     await this.router.navigateByUrl("/login");
   }
 
-  private async loadActiveShop(forceReload = false): Promise<void> {
+  private async loadShop(shopCode: string, forceReload = false): Promise<void> {
     const session = this.upharmaService.ensureLogin();
-    const shop = this.shops.find((item) => item.ShopCode === this.activeShopCode);
+    const shop = this.shops.find((item) => item.ShopCode === shopCode);
 
     if (!shop) {
       return;
