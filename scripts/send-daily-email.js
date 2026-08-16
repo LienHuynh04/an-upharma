@@ -115,16 +115,16 @@ async function run() {
 
         shopDetailHtml += `
           <div style="margin-top: 24px; padding: 16px; background: #fff; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-            <h3 style="margin: 0 0 12px 0; color: #0284c7; font-size: 15px; border-left: 4px solid #0284c7; padding-left: 8px;">
+            <h3 style="margin: 0 0 12px 0; color: #0284c7; font-size: 15px; border-left: 4px solid #0284c7; padding-left: 8px; margin-bottom: 12px;">
               ${shop.shopCode} (Có ${shop.count} mã đã hết)
             </h3>
-            <div style="overflow-x: auto;">
+            <div style="max-height: 350px; overflow-y: auto; overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 6px;">
               <table style="width: 100%; border-collapse: collapse; text-align: left;">
                 <thead>
-                  <tr style="background-color: #f8fafc; border-bottom: 2px solid #e2e8f0; font-size: 12px; color: #475569; text-transform: uppercase;">
-                    <th style="padding: 8px; width: 100px;">Mã SP</th>
-                    <th style="padding: 8px;">Tên Sản Phẩm</th>
-                    <th style="padding: 8px; text-align: center; width: 70px;">ĐVT</th>
+                  <tr style="position: sticky; top: 0; background-color: #f8fafc; border-bottom: 2px solid #e2e8f0; font-size: 12px; color: #475569; text-transform: uppercase; z-index: 10;">
+                    <th style="padding: 8px; width: 100px; background-color: #f8fafc; position: sticky; top: 0;">Mã SP</th>
+                    <th style="padding: 8px; background-color: #f8fafc; position: sticky; top: 0;">Tên Sản Phẩm</th>
+                    <th style="padding: 8px; text-align: center; width: 70px; background-color: #f8fafc; position: sticky; top: 0;">ĐVT</th>
                   </tr>
                 </thead>
                 <tbody>
