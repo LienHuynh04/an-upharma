@@ -964,8 +964,25 @@ export class OutOfStockComponent implements OnInit {
 
     for (const [key, filterValue] of Object.entries(this.textFilters) as [OutOfStockTextFilterKey, string][]) {
       const normalizedFilter = normalizeFilterText(filterValue);
+      if (!normalizedFilter) {
+        continue;
+      }
 
-      if (normalizedFilter && !normalizeFilterText(textTargets[key]).includes(normalizedFilter)) {
+      if (key === 'status') {
+        const isRowPlanned = row.status === 'Đã dự trù';
+        const isFilterPlanned = filterValue === 'Đã dự trù';
+        const isFilterUnplanned = filterValue === 'Chưa dự trù';
+
+        if (isFilterPlanned && !isRowPlanned) {
+          return false;
+        }
+        if (isFilterUnplanned && isRowPlanned) {
+          return false;
+        }
+        continue;
+      }
+
+      if (!normalizeFilterText(textTargets[key]).includes(normalizedFilter)) {
         return false;
       }
     }
