@@ -25,6 +25,14 @@ jobs:
       - name: Install dependencies
         run: npm ci || npm install
 
+      - name: Fetch Upharma Static Data
+        env:
+          UPHARMA_USERNAME: ${{ secrets.UPHARMA_USERNAME }}
+          UPHARMA_PASSWORD: ${{ secrets.UPHARMA_PASSWORD }}
+          FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
+          UPHARMA_EXCLUDED_SHOPS: "SHOP0040"
+        run: node scripts/fetch-upharma-data.js
+
       - name: Send Daily Out Of Stock Email
         env:
           FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
