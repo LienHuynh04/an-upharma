@@ -74,10 +74,15 @@ async function run() {
         };
       });
 
+      const plannedCount = allItems.filter(item => item.status === 'Đã dự trù').length;
+      const unplannedCount = allItems.filter(item => item.status !== 'Đã dự trù').length;
+
       shopsDetailList.push({
         shopCode: sc,
         shopName,
         count,
+        plannedCount,
+        unplannedCount,
         items: allItems
       });
     }
@@ -99,7 +104,7 @@ async function run() {
         <tr style="border-bottom: 1px solid #e2e8f0;">
           <td style="padding: 12px; font-weight: bold; color: #1e293b;">${shop.shopCode}</td>
           <td style="padding: 12px; text-align: right; font-weight: bold; color: ${shop.count > 0 ? '#dc2626' : '#16a34a'};">
-            ${shop.count} mã
+            ${shop.count} mã (${shop.plannedCount} Đã dự trù, ${shop.unplannedCount} Chưa dự trù)
           </td>
         </tr>
       `;
@@ -125,7 +130,7 @@ async function run() {
         shopDetailHtml += `
           <div style="margin-top: 24px; padding: 16px; background: #fff; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
             <h3 style="margin: 0 0 12px 0; color: #0284c7; font-size: 15px; border-left: 4px solid #0284c7; padding-left: 8px; margin-bottom: 12px;">
-              ${shop.shopCode} (Có ${shop.count} mã đã hết)
+              ${shop.shopCode} (Có ${shop.count} mã đã hết - ${shop.plannedCount} Đã dự trù, ${shop.unplannedCount} Chưa dự trù)
             </h3>
             <div class="scroll-container" style="max-height: 380px; overflow-y: auto; overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
               <table style="width: 100%; border-collapse: collapse; text-align: left;">
