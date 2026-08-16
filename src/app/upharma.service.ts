@@ -214,12 +214,18 @@ export class UpharmaService {
       pathname.includes("GetReportSalesSpeed") ||
       pathname.includes("GetTransferOrderProcess") ||
       pathname.includes("GetProductOff") ||
-      pathname.includes("GetItemLstWithFollower");
+      pathname.includes("GetItemLstWithFollower") ||
+      pathname.includes("GetStableConsumptionCalculated") ||
+      pathname.includes("GetSlowSellingCalculated");
 
     if (isFirebaseTarget) {
       let resourceName = "";
       if (pathname.includes("GetReportSalesSpeed")) {
         resourceName = "sales_speed";
+      } else if (pathname.includes("GetStableConsumptionCalculated")) {
+        resourceName = "stable_consumption_calculated";
+      } else if (pathname.includes("GetSlowSellingCalculated")) {
+        resourceName = "slow_selling_calculated";
       } else if (pathname.includes("GetTransferOrderProcess")) {
         resourceName = "transfer_process";
       } else if (pathname.includes("GetProductOff")) {

@@ -13,9 +13,6 @@
           <button type="button" class="btn btn-secondary" (click)="exportExcel()" [disabled]="loading || outStockRefreshing || rows.length === 0">
             Xuất excel
           </button>
-          <button type="button" class="btn btn-primary" (click)="reloadActiveShop()" [disabled]="loading || outStockRefreshing || !activeShopCode">
-            {{ loading || outStockRefreshing ? "Đang tải..." : "Tải lại shop đang xem" }}
-          </button>
         </div>
       </div>
     </div>
@@ -47,8 +44,10 @@
 
     <div class="card" [class.filters-collapsed]="filtersCollapsed">
       <div class="card-header d-flex align-items-center justify-content-between">
-        <div>
-          <h3 class="card-title m-0">{{ activeShopName }}</h3>
+        <div class="d-flex align-items-center flex-wrap gap-2">
+          <span class="badge bg-blue-lt" *ngIf="hasActiveShopLoaded" style="font-size: 0.9rem; padding: 6px 12px;">Tổng: {{ filteredRows.length }}</span>
+          <span class="badge bg-success-lt" *ngIf="hasActiveShopLoaded" style="font-size: 0.9rem; padding: 6px 12px;">Đã dự trù: {{ plannedCount }}</span>
+          <span class="badge bg-warning-lt" *ngIf="hasActiveShopLoaded" style="font-size: 0.9rem; padding: 6px 12px;">Chưa dự trù: {{ unplannedCount }}</span>
         </div>
         <div class="ms-auto">
           <label class="d-flex align-items-center gap-2 m-0">
@@ -63,14 +62,13 @@
       </div>
       <div class="card-body p-0">
         <div class="table-responsive">
-          <table class="table table-vcenter card-table">
+          <table class="table table-vcenter card-table" style="table-layout: fixed; width: 980px !important; min-width: 980px !important;">
           <thead>
             <tr>
-              <th>STT</th>
-              <th>Tên SP</th>
-              <th>Mã SP</th>
-              <th>Trạng thái</th>
-              <th>Tồn/SL</th>
+              <th style="width: 60px;">STT</th>
+              <th style="width: 600px;">Tên SP</th>
+              <th style="width: 160px;">Mã SP</th>
+              <th style="width: 160px;">Trạng thái</th>
             </tr>
             <tr class="column-filter-row" id="outStockColumnFilters">
               <th></th>
@@ -86,24 +84,21 @@
                   <option value="Đã dự trù">Đã dự trù</option>
                 </select>
               </th>
-              <th>
-                <input class="form-control form-control-sm" [(ngModel)]="textFilters.quantityText" (ngModelChange)="onFilterChange()" type="search" aria-label="Lọc số lượng tồn" placeholder="Tồn/SL" />
-              </th>
             </tr>
           </thead>
           <tbody>
             <tr *ngIf="!loading && !hasActiveShopLoaded && outStockRefreshing">
-              <td colspan="5" class="text-center text-secondary py-4">
+              <td colspan="4" class="text-center text-secondary py-4">
                 Đang tải dữ liệu cho {{ activeShopCode }}. Chị vẫn có thể đổi shop trong lúc chờ.
               </td>
             </tr>
             <tr *ngIf="!loading && !hasActiveShopLoaded && !outStockRefreshing">
-              <td colspan="5" class="text-center text-secondary py-4">
+              <td colspan="4" class="text-center text-secondary py-4">
                 Chọn một nhà thuốc ở phía trên để xem danh sách hàng đã hết của nhà thuốc đó.
               </td>
             </tr>
             <tr *ngIf="!loading && hasActiveShopLoaded && filteredRows.length === 0">
-              <td colspan="5" class="text-center text-secondary py-4">
+              <td colspan="4" class="text-center text-secondary py-4">
                 Chưa có dữ liệu từ API tốc độ tiêu thụ cho shop này.
               </td>
             </tr>
@@ -113,8 +108,8 @@
               [class.is-collapsed]="!item.expanded"
             >
               <td data-label="STT">{{ (currentPage - 1) * pageSize + index + 1 }}</td>
-              <td class="product-cell" data-label="Tên SP">
-                <span class="desktop-product-name">{{ item.productName }}</span>
+              <td class="product-cell" data-label="Tên SP" style="white-space: normal !important;">
+                <span class="desktop-product-name" style="display: block; white-space: normal !important; word-wrap: break-word;">{{ item.productName }}</span>
                 <button
                   class="record-toggle"
                   type="button"
@@ -135,9 +130,6 @@
                 <span *ngIf="item.status === 'Đã dự trù'" class="status-chip status-chip--planned">
                   {{ item.status }}
                 </span>
-              </td>
-              <td data-label="Tồn/SL">
-                <span class="stock-quantity" [class.is-zero]="item.zeroStock">{{ item.quantityText }}</span>
               </td>
             </tr>
           </tbody>

@@ -51,7 +51,7 @@ type SlowSellingTextFilterKey = "productName" | "productCode";
   templateUrl: "./slow-selling.component.html",
 })
 export class SlowSellingComponent implements OnInit {
-  readonly endpoint = "/SalesInvoice/GetReportSalesSpeed";
+  readonly endpoint = "/SalesInvoice/GetSlowSellingCalculated";
   selectedRange: '1d' | '7d' | '3m' = '3m';
   shops: ShopInfo[] = [];
   activeShopCode = "";
@@ -426,8 +426,7 @@ export class SlowSellingComponent implements OnInit {
         forceRefresh,
       });
       this.loadingProgress = 75;
-      const rows = this.filterRowsBySelectedDateRange(this.extractArray(response));
-      const slowSellingRows = this.buildSlowSellingItems(rows, shop).sort((first, second) =>
+      const slowSellingRows = (this.extractArray(response) as unknown as SlowSellingItem[]).sort((first, second) =>
         PRODUCT_NAME_COLLATOR.compare(first.productName, second.productName),
       );
       this.loadingProgress = 92;

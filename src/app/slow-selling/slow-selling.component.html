@@ -13,9 +13,6 @@
           <button type="button" class="btn btn-secondary" (click)="exportExcel()" [disabled]="loading || slowSellingRefreshing || filteredRows.length === 0">
             Xuất excel
           </button>
-          <button type="button" class="btn btn-primary" (click)="reloadActiveShop()" [disabled]="loading || slowSellingRefreshing || !activeShopCode">
-            {{ loading || slowSellingRefreshing ? "Đang tải..." : "Tải lại shop đang xem" }}
-          </button>
         </div>
       </div>
     </div>

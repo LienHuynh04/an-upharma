@@ -52,7 +52,7 @@ type StableMonthWindow = '1d' | '7d' | '3m' | '6m' | '9m';
   templateUrl: "./stable-consumption.component.html",
 })
 export class StableConsumptionComponent implements OnInit {
-  readonly endpoint = "/SalesInvoice/GetReportSalesSpeed";
+  readonly endpoint = "/SalesInvoice/GetStableConsumptionCalculated";
   shops: ShopInfo[] = [];
   activeShopCode = "";
   rows: StableItem[] = [];
@@ -440,8 +440,7 @@ export class StableConsumptionComponent implements OnInit {
         forceRefresh,
       });
       this.loadingProgress = 75;
-      const rows = this.filterRowsBySelectedDateRange(this.extractArray(response));
-      const stableRows = this.buildStableItems(rows, shop).sort((first, second) =>
+      const stableRows = (this.extractArray(response) as unknown as StableItem[]).sort((first, second) =>
         PRODUCT_NAME_COLLATOR.compare(first.productName, second.productName),
       );
       this.loadingProgress = 92;

@@ -186,6 +186,14 @@ export class OutOfStockComponent implements OnInit {
     return this.loadedShopKeys.has(this.getLoadedShopKey(this.activeShopCode));
   }
 
+  get plannedCount(): number {
+    return this.filteredRows.filter((row) => row.status === "Đã dự trù").length;
+  }
+
+  get unplannedCount(): number {
+    return this.filteredRows.filter((row) => row.status !== "Đã dự trù").length;
+  }
+
   get mobileFilterSummary(): string {
     const filterCount = Object.values(this.textFilters).filter((value) => value.trim()).length;
     return filterCount > 0 ? `${filterCount} bộ lọc đang dùng` : "Chưa có bộ lọc";

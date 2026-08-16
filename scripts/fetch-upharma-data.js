@@ -382,6 +382,38 @@ async function run() {
             data: mappedArray,
             fetchedAt: new Date().toISOString(),
           });
+
+          if (resourceName === 'sales_speed') {
+            try {
+              const { stableRows, slowRows } = precalculateSalesSpeed(mappedArray, shop);
+              
+              await db.ref(`shops/${shop.ShopCode}/upharma_data/stable_consumption_calculated`).set({
+                success: true,
+                resource: 'stable_consumption_calculated',
+                shop: {
+                  ShopCode: shop.ShopCode,
+                  ShopName: shop.ShopName,
+                },
+                data: stableRows,
+                fetchedAt: new Date().toISOString(),
+              });
+              console.log(`[sales_speed] Precalculated stable_consumption_calculated for ${shop.ShopCode} (${stableRows.length} items)`);
+
+              await db.ref(`shops/${shop.ShopCode}/upharma_data/slow_selling_calculated`).set({
+                success: true,
+                resource: 'slow_selling_calculated',
+                shop: {
+                  ShopCode: shop.ShopCode,
+                  ShopName: shop.ShopName,
+                },
+                data: slowRows,
+                fetchedAt: new Date().toISOString(),
+              });
+              console.log(`[sales_speed] Precalculated slow_selling_calculated for ${shop.ShopCode} (${slowRows.length} items)`);
+            } catch (err) {
+              console.warn(`Lỗi khi tính toán trước Hàng lặp tốt/chậm của shop ${shop.ShopCode}:`, err);
+            }
+          }
         }
 
         console.log(`[${resourceName}] DONE ${shop.ShopCode} (${mappedArray.length} records, ${Math.round((Date.now() - startedAt) / 1000)}s)`);
@@ -431,3 +463,178 @@ run().catch((error) => {
   clearInterval(heartbeatTimer);
   process.exit(1);
 });
+
+function pick(obj, keys) {
+  if (!obj) return "";
+  for (const key of keys) {
+    if (obj[key] !== undefined && obj[key] !== null) {
+      return obj[key];
+    }
+  }
+  return "";
+}
+
+function parseDateTimeValue(value) {
+  if (!value) return null;
+  const text = String(value).trim();
+  const isoMatch = text.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/);
+  const viMatch = text.match(/^(\d{2})[/-](\d{2})[/-](\d{4})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+
+  if (isoMatch) {
+    return new Date(
+      Number(isoMatch[1]),
+      Number(isoMatch[2]) - 1,
+      Number(isoMatch[3]),
+      Number(isoMatch[4] || 0),
+      Number(isoMatch[5] || 0),
+      Number(isoMatch[6] || 0)
+    ).getTime();
+  }
+  if (viMatch) {
+    return new Date(
+      Number(viMatch[3]),
+      Number(viMatch[2]) - 1,
+      Number(viMatch[1]),
+      Number(viMatch[4] || 0),
+      Number(viMatch[5] || 0),
+      Number(viMatch[6] || 0)
+    ).getTime();
+  }
+  const parsed = new Date(text).getTime();
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+function toNumber(value) {
+  if (typeof value === "number") return value;
+  const normalizedValue = String(value ?? "").replace(",", ".").trim();
+  const num = Number(normalizedValue);
+  return Number.isNaN(num) ? 0 : num;
+}
+
+function precalculateSalesSpeed(rows, shop) {
+  const now = new Date();
+  const completedMonthKeys = [];
+  const completedMonthSessions = [];
+  for (let offset = 3; offset >= 1; offset -= 1) {
+    const date = new Date(now.getFullYear(), now.getMonth() - offset, 1);
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+    completedMonthKeys.push(key);
+    completedMonthSessions.push({
+      key,
+      sessionText: `${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()}`,
+      label: `${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()}`,
+      date
+    });
+  }
+
+  const groupedRows = new Map();
+  for (const row of rows) {
+    const productCode = String(pick(row, ["ProductID", "ProductCode", "Product_ID", "MaSP", "MaSanPham", "ItemCode", "Code"])).trim();
+    if (!productCode || productCode.toUpperCase().startsWith("Y")) {
+      continue;
+    }
+    if (!groupedRows.has(productCode)) {
+      groupedRows.set(productCode, []);
+    }
+    groupedRows.get(productCode).push(row);
+  }
+
+  const stableRows = [];
+  const slowRows = [];
+
+  for (const [productCode, productRows] of groupedRows.entries()) {
+    const monthMap = new Map();
+    for (const m of completedMonthSessions) {
+      monthMap.set(m.key, {
+        key: m.key,
+        sessionText: m.sessionText,
+        label: m.label,
+        quantity: 0,
+        date: m.date
+      });
+    }
+
+    for (const row of productRows) {
+      const parsedTime = parseDateTimeValue(pick(row, ["TimeBegin", "TimeStart", "BeginTime", "StartTime", "Date", "Ngay"]));
+      let date = null;
+      if (parsedTime !== null) {
+        const d = new Date(parsedTime);
+        date = new Date(d.getFullYear(), d.getMonth(), 1);
+      } else {
+        const session = String(pick(row, ["Session", "Ky", "Thang"]));
+        const match = session.match(/(\d{1,2}).*?(\d{4})/);
+        if (match) {
+          date = new Date(Number(match[2]), Number(match[1]) - 1, 1);
+        }
+      }
+
+      if (!date) continue;
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      if (monthMap.has(key)) {
+        const current = monthMap.get(key);
+        const qty = toNumber(pick(row, ["Quantity", "Qty", "SL", "SoLuong", "QuantitySale", "TotalQuantity", "QtySale"]));
+        current.quantity += qty;
+      }
+    }
+
+    const monthList = completedMonthKeys.map(key => monthMap.get(key));
+
+    const totalQuantity = monthList.reduce((sum, m) => sum + m.quantity, 0);
+    const maxMonthQuantity = Math.max(...monthList.map(m => m.quantity));
+
+    const firstRow = productRows[0];
+    const productName = String(pick(firstRow, ["ProductName", "Product_Name", "ProductFullName", "TenSP", "TenSanPham", "Name", "ItemName"])).trim();
+    const unit = String(pick(firstRow, ["UnitOfMeasure", "UnitName", "Unit", "DonVi", "DonViTinh", "DVT"])) || "--";
+    const quantityExist = pick(firstRow, ["QuantityExist", "ExistQuantity", "TonKho", "InventoryQuantity", "RemainQty"]);
+    const quantityExistText = quantityExist === "" ? "--" : String(quantityExist);
+
+    const isStable = monthList.every(m => m.quantity >= 2);
+    if (isStable) {
+      stableRows.push({
+        rowKey: [shop.ShopCode, productCode].join("|"),
+        shopCode: shop.ShopCode,
+        productCode,
+        productName,
+        unit,
+        quantityExistText,
+        stableMonths: monthList.map(m => ({
+          key: m.key,
+          sessionText: m.sessionText,
+          label: m.label,
+          quantity: m.quantity,
+          quantityText: String(m.quantity),
+          date: m.date.toISOString()
+        })),
+        totalQuantity,
+        maxMonthQuantity,
+        expanded: false
+      });
+    }
+
+    const hasAtLeastOneMonthBelowTwo = monthList.some(m => m.quantity < 2);
+    const hasAtLeastOneSale = monthList.some(m => m.quantity > 0);
+    if (hasAtLeastOneMonthBelowTwo && hasAtLeastOneSale) {
+      slowRows.push({
+        rowKey: [shop.ShopCode, productCode].join("|"),
+        shopCode: shop.ShopCode,
+        productCode,
+        productName,
+        unit,
+        quantityExistText,
+        slowMonths: monthList.map(m => ({
+          key: m.key,
+          sessionText: m.sessionText,
+          label: m.label,
+          quantity: m.quantity,
+          quantityText: String(m.quantity),
+          date: m.date.toISOString()
+        })),
+        totalQuantity,
+        maxMonthQuantity,
+        expanded: false
+      });
+    }
+  }
+
+  return { stableRows, slowRows };
+}
