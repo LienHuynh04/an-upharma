@@ -60,7 +60,7 @@ async function requestUpharma(pathname, payload) {
 function extractArray(data) {
   if (Array.isArray(data)) return data;
   if (!data || typeof data !== "object") return [];
-  const preferredKeys = ["SalesSpeedLst", "Data", "data", "DataLst", "ListData", "InventoryLst", "InventoryList", "Table", "Rows"];
+  const preferredKeys = ["SalesSpeedLst", "Data", "data", "DataLst", "ListData", "InventoryLst", "InventoryList", "Table", "Rows", "ProductLst"];
   for (const key of preferredKeys) {
     if (Array.isArray(data[key])) return data[key];
   }
