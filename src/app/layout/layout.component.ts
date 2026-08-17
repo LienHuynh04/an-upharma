@@ -383,6 +383,28 @@ function parseNumericValue(val) {
   return Number(cleaned) || 0;
 }
 
+function parseDate(value) {
+  if (!value) return null;
+  if (value instanceof Date) return value;
+  const text = String(value).trim();
+  const aspNetDate = text.match(/\/Date\((\d+)\)\//);
+  if (aspNetDate) return new Date(Number(aspNetDate[1]));
+  const ddmmyyyy = text.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+  if (ddmmyyyy) return new Date(Number(ddmmyyyy[3]), Number(ddmmyyyy[2]) - 1, Number(ddmmyyyy[1]));
+  const date = new Date(text.replace(" ", "T"));
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function getExpiryDaysRemaining(value) {
+  const date = parseDate(value);
+  if (!date) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const expiry = new Date(date);
+  expiry.setHours(0, 0, 0, 0);
+  return Math.floor((expiry.getTime() - today.getTime()) / 86400000);
+}
+
 function normalizeInventoryRow(row) {
   const productName = String(pick(row, ["ProductName", "Product_Name", "ProductFullName", "Product_Name_Full", "TenSP", "TenSanPham", "Name", "ItemName"])).trim();
   const expiry = pick(row, ["ExpDate", "ExpireDate", "ExpiredDate", "ExpiryDate", "ExpDateTxt", "ExpDateText", "ExpireDateTxt", "ExpiredDateTxt", "HanDung", "HSD", "DateExp", "DateExpired", "DateExpire", "UseDate", "ValidDate", "ShelfLifeDate", "LotExpireDate", "NgayHetHan", "NgayHSD"]);
@@ -394,8 +416,9 @@ function normalizeInventoryRow(row) {
   const priceValue = parseNumericValue(price);
   const quantityValue = parseNumericValue(quantity);
   const stockValue = priceValue * quantityValue;
+  const expiryDaysRemaining = getExpiryDaysRemaining(expiry);
   
-  return { productName, productCode, shopCode, price: priceValue, quantity: quantityValue, stockValue, expiry: expiry ? String(expiry).trim() : "" };
+  return { productName, productCode, shopCode, price: priceValue, quantity: quantityValue, stockValue, expiry: expiry ? String(expiry).trim() : "", expiryDaysRemaining };
 }
 
 const shopCodes = Array.from(new Set([...rawEmployees.map(e => e.ShopCode), ...rawShopPlans.map(s => s.ShopCode)].filter(Boolean)));
