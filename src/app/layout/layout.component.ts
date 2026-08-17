@@ -432,15 +432,13 @@ shopCodes.forEach(code => {
     productSets.all.add(pCode);
     values.all += item.stockValue;
 
-    const today = new Date();
-    const expDate = item.expiry ? new Date(item.expiry.replace(' ', 'T')) : null;
-    if (!expDate || isNaN(expDate.getTime())) {
+    const diffDays = item.expiryDaysRemaining;
+    if (diffDays === null) {
       productSets.normal.add(pCode);
       values.normal += item.stockValue;
       return;
     }
 
-    const diffDays = Math.ceil((expDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
     if (diffDays < 0) {
       productSets.expired.add(pCode);
       values.expired += item.stockValue;
