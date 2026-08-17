@@ -288,11 +288,16 @@ export class UpharmaService {
                   }
 
                   const json = await response.json();
-                  if (!json || !Array.isArray(json.data)) {
-                    throw new Error("Firebase không có mảng data hợp lệ");
+                  if (!json || !json.data) {
+                    return [];
                   }
-
-                  return json.data as RawRecord[];
+                  if (Array.isArray(json.data)) {
+                    return json.data as RawRecord[];
+                  }
+                  if (typeof json.data === 'object') {
+                    return Object.values(json.data) as RawRecord[];
+                  }
+                  return [];
                 })();
                 this.firebaseSalesSpeedInFlight.set(cacheKey, request);
               }
@@ -381,7 +386,7 @@ export class UpharmaService {
   }
 
   private extractShopCodesFromPayload(payload: RawRecord): string[] {
-    const raw = payload["ShopLst"];
+    const raw = payload["ShopLst"] || payload["ShopCode"];
 
     if (typeof raw === "string") {
       return raw
