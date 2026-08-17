@@ -207,7 +207,7 @@ export class ShopPlanIconComponent {
                   <span>Tỉ trọng HHS: <strong class="text-success">{{ formatPercent(item.QuantityHHS, item.SKU) }}</strong></span>
                 </div>
               </div>
-              <div class="card-body border-bottom">
+              <div class="card-body">
                 <div class="row g-2 text-center">
                   <div class="col-4">
                     <div class="text-secondary small fw-bold">Tỉ trọng</div>
@@ -220,36 +220,6 @@ export class ShopPlanIconComponent {
                   <div class="col-4">
                     <div class="text-secondary small fw-bold">Dự kiến HS</div>
                     <div class="h4 mb-0">{{ formatNumber(getProjectedValue(getHhsDisplayValue(item), item.Month)) }}</div>
-                  </div>
-                </div>
-              </div>
-              <div class="card-body border-bottom">
-                <div class="h4 mb-3 d-flex align-items-center gap-2"><app-shop-plan-icon name="users"></app-shop-plan-icon> Khách hàng</div>
-                <div class="row g-2 text-center">
-                  <div class="col-4 rounded p-2" style="background: rgba(120, 120, 120, 0.1) !important;">
-                    <div class="text-secondary small fw-bold">Tổng</div>
-                    <div class="h3 mb-0">{{ formatNumber(item.QuaCustomer) }}</div>
-                    <div class="text-danger small fw-bold">{{ formatNumber(item.QuaCustomerR) }}</div>
-                  </div>
-                  <div class="col-4 rounded p-2" style="background: rgba(120, 120, 120, 0.1) !important;">
-                    <div class="text-secondary small fw-bold">Đơn bán</div>
-                    <div class="h3 mb-0">{{ formatNumber(item.QuaInvoiceR) }}</div>
-                    <div class="text-danger small fw-bold">{{ formatNumber(item.QuaInvoice) }}</div>
-                  </div>
-                  <div class="col-4 rounded p-2" style="background: rgba(120, 120, 120, 0.1) !important;">
-                    <div class="text-secondary small fw-bold">TB Bill</div>
-                    <div class="h3 mb-0">{{ formatNumber(item.PointSales01R) }}</div>
-                    <div class="text-danger small fw-bold">{{ formatNumber(item.PointSales01) }}</div>
-                  </div>
-                </div>
-              </div>
-              <div class="card-body">
-                <div class="h4 mb-3 d-flex align-items-center gap-2"><app-shop-plan-icon name="star"></app-shop-plan-icon> Khách đạt hạng</div>
-                <div class="row g-2 text-center">
-                  <div class="col-2 rounded p-2" style="background: rgba(120, 120, 120, 0.1) !important;" *ngFor="let level of customerLevels">
-                    <div class="text-secondary small fw-bold">{{ level.label }}</div>
-                    <div class="h4 mb-0">{{ formatNumber(getLevelValue(item, level.key)) }}</div>
-                    <div class="text-secondary small fw-bold">{{ formatNumber(getLevelRealValue(item, level.key)) }}</div>
                   </div>
                 </div>
               </div>

@@ -59,7 +59,7 @@ interface SalesInvoiceReportCacheEntry {
           <div class="row g-3 align-items-end">
             <div class="col-md-4">
               <label class="form-label">Nhà thuốc</label>
-              <select class="form-select" [(ngModel)]="selectedShopCode" name="selectedShopCode">
+              <select class="form-select" [(ngModel)]="selectedShopCode" (ngModelChange)="onShopChange()" name="selectedShopCode">
                 <option *ngFor="let shop of shops" [ngValue]="shop.ShopCode">{{ shop.ShopCode }} - {{ shop.ShopName }}</option>
               </select>
             </div>
@@ -202,8 +202,12 @@ export class SalesInvoiceReportComponent implements OnInit {
   }
 
   get employeeOptions(): string[] {
-    return [...new Set(this.allItems.map((item) => item.employeeName).filter(Boolean))]
-      .sort((first, second) => first.localeCompare(second, "vi"));
+    return [...new Set(
+      this.allItems
+        .filter((item) => !item.shopCode || item.shopCode === this.selectedShopCode)
+        .map((item) => item.employeeName)
+        .filter(Boolean)
+    )].sort((first, second) => first.localeCompare(second, "vi"));
   }
 
   get filteredTotalAmount(): number {
@@ -226,6 +230,9 @@ export class SalesInvoiceReportComponent implements OnInit {
     const summaries = new Map<string, EmployeeReportSummary>();
 
     for (const item of this.allItems) {
+      if (this.selectedShopCode && item.shopCode && item.shopCode !== this.selectedShopCode) {
+        continue;
+      }
       if (!item.employeeName || !this.matchesExpiryRange(item, this.selectedRange)) {
         continue;
       }
@@ -257,9 +264,14 @@ export class SalesInvoiceReportComponent implements OnInit {
     return this.allItems.filter((item) => this.matchesFilters(item, range)).length;
   }
 
-  selectRange(range: RangeKey): void {
+   selectRange(range: RangeKey): void {
     this.selectedRange = range;
     this.applyExpiryFilter();
+    void this.loadData();
+  }
+
+  onShopChange(): void {
+    void this.loadData();
   }
 
   onEmployeeFilterChange(): void {
@@ -343,13 +355,14 @@ export class SalesInvoiceReportComponent implements OnInit {
     const expiryDate = this.pick(row, ["ExpirationDate", "ExpDate", "ExpiryDate", "ExpiredDate", "ExpireDate", "ExpDateTxt", "ExpDateText", "ExpiryDateText", "DateExpire", "DateExpired", "DateExp", "HSD", "HanDung", "LotExpireDate", "BatchExpDate"]);
     const saleDate = this.pick(row, ["OrderDate", "SaleDate", "InvoiceDate", "PostingDate", "DateCreate", "TimeCreate", "CreatedDate", "TimeInvoice"]);
     const amount = this.pick(row, ["AmountIncludingVAT", "AmountIncludingAdjust", "Amount", "TotalAmount", "ThanhTien"]);
+    const rowShopCode = row["ShopCode"] || row["__shopCode"] || row["BranchCode"] || row["StoreCode"] || row["Shop_Code"];
     return {
       rowKey: `${productCode}|${employeeName}|${index}`,
       employeeName: String(employeeName || "").trim(),
       productCode: String(productCode || "").trim(),
       expiryDaysAtSale: this.calculateInclusiveDays(saleDate, expiryDate),
       expiryDateText: this.formatAnyDate(expiryDate),
-      shopCode: this.selectedShopCode,
+      shopCode: rowShopCode ? String(rowShopCode).trim() : this.selectedShopCode,
       saleDateText: this.formatAnyDate(saleDate),
       amount: this.parseNumber(amount),
       raw: row,
@@ -369,6 +382,10 @@ export class SalesInvoiceReportComponent implements OnInit {
   }
 
   private matchesFilters(item: SalesInvoiceReportItem, range: RangeKey): boolean {
+    if (this.selectedShopCode && item.shopCode && item.shopCode !== this.selectedShopCode) {
+      return false;
+    }
+
     if (this.selectedEmployeeName && item.employeeName !== this.selectedEmployeeName) {
       return false;
     }

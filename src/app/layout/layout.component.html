@@ -16,7 +16,20 @@
       <!-- Brand -->
       <h1 class="navbar-brand navbar-brand-autodark pe-0 pe-md-3 me-3">
         <a routerLink="/dashboard" class="text-decoration-none d-flex align-items-center text-white">
-          <span class="avatar avatar-sm bg-primary text-white me-2" style="width: 32px; height: 32px; line-height: 32px; font-weight: bold;">U</span>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" class="me-2" style="width: 32px; height: 32px;">
+            <defs>
+              <linearGradient id="navPillGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#ffb834" />
+                <stop offset="100%" stop-color="#f05a28" />
+              </linearGradient>
+              <linearGradient id="navLeafGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stop-color="#009245" />
+                <stop offset="100%" stop-color="#8cc63f" />
+              </linearGradient>
+            </defs>
+            <path d="M 12 8 A 4 4 0 0 1 20 8 L 20 12 L 12 12 Z" fill="url(#navPillGrad)" />
+            <path d="M 9 10 C 7 10, 7 18, 7 20 C 7 24.5, 11 27, 16 27 C 21 27, 25 24.5, 25 20 C 25 18, 25 10, 23 10 C 22.5 10, 22 13, 22 16 C 22 21.5, 19 23, 16 23 C 13 23, 10 21.5, 10 16 C 10 13, 9.5 10, 9 10 Z" fill="url(#navLeafGrad)" />
+          </svg>
           <strong style="font-size: 18px; letter-spacing: 0.5px;">UPHARMA</strong>
         </a>
       </h1>
