@@ -12,6 +12,10 @@
         ".write": "auth != null"
       }
     },
+    "hidden_products": {
+      ".read": "true",
+      ".write": "true"
+    },
     "shops": {
       "$shopCode": {
         "upharma_data": {

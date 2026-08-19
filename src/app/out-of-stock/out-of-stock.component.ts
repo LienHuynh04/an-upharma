@@ -4,6 +4,7 @@ import { FormsModule } from "@angular/forms";
 import { Router } from "@angular/router";
 import { formatMoney, normalizeFilterText, PRODUCT_NAME_COLLATOR } from "../inventory-utils";
 import { RawRecord, ShopInfo, UpharmaService } from "../upharma.service";
+import { environment } from "../../environments/environment";
 
 interface OutOfStockShopTab {
   shopCode: string;
@@ -118,6 +119,13 @@ export class OutOfStockComponent implements OnInit {
   private inventoryAvailabilityPromises = new Map<string, Promise<Set<string>>>();
   private stoppedProductPromises = new Map<string, Promise<Set<string>>>();
   private transferOrderProcessPromises = new Map<string, Promise<Set<string>>>();
+  hiddenProductCodes = new Set<string>();
+  showHiddenMode = false;
+
+  private get dbUrl(): string {
+    const url = (environment as any).firebaseDbUrl || "";
+    return url.replace(/\/$/, "");
+  }
 
   constructor(
     private readonly upharmaService: UpharmaService,
@@ -181,6 +189,13 @@ export class OutOfStockComponent implements OnInit {
         return false;
       }
 
+      const isHidden = this.hiddenProductCodes.has(row.productCode);
+      if (this.showHiddenMode) {
+        if (!isHidden) return false;
+      } else {
+        if (isHidden) return false;
+      }
+
       return this.matchesColumnFilters(row);
     }).sort((first, second) => {
       const firstPriority = this.getMonthPriority(this.normalizeMonthKey(first.shortageMonth));
@@ -208,7 +223,8 @@ export class OutOfStockComponent implements OnInit {
     return this.rows.filter((row) => {
       return row.shopCode === this.activeShopCode &&
              row.zeroStock &&
-             this.normalizeMonthKey(row.shortageMonth) === this.getFilterMonthKey();
+             this.normalizeMonthKey(row.shortageMonth) === this.getFilterMonthKey() &&
+             !this.hiddenProductCodes.has(row.productCode);
     }).length;
   }
 
@@ -217,7 +233,8 @@ export class OutOfStockComponent implements OnInit {
       return row.shopCode === this.activeShopCode &&
              row.zeroStock &&
              this.normalizeMonthKey(row.shortageMonth) === this.getFilterMonthKey() &&
-             row.status === "Đã dự trù";
+             row.status === "Đã dự trù" &&
+             !this.hiddenProductCodes.has(row.productCode);
     }).length;
   }
 
@@ -226,7 +243,8 @@ export class OutOfStockComponent implements OnInit {
       return row.shopCode === this.activeShopCode &&
              row.zeroStock &&
              this.normalizeMonthKey(row.shortageMonth) === this.getFilterMonthKey() &&
-             row.status !== "Đã dự trù";
+             row.status !== "Đã dự trù" &&
+             !this.hiddenProductCodes.has(row.productCode);
     }).length;
   }
 
@@ -279,6 +297,7 @@ export class OutOfStockComponent implements OnInit {
       return;
     }
 
+    await this.loadHiddenProducts(shopCode);
     void this.refreshPlannedStatusForShop(shopCode);
   }
 
@@ -519,6 +538,95 @@ export class OutOfStockComponent implements OnInit {
     await this.router.navigateByUrl("/login");
   }
 
+  async loadHiddenProducts(shopCode: string): Promise<void> {
+    const session = this.upharmaService.getSession();
+    if (!session) return;
+    const uPharmaID = session.UserInfo.uPharmaID;
+    
+    if (!this.dbUrl) return;
+    
+    try {
+      const url = `${this.dbUrl}/hidden_products/${uPharmaID}/${shopCode}.json`;
+      const response = await fetch(url);
+      if (response.ok) {
+        const data = await response.json();
+        this.hiddenProductCodes = new Set(data ? Object.keys(data) : []);
+      } else {
+        this.hiddenProductCodes = new Set();
+      }
+    } catch (error) {
+      console.error("Lỗi khi tải danh sách sản phẩm ẩn:", error);
+      this.hiddenProductCodes = new Set();
+    }
+  }
+
+  async hideProduct(item: OutOfStockItem, event: Event): Promise<void> {
+    event.stopPropagation();
+    const session = this.upharmaService.getSession();
+    if (!session) return;
+    const uPharmaID = session.UserInfo.uPharmaID;
+    
+    if (!this.dbUrl) return;
+    
+    try {
+      const url = `${this.dbUrl}/hidden_products/${uPharmaID}/${item.shopCode}/${item.productCode}.json`;
+      const response = await fetch(url, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(true),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      
+      this.hiddenProductCodes.add(item.productCode);
+      if (this.displayedRows.length === 0 && this.currentPage > 1) {
+        this.currentPage--;
+      }
+      console.log(`Đã ẩn sản phẩm: ${item.productCode}`);
+    } catch (error) {
+      console.error("Lỗi khi ẩn sản phẩm:", error);
+      alert("Không thể ẩn sản phẩm. Vui lòng thử lại.");
+    }
+  }
+
+  async unhideProduct(item: OutOfStockItem, event: Event): Promise<void> {
+    event.stopPropagation();
+    const session = this.upharmaService.getSession();
+    if (!session) return;
+    const uPharmaID = session.UserInfo.uPharmaID;
+    
+    if (!this.dbUrl) return;
+    
+    try {
+      const url = `${this.dbUrl}/hidden_products/${uPharmaID}/${item.shopCode}/${item.productCode}.json`;
+      const response = await fetch(url, {
+        method: "DELETE",
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      
+      this.hiddenProductCodes.delete(item.productCode);
+      if (this.displayedRows.length === 0 && this.currentPage > 1) {
+        this.currentPage--;
+      }
+      console.log(`Đã bỏ ẩn sản phẩm: ${item.productCode}`);
+    } catch (error) {
+      console.error("Lỗi khi bỏ ẩn sản phẩm:", error);
+      alert("Không thể bỏ ẩn sản phẩm. Vui lòng thử lại.");
+    }
+  }
+
+  toggleShowHiddenMode(): void {
+    this.showHiddenMode = !this.showHiddenMode;
+    this.currentPage = 1;
+  }
+
   private async loadShop(shopCode: string, forceReload = false): Promise<void> {
     const session = this.upharmaService.ensureLogin();
     const shop = this.shops.find((item) => item.ShopCode === shopCode);
@@ -526,6 +634,8 @@ export class OutOfStockComponent implements OnInit {
     if (!shop) {
       return;
     }
+
+    await this.loadHiddenProducts(shopCode);
 
     const loadedShopKey = this.getLoadedShopKey(shop.ShopCode);
 

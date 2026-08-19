@@ -45,21 +45,32 @@
     <div class="card" [class.filters-collapsed]="filtersCollapsed">
       <div class="card-header d-flex align-items-center justify-content-between">
         <div class="d-flex align-items-center flex-wrap gap-2">
-          <span class="badge bg-blue-lt" *ngIf="hasActiveShopLoaded" style="font-size: 0.9rem; padding: 6px 12px;">Tổng: {{ shopTotalCount }}</span>
-          <span class="badge bg-success-lt" *ngIf="hasActiveShopLoaded" style="font-size: 0.9rem; padding: 6px 12px;">Đã dự trù: {{ plannedCount }}</span>
-          <span class="badge bg-warning-lt" *ngIf="hasActiveShopLoaded" style="font-size: 0.9rem; padding: 6px 12px;">Chưa dự trù: {{ unplannedCount }}</span>
+          <ng-container *ngIf="!showHiddenMode">
+            <span class="badge bg-blue-lt" *ngIf="hasActiveShopLoaded" style="font-size: 0.9rem; padding: 6px 12px;">Tổng: {{ shopTotalCount }}</span>
+            <span class="badge bg-success-lt" *ngIf="hasActiveShopLoaded" style="font-size: 0.9rem; padding: 6px 12px;">Đã dự trù: {{ plannedCount }}</span>
+            <span class="badge bg-warning-lt" *ngIf="hasActiveShopLoaded" style="font-size: 0.9rem; padding: 6px 12px;">Chưa dự trù: {{ unplannedCount }}</span>
+          </ng-container>
+          <ng-container *ngIf="showHiddenMode">
+            <span class="badge bg-secondary-lt" *ngIf="hasActiveShopLoaded" style="font-size: 0.9rem; padding: 6px 12px;">Đang ẩn: {{ hiddenProductCodes.size }} sản phẩm</span>
+          </ng-container>
         </div>
-
+        <div class="d-flex align-items-center gap-2">
+          <button type="button" class="btn btn-sm" [class.btn-outline-secondary]="!showHiddenMode" [class.btn-yellow]="showHiddenMode" (click)="toggleShowHiddenMode()" *ngIf="hasActiveShopLoaded">
+            <i class="ti me-1" [class.ti-eye-off]="!showHiddenMode" [class.ti-eye]="showHiddenMode"></i>
+            {{ showHiddenMode ? 'Quay lại danh sách' : 'Những cái tôi ẩn' }}
+          </button>
+        </div>
       </div>
       <div class="card-body p-0">
         <div class="table-responsive">
           <table class="table table-vcenter card-table table-striped table-hover" style="table-layout: fixed; width: 100%;">
           <thead>
             <tr>
-              <th style="width: 60px;">STT</th>
-              <th style="width: 60%;">Tên SP</th>
-              <th style="width: 20%;">Mã SP</th>
-              <th style="width: 20%;">Trạng thái</th>
+              <th style="width: 50px;">STT</th>
+              <th style="width: 50%;">Tên SP</th>
+              <th style="width: 18%;">Mã SP</th>
+              <th style="width: 17%;">Trạng thái</th>
+              <th style="width: 15%;">Hành động</th>
             </tr>
             <tr class="column-filter-row" id="outStockColumnFilters">
               <th></th>
@@ -76,21 +87,22 @@
                   <option value="Chưa dự trù">Chưa dự trù</option>
                 </select>
               </th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
             <tr *ngIf="!loading && !hasActiveShopLoaded && outStockRefreshing">
-              <td colspan="4" class="text-center text-secondary py-4">
+              <td colspan="5" class="text-center text-secondary py-4">
                 Đang tải dữ liệu cho {{ activeShopCode }}. Chị vẫn có thể đổi shop trong lúc chờ.
               </td>
             </tr>
             <tr *ngIf="!loading && !hasActiveShopLoaded && !outStockRefreshing">
-              <td colspan="4" class="text-center text-secondary py-4">
+              <td colspan="5" class="text-center text-secondary py-4">
                 Chọn một nhà thuốc ở phía trên để xem danh sách hàng đã hết của nhà thuốc đó.
               </td>
             </tr>
             <tr *ngIf="!loading && hasActiveShopLoaded && filteredRows.length === 0">
-              <td colspan="4" class="text-center text-secondary py-4">
+              <td colspan="5" class="text-center text-secondary py-4">
                 Chưa có dữ liệu từ API tốc độ tiêu thụ cho shop này.
               </td>
             </tr>
@@ -125,6 +137,14 @@
                 <span *ngIf="item.status !== 'Đã dự trù'" class="status-chip status-chip--unplanned">
                   Chưa dự trù
                 </span>
+              </td>
+              <td data-label="Hành động">
+                <button *ngIf="!showHiddenMode" type="button" class="btn btn-sm btn-outline-secondary" (click)="hideProduct(item, $event)" title="Ẩn sản phẩm này">
+                  <i class="ti ti-eye-off me-1"></i>Ẩn
+                </button>
+                <button *ngIf="showHiddenMode" type="button" class="btn btn-sm btn-outline-success" (click)="unhideProduct(item, $event)" title="Bỏ ẩn sản phẩm này">
+                  <i class="ti ti-eye me-1"></i>Bỏ ẩn
+                </button>
               </td>
             </tr>
           </tbody>
