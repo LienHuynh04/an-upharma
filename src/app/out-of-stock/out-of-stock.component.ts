@@ -55,45 +55,7 @@ export class OutOfStockComponent implements OnInit {
   loading = false;
   loadingProgress = 0;
   outStockRefreshing = false;
-  currentPage = 1;
-  pageSize = 25;
-  readonly renderBatchSize = 25;
-
-  get totalPages(): number {
-    return Math.ceil(this.filteredRows.length / this.pageSize) || 1;
-  }
-
-  get pageNumbers(): number[] {
-    const total = this.totalPages;
-    const current = this.currentPage;
-    const maxVisible = 5;
-    
-    let start = Math.max(1, current - 2);
-    let end = Math.min(total, start + maxVisible - 1);
-    
-    if (end - start + 1 < maxVisible) {
-      start = Math.max(1, end - maxVisible + 1);
-    }
-    
-    const pages = [];
-    for (let i = start; i <= end; i++) {
-      pages.push(i);
-    }
-    return pages;
-  }
-
-  setPage(page: number): void {
-    if (page < 1 || page > this.totalPages) return;
-    this.currentPage = page;
-  }
-
-  prevPage(): void {
-    this.setPage(this.currentPage - 1);
-  }
-
-  nextPage(): void {
-    this.setPage(this.currentPage + 1);
-  }
+  visibleCount = 50;
 
   isAppendingRows = false;
   outStockCacheStatus = "";
@@ -121,6 +83,8 @@ export class OutOfStockComponent implements OnInit {
   private transferOrderProcessPromises = new Map<string, Promise<Set<string>>>();
   hiddenProductCodes = new Set<string>();
   showHiddenMode = false;
+  hideConfirmOpen = false;
+  itemToHide: OutOfStockItem | null = null;
 
   private get dbUrl(): string {
     const url = (environment as any).firebaseDbUrl || "";
@@ -210,9 +174,7 @@ export class OutOfStockComponent implements OnInit {
   }
 
   get displayedRows(): OutOfStockItem[] {
-    const start = (this.currentPage - 1) * this.pageSize;
-    const end = start + this.pageSize;
-    return this.filteredRows.slice(start, end);
+    return this.filteredRows.slice(0, this.visibleCount);
   }
 
   get hasActiveShopLoaded(): boolean {
@@ -290,7 +252,7 @@ export class OutOfStockComponent implements OnInit {
 
   async setActiveShop(shopCode: string): Promise<void> {
     this.activeShopCode = shopCode;
-    this.currentPage = 1;
+    this.visibleCount = 50;
 
     if (!this.loadedShopKeys.has(this.getLoadedShopKey(shopCode))) {
       await this.loadShop(shopCode);
@@ -375,32 +337,20 @@ export class OutOfStockComponent implements OnInit {
     }
   }
 
-  onTableWheel(event: WheelEvent): void {
-    const target = event.currentTarget as HTMLElement | null;
-    if (!target || event.deltaY <= 0) {
-      return;
-    }
-
-    const reachedBottom = target.scrollTop + target.clientHeight >= target.scrollHeight - 80;
-    if (reachedBottom && this.displayedRows.length < this.filteredRows.length && !this.isAppendingRows) {
-      this.loadMoreRows();
-    }
-  }
-
   loadMoreRows(): void {
     if (this.isAppendingRows || this.displayedRows.length >= this.filteredRows.length) {
       return;
     }
 
     this.isAppendingRows = true;
-    this.currentPage = Math.min(this.totalPages, this.currentPage + 1);
+    this.visibleCount += 25;
     window.setTimeout(() => {
       this.isAppendingRows = false;
     }, 150);
   }
 
   private resetVisibleRows(): void {
-    this.currentPage = 1;
+    this.visibleCount = 50;
     this.isAppendingRows = false;
   }
 
@@ -560,8 +510,23 @@ export class OutOfStockComponent implements OnInit {
     }
   }
 
-  async hideProduct(item: OutOfStockItem, event: Event): Promise<void> {
+  hideProduct(item: OutOfStockItem, event: Event): void {
     event.stopPropagation();
+    this.itemToHide = item;
+    this.hideConfirmOpen = true;
+  }
+
+  cancelHide(): void {
+    this.hideConfirmOpen = false;
+    this.itemToHide = null;
+  }
+
+  async executeHideProduct(): Promise<void> {
+    if (!this.itemToHide) return;
+    const item = this.itemToHide;
+    this.hideConfirmOpen = false;
+    this.itemToHide = null;
+
     const session = this.upharmaService.getSession();
     if (!session) return;
     const uPharmaID = session.UserInfo.uPharmaID;
@@ -583,9 +548,6 @@ export class OutOfStockComponent implements OnInit {
       }
       
       this.hiddenProductCodes.add(item.productCode);
-      if (this.displayedRows.length === 0 && this.currentPage > 1) {
-        this.currentPage--;
-      }
       console.log(`Đã ẩn sản phẩm: ${item.productCode}`);
     } catch (error) {
       console.error("Lỗi khi ẩn sản phẩm:", error);
@@ -612,9 +574,6 @@ export class OutOfStockComponent implements OnInit {
       }
       
       this.hiddenProductCodes.delete(item.productCode);
-      if (this.displayedRows.length === 0 && this.currentPage > 1) {
-        this.currentPage--;
-      }
       console.log(`Đã bỏ ẩn sản phẩm: ${item.productCode}`);
     } catch (error) {
       console.error("Lỗi khi bỏ ẩn sản phẩm:", error);
@@ -624,7 +583,7 @@ export class OutOfStockComponent implements OnInit {
 
   toggleShowHiddenMode(): void {
     this.showHiddenMode = !this.showHiddenMode;
-    this.currentPage = 1;
+    this.visibleCount = 50;
   }
 
   private async loadShop(shopCode: string, forceReload = false): Promise<void> {

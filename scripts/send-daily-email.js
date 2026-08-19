@@ -36,6 +36,23 @@ try {
 
 async function run() {
   try {
+    // Tải thông tin user để lấy uPharmaID và danh sách sản phẩm bị ẩn
+    const UPHARMA_USERNAME = process.env.UPHARMA_USERNAME || "";
+    let uPharmaID = null;
+    if (UPHARMA_USERNAME) {
+      console.log(`Đang tải login_info cho user: ${UPHARMA_USERNAME}...`);
+      const userSnap = await db.ref(`users_by_username/${UPHARMA_USERNAME}/login_info`).once('value');
+      const userNode = userSnap.val();
+      if (userNode && userNode.uPharmaID) {
+        uPharmaID = userNode.uPharmaID;
+        console.log(`Đã lấy uPharmaID: ${uPharmaID}`);
+      }
+    }
+
+    console.log("Đang tải toàn bộ danh sách sản phẩm ẩn (hidden_products)...");
+    const hiddenSnap = await db.ref('hidden_products').once('value');
+    const hiddenData = hiddenSnap.val() || {};
+
     // 3. Tải danh sách tóm tắt cửa hàng
     console.log("Đang tải shops_summary...");
     const summarySnap = await db.ref('shops_summary').once('value');
@@ -54,14 +71,25 @@ async function run() {
     // 4. Duyệt qua từng shop để lấy chi tiết tất cả mặt hàng hết
     for (const sc of shopCodes) {
       const shopInfo = summaryMap[sc];
-      const count = Number(shopInfo.outOfStockCount) || 0;
-      totalOutOfStock += count;
 
       console.log(`Đang tải chi tiết hàng đã hết cho shop: ${sc}...`);
       const detailSnap = await db.ref(`shops/${sc}/upharma_data/out_of_stock_calculated`).once('value');
       const detailNode = detailSnap.val() || {};
       const items = Array.isArray(detailNode.data) ? detailNode.data : [];
       const shopName = (detailNode.shop && detailNode.shop.ShopName) ? detailNode.shop.ShopName : (shopInfo.shopName || sc);
+
+      // Tập hợp các mã sản phẩm bị ẩn của shop này
+      const hiddenCodes = new Set();
+      if (uPharmaID && hiddenData[uPharmaID] && hiddenData[uPharmaID][sc]) {
+        Object.keys(hiddenData[uPharmaID][sc]).forEach(code => hiddenCodes.add(code));
+      } else {
+        // Fallback: nếu không khớp uPharmaID cụ thể, gộp tất cả các user lại
+        Object.keys(hiddenData).forEach(uid => {
+          if (hiddenData[uid] && hiddenData[uid][sc]) {
+            Object.keys(hiddenData[uid][sc]).forEach(code => hiddenCodes.add(code));
+          }
+        });
+      }
 
       const allItems = items.map(item => {
         const rawStatus = (item.status || '').trim();
@@ -74,21 +102,30 @@ async function run() {
         };
       });
 
-      const plannedCount = allItems.filter(item => item.status === 'Đã dự trù').length;
-      const unplannedCount = allItems.filter(item => item.status !== 'Đã dự trù').length;
+      // Lọc tách biệt giữa hàng chưa ẩn và hàng đã ẩn
+      const outOfStockItems = allItems.filter(item => !hiddenCodes.has(item.productCode));
+      const hiddenItems = allItems.filter(item => hiddenCodes.has(item.productCode));
+
+      const plannedCount = outOfStockItems.filter(item => item.status === 'Đã dự trù').length;
+      const unplannedCount = outOfStockItems.filter(item => item.status !== 'Đã dự trù').length;
+
+      const activeCount = outOfStockItems.length;
+      totalOutOfStock += activeCount;
 
       shopsDetailList.push({
         shopCode: sc,
         shopName,
-        count,
+        count: activeCount,
         plannedCount,
         unplannedCount,
-        items: allItems
+        items: outOfStockItems,
+        hiddenCount: hiddenItems.length,
+        hiddenItems: hiddenItems
       });
     }
 
     if (totalOutOfStock === 0) {
-      console.log("Hôm nay không có sản phẩm nào hết hàng. Không gửi email.");
+      console.log("Hôm nay không có sản phẩm nào hết hàng (sau khi loại bỏ hàng đã ẩn). Không gửi email.");
       process.exit(0);
     }
 
@@ -104,12 +141,12 @@ async function run() {
         <tr style="border-bottom: 1px solid #e2e8f0;">
           <td style="padding: 12px; font-weight: bold; color: #1e293b;">${shop.shopCode}</td>
           <td style="padding: 12px; text-align: right; font-weight: bold; color: ${shop.count > 0 ? '#dc2626' : '#16a34a'};">
-            ${shop.count} mã (${shop.plannedCount} Đã dự trù, ${shop.unplannedCount} Chưa dự trù)
+            ${shop.count} mã (${shop.plannedCount} Đã dự trù, ${shop.unplannedCount} Chưa dự trù)${shop.hiddenCount > 0 ? ` | Đang ẩn: ${shop.hiddenCount}` : ''}
           </td>
         </tr>
       `;
 
-      if (shop.count > 0) {
+      if (shop.count > 0 || shop.hiddenCount > 0) {
         let itemRows = '';
         shop.items.forEach((item, idx) => {
           const isEven = idx % 2 === 1;
@@ -127,12 +164,27 @@ async function run() {
           `;
         });
 
-        shopDetailHtml += `
-          <div style="margin-top: 24px; padding: 16px; background: #fff; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-            <h3 style="margin: 0 0 12px 0; color: #0284c7; font-size: 15px; border-left: 4px solid #0284c7; padding-left: 8px; margin-bottom: 12px;">
-              ${shop.shopCode} (Có ${shop.count} mã đã hết - ${shop.plannedCount} Đã dự trù, ${shop.unplannedCount} Chưa dự trù)
-            </h3>
-            <div class="scroll-container" style="max-height: 380px; overflow-y: auto; overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+        let hiddenRows = '';
+        shop.hiddenItems.forEach((item, idx) => {
+          const isEven = idx % 2 === 1;
+          const rowBg = isEven ? '#f8fafc' : '#ffffff';
+          const isPlanned = item.status === 'Đã dự trù';
+          const statusBadge = `<span style="display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; background-color: ${isPlanned ? '#dcfce7; color: #16a34a;' : '#fee2e2; color: #ef4444;'}">${item.status}</span>`;
+          
+          hiddenRows += `
+            <tr style="border-bottom: 1px solid #f1f5f9; font-size: 13px; background-color: ${rowBg};">
+              <td style="padding: 10px 8px; color: #64748b; font-weight: 600;">${item.productCode}</td>
+              <td style="padding: 10px 8px; color: #64748b; line-height: 1.3;">${item.productName}</td>
+              <td style="padding: 10px 8px; color: #94a3b8; text-align: center;">${item.unit}</td>
+              <td style="padding: 10px 8px; text-align: center;">${statusBadge}</td>
+            </tr>
+          `;
+        });
+
+        let activeTableHtml = '';
+        if (shop.count > 0) {
+          activeTableHtml = `
+            <div class="scroll-container" style="max-height: 380px; overflow-y: auto; overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); margin-bottom: 16px;">
               <table style="width: 100%; border-collapse: collapse; text-align: left;">
                 <thead>
                   <tr style="position: sticky; top: 0; background-color: #f1f5f9; border-bottom: 2px solid #cbd5e1; font-size: 11px; color: #475569; text-transform: uppercase; z-index: 10; letter-spacing: 0.5px;">
@@ -147,6 +199,42 @@ async function run() {
                 </tbody>
               </table>
             </div>
+          `;
+        }
+
+        let hiddenTableHtml = '';
+        if (shop.hiddenCount > 0) {
+          hiddenTableHtml = `
+            <div style="margin-top: 12px;">
+              <div style="font-size: 12px; font-weight: bold; color: #64748b; margin-bottom: 6px; text-transform: uppercase;">
+                🚫 Danh sách hàng đã ẩn (${shop.hiddenCount} mã)
+              </div>
+              <div class="scroll-container" style="max-height: 250px; overflow-y: auto; overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); opacity: 0.85;">
+                <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                  <thead>
+                    <tr style="position: sticky; top: 0; background-color: #f1f5f9; border-bottom: 2px solid #cbd5e1; font-size: 11px; color: #475569; text-transform: uppercase; z-index: 10; letter-spacing: 0.5px;">
+                      <th style="padding: 10px 8px; width: 100px; background-color: #f1f5f9; position: sticky; top: 0; font-weight: bold;">Mã SP</th>
+                      <th style="padding: 10px 8px; background-color: #f1f5f9; position: sticky; top: 0; font-weight: bold;">Tên Sản Phẩm</th>
+                      <th style="padding: 10px 8px; text-align: center; width: 70px; background-color: #f1f5f9; position: sticky; top: 0; font-weight: bold;">ĐVT</th>
+                      <th style="padding: 10px 8px; text-align: center; width: 95px; background-color: #f1f5f9; position: sticky; top: 0; font-weight: bold;">Trạng Thái</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${hiddenRows}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          `;
+        }
+
+        shopDetailHtml += `
+          <div style="margin-top: 24px; padding: 16px; background: #fff; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+            <h3 style="margin: 0 0 12px 0; color: #0284c7; font-size: 15px; border-left: 4px solid #0284c7; padding-left: 8px; margin-bottom: 12px;">
+              ${shop.shopCode} (Có ${shop.count} mã đã hết - ${shop.plannedCount} Đã dự trù, ${shop.unplannedCount} Chưa dự trù)
+            </h3>
+            ${activeTableHtml}
+            ${hiddenTableHtml}
           </div>
         `;
       }

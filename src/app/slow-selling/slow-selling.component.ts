@@ -65,48 +65,7 @@ export class SlowSellingComponent implements OnInit {
   loading = false;
   loadingProgress = 0;
   slowSellingRefreshing = false;
-  currentPage = 1;
-  pageSize = 25;
-
-  get visibleLimit(): number {
-    return this.currentPage * this.pageSize;
-  }
-
-  get totalPages(): number {
-    return Math.ceil(this.filteredRows.length / this.pageSize) || 1;
-  }
-
-  get pageNumbers(): number[] {
-    const total = this.totalPages;
-    const current = this.currentPage;
-    const maxVisible = 5;
-    
-    let start = Math.max(1, current - 2);
-    let end = Math.min(total, start + maxVisible - 1);
-    
-    if (end - start + 1 < maxVisible) {
-      start = Math.max(1, end - maxVisible + 1);
-    }
-    
-    const pages = [];
-    for (let i = start; i <= end; i++) {
-      pages.push(i);
-    }
-    return pages;
-  }
-
-  setPage(page: number): void {
-    if (page < 1 || page > this.totalPages) return;
-    this.currentPage = page;
-  }
-
-  prevPage(): void {
-    this.setPage(this.currentPage - 1);
-  }
-
-  nextPage(): void {
-    this.setPage(this.currentPage + 1);
-  }
+  visibleCount = 50;
 
   isAppendingRows = false;
   slowSellingCacheStatus = "";
@@ -180,9 +139,7 @@ export class SlowSellingComponent implements OnInit {
   }
 
   get displayedRows(): SlowSellingItem[] {
-    const start = (this.currentPage - 1) * this.pageSize;
-    const end = start + this.pageSize;
-    return this.filteredRows.slice(start, end);
+    return this.filteredRows.slice(0, this.visibleCount);
   }
 
   get hasActiveShopLoaded(): boolean {
@@ -232,7 +189,7 @@ export class SlowSellingComponent implements OnInit {
 
   async setActiveShop(shopCode: string): Promise<void> {
     this.activeShopCode = shopCode;
-    this.currentPage = 1;
+    this.visibleCount = 50;
     this.clearTableFilters();
 
     if (!this.loadedShopKeys.has(this.getLoadedShopKey(shopCode))) {
@@ -276,7 +233,7 @@ export class SlowSellingComponent implements OnInit {
   async applyDateFilter(): Promise<void> {
     this.timeStart = this.toApiDateTime(this.startDateInput);
     this.timeEnd = this.toApiDateTime(this.endDateInput);
-    this.currentPage = 1;
+    this.visibleCount = 50;
     this.clearTableFilters();
     this.rows = this.rows.filter((row) => row.shopCode !== this.activeShopCode);
     this.loadedShopKeys.delete(this.getLoadedShopKey(this.activeShopCode));
@@ -286,6 +243,19 @@ export class SlowSellingComponent implements OnInit {
 
   onFilterChange(): void {
     this.resetVisibleRows();
+  }
+
+  onTableScroll(event: Event): void {
+    const target = event.target as HTMLElement | null;
+    if (!target) {
+      return;
+    }
+
+    const threshold = 160;
+    const reachedBottom = target.scrollTop + target.clientHeight >= target.scrollHeight - threshold;
+    if (reachedBottom && this.visibleCount < this.filteredRows.length) {
+      this.visibleCount += 25;
+    }
   }
 
   trackByShop(_: number, shop: SlowSellingShopTab): string {
@@ -334,7 +304,7 @@ export class SlowSellingComponent implements OnInit {
   }
 
   private resetVisibleRows(): void {
-    this.currentPage = 1;
+    this.visibleCount = 50;
     this.isAppendingRows = false;
   }
 

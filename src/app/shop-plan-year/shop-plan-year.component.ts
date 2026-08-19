@@ -101,7 +101,6 @@ export class ShopPlanIconComponent {
   standalone: true,
   imports: [CommonModule, FormsModule, ShopPlanIconComponent],
   template: `
-<div class="page-wrapper">
   <div class="page-header d-print-none">
     <div class="container-xl">
       <div class="row g-2 align-items-center">
@@ -109,8 +108,8 @@ export class ShopPlanIconComponent {
           <div class="page-pretitle">KẾ HOẠCH</div>
           <h2 class="page-title">Chỉ tiêu nhà thuốc trong năm</h2>
         </div>
-        <div class="col-auto ms-auto d-print-none">
-          <div class="d-flex align-items-center gap-2">
+        <div class="col-12 col-sm-auto ms-sm-auto mt-2 mt-sm-0 d-print-none">
+          <div class="d-flex flex-wrap align-items-center gap-2" style="flex-wrap: wrap;">
             <div class="d-flex align-items-center gap-2">
               <label class="form-label mb-0">Tháng</label>
               <select class="form-select" [(ngModel)]="selectedMonth" name="selectedMonth">
@@ -241,7 +240,6 @@ export class ShopPlanIconComponent {
       </div>
     </div>
   </div>
-</div>
   `,
   styles: [],
 })

@@ -139,48 +139,24 @@ export class InventoryNewComponent implements OnInit {
   activeShopCode = "";
   normalizedRows: InventoryItem[] = [];
   filteredRows: InventoryItem[] = [];
-  displayedRows: InventoryItem[] = [];
-  currentPage = 1;
-  pageSize = 20;
+  visibleCount = 50;
 
-  get totalPages(): number {
-    return Math.ceil(this.filteredRows.length / this.pageSize) || 1;
+  get displayedRows(): InventoryItem[] {
+    return this.filteredRows.slice(0, this.visibleCount);
   }
 
-  get pageNumbers(): number[] {
-    const total = this.totalPages;
-    const current = this.currentPage;
-    const maxVisible = 5;
-    
-    let start = Math.max(1, current - 2);
-    let end = Math.min(total, start + maxVisible - 1);
-    
-    if (end - start + 1 < maxVisible) {
-      start = Math.max(1, end - maxVisible + 1);
+  onTableScroll(event: Event): void {
+    const target = event.target as HTMLElement | null;
+    if (!target) {
+      return;
     }
-    
-    const pages = [];
-    for (let i = start; i <= end; i++) {
-      pages.push(i);
+
+    const threshold = 160;
+    const reachedBottom = target.scrollTop + target.clientHeight >= target.scrollHeight - threshold;
+    if (reachedBottom && this.visibleCount < this.filteredRows.length) {
+      this.visibleCount += 25;
     }
-    return pages;
   }
-
-  setPage(page: number): void {
-    if (page < 1 || page > this.totalPages) return;
-    this.currentPage = page;
-    this.updateDisplayedRows();
-  }
-
-  prevPage(): void {
-    this.setPage(this.currentPage - 1);
-  }
-
-  nextPage(): void {
-    this.setPage(this.currentPage + 1);
-  }
-
-  isAppendingRows = false;
   expirySummary: ExpirySummary = {
     expired: 0,
     danger: 0,
@@ -721,8 +697,7 @@ export class InventoryNewComponent implements OnInit {
       .map(([key, value]) => [key, normalizeFilterText(value)] as const)
       .filter(([, value]) => value);
 
-    this.currentPage = 1;
-    this.isAppendingRows = false;
+    this.visibleCount = 50;
     const hasActiveShop = Boolean(this.activeShopCode);
     const activeShopCode = this.activeShopCode;
 
@@ -747,13 +722,6 @@ export class InventoryNewComponent implements OnInit {
 
       return true;
     });
-    this.updateDisplayedRows();
-  }
-
-  private updateDisplayedRows(): void {
-    const start = (this.currentPage - 1) * this.pageSize;
-    const end = start + this.pageSize;
-    this.displayedRows = this.filteredRows.slice(start, end);
   }
 
   private getRowsForActiveShop(): InventoryItem[] {

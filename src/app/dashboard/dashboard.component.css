@@ -9,3 +9,9 @@
   width: 100% !important;
   height: 100% !important;
 }
+
+@media (max-width: 576px) {
+  .chart-wrap {
+    height: 260px;
+  }
+}

@@ -40,7 +40,6 @@ interface SalesInvoiceReportCacheEntry {
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-<div class="page-wrapper">
   <div class="page-header d-print-none">
     <div class="container-xl">
       <div class="row g-2 align-items-center">
@@ -125,7 +124,7 @@ interface SalesInvoiceReportCacheEntry {
           
           <div class="col-sm-6 col-lg-3" *ngFor="let summary of employeeSummaries; trackBy: trackByEmployeeSummary">
             <div 
-              class="card cursor-pointer"
+              class="card cursor-pointer" 
               style="cursor: pointer;"
               [class.bg-primary-lt]="selectedEmployeeName === summary.employeeName"
               [attr.title]="summary.employeeName"
@@ -150,7 +149,6 @@ interface SalesInvoiceReportCacheEntry {
       </ng-container>
     </div>
   </div>
-</div>
   `,
   styles: [],
 })

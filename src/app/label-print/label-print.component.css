@@ -429,3 +429,33 @@
   background: var(--tblr-card-bg, #fff);
   color: var(--tblr-body-color, #1f2937);
 }
+
+/* ===== Responsive: Label Print ===== */
+@media (max-width: 991.98px) {
+  .label-workspace {
+    grid-template-columns: 1fr;
+  }
+  .label-hero {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  .label-actions {
+    flex-wrap: wrap;
+  }
+  .label-page {
+    padding: 12px;
+  }
+  .sheet {
+    overflow-x: auto;
+    max-width: 100%;
+  }
+}
+@media (max-width: 576px) {
+  .label-hero h1 {
+    font-size: 18px;
+  }
+  .label-editor {
+    padding: 12px;
+  }
+}

@@ -15,7 +15,8 @@ interface WorkflowRun {
   selector: 'app-cronjob',
   standalone: true,
   imports: [CommonModule, FormsModule],
-  templateUrl: './cronjob.component.html'
+  templateUrl: './cronjob.component.html',
+  styleUrl: './cronjob.component.css'
 })
 export class CronjobComponent implements OnInit {
   githubToken: string = '';

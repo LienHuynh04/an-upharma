@@ -57,12 +57,12 @@
         <div class="d-flex align-items-center gap-2">
           <button type="button" class="btn btn-sm" [class.btn-outline-secondary]="!showHiddenMode" [class.btn-yellow]="showHiddenMode" (click)="toggleShowHiddenMode()" *ngIf="hasActiveShopLoaded">
             <i class="ti me-1" [class.ti-eye-off]="!showHiddenMode" [class.ti-eye]="showHiddenMode"></i>
-            {{ showHiddenMode ? 'Quay lại danh sách' : 'Những cái tôi ẩn' }}
+            {{ showHiddenMode ? 'Quay lại danh sách' : 'Danh sách ẩn (' + hiddenProductCodes.size + ')' }}
           </button>
         </div>
       </div>
       <div class="card-body p-0">
-        <div class="table-responsive">
+        <div class="table-responsive" style="max-height: 75vh; overflow-y: auto;" (scroll)="onTableScroll($event)">
           <table class="table table-vcenter card-table table-striped table-hover" style="table-layout: fixed; width: 100%;">
           <thead>
             <tr>
@@ -111,7 +111,7 @@
               [class.is-zero-stock]="item.zeroStock"
               [class.is-collapsed]="!item.expanded"
             >
-              <td data-label="STT">{{ (currentPage - 1) * pageSize + index + 1 }}</td>
+              <td data-label="STT">{{ index + 1 }}</td>
               <td class="product-cell" data-label="Tên SP" style="white-space: normal !important;">
                 <span class="desktop-product-name" style="display: block; white-space: normal !important; word-wrap: break-word;">{{ item.productName }}</span>
                 <button
@@ -121,10 +121,10 @@
                   [attr.aria-label]="(item.expanded ? 'Thu gọn' : 'Mở') + ' chi tiết ' + item.productName"
                   (click)="toggleRecord(item)"
                 >
-                  <span class="record-toggle-index">{{ (currentPage - 1) * pageSize + index + 1 }}</span>
+                  <span class="record-toggle-index">{{ index + 1 }}</span>
                   <span class="record-toggle-copy">
                     <strong>{{ item.productName }}</strong>
-                    <small>{{ item.productCode }} - Tồn {{ item.quantityText }}</small>
+                    <small>Mã: {{ item.productCode }} <span class="mx-1">•</span> <span [class.text-success]="item.status === 'Đã dự trù'" [class.text-danger]="item.status !== 'Đã dự trù'" style="font-weight: 700;">{{ item.status === 'Đã dự trù' ? 'Đã dự trù' : 'Chưa dự trù' }}</span></small>
                   </span>
                   <span class="record-toggle-icon" aria-hidden="true">⌄</span>
                 </button>
@@ -151,25 +151,36 @@
           </table>
         </div>
       </div>
-      <div class="card-footer d-flex align-items-center" *ngIf="filteredRows.length > 0">
-        <p class="m-0 text-secondary">
-          Trang <span>{{ currentPage }}</span> / <span>{{ totalPages }}</span>
-        </p>
-        <ul class="pagination m-0 ms-auto">
-          <li class="page-item" [class.disabled]="currentPage === 1">
-            <a class="page-link" href="javascript:void(0)" (click)="prevPage()" tabindex="-1" aria-disabled="true">
-              <i class="ti ti-chevron-left me-1"></i> trước
-            </a>
-          </li>
-          <li class="page-item" *ngFor="let page of pageNumbers" [class.active]="currentPage === page">
-            <a class="page-link" href="javascript:void(0)" (click)="setPage(page)">{{ page }}</a>
-          </li>
-          <li class="page-item" [class.disabled]="currentPage === totalPages">
-            <a class="page-link" href="javascript:void(0)" (click)="nextPage()">
-              sau <i class="ti ti-chevron-right ms-1"></i>
-            </a>
-          </li>
-        </ul>
+    </div>
+  </div>
+<!-- Modal xác nhận ẩn sản phẩm -->
+<div class="modal modal-blur fade" [class.show]="hideConfirmOpen" [style.display]="hideConfirmOpen ? 'block' : 'none'" tabindex="-1" role="dialog" aria-hidden="true" style="background-color: rgba(0, 0, 0, 0.5);">
+  <div class="modal-dialog modal-sm modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <button type="button" class="btn-close" (click)="cancelHide()" aria-label="Close"></button>
+      <div class="modal-status bg-danger"></div>
+      <div class="modal-body text-center py-4">
+        <i class="ti ti-eye-off text-danger mb-2" style="font-size: 3rem; display: block;"></i>
+        <h3>Xác nhận ẩn sản phẩm?</h3>
+        <div class="text-secondary" *ngIf="itemToHide">
+          Chị có chắc chắn muốn ẩn sản phẩm <strong>{{ itemToHide.productName }}</strong> khỏi danh sách hàng đã hết không?
+        </div>
+      </div>
+      <div class="modal-footer">
+        <div class="w-100">
+          <div class="row">
+            <div class="col">
+              <button type="button" class="btn btn-secondary w-100" (click)="cancelHide()">
+                Hủy
+              </button>
+            </div>
+            <div class="col">
+              <button type="button" class="btn btn-danger w-100" (click)="executeHideProduct()">
+                Ẩn sản phẩm
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
