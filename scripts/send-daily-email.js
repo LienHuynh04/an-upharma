@@ -106,8 +106,11 @@ async function run() {
       const outOfStockItems = allItems.filter(item => !hiddenCodes.has(item.productCode));
       const hiddenItems = allItems.filter(item => hiddenCodes.has(item.productCode));
 
-      const plannedCount = outOfStockItems.filter(item => item.status === 'Đã dự trù').length;
-      const unplannedCount = outOfStockItems.filter(item => item.status !== 'Đã dự trù').length;
+      const plannedItems = outOfStockItems.filter(item => item.status === 'Đã dự trù');
+      const unplannedItems = outOfStockItems.filter(item => item.status !== 'Đã dự trù');
+
+      const plannedCount = plannedItems.length;
+      const unplannedCount = unplannedItems.length;
 
       const activeCount = outOfStockItems.length;
       totalOutOfStock += activeCount;
@@ -118,7 +121,8 @@ async function run() {
         count: activeCount,
         plannedCount,
         unplannedCount,
-        items: outOfStockItems,
+        plannedItems,
+        unplannedItems,
         hiddenCount: hiddenItems.length,
         hiddenItems: hiddenItems
       });
@@ -138,37 +142,48 @@ async function run() {
 
     for (const shop of shopsDetailList) {
       summaryTableRows += `
-        <tr style="border-bottom: 1px solid #e2e8f0;">
-          <td style="padding: 12px; font-weight: bold; color: #1e293b;">${shop.shopCode}</td>
-          <td style="padding: 12px; text-align: right; font-weight: bold; color: ${shop.count > 0 ? '#dc2626' : '#16a34a'};">
-            ${shop.count} mã (${shop.plannedCount} Đã dự trù, ${shop.unplannedCount} Chưa dự trù)${shop.hiddenCount > 0 ? ` | Đang ẩn: ${shop.hiddenCount}` : ''}
+        <tr style="border-bottom: 1px solid #e2e8f0; font-size: 12px;">
+          <td style="padding: 6px 8px; font-weight: bold; color: #1e293b;">${shop.shopCode}</td>
+          <td style="padding: 6px 8px; text-align: right; color: ${shop.count > 0 ? '#dc2626' : '#16a34a'};">
+            <strong>Hết: ${shop.count}</strong> (Đã: ${shop.plannedCount}, Chưa: ${shop.unplannedCount})${shop.hiddenCount > 0 ? ` | Ẩn: ${shop.hiddenCount}` : ''}
           </td>
         </tr>
       `;
 
       if (shop.count > 0 || shop.hiddenCount > 0) {
-        let itemRows = '';
-        shop.items.forEach((item, idx) => {
+        // 1. Tạo hàng cho sản phẩm chưa dự trù
+        let unplannedRows = '';
+        shop.unplannedItems.forEach((item, idx) => {
           const isEven = idx % 2 === 1;
           const rowBg = isEven ? '#f8fafc' : '#ffffff';
-          const isPlanned = item.status === 'Đã dự trù';
-          const statusBadge = `<span style="display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; background-color: ${isPlanned ? '#dcfce7; color: #16a34a;' : '#fee2e2; color: #ef4444;'}">${item.status}</span>`;
-          
-          itemRows += `
+          unplannedRows += `
             <tr style="border-bottom: 1px solid #f1f5f9; font-size: 13px; background-color: ${rowBg};">
               <td style="padding: 10px 8px; color: #334155; font-weight: 600;">${item.productCode}</td>
               <td style="padding: 10px 8px; color: #1e293b; line-height: 1.3;">${item.productName}</td>
               <td style="padding: 10px 8px; color: #64748b; text-align: center;">${item.unit}</td>
-              <td style="padding: 10px 8px; text-align: center;">${statusBadge}</td>
             </tr>
           `;
         });
 
+        // 2. Tạo hàng cho sản phẩm đã dự trù
+        let plannedRows = '';
+        shop.plannedItems.forEach((item, idx) => {
+          const isEven = idx % 2 === 1;
+          const rowBg = isEven ? '#f8fafc' : '#ffffff';
+          plannedRows += `
+            <tr style="border-bottom: 1px solid #f1f5f9; font-size: 13px; background-color: ${rowBg};">
+              <td style="padding: 10px 8px; color: #334155; font-weight: 600;">${item.productCode}</td>
+              <td style="padding: 10px 8px; color: #1e293b; line-height: 1.3;">${item.productName}</td>
+              <td style="padding: 10px 8px; color: #64748b; text-align: center;">${item.unit}</td>
+            </tr>
+          `;
+        });
+
+        // 3. Tạo hàng cho sản phẩm đã ẩn
         let hiddenRows = '';
         shop.hiddenItems.forEach((item, idx) => {
           const isEven = idx % 2 === 1;
           const rowBg = isEven ? '#f8fafc' : '#ffffff';
-          
           hiddenRows += `
             <tr style="border-bottom: 1px solid #f1f5f9; font-size: 13px; background-color: ${rowBg};">
               <td style="padding: 10px 8px; color: #64748b; font-weight: 600;">${item.productCode}</td>
@@ -178,33 +193,65 @@ async function run() {
           `;
         });
 
-        let activeTableHtml = '';
-        if (shop.count > 0) {
-          activeTableHtml = `
-            <div class="scroll-container" style="max-height: 380px; overflow-y: auto; overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); margin-bottom: 16px;">
-              <table style="width: 100%; border-collapse: collapse; text-align: left;">
-                <thead>
-                  <tr style="position: sticky; top: 0; background-color: #f1f5f9; border-bottom: 2px solid #cbd5e1; font-size: 11px; color: #475569; text-transform: uppercase; z-index: 10; letter-spacing: 0.5px;">
-                    <th style="padding: 10px 8px; width: 100px; background-color: #f1f5f9; position: sticky; top: 0; font-weight: bold;">Mã SP</th>
-                    <th style="padding: 10px 8px; background-color: #f1f5f9; position: sticky; top: 0; font-weight: bold;">Tên Sản Phẩm</th>
-                    <th style="padding: 10px 8px; text-align: center; width: 70px; background-color: #f1f5f9; position: sticky; top: 0; font-weight: bold;">ĐVT</th>
-                    <th style="padding: 10px 8px; text-align: center; width: 95px; background-color: #f1f5f9; position: sticky; top: 0; font-weight: bold;">Trạng Thái</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${itemRows}
-                </tbody>
-              </table>
+        // HTML cho bảng Chưa dự trù
+        let unplannedTableHtml = '';
+        if (shop.unplannedCount > 0) {
+          unplannedTableHtml = `
+            <div style="margin-bottom: 16px;">
+              <div style="font-size: 12.5px; font-weight: bold; color: #ef4444; margin-bottom: 6px; text-transform: uppercase;">
+                ⚠️ Sản phẩm CHƯA DỰ TRÙ (${shop.unplannedCount} mã)
+              </div>
+              <div class="scroll-container" style="max-height: 300px; overflow-y: auto; overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                  <thead>
+                    <tr style="position: sticky; top: 0; background-color: #fee2e2; border-bottom: 2px solid #fca5a5; font-size: 11px; color: #991b1b; text-transform: uppercase; z-index: 10; letter-spacing: 0.5px;">
+                      <th style="padding: 10px 8px; width: 100px; background-color: #fee2e2; position: sticky; top: 0; font-weight: bold;">Mã SP</th>
+                      <th style="padding: 10px 8px; background-color: #fee2e2; position: sticky; top: 0; font-weight: bold;">Tên Sản Phẩm</th>
+                      <th style="padding: 10px 8px; text-align: center; width: 70px; background-color: #fee2e2; position: sticky; top: 0; font-weight: bold;">ĐVT</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${unplannedRows}
+                  </tbody>
+                </table>
+              </div>
             </div>
           `;
         }
 
+        // HTML cho bảng Đã dự trù
+        let plannedTableHtml = '';
+        if (shop.plannedCount > 0) {
+          plannedTableHtml = `
+            <div style="margin-bottom: 16px;">
+              <div style="font-size: 12.5px; font-weight: bold; color: #16a34a; margin-bottom: 6px; text-transform: uppercase;">
+                ✅ Sản phẩm ĐÃ DỰ TRÙ (${shop.plannedCount} mã)
+              </div>
+              <div class="scroll-container" style="max-height: 250px; overflow-y: auto; overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                  <thead>
+                    <tr style="position: sticky; top: 0; background-color: #dcfce7; border-bottom: 2px solid #bbf7d0; font-size: 11px; color: #166534; text-transform: uppercase; z-index: 10; letter-spacing: 0.5px;">
+                      <th style="padding: 10px 8px; width: 100px; background-color: #dcfce7; position: sticky; top: 0; font-weight: bold;">Mã SP</th>
+                      <th style="padding: 10px 8px; background-color: #dcfce7; position: sticky; top: 0; font-weight: bold;">Tên Sản Phẩm</th>
+                      <th style="padding: 10px 8px; text-align: center; width: 70px; background-color: #dcfce7; position: sticky; top: 0; font-weight: bold;">ĐVT</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${plannedRows}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          `;
+        }
+
+        // HTML cho bảng Hàng đã ẩn
         let hiddenTableHtml = '';
         if (shop.hiddenCount > 0) {
           hiddenTableHtml = `
-            <div style="margin-top: 12px;">
-              <div style="font-size: 12px; font-weight: bold; color: #64748b; margin-bottom: 6px; text-transform: uppercase;">
-                🚫 Danh sách hàng đã ẩn (${shop.hiddenCount} mã)
+            <div>
+              <div style="font-size: 12.5px; font-weight: bold; color: #64748b; margin-bottom: 6px; text-transform: uppercase;">
+                🚫 Sản phẩm ĐÃ ẨN (${shop.hiddenCount} mã)
               </div>
               <div class="scroll-container" style="max-height: 250px; overflow-y: auto; overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); opacity: 0.85;">
                 <table style="width: 100%; border-collapse: collapse; text-align: left;">
@@ -226,10 +273,11 @@ async function run() {
 
         shopDetailHtml += `
           <div style="margin-top: 24px; padding: 16px; background: #fff; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-            <h3 style="margin: 0 0 12px 0; color: #0284c7; font-size: 15px; border-left: 4px solid #0284c7; padding-left: 8px; margin-bottom: 12px;">
-              ${shop.shopCode} (Có ${shop.count} mã đã hết - ${shop.plannedCount} Đã dự trù, ${shop.unplannedCount} Chưa dự trù)
+            <h3 style="margin: 0 0 16px 0; color: #0284c7; font-size: 15px; border-left: 4px solid #0284c7; padding-left: 8px; padding-bottom: 2px;">
+              ${shop.shopCode} - ${shop.shopName}
             </h3>
-            ${activeTableHtml}
+            ${unplannedTableHtml}
+            ${plannedTableHtml}
             ${hiddenTableHtml}
           </div>
         `;
@@ -277,8 +325,8 @@ async function run() {
             </p>
 
             <!-- Tóm tắt số lượng -->
-            <div style="background-color: #f8fafc; border-radius: 8px; padding: 16px; border: 1px solid #e2e8f0; margin-bottom: 24px;">
-              <h2 style="margin: 0 0 12px 0; font-size: 14px; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">Tóm tắt trạng thái</h2>
+            <div style="background-color: #f8fafc; border-radius: 8px; padding: 10px 12px; border: 1px solid #e2e8f0; margin-bottom: 16px;">
+              <h2 style="margin: 0 0 6px 0; font-size: 12px; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">Tóm tắt trạng thái</h2>
               <table style="width: 100%; border-collapse: collapse;">
                 <tbody>
                   ${summaryTableRows}
