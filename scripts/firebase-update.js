@@ -323,6 +323,11 @@ async function run() {
           allShopsData[resourceName][shop.ShopCode] = mappedArray;
         }
 
+        if (resourceName === 'statistics_shop') {
+          allShopsData.statistics_shop_raw = allShopsData.statistics_shop_raw || {};
+          allShopsData.statistics_shop_raw[shop.ShopCode] = responseData;
+        }
+
         if (db) {
           await db.ref(`shops/${shop.ShopCode}/upharma_data/${resourceName}`).set({
             success: true,
@@ -546,7 +551,7 @@ function precalculateSalesSpeed(rows, shop) {
   return { stableRows, slowRows };
 }
 
-function precalculateKeyProducts(rows, shop) {
+function precalculateKeyProducts(rows, shop, rawData) {
   const productMap = new Map();
   for (const row of rows) {
     const sc = String(row["__shopCode"] || row["ShopCode"] || "");
@@ -564,7 +569,17 @@ function precalculateKeyProducts(rows, shop) {
   }
 
   const sorted = Array.from(productMap.values()).sort((a, b) => b.amount - a.amount);
-  const totalRevenue = sorted.reduce((sum, p) => sum + p.amount, 0);
+  
+  let totalRevenue = 0;
+  if (rawData && rawData.PaymentMethodInfo) {
+    const { Cash, Card, VNPay, CK } = rawData.PaymentMethodInfo;
+    totalRevenue = Number(Cash || 0) + Number(Card || 0) + Number(VNPay || 0) + Number(CK || 0);
+  }
+  
+  if (totalRevenue <= 0) {
+    totalRevenue = sorted.reduce((sum, p) => sum + p.amount, 0);
+  }
+  
   if (totalRevenue <= 0) return [];
 
   const threshold = totalRevenue * 0.8;
@@ -748,7 +763,8 @@ async function calculateAndUploadSummaries(shops, allShopsData, db) {
     );
 
     const statisticsShopRows = allShopsData.statistics_shop[sc] || [];
-    const keyProductRows = precalculateKeyProducts(statisticsShopRows, shop);
+    const statisticsShopRaw = (allShopsData.statistics_shop_raw && allShopsData.statistics_shop_raw[sc]) || null;
+    const keyProductRows = precalculateKeyProducts(statisticsShopRows, shop, statisticsShopRaw);
 
     summaryMap[sc].stableCount = stableRows.length;
     summaryMap[sc].slowCount = slowRows.length;
