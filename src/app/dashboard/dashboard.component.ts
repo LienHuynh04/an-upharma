@@ -118,6 +118,7 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
         Token: session.Token,
         uPharmaID: String(session.UserInfo.uPharmaID),
         ShopCode: this.activeShopCode,
+        _useFirebaseCache: this.isDefaultDateRange(),
       });
 
       this.customerNewLst = customerNew.CustomerNewLst || [];
@@ -129,6 +130,7 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
         TimeEnd: this.getRangeEnd(),
         Token: session.Token,
         uPharmaID: String(session.UserInfo.uPharmaID),
+        _useFirebaseCache: this.isDefaultDateRange(),
       });
 
       this.paymentMethodInfo = statistics.PaymentMethodInfo || { Cash: 0, Card: 0, VNPay: 0, CK: 0 };
@@ -198,6 +200,15 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
     start.setMonth(start.getMonth() - 1);
     this.selectedStartDate = this.toDateInputValue(start);
     this.selectedEndDate = this.toDateInputValue(end);
+  }
+
+  private isDefaultDateRange(): boolean {
+    const end = new Date();
+    const start = new Date(end);
+    start.setMonth(start.getMonth() - 1);
+    
+    return this.selectedStartDate === this.toDateInputValue(start) && 
+           this.selectedEndDate === this.toDateInputValue(end);
   }
 
   private getRangeStart(): string {

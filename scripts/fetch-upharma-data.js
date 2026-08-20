@@ -209,6 +209,20 @@ function getResourceConfig(resourceName, now = new Date()) {
         Year: now.getFullYear(),
       }),
     },
+    dashboard_statistics: {
+      pathname: "/CancelProduct/GetStatisticsShop",
+      payload: () => ({
+        TimeStart: getOneMonthWindow(now).start,
+        TimeEnd: getOneMonthWindow(now).end,
+      }),
+    },
+    dashboard_customers: {
+      pathname: "/Buyer/GetCustomerNewLst",
+      payload: () => ({
+        Month: now.getMonth() + 1,
+        Year: now.getFullYear(),
+      }),
+    },
     transfer_process: {
       pathname: "/TransferOrder/GetTransferOrderProcess",
       payload: () => ({}),
@@ -356,7 +370,9 @@ async function run() {
     transfer_process: {},
     product_off: {},
     product_follower: {},
-    statistics_shop: {}
+    statistics_shop: {},
+    dashboard_statistics: {},
+    dashboard_customers: {}
   };
 
   const resources = [
@@ -368,6 +384,8 @@ async function run() {
     'sales_speed',
     'statistics_shop',
     'customer_new',
+    'dashboard_statistics',
+    'dashboard_customers',
     'transfer_process',
     'product_off',
     'product_follower',
@@ -410,6 +428,7 @@ async function run() {
         }
 
         if (db) {
+          const payloadData = (resourceName === 'dashboard_statistics' || resourceName === 'dashboard_customers') ? responseData : mappedArray;
           await db.ref(`shops/${shop.ShopCode}/upharma_data/${resourceName}`).set({
             success: true,
             resource: resourceName,
@@ -417,7 +436,7 @@ async function run() {
               ShopCode: shop.ShopCode,
               ShopName: shop.ShopName,
             },
-            data: mappedArray,
+            data: payloadData,
             fetchedAt: new Date().toISOString(),
           });
 
@@ -679,7 +698,6 @@ function precalculateKeyProducts(rows, shop, rawData) {
   
   if (totalRevenue <= 0) return [];
 
-  const threshold = totalRevenue * 0.8;
   let cumulative = 0;
   const keyRows = [];
   for (const product of sorted) {
@@ -695,7 +713,6 @@ function precalculateKeyProducts(rows, shop, rawData) {
       cumulativePercent: Math.round((cumulative / totalRevenue) * 10000) / 100,
       expanded: false
     });
-    if (cumulative >= threshold) break;
   }
   return keyRows;
 }

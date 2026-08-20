@@ -234,7 +234,9 @@ export class UpharmaService {
       pathname.includes("GetStableConsumptionCalculated") ||
       pathname.includes("GetSlowSellingCalculated") ||
       pathname.includes("GetOutOfStockCalculated") ||
-      pathname.includes("GetKeyProductsCalculated");
+      pathname.includes("GetKeyProductsCalculated") ||
+      (pathname.includes("GetStatisticsShop") && payload?.['_useFirebaseCache']) ||
+      (pathname.includes("GetCustomerNewLst") && payload?.['_useFirebaseCache']);
 
     if (isFirebaseTarget) {
       let resourceName = "";
@@ -256,6 +258,10 @@ export class UpharmaService {
         resourceName = "product_follower";
       } else if (pathname.includes("GetReportSalesByShop")) {
         resourceName = "sales_report";
+      } else if (pathname.includes("GetStatisticsShop") && payload?.['_useFirebaseCache']) {
+        resourceName = "dashboard_statistics";
+      } else if (pathname.includes("GetCustomerNewLst") && payload?.['_useFirebaseCache']) {
+        resourceName = "dashboard_customers";
       }
 
       const firebaseDbUrl = (environment as any).firebaseDbUrl;
