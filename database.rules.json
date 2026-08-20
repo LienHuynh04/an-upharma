@@ -16,6 +16,10 @@
       ".read": "true",
       ".write": "true"
     },
+    "shops_summary": {
+      ".read": "true",
+      ".write": "auth != null"
+    },
     "shops": {
       "$shopCode": {
         "upharma_data": {

@@ -115,10 +115,8 @@ function getSalesSpeedWindow(now = new Date()) {
 }
 
 function getOneMonthWindow(now = new Date()) {
-  const end = new Date(now);
-  const start = new Date(now);
-
-  start.setMonth(start.getMonth() - 1);
+  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+  const start = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate(), 0, 0, 0, 0);
 
   return {
     start: formatDateTime(start),

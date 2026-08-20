@@ -273,6 +273,19 @@ export class UpharmaService {
 
       if (firebaseDbUrl && shopsToFetch.length > 0) {
         const normalizedFirebase = firebaseDbUrl.replace(/\/$/, "");
+
+        if (resourceName === 'dashboard_statistics' || resourceName === 'dashboard_customers') {
+          const shop = shopsToFetch[0];
+          const url = `${normalizedFirebase}/shops/${shop.ShopCode}/upharma_data/${resourceName}.json`;
+          console.log(`[Firebase Fetch] Đang tải ${resourceName} cho shop ${shop.ShopCode} từ: ${url}`);
+          const response = await fetch(url);
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          const json = await response.json();
+          return (json?.data || {}) as T;
+        }
+
         const shopsData: any[] = [];
         const failedShops: string[] = [];
 
