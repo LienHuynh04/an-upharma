@@ -153,35 +153,14 @@
       </div>
     </div>
   </div>
-<!-- Modal xác nhận ẩn sản phẩm -->
-<div class="modal modal-blur fade" [class.show]="hideConfirmOpen" [style.display]="hideConfirmOpen ? 'block' : 'none'" tabindex="-1" role="dialog" aria-hidden="true" style="background-color: rgba(0, 0, 0, 0.5);">
-  <div class="modal-dialog modal-sm modal-dialog-centered" role="document">
-    <div class="modal-content">
-      <button type="button" class="btn-close" (click)="cancelHide()" aria-label="Close"></button>
-      <div class="modal-status bg-danger"></div>
-      <div class="modal-body text-center py-4">
-        <i class="ti ti-eye-off text-danger mb-2" style="font-size: 3rem; display: block;"></i>
-        <h3>Xác nhận ẩn sản phẩm?</h3>
-        <div class="text-secondary" *ngIf="itemToHide">
-          Chị có chắc chắn muốn ẩn sản phẩm <strong>{{ itemToHide.productName }}</strong> khỏi danh sách hàng đã hết không?
-        </div>
+<!-- Toast thông báo thành công -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3 d-print-none" style="z-index: 1100;">
+  <div class="toast align-items-center text-white bg-success border-0 show" role="alert" aria-live="assertive" aria-atomic="true" *ngIf="successMessage">
+    <div class="d-flex">
+      <div class="toast-body">
+        <i class="ti ti-check me-2"></i> {{ successMessage }}
       </div>
-      <div class="modal-footer">
-        <div class="w-100">
-          <div class="row">
-            <div class="col">
-              <button type="button" class="btn btn-secondary w-100" (click)="cancelHide()">
-                Hủy
-              </button>
-            </div>
-            <div class="col">
-              <button type="button" class="btn btn-danger w-100" (click)="executeHideProduct()">
-                Ẩn sản phẩm
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" (click)="successMessage = ''" aria-label="Close"></button>
     </div>
   </div>
 </div>

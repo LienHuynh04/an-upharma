@@ -43,7 +43,7 @@ interface StableConsumptionCacheEntry {
 }
 
 type StableTextFilterKey = "productName" | "productCode";
-type StableMonthWindow = '1d' | '7d' | '3m' | '6m' | '9m';
+type StableMonthWindow = '1d' | '7d' | '2m' | '6m' | '9m';
 
 @Component({
   selector: "app-stable-consumption",
@@ -57,7 +57,7 @@ export class StableConsumptionComponent implements OnInit {
   shops: ShopInfo[] = [];
   activeShopCode = "";
   rows: StableItem[] = [];
-  selectedMonthWindow: StableMonthWindow = '3m';
+  selectedMonthWindow: StableMonthWindow = '2m';
   timeStart = "";
   timeEnd = "";
   startDateInput = "";
@@ -481,13 +481,13 @@ export class StableConsumptionComponent implements OnInit {
 
     return Array.from(groupedRows.entries()).flatMap(([productCode, productRows]) => {
       const monthTotals = this.buildMonthTotals(productRows);
-      const stableWindow = this.buildThreeMonthWindow(monthTotals);
+      const stableWindow = this.buildTwoMonthWindow(monthTotals);
 
       if (!stableWindow) {
         return [];
       }
 
-      const isStable = stableWindow.every((month) => month.quantity >= 2);
+      const isStable = stableWindow.every((month) => month.quantity >= 4);
 
       if (!isStable) {
         return [];
@@ -565,8 +565,8 @@ export class StableConsumptionComponent implements OnInit {
     return new Date(Number(match[2]), Number(match[1]) - 1, 1);
   }
 
-  private buildThreeMonthWindow(months: StableMonth[]): StableMonth[] | null {
-    return selectCompletedMonths(months, 3);
+  private buildTwoMonthWindow(months: StableMonth[]): StableMonth[] | null {
+    return selectCompletedMonths(months, 2);
   }
 
   private setDefaultDateRange(force = false): void {
@@ -581,7 +581,7 @@ export class StableConsumptionComponent implements OnInit {
     } else if (this.selectedMonthWindow === '7d') {
       start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6, 0, 0, 0);
     } else {
-      let m = 3;
+      let m = 2;
       if (this.selectedMonthWindow === '6m') m = 6;
       if (this.selectedMonthWindow === '9m') m = 9;
       const completedRange = getCompletedMonthRange(m, now);
@@ -589,7 +589,7 @@ export class StableConsumptionComponent implements OnInit {
     }
     const end = this.selectedMonthWindow === '1d' || this.selectedMonthWindow === '7d'
       ? new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 0)
-      : getCompletedMonthRange(3, now).end;
+      : getCompletedMonthRange(2, now).end;
 
     this.timeStart = this.upharmaService.formatUpharmaDateTime(start);
     this.timeEnd = this.upharmaService.formatUpharmaDateTime(end);

@@ -153,98 +153,81 @@
         <div class="row row-deck row-cards">
           <div class="col-sm-6 col-lg-4" *ngFor="let item of currentTab.items">
             <div class="card">
-              <div class="card-body">
-                <div class="d-flex align-items-center mb-3">
-                  <div class="me-auto">
-                    <h3 class="card-title mb-0" style="font-size: 15px;">{{ item.EmployeeName }}</h3>
-                    <div class="text-secondary small">Mã: <code>{{ item.EmployeeCode }}</code></div>
-                  </div>
+              <div class="card-header py-3">
+                <div>
+                  <h3 class="card-title mb-0" style="font-size: 15px;">{{ item.EmployeeName }}</h3>
+                  <div class="text-secondary small">Mã: <code>{{ item.EmployeeCode }}</code></div>
+                </div>
+                <div class="card-actions">
                   <span class="badge" [class.bg-success-lt]="item.AmountR >= item.Amount" [class.bg-danger-lt]="item.AmountR < item.Amount">
                     {{ item.AmountR >= item.Amount ? 'ĐẠT' : 'CHƯA ĐẠT' }}
                   </span>
                 </div>
+              </div>
 
-                <div class="mb-3">
-                  <div class="text-secondary small">Chỉ tiêu doanh số: <strong>{{ formatNumber(item.Amount) }} đ</strong></div>
-                  <div class="h3 mb-0 text-success">{{ formatNumber(item.AmountR) }} đ</div>
-                  <span class="text-secondary small d-block mt-1" style="font-size: 12px;">
-                    Tỉ trọng hàng hệ số: {{ (item.AmountR > 0 ? (item.PointRatioR * 1000 / item.AmountR * 100) : 0) | number:'1.0-2' }}%
-                  </span>
-                  <!-- Progress bar achievement -->
-                  <div class="progress mt-2" style="height: 6px;">
-                    <div class="progress-bar bg-success" [style.width.%]="(item.Amount > 0 ? (item.AmountR / item.Amount) * 100 : 0)"></div>
-                  </div>
-                  <div class="text-end small text-secondary mt-1">Đạt: {{ (item.Amount > 0 ? (item.AmountR / item.Amount) * 100 : 0) | number:'1.0-1' }}%</div>
-                </div>
-
-                <div class="row g-2 mb-3">
-                  <div class="col-6">
-                    <div class="p-2 rounded bg-dark-lt" style="background: rgba(0, 0, 0, 0.15) !important;">
-                      <div class="text-secondary small font-weight-bold text-uppercase mb-1" style="font-size: 9px;">Dự kiến DS</div>
-                      <div class="font-weight-bold text-body" style="font-size: 12px;">{{ formatNumber(getProjectedValue(item.AmountR)) }} đ</div>
+              <!-- Doanh số Card Item -->
+              <div class="p-3 border-bottom">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                  <div class="d-flex align-items-center gap-2">
+                    <span class="avatar avatar-sm bg-success-lt text-success" style="width: 32px; height: 32px;">
+                      <i class="ti ti-chart-bar" style="font-size: 1.1rem;"></i>
+                    </span>
+                    <div>
+                      <div class="text-uppercase fw-bold text-secondary" style="font-size: 10px; letter-spacing: 0.5px;">Doanh số</div>
+                      <div class="h3 mb-0 text-success fw-bold">{{ formatNumber(item.AmountR) }} đ</div>
                     </div>
                   </div>
-                  <div class="col-6">
-                    <div class="p-2 rounded bg-dark-lt" style="background: rgba(0, 0, 0, 0.15) !important;">
-                      <div class="text-secondary small font-weight-bold text-uppercase mb-1" style="font-size: 9px;">Dự kiến HS</div>
-                      <div class="font-weight-bold text-body" style="font-size: 12px;">{{ formatNumber(getProjectedValue(item.PointRatioR)) }}</div>
-                    </div>
+                  <div class="text-end">
+                    <span class="badge px-2 py-1 fw-bold" [ngClass]="item.AmountR >= item.Amount ? 'bg-green-lt text-green' : 'bg-yellow-lt text-yellow'">
+                      {{ (item.Amount > 0 ? (item.AmountR / item.Amount) * 100 : 0) | number:'1.0-1' }}% đạt
+                    </span>
+                    <div class="text-secondary small mt-1">Mục tiêu: {{ formatNumber(item.Amount) }} đ</div>
                   </div>
                 </div>
-
-                <div class="p-2 rounded mb-3 bg-dark-lt" style="background: rgba(0, 0, 0, 0.15) !important;">
-                  <div class="text-secondary small font-weight-bold text-uppercase mb-1" style="font-size: 9px;">Tỉ trọng</div>
-                  <div class="font-weight-bold text-body" style="font-size: 12px;">{{ formatPercent(getWeightedPointRatio(item)) }}</div>
+                <div class="progress progress-sm mt-2" style="height: 6px;">
+                  <div class="progress-bar bg-success" [style.width.%]="(item.Amount > 0 ? (item.AmountR / item.Amount) * 100 : 0) > 100 ? 100 : (item.Amount > 0 ? (item.AmountR / item.Amount) * 100 : 0)"></div>
                 </div>
+              </div>
 
-                <h4 class="card-title mt-4 mb-2" style="font-size: 12px;">Chỉ tiêu Khách hàng</h4>
-                <div class="mb-3">
-                  <table class="table table-vcenter table-sm card-table">
-                    <thead>
-                      <tr>
-                        <th class="small text-secondary">Loại</th>
-                        <th class="text-end small text-secondary">Chỉ tiêu</th>
-                        <th class="text-end small text-secondary">Thực tế</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td class="text-secondary small">Tổng khách</td>
-                        <td class="text-end font-weight-bold small text-body">{{ formatNumber(item.QuantityCus) }}</td>
-                        <td class="text-end text-success font-weight-bold small">{{ formatNumber(item.QuantityCusR) }}</td>
-                      </tr>
-                      <tr>
-                        <td class="text-secondary small">Khách mới</td>
-                        <td class="text-end font-weight-bold small text-body">{{ formatNumber(item.QuantityCusNew) }}</td>
-                        <td class="text-end text-warning font-weight-bold small">{{ formatNumber(item.QuantityCusNewR) }}</td>
-                      </tr>
-                    </tbody>
-                  </table>
+              <!-- Hệ số Card Item -->
+              <div class="p-3 border-bottom">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                  <div class="d-flex align-items-center gap-2">
+                    <span class="avatar avatar-sm bg-primary-lt text-primary" style="width: 32px; height: 32px;">
+                      <i class="ti ti-shopping-cart" style="font-size: 1.1rem;"></i>
+                    </span>
+                    <div>
+                      <div class="text-uppercase fw-bold text-secondary" style="font-size: 10px; letter-spacing: 0.5px;">Hệ số</div>
+                      <div class="h3 mb-0 text-primary fw-bold">{{ formatNumber(item.PointRatioR) }}</div>
+                    </div>
+                  </div>
+                  <div class="text-end">
+                    <span class="badge px-2 py-1 fw-bold" [ngClass]="item.PointRatioR >= item.PointRatio ? 'bg-green-lt text-green' : 'bg-yellow-lt text-yellow'">
+                      {{ (item.PointRatio > 0 ? (item.PointRatioR / item.PointRatio) * 100 : 0) | number:'1.0-1' }}% đạt
+                    </span>
+                    <div class="text-secondary small mt-1">Mục tiêu: {{ formatNumber(item.PointRatio) }}</div>
+                  </div>
                 </div>
+                <div class="progress progress-sm mt-2 mb-2" style="height: 6px;">
+                  <div class="progress-bar bg-primary" [style.width.%]="(item.PointRatio > 0 ? (item.PointRatioR / item.PointRatio) * 100 : 0) > 100 ? 100 : (item.PointRatio > 0 ? (item.PointRatioR / item.PointRatio) * 100 : 0)"></div>
+                </div>
+              </div>
 
-                <h4 class="card-title mt-4 mb-2" style="font-size: 12px;">Chỉ tiêu Cá nhân</h4>
-                <div>
-                  <table class="table table-vcenter table-sm card-table">
-                    <thead>
-                      <tr>
-                        <th class="small text-secondary">Hạng mục</th>
-                        <th class="text-end small text-secondary">Chỉ tiêu</th>
-                        <th class="text-end small text-secondary">Thực tế</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td class="text-secondary small">Đơn hàng</td>
-                        <td class="text-end font-weight-bold small text-body">{{ formatNumber(item.QuantityInvoice) }}</td>
-                        <td class="text-end text-success font-weight-bold small">{{ formatNumber(item.QuantityInvoiceR) }}</td>
-                      </tr>
-                      <tr>
-                        <td class="text-secondary small">Điểm tích lũy</td>
-                        <td class="text-end font-weight-bold small text-body">{{ formatNumber(item.PointRatio) }}</td>
-                        <td class="text-end text-warning font-weight-bold small">{{ formatNumber(item.PointRatioR) }}</td>
-                      </tr>
-                    </tbody>
-                  </table>
+              <!-- Footer Grid Info -->
+              <div class="card-body py-3">
+                <div class="row g-2 text-center">
+                  <div class="col-4">
+                    <div class="text-secondary small fw-bold" style="font-size: 10px;">Tỉ trọng</div>
+                    <div class="h4 mb-0 mt-1">{{ formatPercent(getWeightedPointRatio(item)) }}</div>
+                  </div>
+                  <div class="col-4">
+                    <div class="text-secondary small fw-bold" style="font-size: 10px;">Dự kiến DS</div>
+                    <div class="h4 mb-0 mt-1">{{ formatNumber(getProjectedValue(item.AmountR)) }} đ</div>
+                  </div>
+                  <div class="col-4">
+                    <div class="text-secondary small fw-bold" style="font-size: 10px;">Dự kiến HS</div>
+                    <div class="h4 mb-0 mt-1">{{ formatNumber(getProjectedValue(item.PointRatioR)) }}</div>
+                  </div>
                 </div>
               </div>
             </div>

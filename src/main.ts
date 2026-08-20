@@ -18,8 +18,9 @@ import { DashboardComponent } from "./app/dashboard/dashboard.component";
 import { SalesInvoiceReportComponent } from "./app/sales-invoice-report/sales-invoice-report.component";
 import { ShopPlanYearComponent } from "./app/shop-plan-year/shop-plan-year.component";
 import { RootComponent } from "./app/root.component";
-import { SlowSellingComponent } from "./app/slow-selling/slow-selling.component";
+// import { SlowSellingComponent } from "./app/slow-selling/slow-selling.component";
 import { StableConsumptionComponent } from "./app/stable-consumption/stable-consumption.component";
+import { KeyProductsComponent } from "./app/key-products/key-products.component";
 import { LayoutComponent } from "./app/layout/layout.component";
 
 
@@ -110,10 +111,15 @@ const routes: Routes = [
         title: "UPHARMA - Hàng đã hết",
       },
       {
-        path: "hang-ban-cham",
-        component: SlowSellingComponent,
-        title: "UPHARMA - Hàng bán chậm",
+        path: "hang-key",
+        component: KeyProductsComponent,
+        title: "UPHARMA - Hàng key",
       },
+      // {
+      //   path: "hang-ban-cham",
+      //   component: SlowSellingComponent,
+      //   title: "UPHARMA - Hàng bán chậm",
+      // },
       {
         path: "goi-y-chuyen-hang",
         component: TransferSuggestionsComponent,

@@ -233,7 +233,8 @@ export class UpharmaService {
       pathname.includes("GetReportSalesByShop") ||
       pathname.includes("GetStableConsumptionCalculated") ||
       pathname.includes("GetSlowSellingCalculated") ||
-      pathname.includes("GetOutOfStockCalculated");
+      pathname.includes("GetOutOfStockCalculated") ||
+      pathname.includes("GetKeyProductsCalculated");
 
     if (isFirebaseTarget) {
       let resourceName = "";
@@ -245,6 +246,8 @@ export class UpharmaService {
         resourceName = "slow_selling_calculated";
       } else if (pathname.includes("GetOutOfStockCalculated")) {
         resourceName = "out_of_stock_calculated";
+      } else if (pathname.includes("GetKeyProductsCalculated")) {
+        resourceName = "key_products_calculated";
       } else if (pathname.includes("GetTransferOrderProcess")) {
         resourceName = "transfer_process";
       } else if (pathname.includes("GetProductOff")) {

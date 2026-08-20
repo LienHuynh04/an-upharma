@@ -5,7 +5,7 @@
         <div class="page-pretitle">HÀNG HÓA</div>
         <h2 class="page-title">Hàng lặp tốt</h2>
         <div class="text-secondary mt-1">
-          Xét 3 tháng đã hoàn tất gần nhất. Sản phẩm đạt điều kiện khi tháng nào cũng bán từ 2 sản phẩm trở lên.
+          Xét 2 tháng đã hoàn tất gần nhất. Sản phẩm đạt điều kiện khi tháng nào cũng bán từ 4 sản phẩm trở lên.
         </div>
       </div>
       <div class="col-auto ms-auto d-print-none">
@@ -191,7 +191,7 @@
 
     <h3>Các tháng đạt</h3>
     <div class="stable-detail-month-grid">
-      <article *ngFor="let month of item.stableMonths" [class.is-strong]="month.quantity >= 2">
+      <article *ngFor="let month of item.stableMonths.slice(-2)" [class.is-strong]="month.quantity >= 4">
         <span>{{ month.sessionText || month.label }}</span>
         <strong>{{ month.quantityText }}</strong>
         <small>{{ item.unit || "--" }}</small>

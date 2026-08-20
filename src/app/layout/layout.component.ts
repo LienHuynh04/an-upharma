@@ -703,7 +703,8 @@ renderDashboard(); renderInventory(); renderNearExpiryOrders(); renderTabs(); re
       url.includes("/ton-kho-new") ||
       url.includes("/hang-da-het") ||
       url.includes("/hang-lap-tot") ||
-      url.includes("/hang-ban-cham") ||
+      url.includes("/hang-key") ||
+      // url.includes("/hang-ban-cham") ||
       url.includes("/in-tem") ||
       url.includes("/lay-bao-cao-don-hang");
     this.menuGroups["stats"] = isStatsRoute;

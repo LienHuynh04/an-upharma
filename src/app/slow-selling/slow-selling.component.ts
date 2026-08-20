@@ -53,7 +53,7 @@ type SlowSellingTextFilterKey = "productName" | "productCode";
 export class SlowSellingComponent implements OnInit {
   readonly endpoint = "/SalesInvoice/GetSlowSellingCalculated";
   shopsSummary: any = null;
-  selectedRange: '1d' | '7d' | '3m' = '3m';
+  selectedRange: '1d' | '7d' | '2m' = '2m';
   shops: ShopInfo[] = [];
   activeShopCode = "";
   rows: SlowSellingItem[] = [];
@@ -465,16 +465,16 @@ export class SlowSellingComponent implements OnInit {
 
     return Array.from(groupedRows.entries()).flatMap(([productCode, productRows]) => {
       const monthTotals = this.buildMonthTotals(productRows);
-      const slowWindow = this.buildThreeMonthWindow(monthTotals);
+      const slowWindow = this.buildTwoMonthWindow(monthTotals);
       if (!slowWindow) {
         return [];
       }
       const totalQuantity = slowWindow.reduce((sum, month) => sum + month.quantity, 0);
 
-      const hasAtLeastOneMonthBelowTwo = slowWindow.some((month) => month.quantity < 2);
+      const hasAtLeastOneMonthBelowFour = slowWindow.some((month) => month.quantity < 4);
       const hasAtLeastOneSale = slowWindow.some((month) => month.quantity > 0);
 
-      if (!hasAtLeastOneMonthBelowTwo || !hasAtLeastOneSale) {
+      if (!hasAtLeastOneMonthBelowFour || !hasAtLeastOneSale) {
         return [];
       }
 
@@ -531,8 +531,8 @@ export class SlowSellingComponent implements OnInit {
     return Array.from(monthMap.values()).sort((first, second) => first.date.getTime() - second.date.getTime());
   }
 
-  private buildThreeMonthWindow(months: SlowSellingMonth[]): SlowSellingMonth[] | null {
-    return selectCompletedMonths(months, 3);
+  private buildTwoMonthWindow(months: SlowSellingMonth[]): SlowSellingMonth[] | null {
+    return selectCompletedMonths(months, 2);
   }
 
   private getMonthDate(row: RawRecord): Date | null {
@@ -553,7 +553,7 @@ export class SlowSellingComponent implements OnInit {
     return new Date(Number(match[2]), Number(match[1]) - 1, 1);
   }
 
-  setRange(range: '1d' | '7d' | '3m'): void {
+  setRange(range: '1d' | '7d' | '2m'): void {
     this.selectedRange = range;
     this.setDefaultDateRange(true);
     void this.applyDateFilter();
@@ -571,11 +571,11 @@ export class SlowSellingComponent implements OnInit {
     } else if (this.selectedRange === '7d') {
       start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6, 0, 0, 0);
     } else {
-      start = getCompletedMonthRange(3, now).start;
+      start = getCompletedMonthRange(2, now).start;
     }
     const end = this.selectedRange === '1d' || this.selectedRange === '7d'
       ? new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 0)
-      : getCompletedMonthRange(3, now).end;
+      : getCompletedMonthRange(2, now).end;
 
     this.timeStart = this.upharmaService.formatUpharmaDateTime(start);
     this.timeEnd = this.upharmaService.formatUpharmaDateTime(end);

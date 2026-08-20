@@ -146,6 +146,15 @@ function getOneMonthWindow(now = new Date()) {
   };
 }
 
+function getTwoCompletedMonthsWindow(now = new Date()) {
+  const start = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+  const end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+  return {
+    start: formatDateTime(start),
+    end: formatDateTime(end),
+  };
+}
+
 function getResourceConfig(resourceName, now = new Date()) {
   const currentTime = formatDateTime(now);
   const today = currentTime.slice(0, 10);
@@ -189,8 +198,8 @@ function getResourceConfig(resourceName, now = new Date()) {
     statistics_shop: {
       pathname: "/CancelProduct/GetStatisticsShop",
       payload: () => ({
-        TimeStart: getOneMonthWindow(now).start,
-        TimeEnd: getOneMonthWindow(now).end,
+        TimeStart: getTwoCompletedMonthsWindow(now).start,
+        TimeEnd: getTwoCompletedMonthsWindow(now).end,
       }),
     },
     customer_new: {
@@ -346,7 +355,8 @@ async function run() {
     sales_speed: {},
     transfer_process: {},
     product_off: {},
-    product_follower: {}
+    product_follower: {},
+    statistics_shop: {}
   };
 
   const resources = [
@@ -509,7 +519,7 @@ function precalculateSalesSpeed(rows, shop) {
   const now = new Date();
   const completedMonthKeys = [];
   const completedMonthSessions = [];
-  for (let offset = 3; offset >= 1; offset -= 1) {
+  for (let offset = 2; offset >= 1; offset -= 1) {
     const date = new Date(now.getFullYear(), now.getMonth() - offset, 1);
     const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
     completedMonthKeys.push(key);
@@ -582,7 +592,7 @@ function precalculateSalesSpeed(rows, shop) {
     const quantityExist = pick(firstRow, ["QuantityExist", "ExistQuantity", "TonKho", "InventoryQuantity", "RemainQty"]);
     const quantityExistText = quantityExist === "" ? "--" : String(quantityExist);
 
-    const isStable = monthList.every(m => m.quantity >= 2);
+    const isStable = monthList.every(m => m.quantity >= 4);
     if (isStable) {
       stableRows.push({
         rowKey: [shop.ShopCode, productCode].join("|"),
@@ -605,9 +615,9 @@ function precalculateSalesSpeed(rows, shop) {
       });
     }
 
-    const hasAtLeastOneMonthBelowTwo = monthList.some(m => m.quantity < 2);
+    const hasAtLeastOneMonthBelowFour = monthList.some(m => m.quantity < 4);
     const hasAtLeastOneSale = monthList.some(m => m.quantity > 0);
-    if (hasAtLeastOneMonthBelowTwo && hasAtLeastOneSale) {
+    if (hasAtLeastOneMonthBelowFour && hasAtLeastOneSale) {
       slowRows.push({
         rowKey: [shop.ShopCode, productCode].join("|"),
         shopCode: shop.ShopCode,
@@ -631,6 +641,48 @@ function precalculateSalesSpeed(rows, shop) {
   }
 
   return { stableRows, slowRows };
+}
+
+function precalculateKeyProducts(rows, shop) {
+  const productMap = new Map();
+  for (const row of rows) {
+    const sc = String(row["__shopCode"] || row["ShopCode"] || "");
+    if (sc && sc !== shop.ShopCode) continue;
+    const productCode = String(pick(row, ["ProductID", "ProductCode", "Product_ID", "MaSP", "MaSanPham", "ItemCode", "Code"])).trim();
+    if (!productCode || productCode.toUpperCase().startsWith("Y")) continue;
+    const productName = String(pick(row, ["ProductName", "Product_Name", "ProductFullName", "TenSP", "TenSanPham", "Name", "ItemName"])).trim();
+    const amount = toNumber(pick(row, ["Amount", "TotalAmount", "ThanhTien", "AmountIncludingVAT"]));
+    if (amount <= 0) continue;
+
+    if (!productMap.has(productCode)) {
+      productMap.set(productCode, { productCode, productName, amount: 0 });
+    }
+    productMap.get(productCode).amount += amount;
+  }
+
+  const sorted = Array.from(productMap.values()).sort((a, b) => b.amount - a.amount);
+  const totalRevenue = sorted.reduce((sum, p) => sum + p.amount, 0);
+  if (totalRevenue <= 0) return [];
+
+  const threshold = totalRevenue * 0.8;
+  let cumulative = 0;
+  const keyRows = [];
+  for (const product of sorted) {
+    cumulative += product.amount;
+    keyRows.push({
+      rowKey: [shop.ShopCode, product.productCode].join("|"),
+      shopCode: shop.ShopCode,
+      productCode: product.productCode,
+      productName: product.productName,
+      amount: product.amount,
+      amountText: String(product.amount),
+      percentOfTotal: Math.round((product.amount / totalRevenue) * 10000) / 100,
+      cumulativePercent: Math.round((cumulative / totalRevenue) * 10000) / 100,
+      expanded: false
+    });
+    if (cumulative >= threshold) break;
+  }
+  return keyRows;
 }
 
 function precalculateOutOfStock(salesSpeedRows, inventoryRows, transferProcessRows, productOffRows, productFollowerRows, shop) {
@@ -771,7 +823,8 @@ async function calculateAndUploadSummaries(shops, allShopsData, db) {
     summaryMap[sc] = {
       outOfStockCount: 0,
       stableCount: 0,
-      slowCount: 0
+      slowCount: 0,
+      keyCount: 0
     };
 
     const salesSpeedRows = allShopsData.sales_speed[sc] || [];
@@ -791,9 +844,13 @@ async function calculateAndUploadSummaries(shops, allShopsData, db) {
       shop
     );
 
+    const statisticsShopRows = allShopsData.statistics_shop[sc] || [];
+    const keyProductRows = precalculateKeyProducts(statisticsShopRows, shop);
+
     summaryMap[sc].stableCount = stableRows.length;
     summaryMap[sc].slowCount = slowRows.length;
     summaryMap[sc].outOfStockCount = outStockRows.length;
+    summaryMap[sc].keyCount = keyProductRows.length;
 
     if (db) {
       try {
@@ -820,8 +877,16 @@ async function calculateAndUploadSummaries(shops, allShopsData, db) {
           data: outStockRows,
           fetchedAt: new Date().toISOString(),
         });
+
+        await db.ref(`shops/${sc}/upharma_data/key_products_calculated`).set({
+          success: true,
+          resource: 'key_products_calculated',
+          shop: { ShopCode: sc, ShopName: shop.ShopName },
+          data: keyProductRows,
+          fetchedAt: new Date().toISOString(),
+        });
         
-        console.log(`[precalculation] DONE ${sc}: Hàng đã hết (${outStockRows.length}), Lặp tốt (${stableRows.length}), Lặp chậm (${slowRows.length})`);
+        console.log(`[precalculation] DONE ${sc}: Hàng đã hết (${outStockRows.length}), Lặp tốt (${stableRows.length}), Lặp chậm (${slowRows.length}), Hàng key (${keyProductRows.length})`);
       } catch (err) {
         console.warn(`[precalculation] Lỗi khi upload kết quả tính toán cho shop ${sc}:`, err);
       }

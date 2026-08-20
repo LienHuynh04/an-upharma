@@ -3,14 +3,14 @@
     <div class="row g-2 align-items-center">
       <div class="col">
         <div class="page-pretitle">HÀNG HÓA</div>
-        <h2 class="page-title">Hàng bán chậm</h2>
+        <h2 class="page-title">Hàng key</h2>
         <div class="text-secondary mt-1">
-          Xét 2 tháng đã hoàn tất gần nhất. Sản phẩm bán chậm khi có ít nhất một tháng bán dưới 4 sản phẩm và có phát sinh bán hàng.
+          Lọc ra những mã sản phẩm chiếm 80% doanh số của nhà thuốc trong 2 tháng gần nhất.
         </div>
       </div>
       <div class="col-auto ms-auto d-print-none">
         <div class="btn-list">
-          <button type="button" class="btn btn-secondary" (click)="exportExcel()" [disabled]="loading || slowSellingRefreshing || filteredRows.length === 0">
+          <button type="button" class="btn btn-secondary" (click)="exportExcel()" [disabled]="loading || keyProductsRefreshing || filteredRows.length === 0">
             Xuất excel
           </button>
         </div>
@@ -54,10 +54,11 @@
           <div class="d-flex">
             <div>
               <span aria-hidden="true" class="me-2">ⓘ</span>
-              <strong>Bấm vào một dòng sản phẩm</strong> để xem từng tháng đã bán bao nhiêu.
+              <strong>Bấm vào một dòng sản phẩm</strong> để xem chi tiết tỷ trọng doanh số.
             </div>
           </div>
         </div>
+
         <div class="alert alert-danger m-3" *ngIf="errorText">{{ errorText }}</div>
 
         <div class="table-responsive" style="max-height: 75vh; overflow-y: auto;" (scroll)="onTableScroll($event)">
@@ -65,11 +66,12 @@
           <thead>
             <tr>
               <th style="width: 60px;">STT</th>
-              <th style="width: 60%;">Tên SP</th>
+              <th style="width: 40%;">Tên SP</th>
               <th style="width: 20%;">Mã SP</th>
-              <th style="width: 20%;">Tổng bán</th>
+              <th style="width: 20%;">Doanh số</th>
+              <th style="width: 20%;">Tỷ trọng</th>
             </tr>
-            <tr class="column-filter-row" id="slowSellingColumnFilters">
+            <tr class="column-filter-row" id="stableColumnFilters">
               <th></th>
               <th>
                 <input
@@ -92,22 +94,23 @@
                 />
               </th>
               <th></th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
-            <tr *ngIf="!loading && !hasActiveShopLoaded && slowSellingRefreshing">
-              <td colspan="4" class="text-center text-secondary py-4">
-                Đang tải dữ liệu Hàng bán chậm cho {{ activeShopCode }}. Chị vẫn có thể xem giao diện trong lúc chờ.
+            <tr *ngIf="!loading && !hasActiveShopLoaded && keyProductsRefreshing">
+              <td colspan="5" class="text-center text-secondary py-4">
+                Đang tải dữ liệu Hàng key cho {{ activeShopCode }}. Chị vẫn có thể xem giao diện trong lúc chờ.
               </td>
             </tr>
-            <tr *ngIf="!loading && !hasActiveShopLoaded && !slowSellingRefreshing">
-              <td colspan="4" class="text-center text-secondary py-4">
-                Chọn một nhà thuốc ở phía trên để xem danh sách hàng bán chậm.
+            <tr *ngIf="!loading && !hasActiveShopLoaded && !keyProductsRefreshing">
+              <td colspan="5" class="text-center text-secondary py-4">
+                Chọn một nhà thuốc ở phía trên để xem danh sách Hàng key.
               </td>
             </tr>
             <tr *ngIf="!loading && hasActiveShopLoaded && filteredRows.length === 0">
-              <td colspan="4" class="text-center text-secondary py-4">
-                Chưa có sản phẩm nào bán chậm trong khoảng thời gian đã chọn.
+              <td colspan="5" class="text-center text-secondary py-4">
+                Chưa có sản phẩm nào đạt điều kiện Hàng key trong khoảng thời gian này.
               </td>
             </tr>
             <tr
@@ -116,9 +119,9 @@
               class="stable-click-row"
               role="button"
               tabindex="0"
-              (click)="openSlowSellingDetail(item)"
-              (keydown.enter)="openSlowSellingDetail(item)"
-              (keydown.space)="openSlowSellingDetail(item)"
+              (click)="openKeyProductDetail(item)"
+              (keydown.enter)="openKeyProductDetail(item)"
+              (keydown.space)="openKeyProductDetail(item)"
             >
               <td data-label="STT">{{ index + 1 }}</td>
               <td class="product-cell" data-label="Tên SP">
@@ -132,14 +135,17 @@
                   <span class="record-toggle-index">{{ index + 1 }}</span>
                   <span class="record-toggle-copy">
                     <strong>{{ item.productName }}</strong>
-                    <small>{{ item.productCode }} - bấm để xem từng tháng</small>
+                    <small>{{ item.productCode }}</small>
                   </span>
                   <span class="record-toggle-icon" aria-hidden="true">⌄</span>
                 </button>
               </td>
               <td data-label="Mã SP">{{ item.productCode }}</td>
-              <td data-label="Tổng bán">
-                <strong>{{ item.totalQuantity }}</strong>
+              <td data-label="Doanh số">
+                <strong>{{ formatMoney(item.amount) }}</strong>
+              </td>
+              <td data-label="Tỷ trọng">
+                <strong>{{ item.percentOfTotal }}%</strong>
               </td>
             </tr>
           </tbody>
@@ -153,7 +159,7 @@
 <div class="loading-overlay" [class.is-visible]="loading" aria-live="polite">
   <div class="loading-box">
     <span class="loader" aria-hidden="true"></span>
-    <strong>Đang lấy dữ liệu Hàng bán chậm...</strong>
+    <strong>Đang lấy dữ liệu Hàng key...</strong>
     <div class="loading-progress" aria-hidden="true">
       <i [style.width.%]="loadingProgress"></i>
     </div>
@@ -161,36 +167,31 @@
   </div>
 </div>
 
-<div class="stable-detail-overlay" [class.is-visible]="selectedSlowSellingItem" (click)="closeSlowSellingDetail()">
+<div class="stable-detail-overlay" [class.is-visible]="selectedKeyProductItem" (click)="closeKeyProductDetail()">
   <section
     class="stable-detail-modal"
     role="dialog"
     aria-modal="true"
-    aria-labelledby="slowSellingDetailTitle"
-    *ngIf="selectedSlowSellingItem as item"
+    aria-labelledby="stableDetailTitle"
+    *ngIf="selectedKeyProductItem as item"
     (click)="$event.stopPropagation()"
   >
-    <button class="stable-detail-close" type="button" aria-label="Đóng" (click)="closeSlowSellingDetail()">×</button>
-    <span class="stable-detail-kicker">{{ item.shopCode }} · thời gian đã chọn</span>
-    <h2 id="slowSellingDetailTitle">{{ item.productName }}</h2>
+    <button class="stable-detail-close" type="button" aria-label="Đóng" (click)="closeKeyProductDetail()">×</button>
+    <span class="stable-detail-kicker">{{ item.shopCode }}</span>
+    <h2 id="stableDetailTitle">{{ item.productName }}</h2>
     <div class="stable-detail-meta">
       <span>
         <small>Mã SP</small>
         <strong>{{ item.productCode }}</strong>
       </span>
       <span>
-        <small>Tổng bán</small>
-        <strong>{{ item.totalQuantity }}</strong>
+        <small>Doanh số</small>
+        <strong>{{ formatMoney(item.amount) }}</strong>
       </span>
-    </div>
-
-    <h3>Chi tiết khoảng thời gian</h3>
-    <div class="stable-detail-month-grid">
-      <article *ngFor="let month of item.slowMonths" [class.is-strong]="month.quantity > 0">
-        <span>{{ month.sessionText || month.label }}</span>
-        <strong>{{ month.quantityText }}</strong>
-        <small>{{ item.unit || "--" }}</small>
-      </article>
+      <span>
+        <small>Tỷ trọng</small>
+        <strong>{{ item.percentOfTotal }}%</strong>
+      </span>
     </div>
   </section>
 </div>

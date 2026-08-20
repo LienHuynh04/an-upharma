@@ -83,8 +83,7 @@ export class OutOfStockComponent implements OnInit {
   private transferOrderProcessPromises = new Map<string, Promise<Set<string>>>();
   hiddenProductCodes = new Set<string>();
   showHiddenMode = false;
-  hideConfirmOpen = false;
-  itemToHide: OutOfStockItem | null = null;
+  successMessage = "";
 
   private get dbUrl(): string {
     const url = (environment as any).firebaseDbUrl || "";
@@ -510,23 +509,17 @@ export class OutOfStockComponent implements OnInit {
     }
   }
 
-  hideProduct(item: OutOfStockItem, event: Event): void {
+  showSuccess(msg: string): void {
+    this.successMessage = msg;
+    setTimeout(() => {
+      if (this.successMessage === msg) {
+        this.successMessage = "";
+      }
+    }, 3000);
+  }
+
+  async hideProduct(item: OutOfStockItem, event: Event): Promise<void> {
     event.stopPropagation();
-    this.itemToHide = item;
-    this.hideConfirmOpen = true;
-  }
-
-  cancelHide(): void {
-    this.hideConfirmOpen = false;
-    this.itemToHide = null;
-  }
-
-  async executeHideProduct(): Promise<void> {
-    if (!this.itemToHide) return;
-    const item = this.itemToHide;
-    this.hideConfirmOpen = false;
-    this.itemToHide = null;
-
     const session = this.upharmaService.getSession();
     if (!session) return;
     const uPharmaID = session.UserInfo.uPharmaID;
@@ -548,6 +541,7 @@ export class OutOfStockComponent implements OnInit {
       }
       
       this.hiddenProductCodes.add(item.productCode);
+      this.showSuccess(`Đã ẩn sản phẩm "${item.productName}" thành công.`);
       console.log(`Đã ẩn sản phẩm: ${item.productCode}`);
     } catch (error) {
       console.error("Lỗi khi ẩn sản phẩm:", error);
@@ -574,6 +568,7 @@ export class OutOfStockComponent implements OnInit {
       }
       
       this.hiddenProductCodes.delete(item.productCode);
+      this.showSuccess(`Đã khôi phục sản phẩm "${item.productName}" thành công.`);
       console.log(`Đã bỏ ẩn sản phẩm: ${item.productCode}`);
     } catch (error) {
       console.error("Lỗi khi bỏ ẩn sản phẩm:", error);
