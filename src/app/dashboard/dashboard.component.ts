@@ -212,13 +212,14 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
   }
 
   private getRangeStart(): string {
-    const start = this.selectedStartDate ? new Date(`${this.selectedStartDate}T00:00:00`) : new Date();
+    const now = new Date();
+    const start = new Date(now);
+    start.setMonth(start.getMonth() - 1);
     return this.upharmaService.formatUpharmaDateTime(start);
   }
 
   private getRangeEnd(): string {
-    const end = this.selectedEndDate ? new Date(`${this.selectedEndDate}T23:59:59`) : new Date();
-    return this.upharmaService.formatUpharmaDateTime(end);
+    return this.upharmaService.formatUpharmaDateTime(new Date());
   }
 
   private getEndMonth(): number {

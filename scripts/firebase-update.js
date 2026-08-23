@@ -298,6 +298,9 @@ function getResourceConfig(resourceName, now = new Date()) {
         return {
           TimeStart: timeStart,
           TimeEnd: currentTime,
+          Search: "",
+          PageNumber: 1,
+          NumberRow: 100000,
         };
       },
     },
