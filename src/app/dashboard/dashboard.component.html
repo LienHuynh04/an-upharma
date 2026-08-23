@@ -9,19 +9,11 @@
         <div class="btn-list d-flex flex-wrap gap-2 align-items-center" style="flex-wrap: wrap;">
           <div class="d-inline-flex align-items-center gap-2">
             <span class="text-secondary small fw-bold text-uppercase" style="font-size: 10px;">Nhà thuốc</span>
-            <select class="form-select form-select-sm" [(ngModel)]="activeShopCode" style="width: auto; min-width: 140px;">
+            <select class="form-select form-select-sm" [(ngModel)]="activeShopCode" (ngModelChange)="loadDashboard()" style="width: auto; min-width: 140px;">
               <option *ngFor="let shop of shops" [ngValue]="shop.ShopCode">{{ shop.ShopCode }} - {{ shop.ShopName }}</option>
             </select>
           </div>
-          <div class="d-inline-flex align-items-center gap-2">
-            <span class="text-secondary small fw-bold text-uppercase" style="font-size: 10px;">Từ</span>
-            <input class="form-control form-control-sm" [(ngModel)]="selectedStartDate" type="date" style="width: auto;" />
-          </div>
-          <div class="d-inline-flex align-items-center gap-2">
-            <span class="text-secondary small fw-bold text-uppercase" style="font-size: 10px;">Đến</span>
-            <input class="form-control form-control-sm" [(ngModel)]="selectedEndDate" type="date" style="width: auto;" />
-          </div>
-          <button type="button" class="btn btn-sm btn-primary px-3" (click)="loadDashboard()">Xem</button>
+        </div>
         </div>
       </div>
     </div>

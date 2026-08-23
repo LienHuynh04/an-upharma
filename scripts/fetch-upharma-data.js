@@ -119,37 +119,94 @@ function formatDateOnly(date) {
   return `${values.year}-${values.month}-${values.day}`;
 }
 
-function getSalesSpeedWindow(now = new Date()) {
-  const current = new Date(now);
-  const start = new Date(now);
-  // Keep the current month for out-of-stock and the three fully completed
-  // months for fast/slow sales classification in the same Firebase payload.
-  start.setMonth(start.getMonth() - 3, 1);
-  start.setHours(0, 0, 0, 0);
-  current.setHours(23, 59, 59, 999);
-
+function getVietnamTimeComponents(now = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(now);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
   return {
-    start: formatDateOnly(start),
-    end: formatDateOnly(current),
+    year: Number(values.year),
+    month: Number(values.month) - 1, // 0-indexed
+    day: Number(values.day),
+    hour: Number(values.hour),
+    minute: Number(values.minute),
+    second: Number(values.second),
+  };
+}
+
+function getSalesSpeedWindow(now = new Date()) {
+  const vn = getVietnamTimeComponents(now);
+  const pad = (n) => String(n).padStart(2, "0");
+
+  let startMonth = vn.month - 3;
+  let startYear = vn.year;
+  if (startMonth < 0) {
+    startMonth += 12;
+    startYear -= 1;
+  }
+  
+  return {
+    start: `${startYear}-${pad(startMonth + 1)}-01`,
+    end: `${vn.year}-${pad(vn.month + 1)}-${pad(vn.day)}`,
   };
 }
 
 function getOneMonthWindow(now = new Date()) {
-  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-  const start = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate(), 0, 0, 0, 0);
+  const vn = getVietnamTimeComponents(now);
+  const pad = (n) => String(n).padStart(2, "0");
+
+  let startMonth = vn.month - 1;
+  let startYear = vn.year;
+  if (startMonth < 0) {
+    startMonth += 12;
+    startYear -= 1;
+  }
+
+  const daysInMonth = (y, m) => new Date(y, m + 1, 0).getDate();
+  let startDay = vn.day;
+  const maxDays = daysInMonth(startYear, startMonth);
+  if (startDay > maxDays) {
+    startDay = maxDays;
+  }
+
+  const timeStr = `${pad(vn.hour)}:${pad(vn.minute)}:${pad(vn.second)}`;
 
   return {
-    start: formatDateTime(start),
-    end: formatDateTime(end),
+    start: `${startYear}-${pad(startMonth + 1)}-${pad(startDay)} ${timeStr}`,
+    end: `${vn.year}-${pad(vn.month + 1)}-${pad(vn.day)} ${timeStr}`,
   };
 }
 
 function getTwoCompletedMonthsWindow(now = new Date()) {
-  const start = new Date(now.getFullYear(), now.getMonth() - 2, 1);
-  const end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+  const vn = getVietnamTimeComponents(now);
+  const pad = (n) => String(n).padStart(2, "0");
+
+  let startMonth = vn.month - 2;
+  let startYear = vn.year;
+  if (startMonth < 0) {
+    startMonth += 12;
+    startYear -= 1;
+  }
+
+  let endMonth = vn.month - 1;
+  let endYear = vn.year;
+  if (endMonth < 0) {
+    endMonth += 12;
+    endYear -= 1;
+  }
+  const daysInMonth = (y, m) => new Date(y, m + 1, 0).getDate();
+  const endDay = daysInMonth(endYear, endMonth);
+
   return {
-    start: formatDateTime(start),
-    end: formatDateTime(end),
+    start: `${startYear}-${pad(startMonth + 1)}-01 00:00:00`,
+    end: `${endYear}-${pad(endMonth + 1)}-${pad(endDay)} 23:59:59`,
   };
 }
 
@@ -423,7 +480,7 @@ async function run() {
         });
 
         const arrayData = extractArray(responseData);
-        const mappedArray = arrayData.map((item) => ({
+        let mappedArray = arrayData.map((item) => ({
           ...item,
           __shopCode: shop.ShopCode,
           __shopName: shop.ShopName,
