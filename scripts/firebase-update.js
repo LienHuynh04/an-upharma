@@ -60,7 +60,7 @@ async function requestUpharma(pathname, payload) {
 function extractArray(data) {
   if (Array.isArray(data)) return data;
   if (!data || typeof data !== "object") return [];
-  const preferredKeys = ["SalesSpeedLst", "Data", "data", "DataLst", "ListData", "InventoryLst", "InventoryList", "Table", "Rows", "ProductLst"];
+  const preferredKeys = ["SalesSpeedLst", "Data", "data", "DataLst", "ListData", "InventoryLst", "InventoryList", "Table", "Rows", "ProductLst", "ReportSalesLst"];
   for (const key of preferredKeys) {
     if (Array.isArray(data[key])) return data[key];
   }
@@ -408,17 +408,57 @@ async function run() {
         }));
 
         if (resourceName === 'key_products') {
+          const expanded = [];
+          const childKeys = ["SalesLineLst", "OrderLineLst", "ProductLst", "DetailLst", "Details", "Items", "items"];
+          
+          for (const parent of mappedArray) {
+            const childList = childKeys
+              .map((key) => parent[key])
+              .find((candidate) => Array.isArray(candidate));
+              
+            if (!childList || childList.length === 0) {
+              expanded.push(parent);
+              continue;
+            }
+            
+            for (const child of childList) {
+              if (!child || typeof child !== "object" || Array.isArray(child)) {
+                continue;
+              }
+              expanded.push({
+                ...parent,
+                ...child,
+              });
+            }
+          }
+
           let totalAmount = 0;
           const grouped = new Map();
-          for (const row of mappedArray) {
-            const amount = Number(row["Amount"] || row["AmountIncludingVAT"] || row["TotalAmount"]) || 0;
-            totalAmount += amount;
-            const pCode = String(row["ProductCode"] || row["ItemCode"] || "");
-            const pName = String(row["ProductName"] || row["ItemName"] || "");
+          for (const row of expanded) {
+            const pCode = String(row["ProductCode"] || row["ItemCode"] || row["Code"] || row["MaSP"] || row["ProductID"] || "").trim();
+            const pName = String(row["ProductName"] || row["ItemName"] || row["Name"] || row["TenSP"] || "").trim();
             if (!pCode) continue;
+
+            const pNameUpper = pName.toUpperCase();
+            const pCodeUpper = pCode.toUpperCase();
+            if (pNameUpper.includes("VOUCHER") || pCodeUpper.startsWith("VC")) {
+              continue;
+            }
+
+            const amount = Number(row["Amount"] || row["AmountIncludingVAT"] || row["TotalAmount"] || row["ThanhTien"]) || 0;
+            const quantity = Number(row["Quantity"]) || 0;
+            const amountIncludingVAT = Number(row["AmountIncludingVAT"] || amount) || 0;
+            const amountIncludingAdjust = Number(row["AmountIncludingAdjust"]) || 0;
+
+            totalAmount += amount;
             
             if (grouped.has(pCode)) {
-              grouped.get(pCode).amount += amount;
+              const existing = grouped.get(pCode);
+              existing.amount += amount;
+              existing.quantity += quantity;
+              existing.amountIncludingVAT += amountIncludingVAT;
+              existing.amountIncludingAdjust += amountIncludingAdjust;
+              existing.totalAmount = existing.amountIncludingVAT;
             } else {
               grouped.set(pCode, {
                 rowKey: `${shop.ShopCode}|${pCode}`,
@@ -426,19 +466,29 @@ async function run() {
                 productCode: pCode,
                 productName: pName,
                 amount: amount,
+                quantity: quantity,
+                amountIncludingVAT: amountIncludingVAT,
+                amountIncludingAdjust: amountIncludingAdjust,
+                totalAmount: amountIncludingVAT,
               });
             }
           }
           
           const keyRows = Array.from(grouped.values()).sort((a, b) => b.amount - a.amount);
           
+          const finalKeyRows = [];
           let runningTotal = 0;
           for (const row of keyRows) {
             runningTotal += row.amount;
             row.percentOfTotal = totalAmount > 0 ? Number(((row.amount / totalAmount) * 100).toFixed(2)) : 0;
             row.cumulativePercent = totalAmount > 0 ? Number(((runningTotal / totalAmount) * 100).toFixed(2)) : 0;
+            finalKeyRows.push(row);
+            
+            if (row.cumulativePercent >= 80) {
+              break;
+            }
           }
-          mappedArray = keyRows;
+          mappedArray = finalKeyRows;
         }
         data.push(...mappedArray);
 

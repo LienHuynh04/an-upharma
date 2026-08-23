@@ -42,6 +42,75 @@
       </div>
     </div>
 
+    <!-- Stats Summary Section -->
+    <div class="row g-3 mb-3" *ngIf="hasActiveShopLoaded && !loading">
+      <div class="col-sm-6 col-lg-4">
+        <div class="card card-sm">
+          <div class="card-body">
+            <div class="row align-items-center">
+              <div class="col-auto">
+                <span class="bg-primary text-white avatar">
+                  <strong>#</strong>
+                </span>
+              </div>
+              <div class="col">
+                <div class="font-weight-medium">
+                  {{ totalKeyProductsCount }} sản phẩm
+                </div>
+                <div class="text-secondary">
+                  Số lượng mã Hàng key
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="col-sm-6 col-lg-4">
+        <div class="card card-sm">
+          <div class="card-body">
+            <div class="row align-items-center">
+              <div class="col-auto">
+                <span class="bg-success text-white avatar">
+                  <strong>₫</strong>
+                </span>
+              </div>
+              <div class="col">
+                <div class="font-weight-medium font-monospace">
+                  {{ formatMoney(totalKeyProductsAmount) }} VNĐ
+                </div>
+                <div class="text-secondary">
+                  Tổng doanh số Hàng key
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="col-sm-6 col-lg-4">
+        <div class="card card-sm">
+          <div class="card-body">
+            <div class="row align-items-center">
+              <div class="col-auto">
+                <span class="bg-warning text-white avatar">
+                  <strong>%</strong>
+                </span>
+              </div>
+              <div class="col">
+                <div class="font-weight-medium">
+                  {{ totalKeyProductsPercent }}%
+                </div>
+                <div class="text-secondary">
+                  Tổng tỷ trọng đóng góp
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="card" [class.filters-collapsed]="filtersCollapsed">
       <div class="card-header d-flex align-items-center justify-content-between">
         <div>
@@ -66,10 +135,11 @@
           <thead>
             <tr>
               <th style="width: 60px;">STT</th>
-              <th style="width: 40%;">Sản phẩm</th>
-              <th style="width: 20%;">Mã hàng</th>
-              <th style="width: 20%;">Doanh số</th>
-              <th style="width: 20%;">Tỷ trọng</th>
+              <th style="width: 45%;">Sản phẩm</th>
+              <th style="width: 15%;">Mã</th>
+              <th style="width: 10%;">SL</th>
+              <th style="width: 15%;">Đơn giá VAT</th>
+              <th style="width: 15%;">Tỷ trọng</th>
             </tr>
             <tr class="column-filter-row" id="stableColumnFilters">
               <th></th>
@@ -95,21 +165,22 @@
               </th>
               <th></th>
               <th></th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
             <tr *ngIf="!loading && !hasActiveShopLoaded && keyProductsRefreshing">
-              <td colspan="5" class="text-center text-secondary py-4">
+              <td colspan="6" class="text-center text-secondary py-4">
                 Đang tải dữ liệu Hàng key cho {{ activeShopCode }}. Chị vẫn có thể xem giao diện trong lúc chờ.
               </td>
             </tr>
             <tr *ngIf="!loading && !hasActiveShopLoaded && !keyProductsRefreshing">
-              <td colspan="5" class="text-center text-secondary py-4">
+              <td colspan="6" class="text-center text-secondary py-4">
                 Chọn một nhà thuốc ở phía trên để xem danh sách Hàng key.
               </td>
             </tr>
             <tr *ngIf="!loading && hasActiveShopLoaded && filteredRows.length === 0">
-              <td colspan="5" class="text-center text-secondary py-4">
+              <td colspan="6" class="text-center text-secondary py-4">
                 Chưa có sản phẩm nào đạt điều kiện Hàng key trong khoảng thời gian này.
               </td>
             </tr>
@@ -140,10 +211,9 @@
                   <span class="record-toggle-icon" aria-hidden="true">⌄</span>
                 </button>
               </td>
-              <td data-label="Mã hàng">{{ item.productCode }}</td>
-              <td data-label="Doanh số">
-                <strong>{{ formatMoney(item.amount) }}</strong>
-              </td>
+              <td data-label="Mã sản phẩm">{{ item.productCode }}</td>
+              <td data-label="Số lượng">{{ item.quantity }}</td>
+              <td data-label="AmountIncludingVAT">{{ formatMoney(item.amountIncludingVAT) }}</td>
               <td data-label="Tỷ trọng">
                 <strong>{{ item.percentOfTotal }}%</strong>
               </td>
@@ -185,8 +255,20 @@
         <strong>{{ item.productCode }}</strong>
       </span>
       <span>
-        <small>Doanh số</small>
-        <strong>{{ formatMoney(item.amount) }}</strong>
+        <small>Số lượng</small>
+        <strong>{{ item.quantity }}</strong>
+      </span>
+      <span>
+        <small>VAT</small>
+        <strong>{{ formatMoney(item.amountIncludingVAT) }}</strong>
+      </span>
+      <span>
+        <small>Adjust</small>
+        <strong>{{ formatMoney(item.amountIncludingAdjust) }}</strong>
+      </span>
+      <span>
+        <small>Tổng tiền</small>
+        <strong>{{ formatMoney(item.totalAmount) }}</strong>
       </span>
       <span>
         <small>Tỷ trọng</small>

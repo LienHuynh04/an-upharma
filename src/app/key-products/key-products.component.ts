@@ -23,6 +23,10 @@ interface KeyProductItem {
   percentOfTotal: number;
   cumulativePercent: number;
   expanded: boolean;
+  amountIncludingVAT: number;
+  amountIncludingAdjust: number;
+  quantity: number;
+  totalAmount: number;
 }
 
 interface KeyProductsCacheEntry {
@@ -124,6 +128,19 @@ export class KeyProductsComponent implements OnInit {
 
   get displayedRows(): KeyProductItem[] {
     return this.filteredRows.slice(0, this.visibleCount);
+  }
+
+  get totalKeyProductsCount(): number {
+    return this.filteredRows.length;
+  }
+
+  get totalKeyProductsAmount(): number {
+    return this.filteredRows.reduce((sum, r) => sum + r.totalAmount, 0);
+  }
+
+  get totalKeyProductsPercent(): number {
+    const percent = this.filteredRows.reduce((sum, r) => sum + r.percentOfTotal, 0);
+    return Number(percent.toFixed(2));
   }
 
   get hasActiveShopLoaded(): boolean {
@@ -391,23 +408,119 @@ export class KeyProductsComponent implements OnInit {
         TimeEnd: timeEnd,
         _useFirebaseKeyProducts: true,
       };
-      this.loadingProgress = 45;
+      this.loadingProgress = 40;
       const response = await this.upharmaService.callEndpoint<unknown>(this.endpoint, payload, {
         cache: true,
         forceRefresh,
       });
-      this.loadingProgress = 75;
+      this.loadingProgress = 60;
+
+      // Fetch dashboard total revenue for the same date range to compute percentages
+      const statsPayload = {
+        ShopCode: shop.ShopCode,
+        TimeStart: timeStart,
+        TimeEnd: timeEnd,
+        Token: session.Token,
+        uPharmaID: String(session.UserInfo.uPharmaID),
+        _useFirebaseCache: true,
+      };
+      
+      const statsResponse = await this.upharmaService.callEndpoint<any>("/CancelProduct/GetStatisticsShop", statsPayload, {
+        cache: true,
+        forceRefresh,
+      });
+      
+      const paymentInfo = statsResponse?.PaymentMethodInfo || { Cash: 0, Card: 0, VNPay: 0, CK: 0 };
+      let dashboardTotal = Number(paymentInfo.Cash || 0) + Number(paymentInfo.Card || 0) + Number(paymentInfo.VNPay || 0) + Number(paymentInfo.CK || 0);
+
+      this.loadingProgress = 80;
       
       const rawArray = this.extractArray(response);
-      const keyRows = rawArray as unknown as KeyProductItem[];
+
+      const filteredRawArray = rawArray.filter((row) => {
+        const pName = String(row["productName"] || row["ProductName"] || row["ItemName"] || "").toUpperCase();
+        const pCode = String(row["productCode"] || row["ProductCode"] || row["ProductID"] || row["ItemCode"] || "").toUpperCase();
+        
+        // Exclude if name contains "VOUCHER" or code starts with "VC"
+        if (pName.includes("VOUCHER") || pCode.startsWith("VC")) {
+          return false;
+        }
+        return true;
+      });
+
+      const parsedRows = filteredRawArray.map((row, index) => {
+        // Support fallback keys for Amount including lowercase keys when loading from Firebase cache
+        const amountIncludingVAT = Number(row["amountIncludingVAT"] || row["AmountIncludingVAT"] || row["amount"] || row["Amount"] || row["TotalAmount"] || row["ThanhTien"]) || 0;
+        const amountIncludingAdjust = Number(row["amountIncludingAdjust"] || row["AmountIncludingAdjust"]) || 0;
+        const quantity = Number(row["quantity"] || row["Quantity"]) || 0;
+        const totalAmount = Number(row["totalAmount"] || row["TotalAmount"]) || amountIncludingVAT;
+        
+        return {
+          rowKey: `${shop.ShopCode}|${index}`,
+          shopCode: shop.ShopCode,
+          productCode: String(row["productCode"] || row["ProductCode"] || row["ProductID"] || row["ItemCode"] || "").trim(),
+          productName: String(row["productName"] || row["ProductName"] || row["ItemName"] || "").trim(),
+          amount: totalAmount,
+          amountText: "",
+          percentOfTotal: 0,
+          cumulativePercent: 0,
+          expanded: false,
+          amountIncludingVAT: amountIncludingVAT,
+          amountIncludingAdjust: amountIncludingAdjust,
+          quantity: quantity,
+          totalAmount: totalAmount,
+        };
+      });
+      
+      // Group by ProductCode to combine duplicate products
+      const grouped = new Map<string, KeyProductItem>();
+      for (const row of parsedRows) {
+        if (!row.productCode) continue;
+        const existing = grouped.get(row.productCode);
+        if (existing) {
+          existing.quantity += row.quantity;
+          existing.amountIncludingVAT += row.amountIncludingVAT;
+          existing.amountIncludingAdjust += row.amountIncludingAdjust;
+          existing.totalAmount = existing.amountIncludingVAT;
+          existing.amount = existing.totalAmount;
+        } else {
+          grouped.set(row.productCode, { ...row });
+        }
+      }
+      
+      const keyRows = Array.from(grouped.values());
+      
+      // Sort by totalAmount descending first to prepare for running total accumulation
+      keyRows.sort((first, second) => second.totalAmount - first.totalAmount);
+      
+      // Fallback: If dashboard statistics api returns 0 or fails, use sum of all rows to calculate correct percentages
+      const sumOfAllRows = keyRows.reduce((sum, r) => sum + r.totalAmount, 0);
+      if (dashboardTotal <= 0) {
+        dashboardTotal = sumOfAllRows;
+      }
+      
+      const finalKeyRows: KeyProductItem[] = [];
+      let runningTotal = 0;
+      for (const row of keyRows) {
+        runningTotal += row.totalAmount;
+        row.percentOfTotal = dashboardTotal > 0 ? Number(((row.totalAmount / dashboardTotal) * 100).toFixed(2)) : 0;
+        row.cumulativePercent = dashboardTotal > 0 ? Number(((runningTotal / dashboardTotal) * 100).toFixed(2)) : 0;
+        
+        finalKeyRows.push(row);
+        
+        // Stop when the cumulative percentage reaches or exceeds 80%
+        if (row.cumulativePercent >= 80) {
+          break;
+        }
+      }
 
       this.loadingProgress = 92;
 
-      this.applyShopRows(shop.ShopCode, keyRows);
+      this.applyShopRows(shop.ShopCode, finalKeyRows);
       this.loadedShopKeys.add(loadedShopKey);
       await this.writeCache({
         cacheKey,
-        rows: keyRows,
+        rows: finalKeyRows,
         savedAt: Date.now(),
       });
       this.cacheStatus = `Dữ liệu Hàng key đã cập nhật lúc ${this.formatCacheTime(Date.now())}.`;
@@ -528,7 +641,20 @@ export class KeyProductsComponent implements OnInit {
     }
 
     const record = data as RawRecord;
-    const preferredKeys = ["SalesSpeedLst", "Data", "data", "DataLst", "ListData", "Rows", "Table"];
+    const preferredKeys = [
+      "SalesInvoiceLst",
+      "ReportSalesLst",
+      "SalesReportLst",
+      "SalesSpeedLst",
+      "Data",
+      "data",
+      "DataLst",
+      "ListData",
+      "Rows",
+      "rows",
+      "Table",
+      "result",
+    ];
 
     for (const key of preferredKeys) {
       const value = record[key];
