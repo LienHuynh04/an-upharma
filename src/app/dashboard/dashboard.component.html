@@ -15,7 +15,6 @@
           </div>
         </div>
         </div>
-      </div>
     </div>
   </div>
 </div>
@@ -26,8 +25,8 @@
 
     <!-- KPI Summary Grid -->
     <div class="row row-cards mb-3" *ngIf="!dashboardErrorText">
-      <!-- Total Sales -->
-      <div class="col-sm-6 col-lg-3">
+      <!-- Tổng doanh thu -->
+      <div class="col-sm-6 col-lg">
         <div class="card card-sm">
           <div class="card-body">
             <div class="row align-items-center">
@@ -42,24 +41,24 @@
           </div>
         </div>
       </div>
-      <!-- VNPay Revenue -->
-      <div class="col-sm-6 col-lg-3">
+      <!-- Tiền mặt -->
+      <div class="col-sm-6 col-lg">
         <div class="card card-sm">
           <div class="card-body">
             <div class="row align-items-center">
               <div class="col-auto">
-                <span class="bg-success text-white avatar"><i class="ti ti-qrcode" style="font-size: 1.25rem;"></i></span>
+                <span class="bg-success text-white avatar"><i class="ti ti-cash" style="font-size: 1.25rem;"></i></span>
               </div>
               <div class="col">
-                <div class="font-weight-medium">VNPay ({{ getPaymentPercent(paymentMethodInfo.VNPay) }})</div>
-                <div class="text-secondary">{{ formatMoney(paymentMethodInfo.VNPay) }}</div>
+                <div class="font-weight-medium">Tiền mặt ({{ getPaymentPercent(paymentMethodInfo.Cash) }})</div>
+                <div class="text-secondary">{{ formatMoney(paymentMethodInfo.Cash) }}</div>
               </div>
             </div>
           </div>
         </div>
       </div>
-      <!-- Card Revenue -->
-      <div class="col-sm-6 col-lg-3">
+      <!-- Thẻ -->
+      <div class="col-sm-6 col-lg">
         <div class="card card-sm">
           <div class="card-body">
             <div class="row align-items-center">
@@ -67,15 +66,15 @@
                 <span class="bg-info text-white avatar"><i class="ti ti-credit-card" style="font-size: 1.25rem;"></i></span>
               </div>
               <div class="col">
-                <div class="font-weight-medium">Thẻ POS ({{ getPaymentPercent(paymentMethodInfo.Card) }})</div>
+                <div class="font-weight-medium">Thẻ ({{ getPaymentPercent(paymentMethodInfo.Card) }})</div>
                 <div class="text-secondary">{{ formatMoney(paymentMethodInfo.Card) }}</div>
               </div>
             </div>
           </div>
         </div>
       </div>
-      <!-- Bank CK Revenue -->
-      <div class="col-sm-6 col-lg-3">
+      <!-- Chuyển khoản -->
+      <div class="col-sm-6 col-lg">
         <div class="card card-sm">
           <div class="card-body">
             <div class="row align-items-center">
@@ -85,6 +84,22 @@
               <div class="col">
                 <div class="font-weight-medium">Chuyển khoản ({{ getPaymentPercent(paymentMethodInfo.CK) }})</div>
                 <div class="text-secondary">{{ formatMoney(paymentMethodInfo.CK) }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- VNPay -->
+      <div class="col-sm-6 col-lg">
+        <div class="card card-sm">
+          <div class="card-body">
+            <div class="row align-items-center">
+              <div class="col-auto">
+                <span class="bg-purple text-white avatar"><i class="ti ti-qrcode" style="font-size: 1.25rem;"></i></span>
+              </div>
+              <div class="col">
+                <div class="font-weight-medium">VNPay ({{ getPaymentPercent(paymentMethodInfo.VNPay) }})</div>
+                <div class="text-secondary">{{ formatMoney(paymentMethodInfo.VNPay) }}</div>
               </div>
             </div>
           </div>
