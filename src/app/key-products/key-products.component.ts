@@ -40,7 +40,7 @@ type KeyProductsTextFilterKey = "productName" | "productCode";
   templateUrl: "./key-products.component.html",
 })
 export class KeyProductsComponent implements OnInit {
-  readonly endpoint = "/SalesInvoice/GetKeyProductsCalculated";
+  readonly endpoint = "/SalesInvoice/GetReportSalesByShop";
   shopsSummary: any = null;
   shops: ShopInfo[] = [];
   activeShopCode = "";
@@ -377,10 +377,19 @@ export class KeyProductsComponent implements OnInit {
     this.errorText = "";
 
     try {
+      const now = new Date();
+      const twoMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+      const pad = (n: number) => String(n).padStart(2, "0");
+      const timeStart = `${twoMonthsAgo.getFullYear()}-${pad(twoMonthsAgo.getMonth() + 1)}-01 00:00:00`;
+      const timeEnd = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} 23:59:59`;
+
       const payload = {
         uPharmaID: session.UserInfo.uPharmaID,
         Token: session.Token,
-        ShopLst: shop.ShopCode,
+        ShopCode: shop.ShopCode,
+        TimeStart: timeStart,
+        TimeEnd: timeEnd,
+        _useFirebaseKeyProducts: true,
       };
       this.loadingProgress = 45;
       const response = await this.upharmaService.callEndpoint<unknown>(this.endpoint, payload, {
@@ -388,9 +397,10 @@ export class KeyProductsComponent implements OnInit {
         forceRefresh,
       });
       this.loadingProgress = 75;
-      const keyRows = (this.extractArray(response) as unknown as KeyProductItem[]).sort((first, second) =>
-        second.amount - first.amount,
-      );
+      
+      const rawArray = this.extractArray(response);
+      const keyRows = rawArray as unknown as KeyProductItem[];
+
       this.loadingProgress = 92;
 
       this.applyShopRows(shop.ShopCode, keyRows);

@@ -146,7 +146,7 @@
               </div>
             </li>
 
-            <!-- Nhóm hệ thống test
+            <!-- Nhóm hệ thống test -->
             <li class="nav-item dropdown" [class.show]="openMenuId === 'test'" [class.active]="menuGroups['test']">
               <a
                 class="nav-link dropdown-toggle py-2"
@@ -179,9 +179,15 @@
                   (click)="closeSidebar(); openMenuId = null"
                   >Test tốc độ tiêu thụ</a
                 >
+                <a
+                  class="dropdown-item"
+                  routerLink="/api-test"
+                  routerLinkActive="active"
+                  (click)="closeSidebar(); openMenuId = null"
+                  >Test Hàng Key (API)</a
+                >
               </div>
             </li>
-            -->
           </ul>
         </div>
       </div>

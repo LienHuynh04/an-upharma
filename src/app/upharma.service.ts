@@ -226,7 +226,8 @@ export class UpharmaService {
     }
 
     const isFirebaseTarget =
-      pathname.includes("GetReportSalesSpeed") ||
+      !payload?.['_bypassFirebase'] &&
+      (pathname.includes("GetReportSalesSpeed") ||
       pathname.includes("GetTransferOrderProcess") ||
       pathname.includes("GetProductOff") ||
       pathname.includes("GetItemLstWithFollower") ||
@@ -236,7 +237,8 @@ export class UpharmaService {
       pathname.includes("GetOutOfStockCalculated") ||
       pathname.includes("GetKeyProductsCalculated") ||
       (pathname.includes("GetStatisticsShop") && payload?.['_useFirebaseCache']) ||
-      (pathname.includes("GetCustomerNewLst") && payload?.['_useFirebaseCache']);
+      (pathname.includes("GetCustomerNewLst") && payload?.['_useFirebaseCache']) ||
+      (pathname.includes("GetReportSalesByShop") && payload?.['_useFirebaseKeyProducts']));
 
     if (isFirebaseTarget) {
       let resourceName = "";
@@ -257,7 +259,11 @@ export class UpharmaService {
       } else if (pathname.includes("GetItemLstWithFollower")) {
         resourceName = "product_follower";
       } else if (pathname.includes("GetReportSalesByShop")) {
-        resourceName = "sales_report";
+        if (payload?.['_useFirebaseKeyProducts']) {
+          resourceName = "key_products";
+        } else {
+          resourceName = "sales_report";
+        }
       } else if (pathname.includes("GetStatisticsShop") && payload?.['_useFirebaseCache']) {
         resourceName = "dashboard_statistics";
       } else if (pathname.includes("GetCustomerNewLst") && payload?.['_useFirebaseCache']) {

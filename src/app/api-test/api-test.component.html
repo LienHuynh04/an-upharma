@@ -6,7 +6,7 @@
         <h2 class="page-title">Test API</h2>
         <div class="text-secondary mt-1">
           <span class="badge bg-blue-lt me-1">POST</span>
-          <code>{{ endpoint }}</code> • Trang test chỉ gọi API tốc độ tiêu thụ cho 3 nhà thuốc lấy từ response đăng nhập.
+          <code>{{ endpoint }}</code> • Trang test gọi API gốc không qua Firebase.
         </div>
       </div>
       <div class="col-auto ms-auto d-print-none">
@@ -48,6 +48,16 @@
               </div>
 
               <div class="mb-3">
+                <label class="form-label">Chọn API</label>
+                <select class="form-select" [(ngModel)]="endpoint" name="endpoint" (ngModelChange)="updateRequestPreview()">
+                  <option value="/SalesInvoice/GetReportSalesSpeed">Hàng lặp tốt (Tốc độ tiêu thụ) - /SalesInvoice/GetReportSalesSpeed</option>
+                  <option value="/SalesInvoice/GetReportSalesByShop">Lấy báo cáo đơn hàng theo Shop - /SalesInvoice/GetReportSalesByShop</option>
+                  <option value="/SalesInvoice/GetSalesHeaderByShop">Thông tin đơn hàng (Danh sách) - /SalesInvoice/GetSalesHeaderByShop</option>
+                  <option value="/SalesInvoice/GetSalesHeaderByID">Chi tiết đơn hàng theo ID - /SalesInvoice/GetSalesHeaderByID</option>
+                </select>
+              </div>
+
+              <div class="mb-3">
                 <label class="form-label">TimeStart</label>
                 <input class="form-control" [(ngModel)]="timeStart" name="timeStart" (ngModelChange)="updateRequestPreview()" />
               </div>
@@ -64,7 +74,7 @@
 
               <div class="mb-3">
                 <label class="form-label">GetType</label>
-                <input class="form-control" [(ngModel)]="getType" name="getType" placeholder="Ví dụ: duytri nếu API yêu cầu" (ngModelChange)="updateRequestPreview()" />
+                <input class="form-control" [(ngModel)]="getType" name="getType" placeholder="Ví dụ: month nếu API yêu cầu" (ngModelChange)="updateRequestPreview()" />
               </div>
 
               <div class="mb-3">
@@ -72,8 +82,28 @@
                 <input class="form-control" [(ngModel)]="viewCity" name="viewCity" type="number" (ngModelChange)="updateRequestPreview()" />
               </div>
 
+              <div class="mb-3">
+                <label class="form-label">Search</label>
+                <input class="form-control" [(ngModel)]="searchStr" name="searchStr" placeholder="Tìm kiếm" (ngModelChange)="updateRequestPreview()" />
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label">PageNumber</label>
+                <input class="form-control" [(ngModel)]="pageNumber" name="pageNumber" type="number" (ngModelChange)="updateRequestPreview()" />
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label">NumberRow</label>
+                <input class="form-control" [(ngModel)]="numberRow" name="numberRow" type="number" (ngModelChange)="updateRequestPreview()" />
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label">HeaderID</label>
+                <input class="form-control" [(ngModel)]="headerID" name="headerID" placeholder="Nhập ID đơn hàng (dùng cho GetSalesHeaderByID)" (ngModelChange)="updateRequestPreview()" />
+              </div>
+
               <button class="btn btn-primary w-100" type="submit" [disabled]="loading || !shopLst">
-                {{ loading ? "Đang gọi..." : "Gọi API tốc độ tiêu thụ" }}
+                {{ loading ? "Đang gọi..." : "Gọi API" }}
               </button>
             </form>
           </div>
@@ -84,7 +114,7 @@
         <div class="card mb-3">
           <div class="card-header">
             <div>
-              <div class="card-subtitle">SalesInvoice/GetReportSalesSpeed</div>
+              <div class="card-subtitle">{{ endpoint }}</div>
               <h3 class="card-title">Request gửi đi</h3>
             </div>
           </div>
@@ -96,7 +126,7 @@
         <div class="card">
           <div class="card-header">
             <div>
-              <div class="card-subtitle" *ngIf="responseText">SalesInvoice/GetReportSalesSpeed</div>
+              <div class="card-subtitle" *ngIf="responseText">{{ endpoint }}</div>
               <h3 class="card-title">Response</h3>
             </div>
           </div>

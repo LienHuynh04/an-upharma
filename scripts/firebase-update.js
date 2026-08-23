@@ -233,6 +233,17 @@ function getResourceConfig(resourceName, now = new Date()) {
         };
       },
     },
+    key_products: {
+      pathname: "/SalesInvoice/GetReportSalesByShop",
+      payload: () => {
+        const twoMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+        const timeStart = `${twoMonthsAgo.getFullYear()}-${String(twoMonthsAgo.getMonth() + 1).padStart(2, "0")}-01 00:00:00`;
+        return {
+          TimeStart: timeStart,
+          TimeEnd: currentTime,
+        };
+      },
+    },
   };
   return configs[resourceName];
 }
@@ -291,7 +302,8 @@ async function run() {
     product_follower: {},
     statistics_shop: {},
     dashboard_statistics: {},
-    dashboard_customers: {}
+    dashboard_customers: {},
+    key_products: {}
   };
 
   const resources = [
@@ -305,6 +317,7 @@ async function run() {
     'customer_new',
     'dashboard_statistics',
     'dashboard_customers',
+    'key_products',
     'transfer_process',
     'product_off',
     'product_follower',
@@ -328,11 +341,45 @@ async function run() {
         });
 
         const arrayData = extractArray(responseData);
-        const mappedArray = arrayData.map((item) => ({
+        let mappedArray = arrayData.map((item) => ({
           ...item,
           __shopCode: shop.ShopCode,
           __shopName: shop.ShopName,
         }));
+
+        if (resourceName === 'key_products') {
+          let totalAmount = 0;
+          const grouped = new Map();
+          for (const row of mappedArray) {
+            const amount = Number(row["Amount"] || row["AmountIncludingVAT"] || row["TotalAmount"]) || 0;
+            totalAmount += amount;
+            const pCode = String(row["ProductCode"] || row["ItemCode"] || "");
+            const pName = String(row["ProductName"] || row["ItemName"] || "");
+            if (!pCode) continue;
+            
+            if (grouped.has(pCode)) {
+              grouped.get(pCode).amount += amount;
+            } else {
+              grouped.set(pCode, {
+                rowKey: `${shop.ShopCode}|${pCode}`,
+                shopCode: shop.ShopCode,
+                productCode: pCode,
+                productName: pName,
+                amount: amount,
+              });
+            }
+          }
+          
+          const keyRows = Array.from(grouped.values()).sort((a, b) => b.amount - a.amount);
+          
+          let runningTotal = 0;
+          for (const row of keyRows) {
+            runningTotal += row.amount;
+            row.percentOfTotal = totalAmount > 0 ? Number(((row.amount / totalAmount) * 100).toFixed(2)) : 0;
+            row.cumulativePercent = totalAmount > 0 ? Number(((runningTotal / totalAmount) * 100).toFixed(2)) : 0;
+          }
+          mappedArray = keyRows;
+        }
         data.push(...mappedArray);
 
         if (allShopsData[resourceName]) {

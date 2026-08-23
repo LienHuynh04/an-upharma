@@ -11,15 +11,19 @@ import { RawRecord, ShopInfo, UpharmaService } from "../upharma.service";
   templateUrl: "./api-test.component.html",
 })
 export class ApiTestComponent implements OnInit {
-  readonly endpoint = "/SalesInvoice/GetReportSalesSpeed";
+  endpoint = "/SalesInvoice/GetReportSalesSpeed";
   shops: ShopInfo[] = [];
   selectedShopCode = "";
   timeStart = "";
   timeEnd = "";
   productID = "";
-  getType = "";
+  getType = "month";
   viewCity = 0;
   shopLst = "";
+  searchStr = "";
+  pageNumber = 1;
+  numberRow = 100;
+  headerID = "";
   requestPayload = "";
   responseText = "";
   errorText = "";
@@ -42,10 +46,11 @@ export class ApiTestComponent implements OnInit {
 
   async ngOnInit(): Promise<void> {
     this.sidebarCollapsed = localStorage.getItem("upharma_sidebar_collapsed") === "true";
-    this.timeStart = "2026-07-01 00:00:00";
-    this.timeEnd = "2026-07-22 00:00:00";
-    this.getType = "Week";
-    this.viewCity = 0;
+    const now = new Date();
+    const twoMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    this.timeStart = `${twoMonthsAgo.getFullYear()}-${pad(twoMonthsAgo.getMonth() + 1)}-01 00:00:00`;
+    this.timeEnd = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} 23:59:59`;
 
     await this.loginOnly();
   }
@@ -92,7 +97,8 @@ export class ApiTestComponent implements OnInit {
       this.loadingProgress = 45;
       const response = await this.upharmaService.callEndpoint<unknown>(this.endpoint, payload);
       this.loadingProgress = 85;
-      this.responseText = JSON.stringify(response, null, 2);
+      const truncated = this.truncateResponse(response);
+      this.responseText = JSON.stringify(truncated, null, 2);
       this.loadingProgress = 100;
     } catch (error) {
       this.errorText = this.getErrorMessage(error);
@@ -158,16 +164,39 @@ export class ApiTestComponent implements OnInit {
   }
 
   private buildPayload(token: string, uPharmaID: number): RawRecord {
-    return {
+    const basePayload: RawRecord = {
       uPharmaID,
       Token: token,
-      TimeStart: this.timeStart,
-      TimeEnd: this.timeEnd,
-      ProductID: this.productID,
-      GetType: this.getType,
-      ViewCity: Number(this.viewCity) || 0,
-      ShopLst: this.shopLst,
+      _bypassFirebase: true,
     };
+
+    if (this.endpoint.includes("GetSalesHeaderByID")) {
+      basePayload["HeaderID"] = this.headerID;
+    } else if (this.endpoint.includes("GetSalesHeaderByShop")) {
+      basePayload["TimeStart"] = this.timeStart;
+      basePayload["TimeEnd"] = this.timeEnd;
+      basePayload["Search"] = this.searchStr;
+      basePayload["ShopCode"] = this.selectedShopCode;
+      basePayload["PageNumber"] = Number(this.pageNumber) || 1;
+      basePayload["NumberRow"] = Number(this.numberRow) || 100;
+    } else if (this.endpoint.includes("GetReportSalesByShop")) {
+      basePayload["TimeStart"] = this.timeStart;
+      basePayload["TimeEnd"] = this.timeEnd;
+      basePayload["ShopCode"] = this.selectedShopCode;
+    } else if (this.endpoint.includes("GetReportSalesSpeed")) {
+      basePayload["TimeStart"] = this.timeStart;
+      basePayload["TimeEnd"] = this.timeEnd;
+      basePayload["ShopLst"] = this.selectedShopCode;
+      basePayload["ProductID"] = this.productID;
+      basePayload["GetType"] = this.getType;
+      basePayload["ViewCity"] = Number(this.viewCity) || 0;
+    } else {
+      basePayload["TimeStart"] = this.timeStart;
+      basePayload["TimeEnd"] = this.timeEnd;
+      basePayload["ShopCode"] = this.selectedShopCode;
+    }
+
+    return basePayload;
   }
 
   private selectDefaultShops(): void {
@@ -186,5 +215,30 @@ export class ApiTestComponent implements OnInit {
 
   private getErrorMessage(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
+  }
+
+  private truncateResponse(response: any): any {
+    const limit = 10;
+    if (Array.isArray(response)) {
+      if (response.length > limit) {
+        return [...response.slice(0, limit), `... và ${response.length - limit} mục khác đã được ẩn đi để tránh treo trình duyệt.`];
+      }
+      return response;
+    }
+
+    if (response && typeof response === "object") {
+      const cloned = { ...response };
+      for (const key of Object.keys(cloned)) {
+        if (Array.isArray(cloned[key]) && cloned[key].length > limit) {
+          cloned[key] = [
+            ...cloned[key].slice(0, limit),
+            `... và ${cloned[key].length - limit} mục khác đã được ẩn đi.`,
+          ];
+        }
+      }
+      return cloned;
+    }
+
+    return response;
   }
 }
