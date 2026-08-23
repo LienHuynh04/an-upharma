@@ -231,7 +231,6 @@ export class UpharmaService {
       pathname.includes("GetTransferOrderProcess") ||
       pathname.includes("GetProductOff") ||
       pathname.includes("GetItemLstWithFollower") ||
-      pathname.includes("GetReportSalesByShop") ||
       pathname.includes("GetStableConsumptionCalculated") ||
       pathname.includes("GetSlowSellingCalculated") ||
       pathname.includes("GetOutOfStockCalculated") ||

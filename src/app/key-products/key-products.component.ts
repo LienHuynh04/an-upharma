@@ -35,7 +35,7 @@ interface KeyProductsCacheEntry {
   savedAt: number;
 }
 
-type KeyProductsTextFilterKey = "productName" | "productCode";
+type KeyProductsTextFilterKey = "productName" | "productCode" | "status";
 
 @Component({
   selector: "app-key-products",
@@ -61,19 +61,24 @@ export class KeyProductsComponent implements OnInit {
   sidebarCollapsed = false;
   mobileMenuOpen = false;
   logoutConfirmOpen = false;
-  selectedKeyProductItem: KeyProductItem | null = null;
   filtersCollapsed = true;
   textFilters: Record<KeyProductsTextFilterKey, string> = {
     productName: "",
     productCode: "",
+    status: "",
   };
   menuGroups: Record<string, boolean> = {
     profile: false,
     goods: true,
     test: false,
   };
+  stableProductCodes = new Set<string>();
   private loadedShopKeys = new Set<string>();
   private loadingShopKeys = new Set<string>();
+
+  isStableProduct(productCode: string): boolean {
+    return this.stableProductCodes.has(productCode);
+  }
 
   constructor(
     private readonly upharmaService: UpharmaService,
@@ -130,17 +135,26 @@ export class KeyProductsComponent implements OnInit {
     return this.filteredRows.slice(0, this.visibleCount);
   }
 
+  // Toàn bộ rows của shop đang xem, không qua filter — dùng cho thống kê cố định
+  get shopRows(): KeyProductItem[] {
+    return this.rows.filter(row => row.shopCode === this.activeShopCode);
+  }
+
   get totalKeyProductsCount(): number {
-    return this.filteredRows.length;
+    return this.shopRows.length;
   }
 
   get totalKeyProductsAmount(): number {
-    return this.filteredRows.reduce((sum, r) => sum + r.totalAmount, 0);
+    return this.shopRows.reduce((sum, r) => sum + r.totalAmount, 0);
   }
 
   get totalKeyProductsPercent(): number {
-    const percent = this.filteredRows.reduce((sum, r) => sum + r.percentOfTotal, 0);
+    const percent = this.shopRows.reduce((sum, r) => sum + r.percentOfTotal, 0);
     return Number(percent.toFixed(2));
+  }
+
+  get totalStableProductsCount(): number {
+    return this.shopRows.filter(row => this.isStableProduct(row.productCode)).length;
   }
 
   get hasActiveShopLoaded(): boolean {
@@ -255,14 +269,6 @@ export class KeyProductsComponent implements OnInit {
     return row.rowKey;
   }
 
-  openKeyProductDetail(row: KeyProductItem): void {
-    this.selectedKeyProductItem = row;
-  }
-
-  closeKeyProductDetail(): void {
-    this.selectedKeyProductItem = null;
-  }
-
   toggleFilters(): void {
     this.filtersCollapsed = !this.filtersCollapsed;
   }
@@ -271,6 +277,7 @@ export class KeyProductsComponent implements OnInit {
     this.textFilters = {
       productName: "",
       productCode: "",
+      status: "",
     };
     this.resetVisibleRows();
   }
@@ -395,9 +402,9 @@ export class KeyProductsComponent implements OnInit {
 
     try {
       const now = new Date();
-      const twoMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+      const oneMonthAgo = new Date(now.getFullYear(), now.getMonth() - 1, 1);
       const pad = (n: number) => String(n).padStart(2, "0");
-      const timeStart = `${twoMonthsAgo.getFullYear()}-${pad(twoMonthsAgo.getMonth() + 1)}-01 00:00:00`;
+      const timeStart = `${oneMonthAgo.getFullYear()}-${pad(oneMonthAgo.getMonth() + 1)}-01 00:00:00`;
       const timeEnd = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} 23:59:59`;
 
       const payload = {
@@ -406,35 +413,34 @@ export class KeyProductsComponent implements OnInit {
         ShopCode: shop.ShopCode,
         TimeStart: timeStart,
         TimeEnd: timeEnd,
-        _useFirebaseKeyProducts: true,
+        _useFirebaseKeyProducts: false,
       };
-      this.loadingProgress = 40;
+      this.loadingProgress = 45;
       const response = await this.upharmaService.callEndpoint<unknown>(this.endpoint, payload, {
         cache: true,
         forceRefresh,
       });
-      this.loadingProgress = 60;
+      // Tải danh sách hàng lặp tốt để đánh dấu "Hàng thường trực"
+      try {
+        const stablePayload = {
+          uPharmaID: session.UserInfo.uPharmaID,
+          Token: session.Token,
+          ShopLst: shop.ShopCode,
+        };
+        const stableRes = await this.upharmaService.callEndpoint<unknown>("/SalesInvoice/GetStableConsumptionCalculated", stablePayload, {
+          cache: true,
+          forceRefresh,
+        });
+        const stableArray = this.extractArray(stableRes);
+        const codes = stableArray.map(item => String(item["productCode"] || item["ProductCode"] || "").trim()).filter(Boolean);
+        this.stableProductCodes = new Set(codes);
+      } catch (err) {
+        console.warn("Không tải được danh sách hàng lặp tốt:", err);
+        this.stableProductCodes = new Set();
+      }
 
-      // Fetch dashboard total revenue for the same date range to compute percentages
-      const statsPayload = {
-        ShopCode: shop.ShopCode,
-        TimeStart: timeStart,
-        TimeEnd: timeEnd,
-        Token: session.Token,
-        uPharmaID: String(session.UserInfo.uPharmaID),
-        _useFirebaseCache: true,
-      };
-      
-      const statsResponse = await this.upharmaService.callEndpoint<any>("/CancelProduct/GetStatisticsShop", statsPayload, {
-        cache: true,
-        forceRefresh,
-      });
-      
-      const paymentInfo = statsResponse?.PaymentMethodInfo || { Cash: 0, Card: 0, VNPay: 0, CK: 0 };
-      let dashboardTotal = Number(paymentInfo.Cash || 0) + Number(paymentInfo.Card || 0) + Number(paymentInfo.VNPay || 0) + Number(paymentInfo.CK || 0);
+      this.loadingProgress = 70;
 
-      this.loadingProgress = 80;
-      
       const rawArray = this.extractArray(response);
 
       const filteredRawArray = rawArray.filter((row) => {
@@ -449,7 +455,6 @@ export class KeyProductsComponent implements OnInit {
       });
 
       const parsedRows = filteredRawArray.map((row, index) => {
-        // Support fallback keys for Amount including lowercase keys when loading from Firebase cache
         const amountIncludingVAT = Number(row["amountIncludingVAT"] || row["AmountIncludingVAT"] || row["amount"] || row["Amount"] || row["TotalAmount"] || row["ThanhTien"]) || 0;
         const amountIncludingAdjust = Number(row["amountIncludingAdjust"] || row["AmountIncludingAdjust"]) || 0;
         const quantity = Number(row["quantity"] || row["Quantity"]) || 0;
@@ -490,31 +495,27 @@ export class KeyProductsComponent implements OnInit {
       
       const keyRows = Array.from(grouped.values());
       
-      // Sort by totalAmount descending first to prepare for running total accumulation
+      // Sort by totalAmount descending
       keyRows.sort((first, second) => second.totalAmount - first.totalAmount);
       
-      // Fallback: If dashboard statistics api returns 0 or fails, use sum of all rows to calculate correct percentages
-      const sumOfAllRows = keyRows.reduce((sum, r) => sum + r.totalAmount, 0);
-      if (dashboardTotal <= 0) {
-        dashboardTotal = sumOfAllRows;
-      }
+      const totalAmountSum = keyRows.reduce((sum, r) => sum + r.totalAmount, 0);
+      const minItemsCount = Math.max(1, Math.ceil(keyRows.length * 0.20));
       
       const finalKeyRows: KeyProductItem[] = [];
       let runningTotal = 0;
       for (const row of keyRows) {
         runningTotal += row.totalAmount;
-        row.percentOfTotal = dashboardTotal > 0 ? Number(((row.totalAmount / dashboardTotal) * 100).toFixed(2)) : 0;
-        row.cumulativePercent = dashboardTotal > 0 ? Number(((runningTotal / dashboardTotal) * 100).toFixed(2)) : 0;
-        
+        row.percentOfTotal = totalAmountSum > 0 ? Number(((row.totalAmount / totalAmountSum) * 100).toFixed(2)) : 0;
+        row.cumulativePercent = totalAmountSum > 0 ? Number(((runningTotal / totalAmountSum) * 100).toFixed(2)) : 0;
         finalKeyRows.push(row);
         
-        // Stop when the cumulative percentage reaches or exceeds 80%
-        if (row.cumulativePercent >= 80) {
+        // Điều kiện dừng: đạt tối thiểu 20% số lượng mã hàng VÀ tổng tỷ trọng lũy kế đạt ít nhất 80%
+        if (finalKeyRows.length >= minItemsCount && row.cumulativePercent >= 80) {
           break;
         }
       }
 
-      this.loadingProgress = 92;
+      this.loadingProgress = 90;
 
       this.applyShopRows(shop.ShopCode, finalKeyRows);
       this.loadedShopKeys.add(loadedShopKey);
@@ -615,15 +616,27 @@ export class KeyProductsComponent implements OnInit {
   }
 
   private matchesColumnFilters(row: KeyProductItem): boolean {
-    const textTargets: Record<KeyProductsTextFilterKey, string> = {
+    const statusFilter = this.textFilters.status;
+    if (statusFilter) {
+      const isStable = this.isStableProduct(row.productCode);
+      if (statusFilter === "Hàng thường trực" && !isStable) {
+        return false;
+      }
+      if (statusFilter === "Hàng khác" && isStable) {
+        return false;
+      }
+    }
+
+    const textTargets: Record<"productName" | "productCode", string> = {
       productName: row.productName,
       productCode: row.productCode,
     };
 
     for (const [key, filterValue] of Object.entries(this.textFilters) as [KeyProductsTextFilterKey, string][]) {
+      if (key === "status") continue;
       const normalizedFilter = normalizeFilterText(filterValue);
 
-      if (normalizedFilter && !normalizeFilterText(textTargets[key]).includes(normalizedFilter)) {
+      if (normalizedFilter && !normalizeFilterText(textTargets[key as "productName" | "productCode"]).includes(normalizedFilter)) {
         return false;
       }
     }

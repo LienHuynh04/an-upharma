@@ -5,7 +5,7 @@
         <div class="page-pretitle">HÀNG HÓA</div>
         <h2 class="page-title">Hàng key</h2>
         <div class="text-secondary mt-1">
-          Hiển thị tỷ trọng doanh số của từng sản phẩm so với tổng doanh thu trên Dashboard trong 2 tháng gần nhất.
+          Hiển thị danh sách sản phẩm đạt tối thiểu 20% số lượng mã hàng và đạt ít nhất 80% tổng tỷ trọng doanh số trong 1 tháng gần nhất.
         </div>
       </div>
       <div class="col-auto ms-auto d-print-none">
@@ -34,8 +34,7 @@
               (click)="setActiveShop(tab.shopCode)"
             >
               <i class="ti ti-building-store me-2" style="font-size: 1.15rem;"></i>
-              <strong>{{ tab.shopCode }}</strong>
-              <span class="badge bg-primary-lt ms-2" [attr.title]="tab.shopName">{{ tab.loading ? "..." : tab.loaded ? tab.count : "Chưa tải" }}</span>
+              <strong [attr.title]="tab.shopName">{{ tab.shopCode }}</strong>
             </a>
           </li>
         </ul>
@@ -44,7 +43,7 @@
 
     <!-- Stats Summary Section -->
     <div class="row g-3 mb-3" *ngIf="hasActiveShopLoaded && !loading">
-      <div class="col-sm-6 col-lg-4">
+      <div class="col-sm-6 col-lg-3">
         <div class="card card-sm">
           <div class="card-body">
             <div class="row align-items-center">
@@ -66,7 +65,7 @@
         </div>
       </div>
       
-      <div class="col-sm-6 col-lg-4">
+      <div class="col-sm-6 col-lg-3">
         <div class="card card-sm">
           <div class="card-body">
             <div class="row align-items-center">
@@ -88,7 +87,7 @@
         </div>
       </div>
       
-      <div class="col-sm-6 col-lg-4">
+      <div class="col-sm-6 col-lg-3">
         <div class="card card-sm">
           <div class="card-body">
             <div class="row align-items-center">
@@ -109,25 +108,43 @@
           </div>
         </div>
       </div>
+
+      <div class="col-sm-6 col-lg-3">
+        <div class="card card-sm">
+          <div class="card-body">
+            <div class="row align-items-center">
+              <div class="col-auto">
+                <span class="bg-teal text-white avatar">
+                  <strong>✓</strong>
+                </span>
+              </div>
+              <div class="col">
+                <div class="font-weight-medium">
+                  {{ totalStableProductsCount }} sản phẩm
+                </div>
+                <div class="text-secondary">
+                  Hàng thường trực
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="card" [class.filters-collapsed]="filtersCollapsed">
       <div class="card-header d-flex align-items-center justify-content-between">
-        <div>
-          <h3 class="card-title m-0">{{ activeShopName }}</h3>
+        <div class="d-flex align-items-center flex-wrap gap-2">
+          <h3 class="card-title m-0 me-3">{{ activeShopName }}</h3>
+          <ng-container *ngIf="hasActiveShopLoaded">
+            <span class="badge bg-blue-lt" style="font-size: 0.9rem; padding: 6px 12px;">Tổng: {{ totalKeyProductsCount }}</span>
+            <span class="badge bg-success-lt" style="font-size: 0.9rem; padding: 6px 12px;">Hàng thường trực: {{ totalStableProductsCount }}</span>
+            <span class="badge bg-secondary-lt" style="font-size: 0.9rem; padding: 6px 12px;">Hàng khác: {{ totalKeyProductsCount - totalStableProductsCount }}</span>
+          </ng-container>
         </div>
       </div>
 
       <div class="card-body p-0">
-        <div class="alert alert-info m-3 mb-3">
-          <div class="d-flex">
-            <div>
-              <span aria-hidden="true" class="me-2">ⓘ</span>
-              <strong>Bấm vào một dòng sản phẩm</strong> để xem chi tiết tỷ trọng doanh số.
-            </div>
-          </div>
-        </div>
-
         <div class="alert alert-danger m-3" *ngIf="errorText">{{ errorText }}</div>
 
         <div class="table-responsive" style="max-height: 75vh; overflow-y: auto;" (scroll)="onTableScroll($event)">
@@ -135,11 +152,12 @@
           <thead>
             <tr>
               <th style="width: 60px;">STT</th>
-              <th style="width: 45%;">Sản phẩm</th>
+              <th style="width: 35%;">Sản phẩm</th>
               <th style="width: 15%;">Mã</th>
               <th style="width: 10%;">SL</th>
               <th style="width: 15%;">Đơn giá VAT</th>
-              <th style="width: 15%;">Tỷ trọng</th>
+              <th style="width: 10%;">Tỷ trọng</th>
+              <th style="width: 15%;">Ghi chú</th>
             </tr>
             <tr class="column-filter-row" id="stableColumnFilters">
               <th></th>
@@ -166,46 +184,55 @@
               <th></th>
               <th></th>
               <th></th>
+              <th>
+                <select
+                  class="form-select form-select-sm"
+                  [(ngModel)]="textFilters.status"
+                  (ngModelChange)="onFilterChange()"
+                  aria-label="Lọc ghi chú"
+                >
+                  <option value="">Tất cả</option>
+                  <option value="Hàng thường trực">Hàng thường trực</option>
+                  <option value="Hàng khác">Hàng khác</option>
+                </select>
+              </th>
             </tr>
           </thead>
           <tbody>
             <tr *ngIf="!loading && !hasActiveShopLoaded && keyProductsRefreshing">
-              <td colspan="6" class="text-center text-secondary py-4">
+              <td colspan="7" class="text-center text-secondary py-4">
                 Đang tải dữ liệu Hàng key cho {{ activeShopCode }}. Chị vẫn có thể xem giao diện trong lúc chờ.
               </td>
             </tr>
             <tr *ngIf="!loading && !hasActiveShopLoaded && !keyProductsRefreshing">
-              <td colspan="6" class="text-center text-secondary py-4">
+              <td colspan="7" class="text-center text-secondary py-4">
                 Chọn một nhà thuốc ở phía trên để xem danh sách Hàng key.
               </td>
             </tr>
             <tr *ngIf="!loading && hasActiveShopLoaded && filteredRows.length === 0">
-              <td colspan="6" class="text-center text-secondary py-4">
+              <td colspan="7" class="text-center text-secondary py-4">
                 Chưa có sản phẩm nào đạt điều kiện Hàng key trong khoảng thời gian này.
               </td>
             </tr>
-            <tr
+             <tr
               *ngFor="let item of displayedRows; let index = index; trackBy: trackByRow"
               [class.is-collapsed]="!item.expanded"
-              class="stable-click-row"
-              role="button"
-              tabindex="0"
-              (click)="openKeyProductDetail(item)"
-              (keydown.enter)="openKeyProductDetail(item)"
-              (keydown.space)="openKeyProductDetail(item)"
             >
               <td data-label="STT">{{ index + 1 }}</td>
-              <td class="product-cell" data-label="Tên SP">
-                <span class="desktop-product-name">{{ item.productName }}</span>
+              <td class="product-cell" data-label="Tên SP" style="white-space: normal !important;">
+                <span class="desktop-product-name" style="display: block; white-space: normal !important; word-wrap: break-word;">
+                  {{ item.productName }}
+                </span>
                 <button
                   class="record-toggle"
                   type="button"
                   [attr.aria-expanded]="item.expanded"
                   [attr.aria-label]="'Mở chi tiết ' + item.productName"
                 >
-                  <span class="record-toggle-index">{{ index + 1 }}</span>
                   <span class="record-toggle-copy">
-                    <strong>{{ item.productName }}</strong>
+                    <strong>
+                      {{ item.productName }}
+                    </strong>
                     <small>{{ item.productCode }}</small>
                   </span>
                   <span class="record-toggle-icon" aria-hidden="true">⌄</span>
@@ -216,6 +243,9 @@
               <td data-label="AmountIncludingVAT">{{ formatMoney(item.amountIncludingVAT) }}</td>
               <td data-label="Tỷ trọng">
                 <strong>{{ item.percentOfTotal }}%</strong>
+              </td>
+              <td data-label="Ghi chú">
+                <span *ngIf="isStableProduct(item.productCode)" class="status-chip status-chip--planned">Hàng thường trực</span>
               </td>
             </tr>
           </tbody>
@@ -237,43 +267,3 @@
   </div>
 </div>
 
-<div class="stable-detail-overlay" [class.is-visible]="selectedKeyProductItem" (click)="closeKeyProductDetail()">
-  <section
-    class="stable-detail-modal"
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="stableDetailTitle"
-    *ngIf="selectedKeyProductItem as item"
-    (click)="$event.stopPropagation()"
-  >
-    <button class="stable-detail-close" type="button" aria-label="Đóng" (click)="closeKeyProductDetail()">×</button>
-    <span class="stable-detail-kicker">{{ item.shopCode }}</span>
-    <h2 id="stableDetailTitle">{{ item.productName }}</h2>
-    <div class="stable-detail-meta">
-      <span>
-        <small>Mã SP</small>
-        <strong>{{ item.productCode }}</strong>
-      </span>
-      <span>
-        <small>Số lượng</small>
-        <strong>{{ item.quantity }}</strong>
-      </span>
-      <span>
-        <small>VAT</small>
-        <strong>{{ formatMoney(item.amountIncludingVAT) }}</strong>
-      </span>
-      <span>
-        <small>Adjust</small>
-        <strong>{{ formatMoney(item.amountIncludingAdjust) }}</strong>
-      </span>
-      <span>
-        <small>Tổng tiền</small>
-        <strong>{{ formatMoney(item.totalAmount) }}</strong>
-      </span>
-      <span>
-        <small>Tỷ trọng</small>
-        <strong>{{ item.percentOfTotal }}%</strong>
-      </span>
-    </div>
-  </section>
-</div>
