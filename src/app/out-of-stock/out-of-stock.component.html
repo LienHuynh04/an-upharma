@@ -7,6 +7,9 @@
         <div class="text-secondary mt-1">
           Xem các sản phẩm đã hết trong 3 tháng gần nhất, bấm vào shop nào thì dữ liệu của shop đó sẽ được tải và giữ lại trên trang.
         </div>
+        <div *ngIf="starProductsDebugText" class="text-info small mt-1 font-monospace" style="font-weight: 500;">
+          {{ starProductsDebugText }}
+        </div>
       </div>
       <div class="col-auto ms-auto d-print-none">
         <div class="btn-list">
@@ -49,12 +52,19 @@
             <span class="badge bg-blue-lt" *ngIf="hasActiveShopLoaded" style="font-size: 0.9rem; padding: 6px 12px;">Tổng: {{ shopTotalCount }}</span>
             <span class="badge bg-success-lt" *ngIf="hasActiveShopLoaded" style="font-size: 0.9rem; padding: 6px 12px;">Đã dự trù: {{ plannedCount }}</span>
             <span class="badge bg-warning-lt" *ngIf="hasActiveShopLoaded" style="font-size: 0.9rem; padding: 6px 12px;">Chưa dự trù: {{ unplannedCount }}</span>
+            <span class="badge bg-warning-lt text-warning" *ngIf="hasActiveShopLoaded" style="font-size: 0.9rem; padding: 6px 12px; border: 1px solid rgba(245, 158, 11, 0.4);">
+              <span class="me-1">★</span>{{ starProductsCount }}
+            </span>
           </ng-container>
           <ng-container *ngIf="showHiddenMode">
             <span class="badge bg-secondary-lt" *ngIf="hasActiveShopLoaded" style="font-size: 0.9rem; padding: 6px 12px;">Đang ẩn: {{ hiddenProductCodes.size }} sản phẩm</span>
           </ng-container>
         </div>
         <div class="d-flex align-items-center gap-2">
+          <button type="button" class="btn btn-sm" [class.btn-outline-warning]="!showOnlyStarProducts" [class.btn-yellow]="showOnlyStarProducts" (click)="toggleShowOnlyStarProducts()" *ngIf="hasActiveShopLoaded && !showHiddenMode">
+            <span class="me-1" *ngIf="!showOnlyStarProducts">★</span>
+            {{ showOnlyStarProducts ? 'Tất cả sản phẩm' : 'Chỉ xem hàng thường trực' }}
+          </button>
           <button type="button" class="btn btn-sm" [class.btn-outline-secondary]="!showHiddenMode" [class.btn-yellow]="showHiddenMode" (click)="toggleShowHiddenMode()" *ngIf="hasActiveShopLoaded">
             <i class="ti me-1" [class.ti-eye-off]="!showHiddenMode" [class.ti-eye]="showHiddenMode"></i>
             {{ showHiddenMode ? 'Quay lại danh sách' : 'Danh sách ẩn (' + hiddenProductCodes.size + ')' }}
@@ -113,7 +123,10 @@
             >
               <td data-label="STT">{{ index + 1 }}</td>
               <td class="product-cell" data-label="Tên SP" style="white-space: normal !important;">
-                <span class="desktop-product-name" style="display: block; white-space: normal !important; word-wrap: break-word;">{{ item.productName }}</span>
+                <span class="desktop-product-name" style="display: block; white-space: normal !important; word-wrap: break-word;">
+                  {{ item.productName }}
+                  <span *ngIf="isStarProduct(item.productCode, item.shopCode)" class="badge bg-warning-lt text-warning ms-1" title="Hàng thường trực" style="font-size: 0.7rem; padding: 2px 5px; vertical-align: middle;">★</span>
+                </span>
                 <button
                   class="record-toggle"
                   type="button"
@@ -123,13 +136,18 @@
                 >
                   <span class="record-toggle-index">{{ index + 1 }}</span>
                   <span class="record-toggle-copy">
-                    <strong>{{ item.productName }}</strong>
+                    <strong>
+                      {{ item.productName }}
+                      <span *ngIf="isStarProduct(item.productCode, item.shopCode)" class="badge bg-warning-lt text-warning ms-1" title="Hàng thường trực" style="font-size: 0.65rem; padding: 1px 4px; vertical-align: middle;">★</span>
+                    </strong>
                     <small>Mã: {{ item.productCode }} <span class="mx-1">•</span> <span [class.text-success]="item.status === 'Đã dự trù'" [class.text-danger]="item.status !== 'Đã dự trù'" style="font-weight: 700;">{{ item.status === 'Đã dự trù' ? 'Đã dự trù' : 'Chưa dự trù' }}</span></small>
                   </span>
                   <span class="record-toggle-icon" aria-hidden="true">⌄</span>
                 </button>
               </td>
-              <td data-label="Mã SP">{{ item.productCode }}</td>
+              <td data-label="Mã SP">
+                <span style="font-weight: 600;">{{ item.productCode }}</span>
+              </td>
               <td data-label="Trạng thái">
                 <span *ngIf="item.status === 'Đã dự trù'" class="status-chip status-chip--planned">
                   Đã dự trù

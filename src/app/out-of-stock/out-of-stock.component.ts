@@ -83,7 +83,10 @@ export class OutOfStockComponent implements OnInit {
   private transferOrderProcessPromises = new Map<string, Promise<Set<string>>>();
   hiddenProductCodes = new Set<string>();
   showHiddenMode = false;
+  showOnlyStarProducts = false;
   successMessage = "";
+  starProductsDebugText = "";
+  starProductCodesMap = new Map<string, Set<string>>();
 
   private get dbUrl(): string {
     const url = (environment as any).firebaseDbUrl || "";
@@ -159,6 +162,10 @@ export class OutOfStockComponent implements OnInit {
         if (isHidden) return false;
       }
 
+      if (this.showOnlyStarProducts && !this.isStarProduct(row.productCode, row.shopCode)) {
+        return false;
+      }
+
       return this.matchesColumnFilters(row);
     }).sort((first, second) => {
       const firstPriority = this.getMonthPriority(this.normalizeMonthKey(first.shortageMonth));
@@ -207,6 +214,21 @@ export class OutOfStockComponent implements OnInit {
              row.status !== "Đã dự trù" &&
              !this.hiddenProductCodes.has(row.productCode);
     }).length;
+  }
+
+  get starProductsCount(): number {
+    return this.rows.filter((row) => {
+      return row.shopCode === this.activeShopCode &&
+             row.zeroStock &&
+             this.normalizeMonthKey(row.shortageMonth) === this.getFilterMonthKey() &&
+             !this.hiddenProductCodes.has(row.productCode) &&
+             this.isStarProduct(row.productCode, row.shopCode);
+    }).length;
+  }
+
+  toggleShowOnlyStarProducts(): void {
+    this.showOnlyStarProducts = !this.showOnlyStarProducts;
+    this.resetVisibleRows();
   }
 
   get mobileFilterSummary(): string {
@@ -259,6 +281,9 @@ export class OutOfStockComponent implements OnInit {
     }
 
     await this.loadHiddenProducts(shopCode);
+    if (!this.starProductCodesMap.has(shopCode)) {
+      void this.loadStarProductsForShop(shopCode);
+    }
     void this.refreshPlannedStatusForShop(shopCode);
   }
 
@@ -487,6 +512,53 @@ export class OutOfStockComponent implements OnInit {
     await this.router.navigateByUrl("/login");
   }
 
+  isStarProduct(productCode: string, shopCode?: string): boolean {
+    if (!productCode) return false;
+    const cleanCode = productCode.trim().toUpperCase();
+    const targetShop = shopCode || this.activeShopCode;
+    const shopStarCodes = this.starProductCodesMap.get(targetShop);
+    if (shopStarCodes && shopStarCodes.has(cleanCode)) {
+      return true;
+    }
+    for (const [, codesSet] of this.starProductCodesMap) {
+      if (codesSet.has(cleanCode)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  async loadStarProductsForShop(shopCode: string, forceRefresh = false): Promise<void> {
+    try {
+      const session = this.upharmaService.getSession();
+      if (!session) return;
+
+      const stableRes = await this.upharmaService.callEndpoint<unknown>("/SalesInvoice/GetStableConsumptionCalculated", {
+        uPharmaID: session.UserInfo.uPharmaID,
+        Token: session.Token,
+        ShopLst: shopCode,
+      }, { cache: true, forceRefresh });
+
+      const stableArray = this.extractArray(stableRes);
+      const stableCodes = new Set(stableArray.map(item => String(item["productCode"] || item["ProductCode"] || "").trim().toUpperCase()).filter(Boolean));
+
+      this.starProductsDebugText = `[Debug] Shop: ${shopCode} | Tổng số Hàng thường trực: ${stableCodes.size}`;
+
+      this.starProductCodesMap.set(shopCode, stableCodes);
+      this.starProductCodesMap = new Map(this.starProductCodesMap); // Trigger change detection
+      this.rows = [...this.rows]; // Trigger full template re-evaluation for all rows!
+      console.log(`[Star Products] Đã tìm thấy ${stableCodes.size} sản phẩm hàng thường trực cho shop ${shopCode}`);
+    } catch (err) {
+      console.warn(`[Star Products] Lỗi khi lấy hàng thường trực cho shop ${shopCode}:`, err);
+      this.starProductsDebugText = `[Debug Error] Lỗi khi lấy hàng thường trực: ${err instanceof Error ? err.message : String(err)}`;
+      if (!this.starProductCodesMap.has(shopCode)) {
+        this.starProductCodesMap.set(shopCode, new Set<string>());
+        this.starProductCodesMap = new Map(this.starProductCodesMap);
+        this.rows = [...this.rows];
+      }
+    }
+  }
+
   async loadHiddenProducts(shopCode: string): Promise<void> {
     const session = this.upharmaService.getSession();
     if (!session) return;
@@ -611,6 +683,7 @@ export class OutOfStockComponent implements OnInit {
         this.applyShopRows(shop.ShopCode, cachedData.rows);
         this.loadedShopKeys.add(loadedShopKey);
         this.outStockCacheStatus = `Đang hiển thị dữ liệu đã lưu lúc ${this.formatCacheTime(cachedData.savedAt)}. Hệ thống đang cập nhật dữ liệu mới...`;
+        void this.loadStarProductsForShop(shop.ShopCode);
         void this.refreshPlannedStatusForShop(shop.ShopCode);
         void this.refreshActiveShopFromApi(shop, cacheKey, true);
         return;
@@ -652,11 +725,18 @@ export class OutOfStockComponent implements OnInit {
         Token: session.Token,
         ShopLst: shop.ShopCode,
       };
-      this.loadingProgress = 45;
       const response = await this.upharmaService.callEndpoint<unknown>(this.endpoint, payload, {
         cache: true,
         forceRefresh,
       });
+      this.loadingProgress = 70;
+      
+      try {
+        await this.loadStarProductsForShop(shop.ShopCode, forceRefresh);
+      } catch (err) {
+        console.warn("Không tải được hàng key thường trực:", err);
+      }
+      
       this.loadingProgress = 85;
       const shopRows: OutOfStockItem[] = (this.extractArray(response) as unknown as OutOfStockItem[]).sort((first, second) =>
         PRODUCT_NAME_COLLATOR.compare(first.productName, second.productName),
