@@ -584,17 +584,27 @@ async function run() {
 
         if (db) {
           const payloadData = (resourceName === 'dashboard_statistics' || resourceName === 'dashboard_customers') ? responseData : mappedArray;
-          await db.ref(`shops/${shop.ShopCode}/upharma_data/${resourceName}`).set({
-            success: true,
-            resource: resourceName,
-            shop: {
-              ShopCode: shop.ShopCode,
-              ShopName: shop.ShopName,
-            },
-            data: payloadData,
-            fetchedAt: new Date().toISOString(),
-          });
+          const hasError = responseData && (
+            (responseData.RespCode !== undefined && responseData.RespCode !== 0) ||
+            (responseData.data && responseData.data.RespCode !== undefined && responseData.data.RespCode !== 0) ||
+            (typeof responseData.RespText === 'string' && responseData.RespText.toLowerCase().includes('timeout')) ||
+            (responseData.data && typeof responseData.data.RespText === 'string' && responseData.data.RespText.toLowerCase().includes('timeout'))
+          );
 
+          if (hasError) {
+            console.warn(`[Firebase Fetch] Bỏ qua push ${resourceName} của shop ${shop.ShopCode} lên Firebase RTDB do phát hiện lỗi hoặc timeout từ Upharma API.`);
+          } else {
+            await db.ref(`shops/${shop.ShopCode}/upharma_data/${resourceName}`).set({
+              success: true,
+              resource: resourceName,
+              shop: {
+                ShopCode: shop.ShopCode,
+                ShopName: shop.ShopName,
+              },
+              data: payloadData,
+              fetchedAt: new Date().toISOString(),
+            });
+          }
         }
 
         console.log(`[${resourceName}] DONE ${shop.ShopCode} (${mappedArray.length} records, ${Math.round((Date.now() - startedAt) / 1000)}s)`);
