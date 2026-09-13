@@ -894,20 +894,24 @@ header.navbar .dropdown-item.active {
 }
 
 /* KPI Card Interactive Hover & Active states */
-.row[aria-label="Thống kê hạn dùng"] .card {
+.row[aria-label="Thống kê hạn dùng"] .card,
+.row[aria-label="Thống kê đối soát FEFO"] .card {
   transition: all 0.2s ease-in-out !important;
   position: relative !important;
 }
-.row[aria-label="Thống kê hạn dùng"] .card:hover {
+.row[aria-label="Thống kê hạn dùng"] .card:hover,
+.row[aria-label="Thống kê đối soát FEFO"] .card:hover {
   transform: translateY(-2px) !important;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15) !important;
 }
-.row[aria-label="Thống kê hạn dùng"] .card.is-active {
+.row[aria-label="Thống kê hạn dùng"] .card.is-active,
+.row[aria-label="Thống kê đối soát FEFO"] .card.is-active {
   border-color: var(--tblr-primary) !important;
   background: rgba(201, 140, 31, 0.08) !important;
   box-shadow: 0 0 10px rgba(201, 140, 31, 0.25) !important;
 }
-.row[aria-label="Thống kê hạn dùng"] .card.is-active::before {
+.row[aria-label="Thống kê hạn dùng"] .card.is-active::before,
+.row[aria-label="Thống kê đối soát FEFO"] .card.is-active::before {
   content: "✓";
   position: absolute;
   top: 4px;

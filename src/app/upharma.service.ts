@@ -237,7 +237,7 @@ export class UpharmaService {
       pathname.includes("GetKeyProductsCalculated") ||
       (pathname.includes("GetStatisticsShop") && payload?.['_useFirebaseCache']) ||
       (pathname.includes("GetCustomerNewLst") && payload?.['_useFirebaseCache']) ||
-      (pathname.includes("GetReportSalesByShop") && payload?.['_useFirebaseKeyProducts']));
+      (pathname.includes("GetReportSalesByShop") && (payload?.['_useFirebaseCache'] || payload?.['_useFirebaseKeyProducts'])));
 
     if (isFirebaseTarget) {
       let resourceName = "";
@@ -702,9 +702,14 @@ export class UpharmaService {
               }
               const json = await response.json();
               if (json && Array.isArray(json.data)) {
-                shopsData.push(...json.data);
+                const filteredData = json.data.filter((item: any) => {
+                  const code = String(item?.ProductCode || item?.ProductID || item?.MaSP || item?.Code || "").toUpperCase().trim();
+                  const name = String(item?.ProductName || item?.Product_Name || item?.TenSP || item?.Name || "").toUpperCase().trim();
+                  return !(code.includes("VOUCHER") || name.includes("VOUCHER") || code.startsWith("VC"));
+                });
+                shopsData.push(...filteredData);
                 if (options.onShopLoaded) {
-                  options.onShopLoaded(shop.ShopCode, json.data);
+                  options.onShopLoaded(shop.ShopCode, filteredData);
                 }
               }
             } catch (err: any) {

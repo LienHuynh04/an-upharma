@@ -22,6 +22,7 @@ import { RootComponent } from "./app/root.component";
 import { StableConsumptionComponent } from "./app/stable-consumption/stable-consumption.component";
 import { KeyProductsComponent } from "./app/key-products/key-products.component";
 import { LayoutComponent } from "./app/layout/layout.component";
+import { FefoComponent } from "./app/fefo/fefo.component";
 
 
 const routes: Routes = [
@@ -49,6 +50,11 @@ const routes: Routes = [
         path: "ton-kho",
         component: InventoryNewComponent,
         title: "UPHARMA - Tồn kho",
+      },
+      {
+        path: "fefo",
+        component: FefoComponent,
+        title: "UPHARMA - Kiểm tra FEFO",
       },
       {
         path: "ton-kho-new",

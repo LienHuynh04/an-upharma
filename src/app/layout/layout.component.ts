@@ -36,6 +36,10 @@ export class LayoutComponent implements OnInit {
   generatingReport = false;
   activeComponent: any = null;
 
+  generatingPrompt = false;
+  showPromptModal = false;
+  promptContent = '';
+
   constructor(public upharma: UpharmaService, public router: Router) {}
 
   onActivate(componentRef: any) {
@@ -109,10 +113,16 @@ export class LayoutComponent implements OnInit {
       // 3. Fetch Inventory
       let inventoryRows: any[] = [];
       try {
-        const res = await this.upharma.loadInventoryResource({ forceRefresh: false });
-        if (res && Array.isArray(res.data)) {
-          inventoryRows = res.data;
-        }
+        await this.upharma.loadInventoryResource({ 
+          forceRefresh: true,
+          onShopLoaded: (shopCode, shopData) => {
+             const mapped = shopData.map((row: any) => ({
+                ...row,
+                __shopCode: shopCode
+             }));
+             inventoryRows.push(...mapped);
+          }
+        });
       } catch (e) {
         console.warn("Failed to load inventory", e);
       }
@@ -164,6 +174,193 @@ export class LayoutComponent implements OnInit {
     } finally {
       this.generatingReport = false;
     }
+  }
+
+  async generatePromptData() {
+    this.generatingPrompt = true;
+    try {
+      const session = this.upharma.ensureLogin();
+      const shops = this.upharma.getActiveShops();
+      const now = new Date();
+      const currentMonth = now.getMonth() + 1;
+      const currentYear = now.getFullYear();
+
+      // 1. Fetch Employee Plans
+      const employeePlans: any[] = [];
+      await Promise.all(
+        shops.map(async (shop) => {
+          try {
+            const res = await this.upharma.callEndpoint<any>("/EmployeePlan/GetEmployeePlanLst", {
+              Month: currentMonth,
+              Year: currentYear,
+              Token: session.Token,
+              uPharmaID: String(session.UserInfo.uPharmaID),
+              ShopCode: shop.ShopCode,
+            });
+            if (res && Array.isArray(res.EmployeePlanLst)) {
+              employeePlans.push(...res.EmployeePlanLst);
+            }
+          } catch (e) {
+            console.warn("Failed to load employee plan for", shop.ShopCode, e);
+          }
+        })
+      );
+
+      // 2. Fetch Shop Plans
+      const shopPlans: any[] = [];
+      const startOfYear = `${currentYear}-01-01 00:00:00`;
+      const endOfYear = `${currentYear}-12-31 23:59:59`;
+      await Promise.all(
+        shops.map(async (shop) => {
+          try {
+            const res = await this.upharma.callEndpoint<any>("/ShopPlan/GetShopPlanByTime", {
+              TimeStart: startOfYear,
+              TimeEnd: endOfYear,
+              ShopCode: shop.ShopCode,
+              Token: session.Token,
+              uPharmaID: String(session.UserInfo.uPharmaID),
+            });
+            if (res && Array.isArray(res.ShopPlanLst)) {
+              shopPlans.push(...res.ShopPlanLst);
+            }
+          } catch (e) {
+            console.warn("Failed to load shop plan for", shop.ShopCode, e);
+          }
+        })
+      );
+
+      // 3. Fetch Inventory
+      let inventoryRows: any[] = [];
+      try {
+        await this.upharma.loadInventoryResource({ 
+          forceRefresh: true,
+          onShopLoaded: (shopCode, shopData) => {
+             const mapped = shopData.map((row: any) => ({
+                ...row,
+                __shopCode: shopCode
+             }));
+             inventoryRows.push(...mapped);
+          }
+        });
+      } catch (e) {
+        console.warn("Failed to load inventory", e);
+      }
+
+      const simplifiedEmployeePlans = employeePlans.map(e => ({
+        ShopCode: e.ShopCode,
+        EmployeeCode: e.EmployeeCode,
+        EmployeeName: e.EmployeeName,
+        AmountTarget: e.Amount,
+        AmountActual: e.AmountR,
+        HHSTarget: e.PointRatio,
+        HHSActual: e.PointRatioR,
+        CustomersTarget: e.QuantityCus,
+        CustomersActual: e.QuantityCusR,
+      }));
+
+      const simplifiedShopPlans = shopPlans.map(s => ({
+        ShopCode: s.ShopCode,
+        Month: s.TimeMonth,
+        Year: s.TimeYear,
+        AmountTarget: s.Amount,
+        AmountActual: s.AmountR,
+        HHSTarget: s.PointRatio,
+        HHSActual: s.PointRatioR,
+      }));
+
+      const pick = (obj: any, keys: string[]) => {
+        if (!obj) return "";
+        for (const k of keys) {
+          if (obj[k] !== undefined && obj[k] !== null && String(obj[k]).trim() !== "") return obj[k];
+        }
+        return "";
+      };
+
+      const expiryStats: any = {};
+      inventoryRows.forEach(row => {
+          const shopCode = String(row["__shopCode"] || row["ShopCode"] || "");
+          const priceRaw = pick(row, ["Price", "Gia", "GiaBan", "SalePrice", "RetailPrice", "UnitPrice", "PriceVAT", "PriceSell"]);
+          const qtyRaw = pick(row, ["Quantity", "Qty", "SL", "SoLuong", "InventoryQuantity", "StockQty", "TonKho", "RemainQty"]);
+          const price = parseFloat(String(priceRaw).replace(/[^0-9.-]/g, "") || "0");
+          const quantity = parseFloat(String(qtyRaw).replace(/[^0-9.-]/g, "") || "0");
+          const stockValue = price * quantity;
+          
+          const expiryDateRaw = pick(row, ["ExpDate", "ExpireDate", "ExpiredDate", "ExpiryDate", "ExpDateTxt", "ExpDateText", "ExpireDateTxt", "ExpiredDateTxt", "HanDung", "HSD", "DateExp", "DateExpired", "DateExpire", "UseDate", "ValidDate", "ShelfLifeDate", "LotExpireDate", "NgayHetHan", "NgayHSD"]);
+          
+          let diffDays = null;
+          if (expiryDateRaw) {
+             const expStr = String(expiryDateRaw).trim();
+             let expiryDate: Date | null = null;
+             if (expStr.includes("/Date(")) {
+                 const match = expStr.match(/\/Date\((\d+)\)\//);
+                 if (match) expiryDate = new Date(Number(match[1]));
+             } else {
+                 expiryDate = new Date(expStr.replace(" ", "T"));
+                 if (isNaN(expiryDate.getTime())) {
+                     const ddmmyyyy = expStr.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+                     if (ddmmyyyy) expiryDate = new Date(Number(ddmmyyyy[3]), Number(ddmmyyyy[2]) - 1, Number(ddmmyyyy[1]));
+                 }
+             }
+
+             if (expiryDate && !isNaN(expiryDate.getTime())) {
+                 const today = new Date();
+                 today.setHours(0,0,0,0);
+                 expiryDate.setHours(0,0,0,0);
+                 diffDays = Math.floor((expiryDate.getTime() - today.getTime()) / 86400000);
+             }
+          }
+
+          if (diffDays !== null) {
+              if (!expiryStats[shopCode]) expiryStats[shopCode] = { expired: 0, _3months: 0, _6months: 0, _1year: 0, total_expired_val: 0, total_3m_val: 0, total_6m_val: 0, total_1y_val: 0 };
+              
+              if (diffDays < 0) {
+                 expiryStats[shopCode].expired++;
+                 expiryStats[shopCode].total_expired_val += stockValue;
+              } else if (diffDays <= 90) {
+                 expiryStats[shopCode]._3months++;
+                 expiryStats[shopCode].total_3m_val += stockValue;
+              } else if (diffDays <= 180) {
+                 expiryStats[shopCode]._6months++;
+                 expiryStats[shopCode].total_6m_val += stockValue;
+              } else if (diffDays <= 360) {
+                 expiryStats[shopCode]._1year++;
+                 expiryStats[shopCode].total_1y_val += stockValue;
+              }
+          }
+      });
+
+      let promptText = `Dữ liệu Báo cáo - Tháng ${currentMonth}/${currentYear}\n\n`;
+
+      promptText += `### 1. Chỉ tiêu nhân viên\n`;
+      promptText += JSON.stringify(simplifiedEmployeePlans, null, 2);
+      promptText += `\n\n`;
+
+      promptText += `### 2. Chỉ tiêu nhà thuốc trong năm\n`;
+      promptText += JSON.stringify(simplifiedShopPlans, null, 2);
+      promptText += `\n\n`;
+
+      promptText += `### 3. Tồn kho (Thống kê hạn dùng)\n`;
+      promptText += JSON.stringify(expiryStats, null, 2);
+
+      this.promptContent = promptText;
+      this.showPromptModal = true;
+    } catch (error) {
+      alert("Lỗi khi lấy dữ liệu: " + (error instanceof Error ? error.message : String(error)));
+    } finally {
+      this.generatingPrompt = false;
+    }
+  }
+
+  closePromptModal() {
+    this.showPromptModal = false;
+  }
+
+  copyPromptContent() {
+    navigator.clipboard.writeText(this.promptContent).then(() => {
+      alert("Đã copy dữ liệu vào clipboard!");
+    }).catch(err => {
+      alert("Không thể copy: " + err);
+    });
   }
 
   private buildReportHtml(employeePlans: any[], shopPlans: any[], inventoryRows: any[], orderReportItems: any[]): string {

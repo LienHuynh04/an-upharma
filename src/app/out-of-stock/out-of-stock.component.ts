@@ -520,11 +520,6 @@ export class OutOfStockComponent implements OnInit {
     if (shopStarCodes && shopStarCodes.has(cleanCode)) {
       return true;
     }
-    for (const [, codesSet] of this.starProductCodesMap) {
-      if (codesSet.has(cleanCode)) {
-        return true;
-      }
-    }
     return false;
   }
 
@@ -533,24 +528,103 @@ export class OutOfStockComponent implements OnInit {
       const session = this.upharmaService.getSession();
       if (!session) return;
 
-      const stableRes = await this.upharmaService.callEndpoint<unknown>("/SalesInvoice/GetStableConsumptionCalculated", {
-        uPharmaID: session.UserInfo.uPharmaID,
-        Token: session.Token,
-        ShopLst: shopCode,
-      }, { cache: true, forceRefresh });
+      const now = new Date();
+      const oneMonthAgo = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const pad = (n: number) => String(n).padStart(2, "0");
+      const timeStart = `${oneMonthAgo.getFullYear()}-${pad(oneMonthAgo.getMonth() + 1)}-01 00:00:00`;
+      const timeEnd = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} 23:59:59`;
+
+      const [salesRes, stableRes] = await Promise.all([
+        this.upharmaService.callEndpoint<unknown>("/SalesInvoice/GetReportSalesByShop", {
+          uPharmaID: session.UserInfo.uPharmaID,
+          Token: session.Token,
+          ShopCode: shopCode,
+          TimeStart: timeStart,
+          TimeEnd: timeEnd,
+          _useFirebaseKeyProducts: false,
+        }, { cache: true, forceRefresh }),
+        this.upharmaService.callEndpoint<unknown>("/SalesInvoice/GetStableConsumptionCalculated", {
+          uPharmaID: session.UserInfo.uPharmaID,
+          Token: session.Token,
+          ShopLst: shopCode,
+        }, { cache: true, forceRefresh })
+      ]);
+
+      const rawSales = this.extractArray(salesRes);
+      const filteredSales = rawSales.filter((row) => {
+        const pName = String(row["productName"] || row["ProductName"] || row["ItemName"] || "").toUpperCase();
+        const pCode = String(row["productCode"] || row["ProductCode"] || row["ProductID"] || row["ItemCode"] || "").toUpperCase();
+        return !(pName.includes("VOUCHER") || pCode.startsWith("VC"));
+      });
+
+      const parsedSales = filteredSales.map((row, index) => {
+        const amountIncludingVAT = Number(row["amountIncludingVAT"] || row["AmountIncludingVAT"] || row["amount"] || row["Amount"] || row["TotalAmount"] || row["ThanhTien"]) || 0;
+        const amountIncludingAdjust = Number(row["amountIncludingAdjust"] || row["AmountIncludingAdjust"]) || 0;
+        const quantity = Number(row["quantity"] || row["Quantity"]) || 0;
+        const totalAmount = Number(row["totalAmount"] || row["TotalAmount"]) || amountIncludingVAT;
+        return {
+          rowKey: `${shopCode}|${index}`,
+          shopCode: shopCode,
+          productCode: String(row["productCode"] || row["ProductCode"] || row["ProductID"] || row["ItemCode"] || "").trim().toUpperCase(),
+          productName: String(row["productName"] || row["ProductName"] || row["ItemName"] || "").trim(),
+          amount: totalAmount,
+          quantity: quantity,
+          amountIncludingVAT: amountIncludingVAT,
+          amountIncludingAdjust: amountIncludingAdjust,
+          totalAmount: totalAmount,
+        };
+      });
+
+      const groupedSales = new Map<string, any>();
+      for (const row of parsedSales) {
+        if (!row.productCode) continue;
+        const existing = groupedSales.get(row.productCode);
+        if (existing) {
+          existing.quantity += row.quantity;
+          existing.amountIncludingVAT += row.amountIncludingVAT;
+          existing.amountIncludingAdjust += row.amountIncludingAdjust;
+          existing.totalAmount = existing.amountIncludingVAT;
+          existing.amount = existing.totalAmount;
+        } else {
+          groupedSales.set(row.productCode, { ...row });
+        }
+      }
+
+      const keyRows = Array.from(groupedSales.values());
+      keyRows.sort((a, b) => b.totalAmount - a.totalAmount);
+
+      const totalAmountSum = keyRows.reduce((sum, r) => sum + r.totalAmount, 0);
+      const minItemsCount = Math.max(1, Math.ceil(keyRows.length * 0.20));
+
+      const finalKeyRows: any[] = [];
+      let runningTotal = 0;
+      for (const row of keyRows) {
+        runningTotal += row.totalAmount;
+        const cumulativePercent = totalAmountSum > 0 ? (runningTotal / totalAmountSum) * 100 : 0;
+        finalKeyRows.push(row);
+        if (finalKeyRows.length >= minItemsCount && cumulativePercent >= 80) {
+          break;
+        }
+      }
+
+      const keyProductCodes = new Set(finalKeyRows.map(r => String(r.productCode).trim().toUpperCase()));
 
       const stableArray = this.extractArray(stableRes);
       const stableCodes = new Set(stableArray.map(item => String(item["productCode"] || item["ProductCode"] || "").trim().toUpperCase()).filter(Boolean));
 
-      this.starProductsDebugText = `[Debug] Shop: ${shopCode} | Tổng số Hàng thường trực: ${stableCodes.size}`;
+      const starCodes = new Set<string>();
+      for (const code of keyProductCodes) {
+        if (stableCodes.has(code)) {
+          starCodes.add(code);
+        }
+      }
 
-      this.starProductCodesMap.set(shopCode, stableCodes);
+      this.starProductCodesMap.set(shopCode, starCodes);
       this.starProductCodesMap = new Map(this.starProductCodesMap); // Trigger change detection
       this.rows = [...this.rows]; // Trigger full template re-evaluation for all rows!
-      console.log(`[Star Products] Đã tìm thấy ${stableCodes.size} sản phẩm hàng thường trực cho shop ${shopCode}`);
+      console.log(`[Star Products] Đã tìm thấy ${starCodes.size} sản phẩm vừa là Hàng key vừa là Hàng thường trực cho shop ${shopCode}`);
     } catch (err) {
-      console.warn(`[Star Products] Lỗi khi lấy hàng thường trực cho shop ${shopCode}:`, err);
-      this.starProductsDebugText = `[Debug Error] Lỗi khi lấy hàng thường trực: ${err instanceof Error ? err.message : String(err)}`;
+      console.warn(`[Star Products] Lỗi khi tính toán cho shop ${shopCode}:`, err);
       if (!this.starProductCodesMap.has(shopCode)) {
         this.starProductCodesMap.set(shopCode, new Set<string>());
         this.starProductCodesMap = new Map(this.starProductCodesMap);

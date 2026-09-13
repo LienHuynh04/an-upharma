@@ -1,0 +1,521 @@
+<div class="page-header d-print-none">
+  <div class="container-xl">
+    <div class="row g-2 align-items-center">
+      <div class="col">
+        <div class="page-pretitle">QUẢN LÝ HÀNG HÓA</div>
+        <h2 class="page-title">Kiểm tra & Báo cáo Đối soát FEFO (First-Expired, First-Out)</h2>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="page-body">
+  <div class="container-xl">
+    <!-- Single Shop Tabs Selection (Matching Inventory-new exact styling with ::before focus) -->
+    <div class="card mb-3" *ngIf="shops.length > 0">
+      <div class="card-header p-0">
+        <ul class="nav nav-tabs card-header-tabs nav-fill w-100 m-0">
+          <li class="nav-item" *ngFor="let shop of shops; trackBy: trackByShop">
+            <a
+              href="javascript:void(0)"
+              class="nav-link py-3"
+              [class.active]="shop.ShopCode === activeShopCode"
+              (click)="applyShopFilter(shop.ShopCode)"
+            >
+              <i class="ti ti-building-store me-2" style="font-size: 1.15rem;"></i>
+              <strong>{{ shop.ShopCode }}</strong>
+            </a>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Summary line & View Mode Selector -->
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+      <div class="text-secondary fs-6">
+        Tổng <strong>{{ rows.length }}</strong> dòng đơn hàng đối soát {{ activeShopCode ? ('tại ' + activeShopCode) : '' }}, phát hiện <strong class="text-danger">{{ summary.violation }}</strong> ca sai FEFO.
+      </div>
+      <div class="btn-group" role="group" aria-label="Chế độ hiển thị FEFO">
+        <button
+          type="button"
+          class="btn btn-sm"
+          [class.btn-primary]="activeTab === 'detail'"
+          [class.btn-outline-primary]="activeTab !== 'detail'"
+          (click)="activeTab = 'detail'"
+        >
+          <i class="ti ti-list-check me-1"></i>Chi tiết đối soát
+        </button>
+        <button
+          type="button"
+          class="btn btn-sm"
+          [class.btn-primary]="activeTab === 'shop_summary'"
+          [class.btn-outline-primary]="activeTab !== 'shop_summary'"
+          (click)="activeTab = 'shop_summary'"
+        >
+          <i class="ti ti-building-hospital me-1"></i>Tổng hợp theo nhà thuốc
+        </button>
+        <button
+          type="button"
+          class="btn btn-sm"
+          [class.btn-primary]="activeTab === 'employee_summary'"
+          [class.btn-outline-primary]="activeTab !== 'employee_summary'"
+          (click)="activeTab = 'employee_summary'"
+        >
+          <i class="ti ti-users me-1"></i>Tổng hợp theo nhân viên
+        </button>
+      </div>
+    </div>
+
+    <!-- Status KPI Cards (when in Detail tab) -->
+    <div class="row row-deck row-cards mb-3" aria-label="Thống kê đối soát FEFO" *ngIf="activeTab === 'detail'">
+      <div class="col-6 col-sm-4 col-md" *ngFor="let card of statusCards">
+        <div
+          class="card cursor-pointer"
+          [class.is-active]="selectedStatusFilter === card.key"
+          [class.border-primary]="selectedStatusFilter === card.key"
+          [class.shadow-sm]="selectedStatusFilter === card.key"
+          (click)="setStatusFilter(card.key)"
+          style="cursor: pointer; transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;"
+        >
+          <div class="card-status-start" [class]="card.statusBg"></div>
+          <div class="card-body py-3">
+            <div class="text-secondary font-weight-medium">{{ card.label }}</div>
+            <div class="h2 mt-2 mb-1">{{ card.count }}</div>
+            <div class="text-secondary"><small>{{ card.sublabel }}</small></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Alert / Status banner -->
+    <div class="alert alert-info d-flex align-items-center" *ngIf="loading">
+      <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+      <div>{{ cacheStatus }}</div>
+    </div>
+
+    <div class="alert alert-danger" *ngIf="errorText">
+      <strong>Không thể tải dữ liệu:</strong> {{ errorText }}
+    </div>
+
+    <!-- TAB 1: Main FEFO Data Table Card -->
+    <div class="card" *ngIf="activeTab === 'detail'">
+      <!-- Compact Quick Filter Toolbar with Excel Export -->
+      <div class="card-body py-2 border-bottom">
+        <div class="row g-2 align-items-end">
+          <div class="col-md-4">
+            <label class="form-label mb-1 small text-secondary">Tên sản phẩm</label>
+            <input
+              type="text"
+              class="form-control form-control-sm"
+              placeholder="Nhập tên sản phẩm để lọc..."
+              [(ngModel)]="columnFilters['productName']"
+              (ngModelChange)="onSearchInput()"
+            />
+          </div>
+          <div class="col-md-3">
+            <label class="form-label mb-1 small text-secondary">Mã sản phẩm</label>
+            <input
+              type="text"
+              class="form-control form-control-sm"
+              placeholder="Nhập mã sản phẩm..."
+              [(ngModel)]="columnFilters['productCode']"
+              (ngModelChange)="onSearchInput()"
+            />
+          </div>
+          <div class="col-md-3">
+            <label class="form-label mb-1 small text-secondary">Nhân viên bán hàng</label>
+            <select
+              class="form-select form-select-sm"
+              [(ngModel)]="columnFilters['employeeName']"
+              (ngModelChange)="recomputeFilteredRows()"
+            >
+              <option value="">Tất cả nhân viên</option>
+              <option *ngFor="let emp of employeeOptions" [value]="emp">
+                {{ emp }}
+              </option>
+            </select>
+          </div>
+          <div class="col-md-2 text-end">
+            <button type="button" class="btn btn-sm btn-outline-success w-100" (click)="exportToExcel()">
+              <i class="ti ti-file-spreadsheet me-1"></i>Xuất Excel ({{ filteredRows.length }})
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="table-responsive" style="max-height: 600px; overflow-y: auto;" (scroll)="onTableScroll($event)">
+        <table class="table table-vcenter card-table table-hover table-striped">
+          <thead>
+            <tr>
+              <th style="width: 50px;">STT</th>
+              <th>Sản phẩm</th>
+              <th>Mã SP</th>
+              <th>Nhân viên</th>
+              <th>HSD Đơn bán</th>
+              <th>HSD cận nhất (Kho)</th>
+              <th>SL Bán / Tồn</th>
+              <th>Trạng thái FEFO</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngIf="filteredRows.length === 0 && !loading">
+              <td colspan="8" class="text-center text-secondary py-5">
+                <i class="ti ti-inbox d-block mb-2" style="font-size: 2rem;"></i>
+                Không tìm thấy dữ liệu đối soát FEFO phù hợp.
+              </td>
+            </tr>
+
+            <tr
+              *ngFor="let item of displayedRows; let idx = index; trackBy: trackByFefo"
+              (click)="openFefoDetail(item)"
+              style="cursor: pointer;"
+              title="Nhấp vào để xem chi tiết đối soát FEFO & danh sách lô tồn kho"
+            >
+              <td>{{ idx + 1 }}</td>
+              <td>
+                <strong class="d-block text-truncate" style="max-width: 300px;">
+                  {{ item.productName }}
+                </strong>
+                <small class="text-secondary" *ngIf="item.unit">ĐVT: {{ item.unit }}</small>
+              </td>
+              <td><code>{{ item.productCode }}</code></td>
+              <td>
+                <div class="d-flex align-items-center gap-1">
+                  <i class="ti ti-user text-secondary"></i>
+                  <span class="fw-semibold text-body">{{ item.employeeName || 'N/A' }}</span>
+                </div>
+              </td>
+              <td>
+                <strong class="text-body">{{ item.soldExpiryText }}</strong>
+              </td>
+              <td>
+                <div *ngIf="item.inStock">
+                  <strong class="text-primary">HSD cận nhất: {{ item.fefoExpiryText }}</strong>
+                </div>
+                <span class="text-muted" *ngIf="!item.inStock">Không có tồn kho</span>
+              </td>
+              <td>
+                <div>SL Bán: <strong>{{ item.saleQtyText }}</strong></div>
+                <small class="text-secondary">
+                  Tồn kho: <strong [class.text-danger]="item.totalStockQty === 0" [class.text-success]="item.totalStockQty > 0">{{ item.totalStockQty }}</strong>
+                </small>
+              </td>
+              <td>
+                <span [class]="item.badgeClass">
+                  {{ item.fefoStatusLabel }}
+                </span>
+                <div class="mt-1" *ngIf="item.inventoryLotsCount > 1">
+                  <small class="text-secondary"><i class="ti ti-layers-difference me-1"></i>{{ item.inventoryLotsCount }} lô trong kho</small>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB 2: Tổng hợp theo Nhà thuốc -->
+    <div class="card" *ngIf="activeTab === 'shop_summary'">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <div>
+          <h3 class="card-title fw-bold text-primary mb-1">
+            <i class="ti ti-building-hospital me-2"></i>Tổng hợp vi phạm FEFO theo nhà thuốc
+          </h3>
+          <div class="card-subtitle text-secondary">
+            Đánh giá mức độ tuân thủ quy tắc xuất lô cận date của các chi nhánh nhà thuốc
+          </div>
+        </div>
+        <button type="button" class="btn btn-sm btn-outline-success" (click)="exportToExcel()">
+          <i class="ti ti-file-spreadsheet me-1"></i>Xuất Excel
+        </button>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-vcenter card-table table-hover table-striped">
+          <thead>
+            <tr>
+              <th class="text-center" style="width: 50px;">STT</th>
+              <th>Nhà thuốc</th>
+              <th class="text-end">Tổng số dòng bán</th>
+              <th class="text-end">Số ca sai FEFO</th>
+              <th class="text-center">Tỷ lệ % sai</th>
+              <th class="text-end">Số mã SP ảnh hưởng</th>
+              <th class="text-end">Tổng SL bán sai thứ tự</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngIf="shopSummaries.length === 0">
+              <td colspan="7" class="text-center text-secondary py-4">Chưa có dữ liệu tổng hợp theo nhà thuốc</td>
+            </tr>
+            <tr *ngFor="let s of shopSummaries; let sIdx = index">
+              <td class="text-center text-secondary font-monospace">{{ sIdx + 1 }}</td>
+              <td>
+                <strong class="text-body d-block">{{ s.shopCode }}</strong>
+              </td>
+              <td class="text-end font-monospace">{{ s.totalSalesLines }}</td>
+              <td class="text-end font-monospace">
+                <strong [class.text-danger]="s.fefoViolations > 0">{{ s.fefoViolations }}</strong>
+              </td>
+              <td class="text-center">
+                <span class="badge" [class.bg-danger-lt]="s.violationRate > 0" [class.bg-success-lt]="s.violationRate === 0">
+                  {{ s.violationRateText }}
+                </span>
+              </td>
+              <td class="text-end font-monospace">{{ s.affectedProductsCount }}</td>
+              <td class="text-end font-monospace font-weight-bold">{{ s.totalQtySoldWrongOrderText }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB 3: Tổng hợp theo Nhân viên -->
+    <div class="card" *ngIf="activeTab === 'employee_summary'">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <div>
+          <h3 class="card-title fw-bold text-primary">
+            <i class="ti ti-users me-2"></i>Tổng hợp vi phạm FEFO theo nhân viên
+          </h3>
+          <div class="card-subtitle text-secondary">
+            Thống kê mức độ tuân thủ FEFO của từng Dược sĩ / Thu ngân bán hàng
+          </div>
+        </div>
+        <button type="button" class="btn btn-sm btn-outline-success" (click)="exportToExcel()">
+          <i class="ti ti-file-spreadsheet me-1"></i>Xuất Excel
+        </button>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-vcenter card-table table-hover table-striped">
+          <thead>
+            <tr>
+              <th class="text-center" style="width: 50px;">STT</th>
+              <th>Nhà thuốc</th>
+              <th>Nhân viên</th>
+              <th class="text-end">Tổng số dòng bán</th>
+              <th class="text-end">Số ca sai FEFO</th>
+              <th class="text-center">Tỷ lệ % sai</th>
+              <th class="text-end">Số mã SP ảnh hưởng</th>
+              <th class="text-end">Tổng SL bán sai thứ tự</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngIf="employeeSummaries.length === 0">
+              <td colspan="8" class="text-center text-secondary py-4">Chưa có dữ liệu tổng hợp theo nhân viên</td>
+            </tr>
+            <tr
+              *ngFor="let e of employeeSummaries; let eIdx = index"
+              (click)="filterByEmployee(e.employeeName, e.shopCode)"
+              style="cursor: pointer;"
+              [title]="'Nhấp vào để xem chi tiết đối soát của nhân viên ' + e.employeeName"
+            >
+              <td class="text-center text-secondary font-monospace">{{ eIdx + 1 }}</td>
+              <td>
+                <code>{{ e.shopCode }}</code>
+              </td>
+              <td>
+                <strong class="text-primary"><i class="ti ti-user me-1"></i>{{ e.employeeName }}</strong>
+              </td>
+              <td class="text-end font-monospace">{{ e.totalSalesLines }}</td>
+              <td class="text-end font-monospace">
+                <strong [class.text-danger]="e.fefoViolations > 0">{{ e.fefoViolations }}</strong>
+              </td>
+              <td class="text-center">
+                <span class="badge" [class.bg-danger-lt]="e.violationRate > 0" [class.bg-success-lt]="e.violationRate === 0">
+                  {{ e.violationRateText }}
+                </span>
+              </td>
+              <td class="text-end font-monospace">{{ e.affectedProductsCount }}</td>
+              <td class="text-end font-monospace font-weight-bold">{{ e.totalQtySoldWrongOrderText }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Chi tiết Đối soát FEFO -->
+<div
+  class="modal modal-blur fade show d-block"
+  tabindex="-1"
+  role="dialog"
+  aria-modal="true"
+  *ngIf="selectedFefoItem"
+  style="background: rgba(0, 0, 0, 0.5);"
+>
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable" role="document">
+    <div class="modal-content shadow-lg">
+      <!-- Modal Header -->
+      <div class="modal-header">
+        <div>
+          <h5 class="modal-title fw-bold text-primary">
+            <i class="ti ti-report-medical me-2"></i>Chi tiết đối soát FEFO sản phẩm
+          </h5>
+          <div class="small text-secondary mt-1">
+            Mã SP: <code>{{ selectedFefoItem.productCode }}</code> | Nhà thuốc: <strong>{{ selectedFefoItem.shopCode }}</strong>
+          </div>
+        </div>
+        <button type="button" class="btn-close" (click)="closeFefoDetail()"></button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="modal-body">
+        <!-- Header Info Card -->
+        <div class="card card-sm mb-3">
+          <div class="card-body">
+            <h4 class="card-title mb-2">{{ selectedFefoItem.productName }}</h4>
+            <div class="row g-2 text-secondary">
+              <div class="col-sm-6">
+                <div><i class="ti ti-box me-1"></i>Đơn vị tính: <strong class="text-body">{{ selectedFefoItem.unit || 'N/A' }}</strong></div>
+                <div><i class="ti ti-user me-1"></i>Nhân viên bán: <strong class="text-body">{{ selectedFefoItem.employeeName || 'N/A' }}</strong></div>
+              </div>
+              <div class="col-sm-6">
+                <div><i class="ti ti-calendar me-1"></i>Thời gian / Nguồn: <strong class="text-body">{{ selectedFefoItem.saleDateText }}</strong></div>
+                <div><i class="ti ti-building-store me-1"></i>Mã kho/Shop: <strong class="text-body">{{ selectedFefoItem.shopCode }}</strong></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Row comparison cards -->
+        <div class="row g-3 mb-3">
+          <!-- Sold Lot Info -->
+          <div class="col-md-6">
+            <div class="card h-100 border-primary">
+              <div class="card-body">
+                <div class="subheader text-primary fw-bold mb-2"><i class="ti ti-receipt me-1"></i>LÔ TRÊN ĐƠN BÁN HÀNG</div>
+                <div class="h3 mb-2">Số lô: {{ selectedFefoItem.soldLot }}</div>
+                <div class="mb-1">
+                  Hạn sử dụng: <strong>{{ selectedFefoItem.soldExpiryText }}</strong>
+                  <span class="ms-2 badge bg-primary-lt" *ngIf="selectedFefoItem.soldExpiryDays !== null">
+                    <i class="ti ti-clock me-1"></i>
+                    {{ selectedFefoItem.soldExpiryDays > 0 ? ('Còn ' + selectedFefoItem.soldExpiryDays + ' ngày') : 'Hết hạn' }}
+                  </span>
+                </div>
+                <div class="mt-2 pt-2 border-top">
+                  <div>Số lượng bán: <strong>{{ selectedFefoItem.saleQtyText }} {{ selectedFefoItem.unit }}</strong></div>
+                  <div>Doanh số: <strong>{{ selectedFefoItem.saleAmountText }} đ</strong></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- FEFO Inventory Lot Info -->
+          <div class="col-md-6">
+            <div class="card h-100" [class.border-danger]="selectedFefoItem.fefoStatus === 'violation'" [class.border-success]="selectedFefoItem.fefoStatus === 'compliant'">
+              <div class="card-body">
+                <div class="subheader fw-bold mb-2"><i class="ti ti-building-warehouse me-1"></i>THAM CHIẾU TỒN KHO FEFO</div>
+                <div class="h3 mb-2" *ngIf="selectedFefoItem.inStock">Lô cận date nhất: {{ selectedFefoItem.fefoLot }}</div>
+                <div class="h3 mb-2 text-secondary" *ngIf="!selectedFefoItem.inStock">Không có trong kho</div>
+
+                <div class="mb-1" *ngIf="selectedFefoItem.inStock">
+                  HSD cận nhất: <strong>{{ selectedFefoItem.fefoExpiryText }}</strong>
+                  <span
+                    class="ms-2 badge"
+                    [class.bg-danger-lt]="selectedFefoItem.fefoExpiryDays !== null && selectedFefoItem.fefoExpiryDays <= 90"
+                    [class.bg-success-lt]="selectedFefoItem.fefoExpiryDays !== null && selectedFefoItem.fefoExpiryDays > 90"
+                  >
+                    <i class="ti ti-clock me-1"></i>
+                    {{ selectedFefoItem.fefoExpiryDays !== null ? (selectedFefoItem.fefoExpiryDays > 0 ? 'Còn ' + selectedFefoItem.fefoExpiryDays + ' ngày' : 'Hết hạn') : 'N/A' }}
+                  </span>
+                </div>
+
+                <div class="mt-2 pt-2 border-top">
+                  <div>Tổng tồn kho hiện tại: <strong [class.text-danger]="selectedFefoItem.totalStockQty === 0" [class.text-success]="selectedFefoItem.totalStockQty > 0">{{ selectedFefoItem.totalStockQty }} {{ selectedFefoItem.unit }}</strong></div>
+                  <div>Trạng thái FEFO: <span [class]="selectedFefoItem.badgeClass">{{ selectedFefoItem.fefoStatusLabel }}</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Inventory Lots Table Breakdown -->
+        <div class="card shadow-sm border-0">
+          <div class="card-header py-2 bg-body-tertiary d-flex align-items-center justify-content-between">
+            <h5 class="card-title mb-0 fs-6 fw-bold">
+              <i class="ti ti-list-details me-2 text-primary"></i>Danh sách tất cả các lô hiện có trong tồn kho ({{ selectedFefoItem.inventoryLots.length }} lô)
+            </h5>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-vcenter card-table table-hover table-striped">
+              <thead>
+                <tr>
+                  <th class="text-center" style="width: 50px;">STT</th>
+                  <th>Số lô kho</th>
+                  <th class="text-center">Hạn sử dụng</th>
+                  <th class="text-center">Số ngày còn lại</th>
+                  <th class="text-end">Tồn kho (SL)</th>
+                  <th class="text-end">Giá trị tồn (VNĐ)</th>
+                  <th>Đánh giá FEFO</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngIf="selectedFefoItem.inventoryLots.length === 0">
+                  <td colspan="7" class="text-center text-secondary py-4">
+                    <i class="ti ti-box-off d-block mb-1" style="font-size: 1.5rem;"></i>
+                    Sản phẩm này hiện tại đã hết tồn kho (0 SP).
+                  </td>
+                </tr>
+                <tr *ngFor="let lotItem of selectedFefoItem.inventoryLots; let lotIdx = index">
+                  <td class="text-center text-secondary font-monospace">{{ lotIdx + 1 }}</td>
+                  <td>
+                    <div class="d-inline-flex align-items-center gap-2">
+                      <code class="fs-6 fw-bold px-2 py-1 bg-body-secondary rounded">{{ lotItem.lot || 'N/A' }}</code>
+                      <span class="badge bg-warning-lt" *ngIf="lotItem.lot === selectedFefoItem.soldLot">
+                        <i class="ti ti-shopping-cart me-1"></i>Lô đã bán
+                      </span>
+                      <span class="badge bg-success-lt" *ngIf="lotIdx === 0">
+                        <i class="ti ti-star me-1"></i>Ưu tiên xuất trước
+                      </span>
+                    </div>
+                  </td>
+                  <td class="text-center">
+                    <span class="font-monospace fw-medium">{{ lotItem.expiryText }}</span>
+                  </td>
+                  <td class="text-center">
+                    <span
+                      class="badge"
+                      [class.bg-danger-lt]="lotItem.expiryDaysRemaining !== null && lotItem.expiryDaysRemaining <= 60"
+                      [class.bg-warning-lt]="lotItem.expiryDaysRemaining !== null && lotItem.expiryDaysRemaining > 60 && lotItem.expiryDaysRemaining <= 180"
+                      [class.bg-success-lt]="lotItem.expiryDaysRemaining !== null && lotItem.expiryDaysRemaining > 180"
+                    >
+                      <i class="ti ti-clock me-1"></i>
+                      {{ lotItem.expiryDaysRemaining !== null ? (lotItem.expiryDaysRemaining > 0 ? lotItem.expiryDaysRemaining + ' ngày' : 'Đã hết hạn') : 'N/A' }}
+                    </span>
+                  </td>
+                  <td class="text-end fw-bold">
+                    {{ lotItem.quantity }}
+                  </td>
+                  <td class="text-end font-monospace text-secondary">
+                    {{ lotItem.stockValueText }}
+                  </td>
+                  <td>
+                    <span *ngIf="lotIdx === 0 && lotItem.lot === selectedFefoItem.soldLot" class="badge bg-success-lt">
+                      <i class="ti ti-check me-1"></i>Xuất đúng lô cận date nhất
+                    </span>
+                    <span *ngIf="lotIdx === 0 && lotItem.lot !== selectedFefoItem.soldLot" class="badge bg-danger-lt fw-bold">
+                      <i class="ti ti-alert-triangle me-1"></i>Có lô cận date hơn chưa xuất!
+                    </span>
+                    <span *ngIf="lotIdx > 0 && lotItem.lot === selectedFefoItem.soldLot" class="badge bg-warning-lt">
+                      <i class="ti ti-info-circle me-1"></i>Đã xuất lô sau (bỏ qua lô {{ selectedFefoItem.inventoryLots[0]?.lot }})
+                    </span>
+                    <span *ngIf="lotIdx > 0 && lotItem.lot !== selectedFefoItem.soldLot" class="text-secondary small">
+                      <i class="ti ti-minus me-1"></i>Lô hạn xa hơn
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" (click)="closeFefoDetail()">
+          <i class="ti ti-x me-1"></i>Đóng
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
