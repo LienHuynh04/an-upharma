@@ -18,7 +18,9 @@ export class ReportConfigComponent {
   shops = this.upharmaService.getActiveShops();
   activeShopCode = "SHOP0025";
   exportLoading = false;
+  downloadLoading = false;
   exportStatusText = "";
+  downloadStatusText = "";
   
   reportHtml: string | null = null;
   blobUrl: string | null = null;
@@ -129,6 +131,34 @@ export class ReportConfigComponent {
     } finally {
       this.exportLoading = false;
       this.exportStatusText = "";
+    }
+  }
+
+  async downloadReport(): Promise<void> {
+    if (this.downloadLoading) return;
+    this.downloadLoading = true;
+    this.downloadStatusText = "Đang tổng hợp dữ liệu báo cáo...";
+
+    try {
+      const result = await this.reportGenerator.generateReportHtml(this.reportInputs, (msg) => {
+        this.downloadStatusText = msg;
+      });
+
+      const blob = new Blob([result.html], { type: "text/html;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = result.filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Lỗi tải báo cáo:", error);
+      alert("Lỗi khi tải báo cáo: " + (error instanceof Error ? error.message : String(error)));
+    } finally {
+      this.downloadLoading = false;
+      this.downloadStatusText = "";
     }
   }
 }

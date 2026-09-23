@@ -51,6 +51,26 @@
   box-shadow: 0 4px 14px rgba(22, 163, 74, 0.35) !important;
 }
 
+/* Download Button */
+.btn-download {
+  background-color: var(--tblr-card-bg, #15223c);
+  color: #60a5fa;
+  border-color: #3b82f6 !important;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.btn-download:hover {
+  background-color: rgba(59, 130, 246, 0.15);
+  color: #93bbfd;
+  border-color: #60a5fa !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.3) !important;
+}
+.btn-download:disabled {
+  opacity: 0.6;
+  color: #94a3b8;
+  border-color: var(--tblr-border-color, rgba(255, 255, 255, 0.15)) !important;
+}
+
 /* Main Form Card */
 .main-form-card {
   border: 1px solid var(--tblr-border-color, rgba(255, 255, 255, 0.08)) !important;
@@ -59,28 +79,51 @@
 
 /* Shop Selector Tabs */
 .shop-tab-btn {
+  position: relative;
   background-color: var(--tblr-body-bg, #0f182e) !important;
-  border-color: var(--tblr-border-color, rgba(255, 255, 255, 0.08)) !important;
+  border: 1px solid var(--tblr-border-color, rgba(255, 255, 255, 0.08)) !important;
   color: var(--tblr-body-color, #f4f6fa) !important;
-  transition: all 0.2s ease-in-out;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
+  overflow: hidden;
+}
+.shop-tab-btn::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: transparent;
+  border-radius: 0 4px 4px 0;
+  transition: background 0.25s ease;
 }
 .shop-tab-btn:hover {
-  background-color: rgba(255, 255, 255, 0.05) !important;
-  border-color: rgba(255, 255, 255, 0.15) !important;
+  background-color: rgba(255, 255, 255, 0.04) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
 }
 .shop-tab-btn.active {
-  background-color: rgba(37, 99, 235, 0.2) !important;
-  border-color: #3b82f6 !important;
-  box-shadow: 0 0 0 1px #3b82f6, 0 4px 12px rgba(59, 130, 246, 0.25) !important;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.18) 0%, rgba(59, 130, 246, 0.08) 100%) !important;
+  border-color: rgba(59, 130, 246, 0.5) !important;
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.3), 0 4px 16px rgba(59, 130, 246, 0.2) !important;
+}
+.shop-tab-btn.active::before {
+  background: linear-gradient(180deg, #3b82f6, #60a5fa);
 }
 .shop-tab-btn.active .shop-code-title {
   color: #60a5fa !important;
 }
+.shop-tab-btn.active .shop-name-sub {
+  opacity: 0.9 !important;
+}
 
 .status-chip {
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
 }
 
 /* Status Selector Bar */

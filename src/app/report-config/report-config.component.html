@@ -8,12 +8,12 @@
           <div class="col-lg-7">
             <div class="d-flex align-items-center gap-3 mb-2">
               <div class="hero-icon-box rounded-3 d-flex align-items-center justify-content-center">
-                <i class="bi bi-file-earmark-bar-graph-fill text-primary fs-3"></i>
+                <i class="ti ti-report-analytics text-primary fs-3"></i>
               </div>
               <div>
                 <h1 class="h3 fw-bold text-body mb-0">Cấu Hình Báo Cáo Vận Hành</h1>
                 <span class="badge bg-primary-subtle text-primary border border-primary-subtle fw-semibold mt-1 px-2.5 py-1 rounded-pill">
-                  <i class="bi bi-calendar-event me-1"></i>Kế Hoạch & Vận Hành Tuần Tới
+                  <i class="ti ti-calendar-event me-1"></i>Kế Hoạch & Vận Hành Tuần Tới
                 </span>
               </div>
             </div>
@@ -26,20 +26,12 @@
             <div class="d-flex flex-wrap gap-2 justify-content-lg-end">
               <button 
                 type="button" 
-                class="btn btn-reset border d-inline-flex align-items-center gap-1.5 px-3 py-2 fw-semibold rounded-3 shadow-2sm"
-                (click)="resetReportInputs()">
-                <i class="bi bi-arrow-counterclockwise text-secondary fs-6"></i>
-                <span>Khôi phục mặc định</span>
-              </button>
-
-              <button 
-                type="button" 
                 class="btn btn-success btn-export shadow-sm d-inline-flex align-items-center gap-2 px-3.5 py-2 fw-bold rounded-3"
-                (click)="generateReport(true)"
-                [disabled]="exportLoading">
-                <span *ngIf="exportLoading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                <i *ngIf="!exportLoading" class="bi bi-box-arrow-up-right fs-6"></i>
-                <span>{{ exportLoading ? exportStatusText : 'Xuất Báo Cáo HTML (Tab Mới)' }}</span>
+                (click)="downloadReport()"
+                [disabled]="downloadLoading">
+                <span *ngIf="downloadLoading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                <i *ngIf="!downloadLoading" class="ti ti-download fs-6"></i>
+                <span>{{ downloadLoading ? downloadStatusText : 'Tải Báo Cáo Tổng Hợp' }}</span>
               </button>
             </div>
           </div>
@@ -53,7 +45,7 @@
       <div class="card-header bg-surface border-bottom p-3">
         <div class="mb-3 px-1">
           <span class="fw-bold text-secondary text-uppercase tracking-wider fs-7">
-            <i class="bi bi-shop me-1.5 text-primary"></i>Chọn nhà thuốc để cấu hình:
+            <i class="ti ti-building-store me-1.5 text-primary"></i>Chọn nhà thuốc để cấu hình:
           </span>
         </div>
 
@@ -95,7 +87,7 @@
               <div class="row align-items-center g-2">
                 <div class="col-lg-3">
                   <label class="fw-bold text-body small mb-0 d-flex align-items-center gap-1.5">
-                    <i class="bi bi-circle-fill text-primary fs-7"></i>
+                    <i class="ti ti-circle-filled text-primary fs-7"></i>
                     Trạng thái vận hành CTKM:
                   </label>
                 </div>
@@ -209,7 +201,7 @@
                   </div>
                   <p class="text-secondary fs-7 mb-2">Các công việc trọng tâm ưu tiên triển khai tuần tới</p>
                   <textarea 
-                    class="form-control form-control-styled font-monospace p-3 border rounded-3" 
+                    class="form-control form-control-styled p-3 border rounded-3" 
                     rows="5" 
                     [(ngModel)]="getShopInput(shop.ShopCode).nextWeekItemsText"
                     placeholder="Ví dụ: Kiểm tra và chỉnh sửa các đơn hàng sai FEFO&#10;Đẩy hàng cận date...">
@@ -225,7 +217,7 @@
       <!-- Card Footer: Sticky Action Bar -->
       <div class="card-footer p-3.5 d-flex flex-wrap align-items-center justify-content-between gap-3 border-top">
         <div class="d-flex align-items-center gap-2 text-secondary small">
-          <i class="bi bi-lightbulb-fill text-warning fs-6"></i>
+          <i class="ti ti-bulb-filled text-warning fs-6"></i>
           <span>Mẹo: Bạn có thể chọn từng nhà thuốc phía trên để tùy chỉnh nội dung báo cáo tương ứng.</span>
         </div>
 
@@ -233,11 +225,11 @@
           <button 
             type="button" 
             class="btn btn-success fw-bold px-4 py-2 rounded-3 shadow-sm d-inline-flex align-items-center gap-2"
-            (click)="generateReport(true)"
-            [disabled]="exportLoading">
-            <span *ngIf="exportLoading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-            <i *ngIf="!exportLoading" class="bi bi-rocket-takeoff-fill"></i>
-            <span>{{ exportLoading ? exportStatusText : 'Xuất Báo Cáo HTML (Tab Mới)' }}</span>
+            (click)="downloadReport()"
+            [disabled]="downloadLoading">
+            <span *ngIf="downloadLoading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+            <i *ngIf="!downloadLoading" class="ti ti-download"></i>
+            <span>{{ downloadLoading ? downloadStatusText : 'Tải Báo Cáo Tổng Hợp' }}</span>
           </button>
         </div>
       </div>
