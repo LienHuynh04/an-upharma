@@ -1,0 +1,247 @@
+<div class="report-config-wrapper py-4 px-3 px-md-4">
+  <div class="container-xl">
+    
+    <!-- Hero Header Banner -->
+    <div class="card header-hero-card border-0 shadow-sm rounded-4 mb-4 overflow-hidden">
+      <div class="card-body p-4">
+        <div class="row align-items-center g-3">
+          <div class="col-lg-7">
+            <div class="d-flex align-items-center gap-3 mb-2">
+              <div class="hero-icon-box rounded-3 d-flex align-items-center justify-content-center">
+                <i class="bi bi-file-earmark-bar-graph-fill text-primary fs-3"></i>
+              </div>
+              <div>
+                <h1 class="h3 fw-bold text-body mb-0">Cấu Hình Báo Cáo Vận Hành</h1>
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle fw-semibold mt-1 px-2.5 py-1 rounded-pill">
+                  <i class="bi bi-calendar-event me-1"></i>Kế Hoạch & Vận Hành Tuần Tới
+                </span>
+              </div>
+            </div>
+            <p class="text-secondary small mb-0 ms-lg-1">
+              Nhập thông tin CTKM, Tồn kho hàng hoá, CSKH và Kế hoạch tuần tới cho từng nhà thuốc. Dữ liệu sẽ tự động tổng hợp vào bản xuất báo cáo HTML.
+            </p>
+          </div>
+
+          <div class="col-lg-5 text-lg-end">
+            <div class="d-flex flex-wrap gap-2 justify-content-lg-end">
+              <button 
+                type="button" 
+                class="btn btn-reset border d-inline-flex align-items-center gap-1.5 px-3 py-2 fw-semibold rounded-3 shadow-2sm"
+                (click)="resetReportInputs()">
+                <i class="bi bi-arrow-counterclockwise text-secondary fs-6"></i>
+                <span>Khôi phục mặc định</span>
+              </button>
+
+              <button 
+                type="button" 
+                class="btn btn-success btn-export shadow-sm d-inline-flex align-items-center gap-2 px-3.5 py-2 fw-bold rounded-3"
+                (click)="generateReport(true)"
+                [disabled]="exportLoading">
+                <span *ngIf="exportLoading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                <i *ngIf="!exportLoading" class="bi bi-box-arrow-up-right fs-6"></i>
+                <span>{{ exportLoading ? exportStatusText : 'Xuất Báo Cáo HTML (Tab Mới)' }}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Shop Tabs & Form Container -->
+    <div class="card main-form-card border-0 shadow-sm rounded-4 mb-4 overflow-hidden">
+      <!-- Card Header: Shop Selector Tabs -->
+      <div class="card-header bg-surface border-bottom p-3">
+        <div class="mb-3 px-1">
+          <span class="fw-bold text-secondary text-uppercase tracking-wider fs-7">
+            <i class="bi bi-shop me-1.5 text-primary"></i>Chọn nhà thuốc để cấu hình:
+          </span>
+        </div>
+
+        <div class="row g-2 shop-tab-grid">
+          <div class="col-md-4" *ngFor="let shop of shops">
+            <button 
+              type="button" 
+              class="w-100 shop-tab-btn p-3 rounded-3 border text-start transition-all"
+              [class.active]="activeShopCode === shop.ShopCode"
+              (click)="activeShopCode = shop.ShopCode">
+              <div class="d-flex justify-content-between align-items-start mb-1">
+                <span class="shop-code-title fw-bold fs-6">{{ shop.ShopCode }}</span>
+                <span 
+                  class="status-chip badge rounded-pill px-2 py-1 fs-8"
+                  [ngClass]="{
+                    'bg-success-subtle text-success border border-success-subtle': getShopInput(shop.ShopCode).status === 'Đang chạy',
+                    'bg-primary-subtle text-primary border border-primary-subtle': getShopInput(shop.ShopCode).status === 'Nội bộ',
+                    'bg-warning-subtle text-warning border border-warning-subtle': getShopInput(shop.ShopCode).status === 'Đang hỗ trợ',
+                    'bg-secondary-subtle text-secondary border border-secondary-subtle': getShopInput(shop.ShopCode).status === 'Bình thường'
+                  }">
+                  {{ getShopInput(shop.ShopCode).status }}
+                </span>
+              </div>
+              <div class="shop-name-sub text-truncate small opacity-75">
+                {{ shop.ShopName }}
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card Body: Active Shop Config Form -->
+      <div class="card-body p-4">
+        <div *ngFor="let shop of shops">
+          <div *ngIf="activeShopCode === shop.ShopCode" class="animate-fade-in">
+            
+            <!-- Operational Status Selector Bar -->
+            <div class="status-selector-box p-3 rounded-3 border mb-4">
+              <div class="row align-items-center g-2">
+                <div class="col-lg-3">
+                  <label class="fw-bold text-body small mb-0 d-flex align-items-center gap-1.5">
+                    <i class="bi bi-circle-fill text-primary fs-7"></i>
+                    Trạng thái vận hành CTKM:
+                  </label>
+                </div>
+                <div class="col-lg-9">
+                  <div class="d-flex flex-wrap gap-2">
+                    <button 
+                      type="button"
+                      class="btn btn-sm status-opt-btn border px-3 py-1.5 rounded-pill fw-semibold"
+                      [class.active-opt]="getShopInput(shop.ShopCode).status === 'Đang chạy'"
+                      (click)="getShopInput(shop.ShopCode).status = 'Đang chạy'">
+                      🟢 Đang chạy
+                    </button>
+                    <button 
+                      type="button"
+                      class="btn btn-sm status-opt-btn border px-3 py-1.5 rounded-pill fw-semibold"
+                      [class.active-opt]="getShopInput(shop.ShopCode).status === 'Nội bộ'"
+                      (click)="getShopInput(shop.ShopCode).status = 'Nội bộ'">
+                      🔵 Nội bộ
+                    </button>
+                    <button 
+                      type="button"
+                      class="btn btn-sm status-opt-btn border px-3 py-1.5 rounded-pill fw-semibold"
+                      [class.active-opt]="getShopInput(shop.ShopCode).status === 'Đang hỗ trợ'"
+                      (click)="getShopInput(shop.ShopCode).status = 'Đang hỗ trợ'">
+                      🟡 Đang hỗ trợ
+                    </button>
+                    <button 
+                      type="button"
+                      class="btn btn-sm status-opt-btn border px-3 py-1.5 rounded-pill fw-semibold"
+                      [class.active-opt]="getShopInput(shop.ShopCode).status === 'Bình thường'"
+                      (click)="getShopInput(shop.ShopCode).status = 'Bình thường'">
+                      ⚪ Bình thường
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Form Grid: 4 Textarea Input Cards -->
+            <div class="row g-4">
+              
+              <!-- 1. CTKM -->
+              <div class="col-md-6">
+                <div class="config-input-card card h-100 border rounded-3 p-3 shadow-2sm card-accent-blue">
+                  <div class="d-flex justify-content-between align-items-center mb-2">
+                    <label class="form-label fw-bold text-body fs-6 mb-0 d-flex align-items-center gap-2">
+                      <span class="icon-badge bg-primary-subtle text-primary">🎁</span>
+                      Chương trình khuyến mãi (CTKM)
+                    </label>
+                    <span class="badge bg-body-tertiary text-secondary border fs-8">Mỗi dòng 1 ý</span>
+                  </div>
+                  <p class="text-secondary fs-7 mb-2">Các CTKM đang diễn ra, chiết khấu, quà tặng đơn hàng</p>
+                  <textarea 
+                    class="form-control form-control-styled p-3 border rounded-3" 
+                    rows="5" 
+                    [(ngModel)]="getShopInput(shop.ShopCode).promoItemsText"
+                    placeholder="Ví dụ: Mua 2 tặng 1 nhóm Hoạt huyết dưỡng não&#10;Giảm 10% TPCN cho khách hàng thân thiết...">
+                  </textarea>
+                </div>
+              </div>
+
+              <!-- 2. Hàng hoá -->
+              <div class="col-md-6">
+                <div class="config-input-card card h-100 border rounded-3 p-3 shadow-2sm card-accent-amber">
+                  <div class="d-flex justify-content-between align-items-center mb-2">
+                    <label class="form-label fw-bold text-body fs-6 mb-0 d-flex align-items-center gap-2">
+                      <span class="icon-badge bg-warning-subtle text-warning-emphasis">📦</span>
+                      Tình hình Hàng hoá
+                    </label>
+                    <span class="badge bg-body-tertiary text-secondary border fs-8">Tồn kho & Luân chuyển</span>
+                  </div>
+                  <p class="text-secondary fs-7 mb-2">Thông tin lọc hàng key, luân chuyển hàng, tồn kho cận date</p>
+                  <textarea 
+                    class="form-control form-control-styled p-3 border rounded-3" 
+                    rows="5" 
+                    [(ngModel)]="getShopInput(shop.ShopCode).goodsNote"
+                    placeholder="Ví dụ: Đã lọc và bổ sung 97% các mã hàng key. Thực hiện lọc hàng hết 2 lần mỗi tuần...">
+                  </textarea>
+                </div>
+              </div>
+
+              <!-- 3. CSKH -->
+              <div class="col-md-6">
+                <div class="config-input-card card h-100 border rounded-3 p-3 shadow-2sm card-accent-purple">
+                  <div class="d-flex justify-content-between align-items-center mb-2">
+                    <label class="form-label fw-bold text-body fs-6 mb-0 d-flex align-items-center gap-2">
+                      <span class="icon-badge bg-purple-subtle text-purple">🤝</span>
+                      Chăm sóc khách hàng (CSKH)
+                    </label>
+                    <span class="badge bg-body-tertiary text-secondary border fs-8">Tư vấn POS & VIP</span>
+                  </div>
+                  <p class="text-secondary fs-7 mb-2">Hoạt động chăm sóc khách cũ, tư vấn thăng hạng VIP</p>
+                  <textarea 
+                    class="form-control form-control-styled p-3 border rounded-3" 
+                    rows="5" 
+                    [(ngModel)]="getShopInput(shop.ShopCode).cskhNote"
+                    placeholder="Ví dụ: Hướng dẫn nhân viên lọc danh sách khách hàng cần ưu tiên chăm sóc...">
+                  </textarea>
+                </div>
+              </div>
+
+              <!-- 4. Kế hoạch tuần tới -->
+              <div class="col-md-6">
+                <div class="config-input-card card h-100 border rounded-3 p-3 shadow-2sm card-accent-emerald">
+                  <div class="d-flex justify-content-between align-items-center mb-2">
+                    <label class="form-label fw-bold text-body fs-6 mb-0 d-flex align-items-center gap-2">
+                      <span class="icon-badge bg-success-subtle text-success">🗓️</span>
+                      Kế hoạch tuần tới
+                    </label>
+                    <span class="badge bg-body-tertiary text-secondary border fs-8">Mỗi dòng 1 ý</span>
+                  </div>
+                  <p class="text-secondary fs-7 mb-2">Các công việc trọng tâm ưu tiên triển khai tuần tới</p>
+                  <textarea 
+                    class="form-control form-control-styled font-monospace p-3 border rounded-3" 
+                    rows="5" 
+                    [(ngModel)]="getShopInput(shop.ShopCode).nextWeekItemsText"
+                    placeholder="Ví dụ: Kiểm tra và chỉnh sửa các đơn hàng sai FEFO&#10;Đẩy hàng cận date...">
+                  </textarea>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card Footer: Sticky Action Bar -->
+      <div class="card-footer p-3.5 d-flex flex-wrap align-items-center justify-content-between gap-3 border-top">
+        <div class="d-flex align-items-center gap-2 text-secondary small">
+          <i class="bi bi-lightbulb-fill text-warning fs-6"></i>
+          <span>Mẹo: Bạn có thể chọn từng nhà thuốc phía trên để tùy chỉnh nội dung báo cáo tương ứng.</span>
+        </div>
+
+        <div class="d-flex flex-wrap gap-2.5 ms-auto">
+          <button 
+            type="button" 
+            class="btn btn-success fw-bold px-4 py-2 rounded-3 shadow-sm d-inline-flex align-items-center gap-2"
+            (click)="generateReport(true)"
+            [disabled]="exportLoading">
+            <span *ngIf="exportLoading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+            <i *ngIf="!exportLoading" class="bi bi-rocket-takeoff-fill"></i>
+            <span>{{ exportLoading ? exportStatusText : 'Xuất Báo Cáo HTML (Tab Mới)' }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>

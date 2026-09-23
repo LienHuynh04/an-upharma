@@ -38,3 +38,13 @@ export function getCompletedMonthRange(monthCount = 3, now = new Date()): Comple
     end: new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999),
   };
 }
+
+export function calculateDaysProgress(now = new Date()): { daysPassed: number; totalDays: number; progressRatio: number; daysRemaining: number } {
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const totalDays = new Date(year, month + 1, 0).getDate();
+  const daysPassed = Math.max(1, now.getDate());
+  const progressRatio = daysPassed / totalDays;
+  const daysRemaining = totalDays - daysPassed;
+  return { daysPassed, totalDays, progressRatio, daysRemaining };
+}

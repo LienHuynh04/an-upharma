@@ -209,7 +209,7 @@ export class UpharmaService {
   async callEndpoint<T>(
     pathname: string,
     payload: RawRecord,
-    options: { cache?: boolean; forceRefresh?: boolean } = {},
+    options: { cache?: boolean; forceRefresh?: boolean; onShopLoaded?: (shopCode: string, data: any[]) => void } = {},
   ): Promise<T> {
     if (pathname.includes("GetShopsSummaryCalculated")) {
       const firebaseDbUrl = (environment as any).firebaseDbUrl;
@@ -332,6 +332,9 @@ export class UpharmaService {
               const rows = await request;
               this.firebaseSalesSpeedCache.set(cacheKey, { savedAt: Date.now(), data: rows });
               shopsData.push(...rows);
+              if (typeof options.onShopLoaded === "function") {
+                options.onShopLoaded(shop.ShopCode, rows);
+              }
             } catch (err) {
               const message = err instanceof Error ? err.message : String(err);
               failedShops.push(`${shop.ShopCode}: ${message}`);
@@ -696,21 +699,37 @@ export class UpharmaService {
             try {
               const url = `${normalizedFirebase}/shops/${shop.ShopCode}/upharma_data/${resourceName}.json`;
               console.log(`[Firebase Fetch] Đang tải ${resourceName} cho shop ${shop.ShopCode} từ: ${url}`);
-              const response = await fetch(url);
+              
+              const controller = new AbortController();
+              const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+              const response = await fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timeoutId));
               if (!response.ok) {
                 throw new Error(`HTTP ${response.status}`);
               }
               const json = await response.json();
-              if (json && Array.isArray(json.data)) {
-                const filteredData = json.data.filter((item: any) => {
-                  const code = String(item?.ProductCode || item?.ProductID || item?.MaSP || item?.Code || "").toUpperCase().trim();
-                  const name = String(item?.ProductName || item?.Product_Name || item?.TenSP || item?.Name || "").toUpperCase().trim();
-                  return !(code.includes("VOUCHER") || name.includes("VOUCHER") || code.startsWith("VC"));
-                });
-                shopsData.push(...filteredData);
-                if (options.onShopLoaded) {
-                  options.onShopLoaded(shop.ShopCode, filteredData);
+              let rawList: any[] = [];
+              if (json) {
+                if (Array.isArray(json)) {
+                  rawList = json;
+                } else if (Array.isArray(json.data)) {
+                  rawList = json.data;
+                } else if (json.data && typeof json.data === "object") {
+                  rawList = Object.values(json.data);
+                } else if (typeof json === "object") {
+                  rawList = Object.values(json);
                 }
+              }
+
+              const filteredData = rawList.filter((item: any) => {
+                const code = String(item?.ProductCode || item?.ProductID || item?.MaSP || item?.Code || "").toUpperCase().trim();
+                const name = String(item?.ProductName || item?.Product_Name || item?.TenSP || item?.Name || "").toUpperCase().trim();
+                return !(code.includes("VOUCHER") || name.includes("VOUCHER") || code.startsWith("VC"));
+              });
+
+              shopsData.push(...filteredData);
+              if (options.onShopLoaded) {
+                options.onShopLoaded(shop.ShopCode, filteredData);
               }
             } catch (err: any) {
               console.warn(`Không tải được dữ liệu ${resourceName} của shop ${shop.ShopCode}:`, err);

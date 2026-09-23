@@ -16,6 +16,17 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css" />
     <script>
       window.onerror = function(message, source, lineno, colno, error) {
+        const sourceStr = String(source || message || '');
+        if (
+          sourceStr.includes('share-modal.js') ||
+          sourceStr.includes('chrome-extension:') ||
+          sourceStr.includes('moz-extension:') ||
+          sourceStr.includes('safari-extension:')
+        ) {
+          console.warn('Ignored browser extension error:', { message, source });
+          return true;
+        }
+
         let errorBox = document.getElementById('upharma-error-box');
         if (!errorBox) {
           errorBox = document.createElement('div');

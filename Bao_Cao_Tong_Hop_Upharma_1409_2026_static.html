@@ -1,0 +1,532 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Báo cáo tổng hợp UPHARMA Tháng 9/2026</title>
+<style>
+:root{
+  --navy:#17365d;--navy-2:#254f7e;--blue:#2563eb;--green:#16a34a;
+  --amber:#d97706;--red:#dc2626;--purple:#8b5cf6;--slate:#64748b;
+  --bg:#f3f6fb;--card:#fff;--line:#dbe3ef;--soft:#f8fafc;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:#1e293b}
+header{background:linear-gradient(135deg,var(--navy),var(--navy-2));color:#fff;padding:25px 24px}
+header .inner,main{max-width:1400px;margin:auto}
+.header-row{display:flex;align-items:center;justify-content:space-between;gap:28px}
+h1{margin:0 0 8px;font-size:30px}.subtitle{margin:0;opacity:.88}
+nav{position:sticky;top:0;z-index:20;background:#fff;border-bottom:1px solid var(--line);padding:10px 18px;display:flex;gap:8px;overflow:auto}
+nav a{color:var(--navy);text-decoration:none;font-weight:700;padding:8px 12px;border-radius:7px;background:#eef4fb;white-space:nowrap}
+main{padding:22px}
+section{background:var(--card);border-radius:14px;box-shadow:0 4px 18px rgba(15,23,42,.08);padding:22px;margin-bottom:22px}
+.section-title{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}
+.section-title h2{margin:0;color:var(--navy);font-size:22px}.section-title p{margin:0;color:var(--slate);font-size:13px;text-align:right}
+.dashboard-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
+.summary-kpi{padding:15px;border:1px solid var(--line);border-radius:11px;background:linear-gradient(180deg,#fff,#f8fbff)}
+.summary-kpi span{display:block;color:var(--slate);font-size:12px;margin-bottom:6px}.summary-kpi strong{color:var(--navy);font-size:21px}
+.chart-shell{position:relative;padding:12px 8px 4px 54px}
+.y-axis{position:absolute;left:0;top:12px;bottom:52px;width:48px;display:flex;flex-direction:column;justify-content:space-between;text-align:right;color:var(--slate);font-size:11px}
+.chart-area{height:380px;border-left:1px solid #94a3b8;border-bottom:1px solid #94a3b8;background:repeating-linear-gradient(to top,transparent 0,transparent calc(25% - 1px),#e5e7eb 25%);display:flex;align-items:stretch;justify-content:space-around;padding:20px 24px 0;gap:28px}
+.store-group{flex:1;min-width:240px;display:flex;flex-direction:column}.bars{height:320px;display:flex;align-items:flex-end;justify-content:center;gap:16px}
+.bar-item{height:100%;width:62px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end}
+.bar-value{font-size:11px;font-weight:800;margin-bottom:5px;white-space:nowrap;height:18px}.bar-track{height:250px;width:100%;display:flex;align-items:flex-end}
+.bar{width:100%;min-height:2px;border-radius:7px 7px 0 0;box-shadow:inset 0 1px rgba(255,255,255,.28)}
+.bar-ds{background:var(--blue)}.bar-hhs{background:var(--green)}.bar-label{font-size:10px;text-align:center;margin-top:6px;line-height:1.15}
+.store-name{text-align:center;font-weight:800;color:var(--navy);font-size:17px;margin-top:8px}
+.legend{display:flex;flex-wrap:wrap;gap:16px;justify-content:center;margin-top:15px}.legend span{display:flex;align-items:center;gap:6px;font-size:13px}.dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+.shop-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:20px}
+.shop-card{border:1px solid var(--line);border-radius:12px;padding:16px;background:#fbfdff}
+.shop-card-head{display:flex;justify-content:space-between;align-items:start;gap:10px;margin-bottom:13px}.shop-card h3{margin:0;color:var(--navy)}
+.updated{color:var(--slate);font-size:11px;text-align:right}.kpi-row{display:grid;grid-template-columns:92px repeat(3,1fr);gap:8px;margin-bottom:9px}
+.kpi-label{display:flex;align-items:center;font-weight:800;color:var(--navy);background:#eaf1f8;border:1px solid #cbd5e1;border-radius:8px;padding:9px}
+.kpi-cell{border-radius:8px;background:#fff;padding:9px;border:1px solid #e2e8f0;min-width:0}.kpi-cell span{display:block;font-size:10px;color:var(--slate);margin-bottom:4px}.kpi-cell strong{font-size:12px;display:block;overflow-wrap:anywhere}
+.attainment{display:block;margin-top:5px;color:#475569;font-size:10px;font-weight:700}.ratio-metric{margin-top:9px;border-radius:8px;background:#eef6ff;border:1px solid #bfdbfe;padding:10px}.ratio-metric span{display:block;font-size:10px;color:var(--slate);margin-bottom:4px}.ratio-metric strong{font-size:18px;color:var(--navy);display:block}
+
+/* Tab system */
+.shop-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px}
+.shop-tab{position:relative;padding:13px 15px 28px;text-align:left;border:1px solid var(--line);border-radius:10px;background:#f8fafc;color:var(--navy);cursor:pointer;font-family:inherit;font-size:inherit;width:100%}
+.shop-tab.active{color:#fff;border-color:var(--navy);background:linear-gradient(135deg,var(--navy),var(--navy-2))}.shop-tab strong,.shop-tab span,.shop-tab small{display:block}.shop-tab span{margin-top:5px;font-size:12px}.shop-tab small{margin-top:5px;opacity:.75}
+.tab-content{display:none}.tab-content.active{display:block}
+
+.inventory-hero{padding:18px 20px;border-radius:12px;color:#fff;background:linear-gradient(135deg,var(--navy),var(--navy-2));margin-bottom:14px}
+.inventory-hero h3{margin:0 0 8px;font-size:19px}.inventory-legend{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:18px}.inventory-legend span{display:flex;align-items:center;gap:6px;font-size:12px;opacity:.92}.legend-square{width:11px;height:11px;border-radius:3px}.sq-expired{background:#b9c0c4}.sq-3m{background:#ff3b43}.sq-6m{background:#5573f4}.sq-1y{background:#20a65a}
+.inventory-total{font-size:18px}.inventory-total strong{font-size:25px}
+.inventory-cards{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:14px}
+.inventory-card{position:relative;min-width:0;padding:13px 13px 13px 17px;border:1px solid var(--line);border-radius:11px;background:#fff;overflow:hidden}
+.inventory-card:before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;background:#e0a21c}.inventory-card.expired:before{background:#aeb7bc}.inventory-card.three:before{background:#ff3b43}.inventory-card.six:before{background:#5573f4}.inventory-card.year:before{background:#20a65a}.inventory-card.normal:before{background:#f2c400}
+.inventory-card span{display:block;color:var(--slate);font-size:11px;font-weight:700}.inventory-card strong{display:block;margin-top:7px;color:var(--navy);text-align:right;font-size:20px}.inventory-card small{display:block;margin-top:4px;text-align:right;color:#475569;font-weight:700}.inventory-card em{display:block;margin-top:5px;text-align:right;color:var(--navy);font-style:normal;font-weight:800}
+.inventory-shops{padding:14px;border:1px solid var(--line);border-radius:12px;background:#f8fafc}.inventory-shops h3{margin:0 0 11px;color:var(--navy);font-size:16px}.inventory-shop-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.inventory-shop{padding:12px;text-align:left;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--navy);cursor:pointer;font-family:inherit;font-size:inherit;width:100%}.inventory-shop.active{border:2px solid #d99a16;background:#fff8e7}.inventory-shop strong{display:block}.inventory-shop span{display:block;margin-top:5px;color:var(--slate);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.inventory-shop b{float:right;color:#c9860e;font-size:18px}
+
+.employee-order-panel{padding:18px;border:1px solid var(--line);border-radius:12px;background:#fff}.employee-order-head{display:flex;align-items:end;justify-content:space-between;gap:15px;margin-bottom:15px}.employee-order-head h3{margin:0 0 5px;color:var(--navy);font-size:19px}.employee-order-head p{margin:0;color:var(--slate);font-size:12px}.employee-count{color:#c9860e;font-weight:800;white-space:nowrap}
+.order-employee-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.order-employee-card{min-height:90px;padding:14px;display:flex;align-items:center;justify-content:space-between;gap:14px;border:1px solid var(--line);border-radius:10px;background:#f8fafc;color:#1e293b;text-align:left}.order-employee-card.active{border:2px solid #d99a16;background:#fff8e7;box-shadow:inset 6px 0 #e1a21c}.order-employee-card span{font-weight:800}.order-employee-card strong{color:#c9860e;font-size:18px;white-space:nowrap}.order-empty{grid-column:1/-1;padding:35px;text-align:center;color:var(--slate);border:1px dashed #cbd5e1;border-radius:10px}
+
+/* Range buttons for đơn hàng cận date */
+.range-buttons{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:14px}
+.range-btn{padding:11px 13px;text-align:center;border:1px solid #cbd5e1;border-radius:9px;background:#fff;color:var(--navy);font-weight:800;cursor:pointer;font-family:inherit;font-size:inherit}
+.range-btn.active{border:2px solid #d99a16;background:#fff8e7;box-shadow:inset 6px 0 #e1a21c}
+
+.fefo-panel{padding:18px;border:1px solid var(--line);border-radius:12px;background:#fff;margin-top:18px}
+.fefo-hero{padding:18px 20px;border:1px solid var(--line);border-radius:12px;background:#f8fafc;margin-bottom:14px}.fefo-hero h3{margin:0 0 8px;color:var(--navy);font-size:19px}.fefo-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px}.fefo-summary-item{padding:13px 14px;border-radius:11px;background:#fff;border:1px solid var(--line);border-left:5px solid var(--blue)}.fefo-summary-item:nth-child(2){border-left-color:var(--amber)}.fefo-summary-item:nth-child(3){border-left-color:var(--green)}.fefo-summary-item span{display:block;font-size:11px;color:var(--slate);font-weight:800;margin-bottom:6px}.fefo-summary-item strong{display:block;font-size:22px;color:var(--navy)}.fefo-summary-item small{display:block;margin-top:4px;color:#475569;font-weight:700}
+.operation-title{display:flex;align-items:center;gap:9px;margin:0 0 13px;color:var(--navy);font-size:18px}.operation-title:before{content:"";width:5px;height:24px;border-radius:999px;background:var(--blue)}
+.promotion-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px}.promotion-card{position:relative;padding:16px;border:1px solid var(--line);border-radius:11px;background:#fbfdff;overflow:hidden;display:flex;flex-direction:column;gap:12px}.promotion-card:before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--blue)}.promotion-card:nth-child(2):before{background:var(--amber)}.promotion-card:nth-child(3):before{background:var(--purple)}
+.promotion-card-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:0}.promotion-card h4{margin:0;color:var(--navy);font-size:17px}.operation-status{padding:4px 7px;border-radius:999px;background:#dcfce7;color:#166534;font-size:10px;font-weight:800;white-space:nowrap}.operation-status.internal{background:#fff7ed;color:#9a3412}.operation-status.pending{background:#f3e8ff;color:#6b21a8}.promotion-card p,.promotion-card li{margin:0;color:#475569;font-size:13px;line-height:1.55}.promotion-card ul{margin:0;padding-left:18px;display:grid;gap:8px}.promotion-card li{padding-left:2px}
+.operation-info-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.operation-info{padding:16px;border:1px solid var(--line);border-radius:11px;background:#fff}.operation-info h4{margin:0 0 9px;color:var(--navy);font-size:16px}.operation-info p{margin:0;color:#475569;font-size:13px;line-height:1.6}.operation-info strong{color:var(--navy)}
+.next-week-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.next-week-card{position:relative;padding:17px;border:1px solid var(--line);border-radius:11px;background:linear-gradient(180deg,#fff,#f8fbff);overflow:hidden}.next-week-card:before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--blue)}.next-week-card:nth-child(2):before{background:var(--green)}.next-week-card:nth-child(3):before{background:var(--purple)}.next-week-card h3{margin:0 0 11px;color:var(--navy);font-size:18px}.next-week-card ul{margin:0;padding-left:20px;color:#475569}.next-week-card li{margin:8px 0;line-height:1.5;font-size:13px}.next-week-card strong{color:var(--navy)}
+.table-wrap{overflow:auto;border:1px solid #cbd5e1;border-radius:10px}
+table{width:100%;min-width:1280px;border-collapse:collapse}th,td{border-right:1px solid #cbd5e1;border-bottom:1px solid #cbd5e1;padding:10px;text-align:left;vertical-align:middle}th:last-child,td:last-child{border-right:0}tbody tr:last-child td{border-bottom:0}
+th{background:var(--navy);color:#fff;text-align:center;font-size:12px;white-space:nowrap}tbody tr:nth-child(even){background:var(--soft)}tbody tr:hover{background:#eff6ff}
+.fefo-identity{display:flex;flex-direction:column;gap:4px}.fefo-identity strong{display:block;color:var(--navy);font-size:14px}
+.fefo-metric{white-space:nowrap}.fefo-metric strong{display:block;color:var(--navy);font-size:15px}
+.fefo-rate{display:inline-block;padding:5px 8px;border-radius:999px;background:#fff7ed;color:#9a3412;font-weight:800;font-size:12px}
+.identity strong{display:block;color:var(--navy)}.identity span{display:block;margin-top:4px;color:var(--slate);font-size:12px}
+.cell-number{white-space:nowrap}.cell-number strong{display:block;color:var(--green)}.cell-number span{display:block;margin-top:4px;color:var(--slate);font-size:11px}
+.ratio-badge{display:inline-block;padding:5px 8px;border-radius:999px;background:#fff7ed;color:#9a3412;font-weight:800;font-size:12px}
+.summary-line{padding:12px 14px;background:#eef6ff;color:var(--navy);font-size:13px}
+.employee-target-badge{display:inline-block;margin-top:6px;padding:4px 8px;border-radius:999px;background:#fff7ed;color:#9a3412;font-size:11px;font-weight:800;white-space:nowrap}
+footer{text-align:center;color:var(--slate);padding:12px 20px 30px;font-size:12px}
+
+@media(max-width:1050px){.header-row{align-items:flex-start;flex-direction:column}.dashboard-summary{grid-template-columns:repeat(2,1fr)}.shop-cards{grid-template-columns:1fr}.shop-tabs{overflow-x:auto;grid-template-columns:repeat(3,minmax(280px,1fr))}.chart-area{overflow-x:auto;justify-content:flex-start}.store-group{flex:0 0 270px}.inventory-cards{grid-template-columns:repeat(3,1fr)}.order-employee-grid{grid-template-columns:repeat(2,1fr)}.promotion-grid,.next-week-grid{grid-template-columns:1fr}}
+@media(max-width:620px){header{padding:22px 16px}h1{font-size:24px}.section-title{align-items:flex-start;flex-direction:column}.section-title p{text-align:left}.dashboard-summary{grid-template-columns:1fr}.kpi-row{grid-template-columns:1fr}.inventory-cards{grid-template-columns:repeat(2,1fr)}.inventory-shop-grid{grid-template-columns:1fr}.range-buttons{grid-template-columns:1fr}.order-employee-grid{grid-template-columns:1fr}.operation-info-grid{grid-template-columns:1fr}main{padding:12px}section{padding:16px}}
+@media print{nav{display:none}body{background:#fff}main{padding:0}section{box-shadow:none;border:1px solid #d1d5db;page-break-inside:avoid}}
+</style>
+</head>
+<body>
+<header><div class="inner header-row">
+  <div style="display: flex; align-items: center; gap: 15px;">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" style="width: 48px; height: 48px;">
+      <defs>
+        <linearGradient id="p" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#ffb834"/><stop offset="100%" stop-color="#f05a28"/></linearGradient>
+        <linearGradient id="l" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#009245"/><stop offset="100%" stop-color="#8cc63f"/></linearGradient>
+      </defs>
+      <path d="M 12 8 A 4 4 0 0 1 20 8 L 20 12 L 12 12 Z" fill="url(#p)"/>
+      <path d="M 9 10 C 7 10, 7 18, 7 20 C 7 24.5, 11 27, 16 27 C 21 27, 25 24.5, 25 20 C 25 18, 25 10, 23 10 C 22.5 10, 22 13, 22 16 C 22 21.5, 19 23, 16 23 C 13 23, 10 21.5, 10 16 C 10 13, 9.5 10, 9 10 Z" fill="url(#l)"/>
+    </svg>
+    <div>
+      <h1 style="margin: 0; font-size: 26px;">BÁO CÁO TỔNG HỢP UPHARMA</h1>
+      <p class="subtitle" style="margin: 4px 0 0; opacity: 0.88;">Chỉ tiêu nhà thuốc • Chỉ tiêu nhân viên • Tháng 9/2026</p>
+    </div>
+  </div>
+</div></header>
+<nav><a href="#chi-tieu">Chỉ tiêu nhà thuốc</a><a href="#ton-kho">Tỷ lệ cận date</a><a href="#don-hang-can-date">Đơn hàng cận date</a><a href="#nhan-vien">Chỉ tiêu nhân viên</a><a href="#van-hanh">Vận hành</a><a href="#ke-hoach-tuan-toi">KH tuần tới</a></nav>
+<main>
+
+  <!-- ===== SECTION 1: Dashboard chỉ tiêu nhà thuốc ===== -->
+  <section id="chi-tieu">
+    <div class="section-title"><h2>📊 Dashboard chỉ tiêu nhà thuốc</h2><p>Doanh số và HHS thực tế so với chỉ tiêu<br><small>Dữ liệu lũy kế thực tế và dự kiến cả tháng</small></p></div>
+    <div class="dashboard-summary">
+      <div class="summary-kpi"><span>Tổng doanh số thực tế</span><strong>288.451.933 đ</strong></div>
+      <div class="summary-kpi"><span>Hoàn thành doanh số</span><strong>39%</strong></div>
+      <div class="summary-kpi"><span>Tổng HHS thực tế</span><strong>113.410</strong></div>
+      <div class="summary-kpi"><span>Hoàn thành HHS</span><strong>45%</strong></div>
+    </div>
+    <div class="chart-shell">
+      <div class="y-axis"><span>150%</span><span>112,5%</span><span>75%</span><span>37,5%</span><span>0%</span></div>
+      <div class="chart-area">
+        <div class="store-group"><div class="bars">
+          <div class="bar-item"><div class="bar-value">28%</div><div class="bar-track"><div class="bar bar-ds" style="height:18.67%"></div></div><div class="bar-label">DS thực tế</div></div>
+          <div class="bar-item"><div class="bar-value">33%</div><div class="bar-track"><div class="bar bar-hhs" style="height:22%"></div></div><div class="bar-label">HHS thực tế</div></div>
+        </div><div class="store-name">SHOP0025</div></div>
+        <div class="store-group"><div class="bars">
+          <div class="bar-item"><div class="bar-value">38%</div><div class="bar-track"><div class="bar bar-ds" style="height:25.33%"></div></div><div class="bar-label">DS thực tế</div></div>
+          <div class="bar-item"><div class="bar-value">45%</div><div class="bar-track"><div class="bar bar-hhs" style="height:30%"></div></div><div class="bar-label">HHS thực tế</div></div>
+        </div><div class="store-name">SHOP0097</div></div>
+        <div class="store-group"><div class="bars">
+          <div class="bar-item"><div class="bar-value">55%</div><div class="bar-track"><div class="bar bar-ds" style="height:36.67%"></div></div><div class="bar-label">DS thực tế</div></div>
+          <div class="bar-item"><div class="bar-value">60%</div><div class="bar-track"><div class="bar bar-hhs" style="height:40%"></div></div><div class="bar-label">HHS thực tế</div></div>
+        </div><div class="store-name">SHOP0144</div></div>
+      </div>
+    </div>
+    <div class="legend"><span><i class="dot bar-ds"></i>DS thực tế</span><span><i class="dot bar-hhs"></i>HHS thực tế</span></div>
+
+    <div class="shop-cards">
+      <article class="shop-card">
+        <div class="shop-card-head"><h3>SHOP0025</h3><div class="updated">SHOP0025<br>2026-09-07 10:15</div></div>
+        <div class="kpi-row"><div class="kpi-label">Doanh số</div><div class="kpi-cell"><span>Chỉ tiêu</span><strong>240.000.000 đ</strong></div><div class="kpi-cell"><span>Thực tế</span><strong>66.441.884 đ</strong><small class="attainment">Đạt 28%</small></div><div class="kpi-cell"><span>Dự kiến</span><strong>153.327.432 đ</strong></div></div>
+        <div class="kpi-row"><div class="kpi-label">HHS</div><div class="kpi-cell"><span>Chỉ tiêu</span><strong>80.000</strong></div><div class="kpi-cell"><span>Thực tế</span><strong>25.834</strong><small class="attainment">Đạt 33%</small></div><div class="kpi-cell"><span>Dự kiến</span><strong>59.608.615</strong></div></div>
+        <div class="ratio-metric"><span>Tỷ trọng HHS / DS</span><strong>39%</strong></div>
+      </article>
+      <article class="shop-card">
+        <div class="shop-card-head"><h3>SHOP0097</h3><div class="updated">SHOP0097<br>2026-09-05 12:33</div></div>
+        <div class="kpi-row"><div class="kpi-label">Doanh số</div><div class="kpi-cell"><span>Chỉ tiêu</span><strong>300.000.000 đ</strong></div><div class="kpi-cell"><span>Thực tế</span><strong>112.929.748 đ</strong><small class="attainment">Đạt 38%</small></div><div class="kpi-cell"><span>Dự kiến</span><strong>260.607.111 đ</strong></div></div>
+        <div class="kpi-row"><div class="kpi-label">HHS</div><div class="kpi-cell"><span>Chỉ tiêu</span><strong>115.000</strong></div><div class="kpi-cell"><span>Thực tế</span><strong>51.649</strong><small class="attainment">Đạt 45%</small></div><div class="kpi-cell"><span>Dự kiến</span><strong>119.190.000</strong></div></div>
+        <div class="ratio-metric"><span>Tỷ trọng HHS / DS</span><strong>46%</strong></div>
+      </article>
+      <article class="shop-card">
+        <div class="shop-card-head"><h3>SHOP0144</h3><div class="updated">SHOP0144<br>2026-09-14 09:28</div></div>
+        <div class="kpi-row"><div class="kpi-label">Doanh số</div><div class="kpi-cell"><span>Chỉ tiêu</span><strong>200.000.000 đ</strong></div><div class="kpi-cell"><span>Thực tế</span><strong>109.080.301 đ</strong><small class="attainment">Đạt 55%</small></div><div class="kpi-cell"><span>Dự kiến</span><strong>251.723.772 đ</strong></div></div>
+        <div class="kpi-row"><div class="kpi-label">HHS</div><div class="kpi-cell"><span>Chỉ tiêu</span><strong>60.000</strong></div><div class="kpi-cell"><span>Thực tế</span><strong>35.927</strong><small class="attainment">Đạt 60%</small></div><div class="kpi-cell"><span>Dự kiến</span><strong>82.908.462</strong></div></div>
+        <div class="ratio-metric"><span>Tỷ trọng HHS / DS</span><strong>33%</strong></div>
+      </article>
+    </div>
+  </section>
+
+  <!-- ===== SECTION 2: Tỷ lệ cận date (TABS) ===== -->
+  <section id="ton-kho">
+    <div class="section-title"><h2>📦 Tỷ lệ cận date</h2><p>Giá trị và tỷ lệ hàng hóa theo thời hạn sử dụng</p></div>
+    <div class="inventory-hero">
+      <h3>Danh mục tồn kho</h3>
+      <div class="inventory-legend"><span><i class="legend-square sq-expired"></i>Hết hạn</span><span><i class="legend-square sq-3m"></i>3 Tháng</span><span><i class="legend-square sq-6m"></i>6 Tháng</span><span><i class="legend-square sq-1y"></i>1 Năm</span></div>
+      <div class="inventory-total">Tổng giá trị đang hiển thị: <strong id="inv-total">616.383.000 VNĐ</strong></div>
+    </div>
+
+    <!-- Inventory Shop Tabs -->
+    <div class="inventory-shops"><h3>Nhà thuốc</h3>
+      <div class="inventory-shop-grid">
+        <button class="inventory-shop" onclick="switchTab('inv','s25',this)" data-total="391.840.385 VNĐ"><b>1.725</b><strong>SHOP0025</strong><span>Nhà thuốc số 25</span></button>
+        <button class="inventory-shop" onclick="switchTab('inv','s97',this)" data-total="563.797.680 VNĐ"><b>2.136</b><strong>SHOP0097</strong><span>Nhà thuốc số 97</span></button>
+        <button class="inventory-shop active" onclick="switchTab('inv','s144',this)" data-total="616.383.000 VNĐ"><b>2.232</b><strong>SHOP0144</strong><span>Nhà thuốc số 144</span></button>
+      </div>
+    </div>
+
+    <!-- Inventory Content -->
+    <div id="inv-s25" class="tab-content">
+      <div class="inventory-cards" style="margin-top:14px">
+        <article class="inventory-card"><span>Tất cả</span><strong>1.725</strong><small>391.840.385 VNĐ</small><em>100,00%</em></article>
+        <article class="inventory-card expired"><span>Hết hạn</span><strong>0</strong><small>0 VNĐ</small><em>0,00%</em></article>
+        <article class="inventory-card three"><span>3 Tháng</span><strong>10</strong><small>1.437.400 VNĐ</small><em>0,37%</em></article>
+        <article class="inventory-card six"><span>6 Tháng</span><strong>26</strong><small>5.614.547 VNĐ</small><em>1,43%</em></article>
+        <article class="inventory-card year"><span>1 Năm</span><strong>176</strong><small>34.890.520 VNĐ</small><em>8,90%</em></article>
+        <article class="inventory-card normal"><span>Bình thường</span><strong>1.570</strong><small>356.949.865 VNĐ</small><em>91,10%</em></article>
+      </div>
+    </div>
+    <div id="inv-s97" class="tab-content">
+      <div class="inventory-cards" style="margin-top:14px">
+        <article class="inventory-card"><span>Tất cả</span><strong>2.136</strong><small>563.797.680 VNĐ</small><em>100,00%</em></article>
+        <article class="inventory-card expired"><span>Hết hạn</span><strong>1</strong><small>258.000 VNĐ</small><em>0,05%</em></article>
+        <article class="inventory-card three"><span>3 Tháng</span><strong>4</strong><small>1.523.000 VNĐ</small><em>0,27%</em></article>
+        <article class="inventory-card six"><span>6 Tháng</span><strong>28</strong><small>4.045.601 VNĐ</small><em>0,72%</em></article>
+        <article class="inventory-card year"><span>1 Năm</span><strong>227</strong><small>47.125.124 VNĐ</small><em>8,36%</em></article>
+        <article class="inventory-card normal"><span>Bình thường</span><strong>1.942</strong><small>516.414.555 VNĐ</small><em>91,60%</em></article>
+      </div>
+    </div>
+    <div id="inv-s144" class="tab-content active">
+      <div class="inventory-cards" style="margin-top:14px">
+        <article class="inventory-card"><span>Tất cả</span><strong>2.232</strong><small>616.383.000 VNĐ</small><em>100,00%</em></article>
+        <article class="inventory-card expired"><span>Hết hạn</span><strong>0</strong><small>0 VNĐ</small><em>0,00%</em></article>
+        <article class="inventory-card three"><span>3 Tháng</span><strong>3</strong><small>448.830 VNĐ</small><em>0,07%</em></article>
+        <article class="inventory-card six"><span>6 Tháng</span><strong>23</strong><small>9.011.414 VNĐ</small><em>1,46%</em></article>
+        <article class="inventory-card year"><span>1 Năm</span><strong>207</strong><small>53.877.349 VNĐ</small><em>8,74%</em></article>
+        <article class="inventory-card normal"><span>Bình thường</span><strong>2.055</strong><small>562.505.651 VNĐ</small><em>91,26%</em></article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== SECTION 3: Đơn hàng cận date (TABS shop + range) ===== -->
+  <section id="don-hang-can-date">
+    <div class="section-title"><h2>🧾 Đơn hàng cận date</h2><p>Tổng tiền hàng cận date theo nhà thuốc, khoảng lọc và nhân viên</p></div>
+
+    <!-- Shop tabs -->
+    <div class="shop-tabs">
+      <button class="shop-tab" onclick="switchTab('order','s25',this)"><strong>SHOP0025</strong><span>Nhà thuốc số 25</span><small>4 nhân viên</small></button>
+      <button class="shop-tab" onclick="switchTab('order','s97',this)"><strong>SHOP0097</strong><span>Nhà thuốc số 97</span><small>3 nhân viên</small></button>
+      <button class="shop-tab active" onclick="switchTab('order','s144',this)"><strong>SHOP0144</strong><span>Nhà thuốc số 144</span><small>4 nhân viên</small></button>
+    </div>
+
+    <!-- SHOP0025 orders -->
+    <div id="order-s25" class="tab-content">
+      <div class="range-buttons">
+        <button class="range-btn active" onclick="switchTab('order25','r3',this)">3 tháng</button>
+        <button class="range-btn" onclick="switchTab('order25','r6',this)">6 tháng</button>
+        <button class="range-btn" onclick="switchTab('order25','r12',this)">12 tháng</button>
+      </div>
+      <div id="order25-r3" class="tab-content active">
+        <div class="employee-order-panel"><div class="employee-order-head"><div><h3>Tổng: 19.760 đ</h3><p>1 nhân viên</p></div></div>
+          <div class="order-employee-grid"><div class="order-employee-card"><span>Hà Thúc Nguyên Bảo</span><strong>19.760 đ</strong></div></div>
+        </div>
+      </div>
+      <div id="order25-r6" class="tab-content">
+        <div class="employee-order-panel"><div class="employee-order-head"><div><h3>Tổng: 369.660 đ</h3><p>3 nhân viên</p></div></div>
+          <div class="order-employee-grid">
+            <div class="order-employee-card"><span>Hà Thúc Nguyên Bảo</span><strong>239.660 đ</strong></div>
+            <div class="order-employee-card"><span>Đặng Thị Hồng Nhung</span><strong>102.000 đ</strong></div>
+            <div class="order-employee-card"><span>Viên Thị Lan Anh</span><strong>28.000 đ</strong></div>
+          </div>
+        </div>
+      </div>
+      <div id="order25-r12" class="tab-content">
+        <div class="employee-order-panel"><div class="employee-order-head"><div><h3>Tổng: 5.603.230 đ</h3><p>4 nhân viên</p></div></div>
+          <div class="order-employee-grid">
+            <div class="order-employee-card"><span>Hà Thúc Nguyên Bảo</span><strong>2.280.617 đ</strong></div>
+            <div class="order-employee-card"><span>Đặng Thị Hồng Nhung</span><strong>1.210.363 đ</strong></div>
+            <div class="order-employee-card"><span>Viên Thị Lan Anh</span><strong>1.557.881 đ</strong></div>
+            <div class="order-employee-card"><span>Nguyễn Thành Tài</span><strong>554.369 đ</strong></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SHOP0097 orders -->
+    <div id="order-s97" class="tab-content">
+      <div class="range-buttons">
+        <button class="range-btn active" onclick="switchTab('order97','r3',this)">3 tháng</button>
+        <button class="range-btn" onclick="switchTab('order97','r6',this)">6 tháng</button>
+        <button class="range-btn" onclick="switchTab('order97','r12',this)">12 tháng</button>
+      </div>
+      <div id="order97-r3" class="tab-content active">
+        <div class="employee-order-panel"><div class="employee-order-head"><div><h3>Tổng: 0 đ</h3><p>0 nhân viên</p></div></div>
+          <div class="order-employee-grid"><div class="order-empty">Không có dữ liệu</div></div>
+        </div>
+      </div>
+      <div id="order97-r6" class="tab-content">
+        <div class="employee-order-panel"><div class="employee-order-head"><div><h3>Tổng: 452.710 đ</h3><p>3 nhân viên</p></div></div>
+          <div class="order-employee-grid">
+            <div class="order-employee-card"><span>Lê Thị Mỹ Lệ</span><strong>284.500 đ</strong></div>
+            <div class="order-employee-card"><span>Nguyễn Hoài Lê</span><strong>65.460 đ</strong></div>
+            <div class="order-employee-card"><span>Nguyễn Thị Diệu</span><strong>102.750 đ</strong></div>
+          </div>
+        </div>
+      </div>
+      <div id="order97-r12" class="tab-content">
+        <div class="employee-order-panel"><div class="employee-order-head"><div><h3>Tổng: 9.202.175 đ</h3><p>3 nhân viên</p></div></div>
+          <div class="order-employee-grid">
+            <div class="order-employee-card"><span>Lê Thị Mỹ Lệ</span><strong>2.941.296 đ</strong></div>
+            <div class="order-employee-card"><span>Nguyễn Hoài Lê</span><strong>3.718.032 đ</strong></div>
+            <div class="order-employee-card"><span>Nguyễn Thị Diệu</span><strong>2.542.847 đ</strong></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SHOP0144 orders -->
+    <div id="order-s144" class="tab-content active">
+      <div class="range-buttons">
+        <button class="range-btn active" onclick="switchTab('order144','r3',this)">3 tháng</button>
+        <button class="range-btn" onclick="switchTab('order144','r6',this)">6 tháng</button>
+        <button class="range-btn" onclick="switchTab('order144','r12',this)">12 tháng</button>
+      </div>
+      <div id="order144-r3" class="tab-content active">
+        <div class="employee-order-panel"><div class="employee-order-head"><div><h3>Tổng: 108.000 đ</h3><p>1 nhân viên</p></div></div>
+          <div class="order-employee-grid"><div class="order-employee-card"><span>Lê Thị Thu Thảo</span><strong>108.000 đ</strong></div></div>
+        </div>
+      </div>
+      <div id="order144-r6" class="tab-content">
+        <div class="employee-order-panel"><div class="employee-order-head"><div><h3>Tổng: 7.536.300 đ</h3><p>4 nhân viên</p></div></div>
+          <div class="order-employee-grid">
+            <div class="order-employee-card"><span>Huỳnh Vân Quỳnh</span><strong>4.213.800 đ</strong></div>
+            <div class="order-employee-card"><span>Lê Thị Thu Thảo</span><strong>2.897.500 đ</strong></div>
+            <div class="order-employee-card"><span>Trần Thị Trà My</span><strong>425.000 đ</strong></div>
+            <div class="order-employee-card"><span>Viên Thị Lan Anh</span><strong>0 đ</strong></div>
+          </div>
+        </div>
+      </div>
+      <div id="order144-r12" class="tab-content">
+        <div class="employee-order-panel"><div class="employee-order-head"><div><h3>Tổng: 14.699.797 đ</h3><p>4 nhân viên</p></div></div>
+          <div class="order-employee-grid">
+            <div class="order-employee-card"><span>Huỳnh Vân Quỳnh</span><strong>6.549.851 đ</strong></div>
+            <div class="order-employee-card"><span>Lê Thị Thu Thảo</span><strong>5.371.462 đ</strong></div>
+            <div class="order-employee-card"><span>Trần Thị Trà My</span><strong>2.402.694 đ</strong></div>
+            <div class="order-employee-card"><span>Viên Thị Lan Anh</span><strong>375.790 đ</strong></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== SECTION 4: Bảng chỉ tiêu nhân viên (TABS) ===== -->
+  <section id="nhan-vien">
+    <div class="section-title"><h2>👥 Bảng chỉ tiêu nhân viên</h2><p id="emp-caption">Nhà thuốc số 144 · 4 nhân viên</p></div>
+
+    <div class="shop-tabs">
+      <button class="shop-tab" onclick="switchTab('emp','s25',this)" data-caption="Nhà thuốc số 25 · 4 nhân viên"><strong>SHOP0025</strong><span>Nhà thuốc số 25</span><small>4 nhân viên</small></button>
+      <button class="shop-tab" onclick="switchTab('emp','s97',this)" data-caption="Nhà thuốc số 97 · 3 nhân viên"><strong>SHOP0097</strong><span>Nhà thuốc số 97</span><small>3 nhân viên</small></button>
+      <button class="shop-tab active" onclick="switchTab('emp','s144',this)" data-caption="Nhà thuốc số 144 · 4 nhân viên"><strong>SHOP0144</strong><span>Nhà thuốc số 144</span><small>4 nhân viên</small></button>
+    </div>
+
+    <!-- SHOP0025 Employees -->
+    <div id="emp-s25" class="tab-content">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Nhân viên</th><th>Doanh số</th><th>Dự kiến</th><th>HHS</th><th>Dự kiến HHS</th><th>Tỷ trọng</th><th>Khách hàng</th><th>Khách mới</th><th>Đơn</th></tr></thead>
+          <tbody>
+            <tr><td><div class="identity"><strong>Viên Thị Lan Anh</strong><span>UP001175</span><span class="employee-target-badge">Mục tiêu: DS 40.000.000 / HS 14.000</span></div></td><td><div class="cell-number"><strong>11.225.093 đ</strong><span>Đạt 28%</span></div></td><td><div class="cell-number"><strong>25.903.676 đ</strong></div></td><td><div class="cell-number"><strong>3.893</strong></div></td><td><div class="cell-number"><strong>8.983</strong></div></td><td style="text-align:center"><span class="ratio-badge">35%</span></td><td>130</td><td>28</td><td>170</td></tr>
+            <tr><td><div class="identity"><strong>Hà Thúc Nguyên Bảo</strong><span>UP001165</span><span class="employee-target-badge">Mục tiêu: DS 80.000.000 / HS 26.000</span></div></td><td><div class="cell-number"><strong>22.511.159 đ</strong><span>Đạt 28%</span></div></td><td><div class="cell-number"><strong>51.948.829 đ</strong></div></td><td><div class="cell-number"><strong>7.337</strong></div></td><td><div class="cell-number"><strong>16.931</strong></div></td><td style="text-align:center"><span class="ratio-badge">33%</span></td><td>206</td><td>82</td><td>255</td></tr>
+            <tr><td><div class="identity"><strong>Đặng Thị Hồng Nhung</strong><span>UP001025</span><span class="employee-target-badge">Mục tiêu: DS 90.000.000 / HS 27.000</span></div></td><td><div class="cell-number"><strong>22.672.578 đ</strong><span>Đạt 25%</span></div></td><td><div class="cell-number"><strong>52.321.334 đ</strong></div></td><td><div class="cell-number"><strong>9.820</strong></div></td><td><div class="cell-number"><strong>22.662</strong></div></td><td style="text-align:center"><span class="ratio-badge">43%</span></td><td>251</td><td>107</td><td>282</td></tr>
+            <tr><td><div class="identity"><strong>Nguyễn Thành Tài</strong><span>UP001708</span><span class="employee-target-badge">Mục tiêu: DS 30.000.000 / HS 12.000</span></div></td><td><div class="cell-number"><strong>10.033.054 đ</strong><span>Đạt 33%</span></div></td><td><div class="cell-number"><strong>23.153.585 đ</strong></div></td><td><div class="cell-number"><strong>4.784</strong></div></td><td><div class="cell-number"><strong>11.040</strong></div></td><td style="text-align:center"><span class="ratio-badge">48%</span></td><td>40</td><td>10</td><td>50</td></tr>
+          </tbody>
+        </table>
+        <div class="summary-line">Tổng DS: 66.441.884 / 240.000.000 đ (28%)</div>
+      </div>
+    </div>
+
+    <!-- SHOP0097 Employees -->
+    <div id="emp-s97" class="tab-content">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Nhân viên</th><th>Doanh số</th><th>Dự kiến</th><th>HHS</th><th>Dự kiến HHS</th><th>Tỷ trọng</th><th>Khách hàng</th><th>Khách mới</th><th>Đơn</th></tr></thead>
+          <tbody>
+            <tr><td><div class="identity"><strong>Nguyễn Thị Diệu</strong><span>UP000261</span><span class="employee-target-badge">Mục tiêu: DS 105.000.000 / HS 38.000</span></div></td><td><div class="cell-number"><strong>41.375.695 đ</strong><span>Đạt 39%</span></div></td><td><div class="cell-number"><strong>95.481.603 đ</strong></div></td><td><div class="cell-number"><strong>21.999</strong></div></td><td><div class="cell-number"><strong>50.767</strong></div></td><td style="text-align:center"><span class="ratio-badge">53%</span></td><td>513</td><td>180</td><td>622</td></tr>
+            <tr><td><div class="identity"><strong>Lê Thị Mỹ Lệ</strong><span>UP001370</span><span class="employee-target-badge">Mục tiêu: DS 80.000.000 / HS 36.000</span></div></td><td><div class="cell-number"><strong>33.336.672 đ</strong><span>Đạt 42%</span></div></td><td><div class="cell-number"><strong>76.930.781 đ</strong></div></td><td><div class="cell-number"><strong>14.619</strong></div></td><td><div class="cell-number"><strong>33.736</strong></div></td><td style="text-align:center"><span class="ratio-badge">44%</span></td><td>357</td><td>125</td><td>453</td></tr>
+            <tr><td><div class="identity"><strong>Nguyễn Hoài Lê</strong><span>UP000184</span><span class="employee-target-badge">Mục tiêu: DS 105.000.000 / HS 38.000</span></div></td><td><div class="cell-number"><strong>38.637.381 đ</strong><span>Đạt 37%</span></div></td><td><div class="cell-number"><strong>89.163.186 đ</strong></div></td><td><div class="cell-number"><strong>15.031</strong></div></td><td><div class="cell-number"><strong>34.687</strong></div></td><td style="text-align:center"><span class="ratio-badge">39%</span></td><td>419</td><td>171</td><td>466</td></tr>
+          </tbody>
+        </table>
+        <div class="summary-line">Tổng DS: 113.349.748 / 290.000.000 đ (39%)</div>
+      </div>
+    </div>
+
+    <!-- SHOP0144 Employees -->
+    <div id="emp-s144" class="tab-content active">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Nhân viên</th><th>Doanh số</th><th>Dự kiến</th><th>HHS</th><th>Dự kiến HHS</th><th>Tỷ trọng</th><th>Khách hàng</th><th>Khách mới</th><th>Đơn</th></tr></thead>
+          <tbody>
+            <tr><td><div class="identity"><strong>Trần Thị Trà My</strong><span>UP001590</span><span class="employee-target-badge">Mục tiêu: DS 40.000.000 / HS 12.000</span></div></td><td><div class="cell-number"><strong>24.258.258 đ</strong><span>Đạt 61%</span></div></td><td><div class="cell-number"><strong>55.980.596 đ</strong></div></td><td><div class="cell-number"><strong>7.188</strong></div></td><td><div class="cell-number"><strong>16.588</strong></div></td><td style="text-align:center"><span class="ratio-badge">30%</span></td><td>143</td><td>109</td><td>308</td></tr>
+            <tr><td><div class="identity"><strong>Huỳnh Vân Quỳnh</strong><span>UP000860</span><span class="employee-target-badge">Mục tiêu: DS 100.000.000 / HS 30.000</span></div></td><td><div class="cell-number"><strong>44.340.545 đ</strong><span>Đạt 44%</span></div></td><td><div class="cell-number"><strong>102.324.334 đ</strong></div></td><td><div class="cell-number"><strong>16.897</strong></div></td><td><div class="cell-number"><strong>39.000</strong></div></td><td style="text-align:center"><span class="ratio-badge">38%</span></td><td>249</td><td>182</td><td>408</td></tr>
+            <tr><td><div class="identity"><strong>Viên Thị Lan Anh</strong><span>UP001175</span><span class="employee-target-badge">Mục tiêu: DS 10.000.000 / HS 3.000</span></div></td><td><div class="cell-number"><strong>3.810.310 đ</strong><span>Đạt 38%</span></div></td><td><div class="cell-number"><strong>8.793.023 đ</strong></div></td><td><div class="cell-number"><strong>588</strong></div></td><td><div class="cell-number"><strong>1.357</strong></div></td><td style="text-align:center"><span class="ratio-badge">15%</span></td><td>43</td><td>32</td><td>60</td></tr>
+            <tr><td><div class="identity"><strong>Lê Thị Thu Thảo</strong><span>UP001480</span><span class="employee-target-badge">Mục tiêu: DS 40.000.000 / HS 12.000</span></div></td><td><div class="cell-number"><strong>36.671.188 đ</strong><span>Đạt 92%</span></div></td><td><div class="cell-number"><strong>84.625.818 đ</strong></div></td><td><div class="cell-number"><strong>11.221</strong></div></td><td><div class="cell-number"><strong>25.895</strong></div></td><td style="text-align:center"><span class="ratio-badge">31%</span></td><td>84</td><td>64</td><td>139</td></tr>
+          </tbody>
+        </table>
+        <div class="summary-line">Tổng DS: 109.080.301 / 190.000.000 đ (57%)</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== SECTION 5: Vận hành ===== -->
+  <section id="van-hanh">
+    <div class="section-title"><h2>⚙️ Vận hành</h2><p>Chương trình khuyến mãi, hàng hoá và chăm sóc khách hàng</p></div>
+    <h3 class="operation-title">Chương trình khuyến mãi (CTKM)</h3>
+    <div class="promotion-grid">
+      <article class="promotion-card">
+        <div class="promotion-card-head"><h4>SHOP0025</h4><span class="operation-status">Đang chạy</span></div>
+        <div><ul><li>Duy trì chương trình ưu đãi thành viên (từ hạng <strong>Gold</strong> trở lên).</li><li>Thay đổi về cách tư vấn SP hệ số.</li></ul></div>
+      </article>
+      <article class="promotion-card">
+        <div class="promotion-card-head"><h4>SHOP0097</h4><span class="operation-status internal">Nội bộ</span></div>
+        <div><ul><li>Gửi thông báo, tin nhắn về CT Khách nội bộ.</li><li>Thay đổi về CTKM tháng tới hướng đến đối tượng <strong>Sinh viên</strong>, và các mặt hàng tiêu dùng.</li></ul></div>
+      </article>
+      <article class="promotion-card">
+        <div class="promotion-card-head"><h4>SHOP0144</h4><span class="operation-status pending">Đã chạy xong</span></div>
+        <div><p>Đã chạy xong chương trình khai trương và đúc kết ra những hiệu ứng của CTKM mà khách hàng yêu thích.</p></div>
+      </article>
+    </div>
+    <div class="operation-info-grid">
+      <article class="operation-info"><h4>📦 Hàng hoá</h4><p>Đã lọc và bổ sung <strong>97% các mã hàng key</strong>. Thực hiện lọc hàng hết <strong>2 lần mỗi tuần</strong>.</p></article>
+      <article class="operation-info"><h4>🤝 Chăm sóc khách hàng</h4><p>Hướng dẫn nhân viên lọc danh sách khách hàng cần ưu tiên chăm sóc và các chỉ tiêu dễ thăng hạng trên POS. Trong tháng đầu tiên, cố gắng tối ưu tỷ lệ chuyển đổi càng cao càng tốt theo KPI hệ thống đề ra.</p></article>
+    </div>
+
+    <!-- FEFO Panel with Tabs -->
+    <div class="fefo-panel">
+      <h3 class="operation-title">Kiểm tra &amp; Báo cáo Đối soát FEFO</h3>
+
+      <!-- FEFO Shop Tabs -->
+      <div class="shop-tabs">
+        <button class="shop-tab active" onclick="switchTab('fefo','s25',this)"><strong>SHOP0025</strong><span>Nhà thuốc số 25</span><small>4 nhân viên</small></button>
+        <button class="shop-tab" onclick="switchTab('fefo','s97',this)"><strong>SHOP0097</strong><span>Nhà thuốc số 97</span><small>3 nhân viên</small></button>
+        <button class="shop-tab" onclick="switchTab('fefo','s144',this)"><strong>SHOP0144</strong><span>Nhà thuốc số 144</span><small>4 nhân viên</small></button>
+      </div>
+
+      <!-- FEFO Summary (updates per tab) -->
+      <div class="fefo-hero">
+        <h3>Đối soát FEFO</h3>
+        <div class="fefo-summary">
+          <div class="fefo-summary-item"><span>Tổng dòng bán</span><strong id="fefo-lines">1.723</strong><small>Toàn bộ dữ liệu</small></div>
+          <div class="fefo-summary-item"><span>Số ca sai FEFO</span><strong id="fefo-wrong">185</strong><small>Ca lỗi hiện tại</small></div>
+          <div class="fefo-summary-item"><span>Tỷ lệ sai FEFO</span><strong id="fefo-rate">10,74%</strong><small>Trung bình</small></div>
+        </div>
+      </div>
+
+      <!-- SHOP0025 FEFO -->
+      <div id="fefo-s25" class="tab-content active" data-lines="1.723" data-wrong="185" data-rate="10,74%">
+        <div class="table-wrap" style="margin-bottom:14px">
+          <table><thead><tr><th>Tổng số dòng bán</th><th>Số ca sai FEFO</th><th>Tỷ lệ % sai</th><th>Số mã SP ảnh hưởng</th><th>Tổng SL bán sai thứ tự</th></tr></thead>
+            <tbody><tr><td><div class="fefo-metric"><strong>1.723</strong></div></td><td><div class="fefo-metric"><strong>185</strong></div></td><td style="text-align:center"><span class="fefo-rate">10,74%</span></td><td><div class="fefo-metric"><strong>66</strong></div></td><td><div class="fefo-metric"><strong>1.669</strong></div></td></tr></tbody>
+          </table>
+        </div>
+        <div class="table-wrap">
+          <table><thead><tr><th>Nhân viên</th><th>Tổng số dòng bán</th><th>Số ca sai FEFO</th><th>Tỷ lệ % sai</th><th>Số mã SP ảnh hưởng</th><th>Tổng SL bán sai thứ tự</th></tr></thead>
+            <tbody>
+              <tr><td><div class="fefo-identity"><strong>Hà Thúc Nguyên Bảo</strong></div></td><td><div class="fefo-metric"><strong>652</strong></div></td><td><div class="fefo-metric"><strong>75</strong></div></td><td style="text-align:center"><span class="fefo-rate">11,50%</span></td><td><div class="fefo-metric"><strong>30</strong></div></td><td><div class="fefo-metric"><strong>565</strong></div></td></tr>
+              <tr><td><div class="fefo-identity"><strong>ĐẶNG THỊ HỒNG NHUNG</strong></div></td><td><div class="fefo-metric"><strong>518</strong></div></td><td><div class="fefo-metric"><strong>54</strong></div></td><td style="text-align:center"><span class="fefo-rate">10,42%</span></td><td><div class="fefo-metric"><strong>31</strong></div></td><td><div class="fefo-metric"><strong>562</strong></div></td></tr>
+              <tr><td><div class="fefo-identity"><strong>Viên Thị Lan Anh</strong></div></td><td><div class="fefo-metric"><strong>319</strong></div></td><td><div class="fefo-metric"><strong>38</strong></div></td><td style="text-align:center"><span class="fefo-rate">11,91%</span></td><td><div class="fefo-metric"><strong>21</strong></div></td><td><div class="fefo-metric"><strong>412</strong></div></td></tr>
+              <tr><td><div class="fefo-identity"><strong>Nguyễn Thành Tài</strong></div></td><td><div class="fefo-metric"><strong>234</strong></div></td><td><div class="fefo-metric"><strong>18</strong></div></td><td style="text-align:center"><span class="fefo-rate">7,69%</span></td><td><div class="fefo-metric"><strong>11</strong></div></td><td><div class="fefo-metric"><strong>130</strong></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- SHOP0097 FEFO -->
+      <div id="fefo-s97" class="tab-content" data-lines="2.899" data-wrong="434" data-rate="14,97%">
+        <div class="table-wrap" style="margin-bottom:14px">
+          <table><thead><tr><th>Tổng số dòng bán</th><th>Số ca sai FEFO</th><th>Tỷ lệ % sai</th><th>Số mã SP ảnh hưởng</th><th>Tổng SL bán sai thứ tự</th></tr></thead>
+            <tbody><tr><td><div class="fefo-metric"><strong>2.899</strong></div></td><td><div class="fefo-metric"><strong>434</strong></div></td><td style="text-align:center"><span class="fefo-rate">14,97%</span></td><td><div class="fefo-metric"><strong>129</strong></div></td><td><div class="fefo-metric"><strong>3.601</strong></div></td></tr></tbody>
+          </table>
+        </div>
+        <div class="table-wrap">
+          <table><thead><tr><th>Nhân viên</th><th>Tổng số dòng bán</th><th>Số ca sai FEFO</th><th>Tỷ lệ % sai</th><th>Số mã SP ảnh hưởng</th><th>Tổng SL bán sai thứ tự</th></tr></thead>
+            <tbody>
+              <tr><td><div class="fefo-identity"><strong>Nguyễn Thị Diệu</strong></div></td><td><div class="fefo-metric"><strong>1.087</strong></div></td><td><div class="fefo-metric"><strong>162</strong></div></td><td style="text-align:center"><span class="fefo-rate">14,90%</span></td><td><div class="fefo-metric"><strong>72</strong></div></td><td><div class="fefo-metric"><strong>1.571</strong></div></td></tr>
+              <tr><td><div class="fefo-identity"><strong>Nguyễn Hoài Lê</strong></div></td><td><div class="fefo-metric"><strong>973</strong></div></td><td><div class="fefo-metric"><strong>146</strong></div></td><td style="text-align:center"><span class="fefo-rate">15,01%</span></td><td><div class="fefo-metric"><strong>63</strong></div></td><td><div class="fefo-metric"><strong>966</strong></div></td></tr>
+              <tr><td><div class="fefo-identity"><strong>Lê Thị Mỹ Lệ</strong></div></td><td><div class="fefo-metric"><strong>839</strong></div></td><td><div class="fefo-metric"><strong>126</strong></div></td><td style="text-align:center"><span class="fefo-rate">15,02%</span></td><td><div class="fefo-metric"><strong>58</strong></div></td><td><div class="fefo-metric"><strong>1.064</strong></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- SHOP0144 FEFO -->
+      <div id="fefo-s144" class="tab-content" data-lines="2.023" data-wrong="204" data-rate="10,08%">
+        <div class="table-wrap" style="margin-bottom:14px">
+          <table><thead><tr><th>Tổng số dòng bán</th><th>Số ca sai FEFO</th><th>Tỷ lệ % sai</th><th>Số mã SP ảnh hưởng</th><th>Tổng SL bán sai thứ tự</th></tr></thead>
+            <tbody><tr><td><div class="fefo-metric"><strong>2.023</strong></div></td><td><div class="fefo-metric"><strong>204</strong></div></td><td style="text-align:center"><span class="fefo-rate">10,08%</span></td><td><div class="fefo-metric"><strong>79</strong></div></td><td><div class="fefo-metric"><strong>1.667</strong></div></td></tr></tbody>
+          </table>
+        </div>
+        <div class="table-wrap">
+          <table><thead><tr><th>Nhân viên</th><th>Tổng số dòng bán</th><th>Số ca sai FEFO</th><th>Tỷ lệ % sai</th><th>Số mã SP ảnh hưởng</th><th>Tổng SL bán sai thứ tự</th></tr></thead>
+            <tbody>
+              <tr><td><div class="fefo-identity"><strong>Lê Thị Thu Thảo</strong></div></td><td><div class="fefo-metric"><strong>753</strong></div></td><td><div class="fefo-metric"><strong>81</strong></div></td><td style="text-align:center"><span class="fefo-rate">10,76%</span></td><td><div class="fefo-metric"><strong>40</strong></div></td><td><div class="fefo-metric"><strong>336</strong></div></td></tr>
+              <tr><td><div class="fefo-identity"><strong>Huỳnh Vân Quỳnh</strong></div></td><td><div class="fefo-metric"><strong>665</strong></div></td><td><div class="fefo-metric"><strong>65</strong></div></td><td style="text-align:center"><span class="fefo-rate">9,77%</span></td><td><div class="fefo-metric"><strong>39</strong></div></td><td><div class="fefo-metric"><strong>890</strong></div></td></tr>
+              <tr><td><div class="fefo-identity"><strong>Trần Thị Trà My</strong></div></td><td><div class="fefo-metric"><strong>535</strong></div></td><td><div class="fefo-metric"><strong>52</strong></div></td><td style="text-align:center"><span class="fefo-rate">9,72%</span></td><td><div class="fefo-metric"><strong>31</strong></div></td><td><div class="fefo-metric"><strong>383</strong></div></td></tr>
+              <tr><td><div class="fefo-identity"><strong>Viên Thị Lan Anh</strong></div></td><td><div class="fefo-metric"><strong>70</strong></div></td><td><div class="fefo-metric"><strong>6</strong></div></td><td style="text-align:center"><span class="fefo-rate">8,57%</span></td><td><div class="fefo-metric"><strong>6</strong></div></td><td><div class="fefo-metric"><strong>58</strong></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== SECTION 6: Kế hoạch tuần tới ===== -->
+  <section id="ke-hoach-tuan-toi">
+    <div class="section-title"><h2>🗓️ Kế hoạch tuần tới</h2><p>Các đầu việc ưu tiên theo từng nhà thuốc</p></div>
+    <div class="next-week-grid">
+      <article class="next-week-card"><h3>SHOP0025</h3><ul><li><strong>Kiểm tra và chỉnh sửa các đơn hàng sai FEFO</strong>.</li><li>Đẩy hàng <strong>cận date</strong>.</li><li>Kiểm tra chăm sóc khách hàng của nhà 25 và bắt đầu <strong>bàn giao công việc của Lan Anh</strong>.</li></ul></article>
+      <article class="next-week-card"><h3>SHOP0097</h3><ul><li><strong>Kiểm tra và chỉnh sửa các đơn hàng sai FEFO</strong>.</li><li>Đẩy hàng <strong>cận date</strong>.</li><li>Thông báo <strong>luân chuyển nhân sự cho tháng 10</strong>.</li></ul></article>
+      <article class="next-week-card"><h3>SHOP0144</h3><ul><li><strong>Bàn giao công việc CHT cho Quỳnh</strong>.</li><li>Bàn giao công việc của <strong>Trà My cho nhân sự mới</strong>.</li></ul></article>
+    </div>
+  </section>
+
+</main>
+<footer>Hệ thống báo cáo UPHARMA • Dữ liệu tháng 9/2026</footer>
+
+<script>
+function switchTab(group, tabId, btn) {
+  // Hide all tab-contents in this group
+  document.querySelectorAll('[id^="'+group+'-"]').forEach(el => el.classList.remove('active'));
+  // Show selected
+  var target = document.getElementById(group+'-'+tabId);
+  if (target) target.classList.add('active');
+  // Update button states (siblings)
+  if (btn) {
+    var parent = btn.parentElement;
+    parent.querySelectorAll('.shop-tab,.inventory-shop,.range-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  }
+  // Update inventory total
+  if (group === 'inv' && btn && btn.dataset.total) {
+    document.getElementById('inv-total').textContent = btn.dataset.total;
+  }
+  // Update employee caption
+  if (group === 'emp' && btn && btn.dataset.caption) {
+    document.getElementById('emp-caption').textContent = btn.dataset.caption;
+  }
+  // Update FEFO summary
+  if (group === 'fefo' && target) {
+    var l = target.dataset.lines, w = target.dataset.wrong, r = target.dataset.rate;
+    if (l) document.getElementById('fefo-lines').textContent = l;
+    if (w) document.getElementById('fefo-wrong').textContent = w;
+    if (r) document.getElementById('fefo-rate').textContent = r;
+  }
+}
+</script>
+</body>
+</html>

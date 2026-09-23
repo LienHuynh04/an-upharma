@@ -1,8 +1,9 @@
 import { CommonModule } from "@angular/common";
-import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild } from "@angular/core";
+import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild, inject } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import Chart from "chart.js/auto";
 import { UpharmaService } from "../upharma.service";
+import { OperationShopInput, ReportCustomInputs, ReportGeneratorService } from "../report-generator.service";
 
 interface PaymentMethodInfo {
   Cash: number;
@@ -80,6 +81,8 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
   customerSalesLst: StatisticCustomerSales[] = [];
   customerNewLst: CustomerNewItem[] = [];
   customerInfoLst: Array<{ title: string; percent: number; value: number }> = [];
+  exportLoading = false;
+  exportStatusText = "";
   private salesChart: Chart | null = null;
 
   constructor(private readonly upharmaService: UpharmaService) {}
@@ -156,6 +159,7 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
   async onFilterChange(): Promise<void> {
     await this.loadDashboard();
   }
+
 
   formatNumber(value: number): string {
     return new Intl.NumberFormat("vi-VN").format(value || 0);

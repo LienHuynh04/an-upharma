@@ -50,6 +50,10 @@ export class LayoutComponent implements OnInit {
     this.activeComponent = null;
   }
 
+  triggerExportHtmlReport() {
+    void this.router.navigate(["/xuat-bao-cao"]);
+  }
+
   async generateAndOpenReport() {
     this.generatingReport = true;
     try {

@@ -150,7 +150,6 @@ export class ShopPlanIconComponent {
               <div class="card-header">
                 <h3 class="card-title text-warning">{{ card.shopCode }} · {{ formatMonthLabel(item.Month) }}</h3>
                 <div class="card-actions text-secondary small d-flex align-items-center gap-2">
-                  <span><app-shop-plan-icon name="clock"></app-shop-plan-icon> {{ formatDateTime(item.TimeModify || item.TimeCreate) }}</span>
                   <app-shop-plan-icon name="percent"></app-shop-plan-icon>
                   <app-shop-plan-icon name="settings"></app-shop-plan-icon>
                 </div>

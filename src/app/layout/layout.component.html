@@ -46,6 +46,14 @@
               </a>
             </li>
 
+            <!-- Link Xuất Báo Cáo HTML -->
+            <li class="nav-item">
+              <a class="nav-link py-2" routerLink="/xuat-bao-cao" routerLinkActive="active" (click)="closeSidebar()">
+                <span class="nav-link-icon d-md-none d-lg-inline-block"><i class="ti ti-file-export" style="font-size: 1.1rem;"></i></span>
+                <span class="nav-link-title" style="font-size: 13.5px;">Xuất Báo Cáo HTML</span>
+              </a>
+            </li>
+
             <!-- Nhóm chỉ tiêu -->
             <li class="nav-item dropdown" [class.show]="openMenuId === 'stats'" [class.active]="menuGroups['stats']">
               <a
@@ -153,7 +161,7 @@
               </div>
             </li>
 
-            <!-- Nhóm hệ thống test -->
+            <!-- Nhóm hệ thống test (đã ẩn)
             <li class="nav-item dropdown" [class.show]="openMenuId === 'test'" [class.active]="menuGroups['test']">
               <a
                 class="nav-link dropdown-toggle py-2"
@@ -195,24 +203,14 @@
                 >
               </div>
             </li>
+            -->
           </ul>
         </div>
       </div>
 
       <!-- Right actions (Theme, notification, user dropdown) -->
       <div class="navbar-nav flex-row order-md-last align-items-center ms-auto gap-2">
-        <!-- Prompt button -->
-        <div class="nav-item d-none d-sm-block">
-          <button
-            class="btn btn-sm btn-outline-info"
-            type="button"
-            [disabled]="generatingPrompt"
-            (click)="generatePromptData()"
-            style="font-size: 12px; font-weight: bold; padding: 4px 10px;"
-          >
-            📋 {{ generatingPrompt ? "Đang lấy..." : "Lấy dữ liệu báo cáo" }}
-          </button>
-        </div>
+
 
         <!-- Report button -->
         <!--

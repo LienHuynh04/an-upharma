@@ -1215,3 +1215,14 @@ header.navbar .dropdown-item.active {
   }
 }
 
+/* ────────────────────────────────────────────────────────────────
+   FULL WIDTH LAYOUT OVERRIDE
+   Make container-xl and page-content-wrapper full width (100%)
+   ──────────────────────────────────────────────────────────────── */
+.container-xl,
+.page-content-wrapper {
+  max-width: 100% !important;
+  width: 100% !important;
+}
+
+

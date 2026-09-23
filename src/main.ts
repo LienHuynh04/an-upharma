@@ -23,6 +23,7 @@ import { StableConsumptionComponent } from "./app/stable-consumption/stable-cons
 import { KeyProductsComponent } from "./app/key-products/key-products.component";
 import { LayoutComponent } from "./app/layout/layout.component";
 import { FefoComponent } from "./app/fefo/fefo.component";
+import { ReportConfigComponent } from "./app/report-config/report-config.component";
 
 
 const routes: Routes = [
@@ -45,6 +46,11 @@ const routes: Routes = [
         path: "dashboard",
         component: DashboardComponent,
         title: "UPHARMA - Bảng điều khiển",
+      },
+      {
+        path: "xuat-bao-cao",
+        component: ReportConfigComponent,
+        title: "UPHARMA - Báo cáo vận hành",
       },
       {
         path: "ton-kho",
