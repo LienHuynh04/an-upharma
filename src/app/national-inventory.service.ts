@@ -32,9 +32,7 @@ export class NationalInventoryService {
 
   /**
    * Lấy tồn kho & tốc độ tiêu thụ hàng hóa toàn quốc theo danh sách mã sản phẩm.
-   * MẶC ĐỊNH: Tải siêu tốc từ Firebase Realtime Database cache trước.
-   * Nếu có sản phẩm chưa có trong Firebase (hoặc forceRefresh=true), mới gọi trực tiếp API UPharma
-   * và tự động đồng bộ kết quả mới lên Firebase Cache.
+   * 100% TỪ FIREBASE REALTIME DATABASE CACHE (Không gọi trực tiếp API GetExistProductLst trên UPharma server).
    */
   async resolve(
     productIDs: string[],
@@ -62,17 +60,17 @@ export class NationalInventoryService {
 
     const remainingProductIDs: string[] = [];
 
-    // BƯỚC 1: Thử lấy dữ liệu từ Firebase Realtime Database Cache (Siêu nhanh 1 HTTP request)
+    // BƯỚC 1: Thử lấy dữ liệu từ Firebase Cache chung (/national_inventory_cache.json)
     if (!options.forceRefresh) {
       try {
         console.log(`[National Inventory Service] Đang truy vấn Firebase cache cho ${total} sản phẩm...`);
         const firebaseData = await this.firebaseCache.getAllCache();
         
         for (const code of productIDs) {
-          if (firebaseData && firebaseData[code] && Array.isArray(firebaseData[code].shops)) {
+          if (firebaseData && firebaseData[code] && Array.isArray(firebaseData[code].shops) && firebaseData[code].shops.length > 0) {
             results[code] = firebaseData[code].shops;
             done++;
-            notifyProgress(`${code} (Firebase)`);
+            notifyProgress(`${code} (Firebase Cache)`);
           } else {
             remainingProductIDs.push(code);
           }
@@ -80,20 +78,90 @@ export class NationalInventoryService {
 
         console.log(`[National Inventory Service] Đã lấy thành công ${done}/${total} sản phẩm từ Firebase Cache!`);
       } catch (err) {
-        console.warn("[National Inventory Service] Lỗi khi truy vấn Firebase Cache, chuyển sang gọi API trực tiếp:", err);
+        console.warn("[National Inventory Service] Lỗi khi truy vấn Firebase Cache:", err);
         remainingProductIDs.push(...productIDs);
       }
     } else {
       remainingProductIDs.push(...productIDs);
     }
 
-    // Nếu tất cả sản phẩm đã có trong Firebase Cache, hoàn thành lập tức!
+    // Nếu tất cả sản phẩm đã có trong Firebase Cache, hoàn thành ngay lập tức!
     if (remainingProductIDs.length === 0) {
       return results;
     }
 
-    // BƯỚC 2: Với các sản phẩm chưa có trong Cache (hoặc forceRefresh), gọi API UPharma trực tiếp
-    console.log(`[National Inventory Service] Đang gọi API UPharma cho ${remainingProductIDs.length} sản phẩm còn thiếu...`);
+    // BƯỚC 2: Với các sản phẩm chưa có trong Cache, tổng hợp trực tiếp từ Firebase RTDB sales_speed của các shop
+    // TUỆT ĐỐI KHÔNG gọi trực tiếp API UPharma /Report/GetExistProductLst để tránh giật lag/nghẽn mạng.
+    try {
+      console.log(`[National Inventory Service] Đang tổng hợp dữ liệu từ Firebase RTDB (sales_speed) cho ${remainingProductIDs.length} sản phẩm...`);
+      
+      const salesSpeedRes = await this.upharma.callEndpoint<any>(
+        "/Report/GetReportSalesSpeed",
+        {},
+        { cache: true, forceRefresh: options.forceRefresh }
+      );
+      
+      const rawRows: any[] = salesSpeedRes?.data || salesSpeedRes?.Data || (Array.isArray(salesSpeedRes) ? salesSpeedRes : []);
+
+      if (Array.isArray(rawRows) && rawRows.length > 0) {
+        const prodShopMap = new Map<string, Map<string, NationalStoreStock>>();
+
+        for (const row of rawRows) {
+          const code = String(row.ProductID || row.ProductCode || "").trim();
+          const shopCode = String(row.__shopCode || row.ShopCode || "").trim();
+          if (!code || !shopCode || isWarehouseStore(row)) continue;
+
+          if (!prodShopMap.has(code)) {
+            prodShopMap.set(code, new Map<string, NationalStoreStock>());
+          }
+          const shopMap = prodShopMap.get(code)!;
+
+          const qty = parseNumericValue(row.QuantityExist ?? row.Quantity);
+          const avg = parseNumericValue(row.Quantity);
+
+          if (shopMap.has(shopCode)) {
+            const existing = shopMap.get(shopCode)!;
+            existing.QuantityAVG = Math.max(existing.QuantityAVG, avg);
+            if (row.QuantityExist !== undefined) {
+              existing.Quantity = qty;
+            }
+          } else {
+            shopMap.set(shopCode, {
+              StoreCode: shopCode,
+              StoreName: row.__shopName || row.ShopName || shopCode,
+              StoreType: row.StoreType || "",
+              Quantity: qty,
+              QuantityAVG: avg,
+              UnitOfMeasure: row.UnitOfMeasure || row.Unit || "Hộp",
+            });
+          }
+        }
+
+        for (const code of remainingProductIDs) {
+          const shopMap = prodShopMap.get(code);
+          const storesWithStock: NationalStoreStock[] = shopMap
+            ? Array.from(shopMap.values())
+                .filter((s) => s.Quantity > 0 || s.QuantityAVG > 0)
+                .sort((a, b) => b.QuantityAVG - a.QuantityAVG)
+            : [];
+
+          results[code] = storesWithStock;
+          done++;
+          notifyProgress(`${code} (Firebase RTDB)`);
+
+          if (storesWithStock.length > 0) {
+            this.firebaseCache.saveCache(code, storesWithStock).catch(() => {});
+          }
+        }
+
+        return results;
+      }
+    } catch (fbErr) {
+      console.warn("[National Inventory Service] Lỗi khi tổng hợp từ Firebase sales_speed, mới gọi API UPharma làm dự phòng cuối:", fbErr);
+    }
+
+    // BƯỚC 3: Dự phòng cuối cùng (chỉ chạy khi Firebase hoàn toàn không khả dụng)
+    console.warn(`[National Inventory Service] Dự phòng khẩn cấp: Gọi API UPharma cho ${remainingProductIDs.length} sản phẩm...`);
     const session = this.upharma.ensureLogin();
     const mode = options.mode || "GetExistProductLst";
     const endpoint = mode === "GetExistProductByShop" ? "/Report/GetExistProductByShop" : "/Report/GetExistProductLst";
@@ -104,6 +172,8 @@ export class NationalInventoryService {
 
       await Promise.all(
         batch.map(async (code) => {
+          if (results[code]) return;
+
           try {
             const response = await this.upharma.callEndpoint<any>(
               endpoint,
@@ -137,12 +207,9 @@ export class NationalInventoryService {
 
             results[code] = storesWithStock;
 
-            // Tự động đồng bộ lên Firebase Cache cho các lần gọi sau
-            this.firebaseCache.saveCache(code, storesWithStock).catch((e) => {
-              console.warn(`[Firebase Cache] Không thể tự động lưu cache cho ${code}:`, e);
-            });
+            this.firebaseCache.saveCache(code, storesWithStock).catch(() => {});
           } catch (error) {
-            console.error(`[National Inventory API] Lỗi lấy tồn kho trực tiếp cho mã ${code}:`, error);
+            console.error(`[National Inventory API] Lỗi lấy tồn kho khẩn cấp cho mã ${code}:`, error);
             results[code] = [];
           } finally {
             done++;
@@ -155,5 +222,6 @@ export class NationalInventoryService {
     return results;
   }
 }
+
 
 
