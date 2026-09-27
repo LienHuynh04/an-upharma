@@ -721,11 +721,19 @@ export class UpharmaService {
                 }
               }
 
-              const filteredData = rawList.filter((item: any) => {
-                const code = String(item?.ProductCode || item?.ProductID || item?.MaSP || item?.Code || "").toUpperCase().trim();
-                const name = String(item?.ProductName || item?.Product_Name || item?.TenSP || item?.Name || "").toUpperCase().trim();
-                return !(code.includes("VOUCHER") || name.includes("VOUCHER") || code.startsWith("VC"));
-              });
+              const filteredData = rawList
+                .filter((item: any) => {
+                  const code = String(item?.ProductCode || item?.ProductID || item?.MaSP || item?.Code || "").toUpperCase().trim();
+                  const name = String(item?.ProductName || item?.Product_Name || item?.TenSP || item?.Name || "").toUpperCase().trim();
+                  return !(code.includes("VOUCHER") || name.includes("VOUCHER") || code.startsWith("VC"));
+                })
+                .map((item: any) => ({
+                  ...item,
+                  __shopCode: item.__shopCode || item.ShopCode || item.shopCode || shop.ShopCode,
+                  __shopName: item.__shopName || item.ShopName || item.shopName || shop.ShopName,
+                  ShopCode: item.ShopCode || item.shopCode || shop.ShopCode,
+                  ShopName: item.ShopName || item.shopName || shop.ShopName,
+                }));
 
               shopsData.push(...filteredData);
               if (options.onShopLoaded) {

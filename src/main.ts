@@ -73,11 +73,6 @@ const routes: Routes = [
         title: "UPHARMA - Thông tin cá nhân",
       },
       {
-        path: "api-test",
-        component: ApiTestComponent,
-        title: "UPHARMA - Test API",
-      },
-      {
         path: "check-inventory-test",
         component: CheckInventoryTestComponent,
         title: "UPHARMA - Test Kiểm kho",
@@ -136,11 +131,6 @@ const routes: Routes = [
         path: "goi-y-chuyen-hang",
         component: TransferSuggestionsComponent,
         title: "UPHARMA - Gợi ý chuyển hàng",
-      },
-      {
-        path: "in-tem",
-        component: LabelPrintComponent,
-        title: "UPHARMA - In tem nhãn",
       },
       {
         path: "cronjob",

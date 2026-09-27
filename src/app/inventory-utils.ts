@@ -33,6 +33,37 @@ export interface InventoryItem {
 
 export const PRODUCT_NAME_COLLATOR = new Intl.Collator("vi", { sensitivity: "base", numeric: true });
 
+export function isWarehouseStore(store: any): boolean {
+  if (!store) return false;
+
+  const code = String(
+    store.StoreCode || store.ShopCode || store.shopCode || store.code || store.BranchCode || ""
+  ).toUpperCase().trim();
+
+  const name = String(
+    store.StoreName || store.ShopName || store.shopName || store.name || store.BranchName || store.__shopName || ""
+  ).toLowerCase().trim();
+
+  const type = String(store.StoreType || "").toLowerCase().trim();
+
+  if (type.includes("kho")) return true;
+  if (code === "DN" || code.startsWith("KHO") || code.startsWith("K_")) return true;
+  if (
+    name.startsWith("kho ") ||
+    name.startsWith("kho.") ||
+    name.startsWith("kho-") ||
+    name.includes("kho tổng") ||
+    name.includes("kho chi nhánh") ||
+    name.includes("kho tong") ||
+    name.includes("kho chi nhanh") ||
+    /\bkho\b/i.test(name)
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
 export function formatMoney(value: unknown): string {
   const number = parseNumericValue(value);
 

@@ -26,12 +26,21 @@
             <div class="d-flex flex-wrap gap-2 justify-content-lg-end">
               <button 
                 type="button" 
-                class="btn btn-success btn-export shadow-sm d-inline-flex align-items-center gap-2 px-3.5 py-2 fw-bold rounded-3"
+                class="btn btn-outline-success border-2 shadow-sm d-inline-flex align-items-center gap-2 px-3 py-2 fw-bold rounded-3"
+                (click)="generateReport(true)"
+                [disabled]="exportLoading || downloadLoading">
+                <span *ngIf="exportLoading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                <i *ngIf="!exportLoading" class="ti ti-eye fs-6"></i>
+                <span>{{ exportLoading ? exportStatusText : 'Xem Báo Cáo' }}</span>
+              </button>
+              <button 
+                type="button" 
+                class="btn btn-success shadow-sm d-inline-flex align-items-center gap-2 px-3.5 py-2 fw-bold rounded-3"
                 (click)="downloadReport()"
-                [disabled]="downloadLoading">
+                [disabled]="downloadLoading || exportLoading">
                 <span *ngIf="downloadLoading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                 <i *ngIf="!downloadLoading" class="ti ti-download fs-6"></i>
-                <span>{{ downloadLoading ? downloadStatusText : 'Tải Báo Cáo Tổng Hợp' }}</span>
+                <span>{{ downloadLoading ? downloadStatusText : 'Tải Báo Cáo (.html)' }}</span>
               </button>
             </div>
           </div>
@@ -62,10 +71,12 @@
                   class="status-chip badge rounded-pill px-2 py-1 fs-8"
                   [ngClass]="{
                     'bg-success-subtle text-success border border-success-subtle': getShopInput(shop.ShopCode).status === 'Đang chạy',
-                    'bg-primary-subtle text-primary border border-primary-subtle': getShopInput(shop.ShopCode).status === 'Nội bộ',
-                    'bg-warning-subtle text-warning border border-warning-subtle': getShopInput(shop.ShopCode).status === 'Đang hỗ trợ',
-                    'bg-secondary-subtle text-secondary border border-secondary-subtle': getShopInput(shop.ShopCode).status === 'Bình thường'
-                  }">
+                    'bg-primary-subtle text-primary border border-primary-subtle': getShopInput(shop.ShopCode).status === 'Dự kiến',
+                    'bg-warning-subtle text-warning border border-warning-subtle': getShopInput(shop.ShopCode).status === 'Ưu tiên'
+                  }"
+                  [style.background-color]="getShopInput(shop.ShopCode).status !== 'Đang chạy' && getShopInput(shop.ShopCode).status !== 'Dự kiến' && getShopInput(shop.ShopCode).status !== 'Ưu tiên' ? (getShopInput(shop.ShopCode).statusBgColor || '#3b82f6') : null"
+                  [style.color]="getShopInput(shop.ShopCode).status !== 'Đang chạy' && getShopInput(shop.ShopCode).status !== 'Dự kiến' && getShopInput(shop.ShopCode).status !== 'Ưu tiên' ? (getShopInput(shop.ShopCode).statusColor || '#ffffff') : null"
+                  [style.border]="getShopInput(shop.ShopCode).status !== 'Đang chạy' && getShopInput(shop.ShopCode).status !== 'Dự kiến' && getShopInput(shop.ShopCode).status !== 'Ưu tiên' ? 'none' : null">
                   {{ getShopInput(shop.ShopCode).status }}
                 </span>
               </div>
@@ -92,7 +103,7 @@
                   </label>
                 </div>
                 <div class="col-lg-9">
-                  <div class="d-flex flex-wrap gap-2">
+                  <div class="d-flex flex-wrap gap-2 align-items-center">
                     <button 
                       type="button"
                       class="btn btn-sm status-opt-btn border px-3 py-1.5 rounded-pill fw-semibold"
@@ -103,24 +114,45 @@
                     <button 
                       type="button"
                       class="btn btn-sm status-opt-btn border px-3 py-1.5 rounded-pill fw-semibold"
-                      [class.active-opt]="getShopInput(shop.ShopCode).status === 'Nội bộ'"
-                      (click)="getShopInput(shop.ShopCode).status = 'Nội bộ'">
-                      🔵 Nội bộ
+                      [class.active-opt]="getShopInput(shop.ShopCode).status === 'Dự kiến'"
+                      (click)="getShopInput(shop.ShopCode).status = 'Dự kiến'">
+                      🔵 Dự kiến
                     </button>
                     <button 
                       type="button"
                       class="btn btn-sm status-opt-btn border px-3 py-1.5 rounded-pill fw-semibold"
-                      [class.active-opt]="getShopInput(shop.ShopCode).status === 'Đang hỗ trợ'"
-                      (click)="getShopInput(shop.ShopCode).status = 'Đang hỗ trợ'">
-                      🟡 Đang hỗ trợ
+                      [class.active-opt]="getShopInput(shop.ShopCode).status === 'Ưu tiên'"
+                      (click)="getShopInput(shop.ShopCode).status = 'Ưu tiên'">
+                      🟡 Ưu tiên
                     </button>
-                    <button 
-                      type="button"
-                      class="btn btn-sm status-opt-btn border px-3 py-1.5 rounded-pill fw-semibold"
-                      [class.active-opt]="getShopInput(shop.ShopCode).status === 'Bình thường'"
-                      (click)="getShopInput(shop.ShopCode).status = 'Bình thường'">
-                      ⚪ Bình thường
-                    </button>
+                    <span class="text-secondary small mx-1">hoặc</span>
+                    <div class="d-flex align-items-center gap-2 status-custom-group">
+                      <div class="d-flex align-items-center gap-1">
+                        <input 
+                          type="color" 
+                          class="status-color-picker"
+                          [ngModel]="getShopInput(shop.ShopCode).statusColor || '#ffffff'"
+                          (ngModelChange)="getShopInput(shop.ShopCode).statusColor = $event"
+                          title="Màu chữ">
+                        <span class="text-secondary" style="font-size:10px">Chữ</span>
+                      </div>
+                      <div class="d-flex align-items-center gap-1">
+                        <input 
+                          type="color" 
+                          class="status-color-picker"
+                          [ngModel]="getShopInput(shop.ShopCode).statusBgColor || '#3b82f6'"
+                          (ngModelChange)="getShopInput(shop.ShopCode).statusBgColor = $event"
+                          title="Màu nền">
+                        <span class="text-secondary" style="font-size:10px">Nền</span>
+                      </div>
+                      <input 
+                        type="text" 
+                        class="form-control form-control-sm form-control-styled status-custom-input rounded-pill px-3"
+                        placeholder="Tự nhập..."
+                        [ngModel]="getShopInput(shop.ShopCode).status === 'Đang chạy' || getShopInput(shop.ShopCode).status === 'Dự kiến' || getShopInput(shop.ShopCode).status === 'Ưu tiên' ? '' : getShopInput(shop.ShopCode).status"
+                        (ngModelChange)="getShopInput(shop.ShopCode).status = $event"
+                        (focus)="$event.target.select()">
+                    </div>
                   </div>
                 </div>
               </div>
@@ -224,12 +256,21 @@
         <div class="d-flex flex-wrap gap-2.5 ms-auto">
           <button 
             type="button" 
+            class="btn btn-outline-success border-2 fw-bold px-3.5 py-2 rounded-3 shadow-sm d-inline-flex align-items-center gap-2"
+            (click)="generateReport(true)"
+            [disabled]="exportLoading || downloadLoading">
+            <span *ngIf="exportLoading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+            <i *ngIf="!exportLoading" class="ti ti-eye"></i>
+            <span>{{ exportLoading ? exportStatusText : 'Xem Báo Cáo' }}</span>
+          </button>
+          <button 
+            type="button" 
             class="btn btn-success fw-bold px-4 py-2 rounded-3 shadow-sm d-inline-flex align-items-center gap-2"
             (click)="downloadReport()"
-            [disabled]="downloadLoading">
+            [disabled]="downloadLoading || exportLoading">
             <span *ngIf="downloadLoading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
             <i *ngIf="!downloadLoading" class="ti ti-download"></i>
-            <span>{{ downloadLoading ? downloadStatusText : 'Tải Báo Cáo Tổng Hợp' }}</span>
+            <span>{{ downloadLoading ? downloadStatusText : 'Tải Báo Cáo (.html)' }}</span>
           </button>
         </div>
       </div>

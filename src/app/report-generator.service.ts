@@ -10,7 +10,9 @@ export interface ReportProgressCallback {
 export interface OperationShopInput {
   shopCode: string;
   shopName: string;
-  status: string; // "Đang chạy" | "Nội bộ" | "Đã chạy xong"
+  status: string; // "Đang chạy" | "Dự kiến" | "Ưu tiên" | custom
+  statusColor?: string; // hex color for custom status text
+  statusBgColor?: string; // hex color for custom status background
   promoItemsText: string;
   goodsNote: string;
   cskhNote: string;
@@ -831,8 +833,12 @@ export class ReportGeneratorService {
     const promotionCardsHtml = shops
       .map((shop) => {
         const custom = (customInputs?.shops || []).find((s) => s.shopCode === shop.ShopCode);
-        const statusText = custom?.status || (shop.ShopCode === "SHOP0097" ? "Nội bộ" : shop.ShopCode === "SHOP0144" ? "Đã chạy xong" : "Đang chạy");
-        const statusClass = statusText === "Nội bộ" ? "internal" : statusText === "Đã chạy xong" ? "pending" : "";
+        const statusText = custom?.status || "Đang chạy";
+        const customTextColor = custom?.statusColor || "#ffffff";
+        const customBgColor = custom?.statusBgColor || "#3b82f6";
+        const isPreset = ["Đang chạy", "Dự kiến", "Ưu tiên"].includes(statusText);
+        const statusClass = statusText === "Dự kiến" ? "internal" : statusText === "Ưu tiên" ? "pending" : "";
+        const statusStyle = !isPreset ? `style="background:${customBgColor};color:${customTextColor};border:none"` : "";
 
         const promoText = custom?.promoItemsText !== undefined ? custom.promoItemsText : (
           shop.ShopCode === "SHOP0025"
@@ -847,7 +853,7 @@ export class ReportGeneratorService {
 
         return `
       <article class="promotion-card">
-        <div class="promotion-card-head"><h4>${shop.ShopCode}</h4><span class="operation-status ${statusClass}">${statusText}</span></div>
+        <div class="promotion-card-head"><h4>${shop.ShopCode}</h4><span class="operation-status ${statusClass}" ${statusStyle}>${statusText}</span></div>
         <div><ul>${listHtml}</ul></div>
       </article>`;
       })
@@ -973,19 +979,20 @@ footer{text-align:center;color:var(--slate);padding:12px 20px 30px;font-size:12p
 
 @media(max-width:1050px){.header-row{align-items:flex-start;flex-direction:column}.dashboard-summary{grid-template-columns:repeat(2,1fr)}.shop-cards{grid-template-columns:1fr}.shop-tabs{overflow-x:auto;grid-template-columns:repeat(3,minmax(280px,1fr))}.chart-area{overflow-x:auto;justify-content:flex-start}.store-group{flex:0 0 270px}.inventory-cards{grid-template-columns:repeat(3,1fr)}.order-employee-grid{grid-template-columns:repeat(2,1fr)}.promotion-grid,.operation-info-grid,.next-week-grid{grid-template-columns:1fr}}
 @media(max-width:620px){header{padding:22px 16px}h1{font-size:24px}.section-title{align-items:flex-start;flex-direction:column}.section-title p{text-align:left}.dashboard-summary{grid-template-columns:1fr}.kpi-row{grid-template-columns:1fr}.inventory-cards{grid-template-columns:repeat(2,1fr)}.inventory-shop-grid{grid-template-columns:1fr}.range-buttons{grid-template-columns:1fr}.order-employee-grid{grid-template-columns:1fr}.operation-info-grid{grid-template-columns:1fr}main{padding:12px}section{padding:16px}}
-@media print{nav{display:none}body{background:#fff}main{padding:0}section{box-shadow:none;border:1px solid #d1d5db;page-break-inside:avoid}}
+@media print{nav,.no-print{display:none !important}body{background:#fff}main{padding:0}section{box-shadow:none;border:1px solid #d1d5db;page-break-inside:avoid}}
 </style>
 </head>
 <body>
 <header><div class="inner header-row">
   <div style="display: flex; align-items: center; gap: 15px;">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" style="width: 48px; height: 48px;">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" style="width: 48px; height: 48px; flex-shrink: 0;">
       <defs>
         <linearGradient id="p" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#ffb834"/><stop offset="100%" stop-color="#f05a28"/></linearGradient>
         <linearGradient id="l" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#009245"/><stop offset="100%" stop-color="#8cc63f"/></linearGradient>
       </defs>
       <path d="M 12 8 A 4 4 0 0 1 20 8 L 20 12 L 12 12 Z" fill="url(#p)"/>
       <path d="M 9 10 C 7 10, 7 18, 7 20 C 7 24.5, 11 27, 16 27 C 21 27, 25 24.5, 25 20 C 25 18, 25 10, 23 10 C 22.5 10, 22 13, 22 16 C 22 21.5, 19 23, 16 23 C 13 23, 10 21.5, 10 16 C 10 13, 9.5 10, 9 10 Z" fill="url(#l)"/>
+    </svg>
     <div>
       <h1 style="margin: 0; font-size: 26px;">BÁO CÁO TỔNG HỢP UPHARMA</h1>
       <p class="subtitle" style="margin: 4px 0 0; opacity: 0.88;">Chỉ tiêu nhà thuốc • Chỉ tiêu nhân viên • Tháng ${month}/${year}</p>
@@ -993,7 +1000,14 @@ footer{text-align:center;color:var(--slate);padding:12px 20px 30px;font-size:12p
   </div>
 </div></header>
 
-<nav><a href="#chi-tieu">Chỉ tiêu nhà thuốc</a><a href="#ton-kho">Tỷ lệ cận date</a><a href="#don-hang-can-date">Đơn hàng cận date</a><a href="#nhan-vien">Chỉ tiêu nhân viên</a><a href="#van-hanh">Vận hành</a><a href="#ke-hoach-tuan-toi">KH tuần tới</a></nav>
+<nav>
+  <a href="#chi-tieu">Chỉ tiêu nhà thuốc</a>
+  <a href="#ton-kho">Tỷ lệ cận date</a>
+  <a href="#don-hang-can-date">Đơn hàng cận date</a>
+  <a href="#nhan-vien">Chỉ tiêu nhân viên</a>
+  <a href="#van-hanh">Vận hành</a>
+  <a href="#ke-hoach-tuan-toi">KH tuần tới</a>
+</nav>
 <main>
 
   <!-- ===== SECTION 1: Dashboard chỉ tiêu nhà thuốc ===== -->
@@ -1100,7 +1114,6 @@ footer{text-align:center;color:var(--slate);padding:12px 20px 30px;font-size:12p
 <footer>Hệ thống báo cáo UPHARMA • Dữ liệu tháng ${month}/${year}</footer>
 
 <script>
-
 function switchTab(group, tabId, btn) {
   document.querySelectorAll('[id^="'+group+'-"]').forEach(el => el.classList.remove('active'));
   var target = document.getElementById(group+'-'+tabId);

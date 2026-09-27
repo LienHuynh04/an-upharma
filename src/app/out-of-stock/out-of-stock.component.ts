@@ -529,10 +529,11 @@ export class OutOfStockComponent implements OnInit {
       if (!session) return;
 
       const now = new Date();
-      const oneMonthAgo = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
       const pad = (n: number) => String(n).padStart(2, "0");
-      const timeStart = `${oneMonthAgo.getFullYear()}-${pad(oneMonthAgo.getMonth() + 1)}-01 00:00:00`;
-      const timeEnd = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} 23:59:59`;
+      const timeStart = `${lastMonthStart.getFullYear()}-${pad(lastMonthStart.getMonth() + 1)}-01 00:00:00`;
+      const timeEnd = `${lastMonthEnd.getFullYear()}-${pad(lastMonthEnd.getMonth() + 1)}-${pad(lastMonthEnd.getDate())} 23:59:59`;
 
       const [salesRes, stableRes] = await Promise.all([
         this.upharmaService.callEndpoint<unknown>("/SalesInvoice/GetReportSalesByShop", {

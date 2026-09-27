@@ -1,7 +1,7 @@
 import { CommonModule } from "@angular/common";
 import { Component, OnInit } from "@angular/core";
 import { FormsModule } from "@angular/forms";
-import { Router, RouterLink } from "@angular/router";
+import { Router } from "@angular/router";
 import { RawRecord, ShopInfo, UpharmaService } from "../upharma.service";
 
 @Component({
@@ -17,7 +17,7 @@ export class ApiTestComponent implements OnInit {
   timeStart = "";
   timeEnd = "";
   productID = "";
-  getType = "month";
+  getType = "ALL";
   viewCity = 0;
   shopLst = "";
   searchStr = "";
@@ -33,11 +33,6 @@ export class ApiTestComponent implements OnInit {
   sidebarCollapsed = false;
   mobileMenuOpen = false;
   logoutConfirmOpen = false;
-  menuGroups: Record<string, boolean> = {
-    profile: false,
-    goods: false,
-    test: true,
-  };
 
   constructor(
     private readonly upharmaService: UpharmaService,
@@ -47,19 +42,12 @@ export class ApiTestComponent implements OnInit {
   async ngOnInit(): Promise<void> {
     this.sidebarCollapsed = localStorage.getItem("upharma_sidebar_collapsed") === "true";
     const now = new Date();
-    const twoMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+    const past30Days = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     const pad = (n: number) => String(n).padStart(2, "0");
-    this.timeStart = `${twoMonthsAgo.getFullYear()}-${pad(twoMonthsAgo.getMonth() + 1)}-01 00:00:00`;
+    this.timeStart = `${past30Days.getFullYear()}-${pad(past30Days.getMonth() + 1)}-${pad(past30Days.getDate())} 00:00:00`;
     this.timeEnd = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} 23:59:59`;
 
     await this.loginOnly();
-  }
-
-  get pageClasses(): Record<string, boolean> {
-    return {
-      "sidebar-collapsed": this.sidebarCollapsed,
-      "mobile-menu-open": this.mobileMenuOpen,
-    };
   }
 
   async loginOnly(): Promise<void> {
@@ -95,7 +83,7 @@ export class ApiTestComponent implements OnInit {
 
       this.requestPayload = JSON.stringify(payload, null, 2);
       this.loadingProgress = 45;
-      const response = await this.upharmaService.callEndpoint<unknown>(this.endpoint, payload);
+      const response = await this.upharmaService.callEndpoint<unknown>(this.endpoint, payload, { cache: false });
       this.loadingProgress = 85;
       const truncated = this.truncateResponse(response);
       this.responseText = JSON.stringify(truncated, null, 2);
@@ -133,36 +121,6 @@ export class ApiTestComponent implements OnInit {
     this.updateRequestPreview();
   }
 
-  toggleMenuGroup(groupKey: string): void {
-    this.menuGroups[groupKey] = !this.menuGroups[groupKey];
-  }
-
-  toggleSidebar(): void {
-    if (window.matchMedia("(max-width: 900px)").matches) {
-      this.sidebarCollapsed = false;
-      this.mobileMenuOpen = !this.mobileMenuOpen;
-      return;
-    }
-
-    this.sidebarCollapsed = !this.sidebarCollapsed;
-    localStorage.setItem("upharma_sidebar_collapsed", String(this.sidebarCollapsed));
-  }
-
-  openLogoutConfirm(event?: Event): void {
-    event?.preventDefault();
-    event?.stopPropagation();
-    this.logoutConfirmOpen = true;
-  }
-
-  cancelLogout(): void {
-    this.logoutConfirmOpen = false;
-  }
-
-  async confirmLogout(): Promise<void> {
-    this.upharmaService.clearSession();
-    await this.router.navigateByUrl("/login");
-  }
-
   private buildPayload(token: string, uPharmaID: number): RawRecord {
     const basePayload: RawRecord = {
       uPharmaID,
@@ -170,7 +128,33 @@ export class ApiTestComponent implements OnInit {
       _bypassFirebase: true,
     };
 
-    if (this.endpoint.includes("GetSalesHeaderByID")) {
+    if (this.endpoint.includes("GetReportSalesSpeed")) {
+      basePayload["TimeStart"] = this.timeStart;
+      basePayload["TimeEnd"] = this.timeEnd;
+      basePayload["ShopLst"] = this.shopLst;
+      basePayload["ProductID"] = this.productID;
+      basePayload["GetType"] = this.getType;
+      basePayload["ViewCity"] = Number(this.viewCity) || 0;
+    } else if (this.endpoint.includes("GetItemHotLst")) {
+      basePayload["GLevel1"] = "";
+      basePayload["GLevel2"] = "";
+      basePayload["GLevel3"] = "";
+      basePayload["DosageForm"] = "";
+      basePayload["ManufacturerName"] = "";
+      basePayload["Distributor"] = "";
+      basePayload["OrderByType"] = 1;
+      basePayload["Search"] = this.searchStr;
+      basePayload["NumberRow"] = Number(this.numberRow) || 100;
+      basePayload["PageNumber"] = Number(this.pageNumber) || 1;
+    } else if (this.endpoint.includes("GetExistProductLst")) {
+      basePayload["ProductID"] = this.productID || "TP001";
+    } else if (this.endpoint.includes("CheckInventory")) {
+      basePayload["ProductID"] = this.productID || "TP001";
+    } else if (this.endpoint.includes("GetSuggestTransferOrderLst")) {
+      basePayload["TimeStart"] = this.timeStart;
+      basePayload["TimeEnd"] = this.timeEnd;
+      basePayload["ShopCode"] = this.selectedShopCode;
+    } else if (this.endpoint.includes("GetSalesHeaderByID")) {
       basePayload["HeaderID"] = this.headerID;
     } else if (this.endpoint.includes("GetSalesHeaderByShop")) {
       basePayload["TimeStart"] = this.timeStart;
@@ -179,17 +163,6 @@ export class ApiTestComponent implements OnInit {
       basePayload["ShopCode"] = this.selectedShopCode;
       basePayload["PageNumber"] = Number(this.pageNumber) || 1;
       basePayload["NumberRow"] = Number(this.numberRow) || 100;
-    } else if (this.endpoint.includes("GetReportSalesByShop")) {
-      basePayload["TimeStart"] = this.timeStart;
-      basePayload["TimeEnd"] = this.timeEnd;
-      basePayload["ShopCode"] = this.selectedShopCode;
-    } else if (this.endpoint.includes("GetReportSalesSpeed")) {
-      basePayload["TimeStart"] = this.timeStart;
-      basePayload["TimeEnd"] = this.timeEnd;
-      basePayload["ShopLst"] = this.selectedShopCode;
-      basePayload["ProductID"] = this.productID;
-      basePayload["GetType"] = this.getType;
-      basePayload["ViewCity"] = Number(this.viewCity) || 0;
     } else {
       basePayload["TimeStart"] = this.timeStart;
       basePayload["TimeEnd"] = this.timeEnd;
@@ -218,10 +191,10 @@ export class ApiTestComponent implements OnInit {
   }
 
   private truncateResponse(response: any): any {
-    const limit = 10;
+    const limit = 20;
     if (Array.isArray(response)) {
       if (response.length > limit) {
-        return [...response.slice(0, limit), `... và ${response.length - limit} mục khác đã được ẩn đi để tránh treo trình duyệt.`];
+        return [...response.slice(0, limit), `... và ${response.length - limit} mục khác đã được rút gọn.`];
       }
       return response;
     }
@@ -232,7 +205,7 @@ export class ApiTestComponent implements OnInit {
         if (Array.isArray(cloned[key]) && cloned[key].length > limit) {
           cloned[key] = [
             ...cloned[key].slice(0, limit),
-            `... và ${cloned[key].length - limit} mục khác đã được ẩn đi.`,
+            `... và ${cloned[key].length - limit} mục khác đã được rút gọn.`,
           ];
         }
       }

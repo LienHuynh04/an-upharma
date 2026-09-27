@@ -308,11 +308,14 @@ function getResourceConfig(resourceName, now = new Date()) {
     key_products: {
       pathname: "/SalesInvoice/GetReportSalesByShop",
       payload: () => {
-        const twoMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 2, 1);
-        const timeStart = `${twoMonthsAgo.getFullYear()}-${String(twoMonthsAgo.getMonth() + 1).padStart(2, "0")}-01 00:00:00`;
+        const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+        const pad = (n) => String(n).padStart(2, "0");
+        const timeStart = `${lastMonthStart.getFullYear()}-${pad(lastMonthStart.getMonth() + 1)}-01 00:00:00`;
+        const timeEnd = `${lastMonthEnd.getFullYear()}-${pad(lastMonthEnd.getMonth() + 1)}-${pad(lastMonthEnd.getDate())} 23:59:59`;
         return {
           TimeStart: timeStart,
-          TimeEnd: currentTime,
+          TimeEnd: timeEnd,
           Search: "",
           PageNumber: 1,
           NumberRow: 100000,

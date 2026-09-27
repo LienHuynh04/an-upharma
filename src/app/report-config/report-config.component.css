@@ -123,7 +123,7 @@
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.3px;
-  text-transform: uppercase;
+  text-transform: none;
 }
 
 /* Status Selector Bar */
@@ -146,6 +146,62 @@
   color: #ffffff;
   border-color: #2563eb !important;
   box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35);
+}
+
+/* Custom Status Input */
+.status-custom-input {
+  width: 140px;
+  height: 32px;
+  font-size: 0.8rem !important;
+  background-color: var(--tblr-body-bg, #0f182e) !important;
+  border-color: var(--tblr-border-color, rgba(255, 255, 255, 0.12)) !important;
+  color: var(--tblr-body-color, #f4f6fa) !important;
+  transition: all 0.2s ease;
+}
+.status-custom-input:focus {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2) !important;
+  width: 180px;
+}
+
+/* Color Picker */
+.status-custom-group {
+  display: flex;
+  align-items: center;
+}
+.status-color-picker {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 30px;
+  height: 30px;
+  border: 2px solid var(--tblr-border-color, rgba(255, 255, 255, 0.15));
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  overflow: hidden;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+.status-color-picker::-webkit-color-swatch-wrapper {
+  padding: 2px;
+}
+.status-color-picker::-webkit-color-swatch {
+  border: none;
+  border-radius: 50%;
+}
+.status-color-picker::-moz-color-swatch {
+  border: none;
+  border-radius: 50%;
+}
+.status-color-picker:hover {
+  border-color: rgba(255, 255, 255, 0.35);
+  transform: scale(1.1);
+}
+.status-color-picker:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
 }
 
 /* 4 Input Card Accents */
