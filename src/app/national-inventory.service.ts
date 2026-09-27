@@ -151,10 +151,6 @@ export class NationalInventoryService {
           results[code] = storesWithStock;
           done++;
           notifyProgress(`${code} (Firebase RTDB)`);
-
-          if (storesWithStock.length > 0) {
-            this.firebaseCache.saveCache(code, storesWithStock).catch(() => {});
-          }
         }
 
         return results;
@@ -209,8 +205,6 @@ export class NationalInventoryService {
             }
 
             results[code] = storesWithStock;
-
-            this.firebaseCache.saveCache(code, storesWithStock).catch(() => {});
           } catch (error) {
             console.error(`[National Inventory API] Lỗi lấy tồn kho khẩn cấp cho mã ${code}:`, error);
             results[code] = [];
