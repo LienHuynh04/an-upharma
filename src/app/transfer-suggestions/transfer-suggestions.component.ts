@@ -216,10 +216,10 @@ export interface GroupedExpiringStock {
           </button>
 
           <div class="table-responsive" style="max-height: 75vh; overflow-y: auto;">
-            <table class="table table-vcenter card-table table-striped table-hover">
+            <table class="table table-vcenter card-table table-striped table-hover" style="table-layout: fixed; width: 100%;">
               <thead>
                 <tr>
-                  <th class="text-center" style="width: 80px; min-width: 80px;">STT</th>
+                  <th class="text-center" style="width: 64px; min-width: 64px;">STT</th>
                   <th style="width: 35%;">Tên SP</th>
                   <th style="width: 12%;">Mã SP</th>
                   <th style="width: 10%;">Hạn dùng</th>
@@ -238,7 +238,7 @@ export interface GroupedExpiringStock {
                   </td>
                 </tr>
                 <tr *ngFor="let group of cachedGroupedSuggestions; let i = index; trackBy: trackByGroupKey" (click)="openDetailModal(group)" style="cursor: pointer;" title="Bấm vào dòng để xem chi tiết gợi ý điều chuyển">
-                  <td data-label="STT" class="text-center">{{ i + 1 }}</td>
+                  <td data-label="STT" class="text-center font-monospace fw-bold" style="white-space: nowrap;">{{ i + 1 }}</td>
                   <td data-label="Tên SP">{{ group.productName }}</td>
                   <td data-label="Mã SP">{{ group.productCode }}</td>
                   <td data-label="Hạn dùng">
