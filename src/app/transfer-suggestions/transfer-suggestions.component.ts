@@ -219,7 +219,7 @@ export interface GroupedExpiringStock {
             <table class="table table-vcenter card-table table-striped table-hover">
               <thead>
                 <tr>
-                  <th class="text-center" style="width: 45px;">STT</th>
+                  <th class="text-center" style="width: 80px; min-width: 80px;">STT</th>
                   <th style="width: 35%;">Tên SP</th>
                   <th style="width: 12%;">Mã SP</th>
                   <th style="width: 10%;">Hạn dùng</th>
@@ -231,13 +231,13 @@ export interface GroupedExpiringStock {
 
               </thead>
               <tbody>
-                <tr *ngIf="displayGroupedSuggestions.length === 0">
+                <tr *ngIf="cachedGroupedSuggestions.length === 0">
                   <td colspan="8" class="text-center text-secondary py-4">
                     <div *ngIf="!step2Done">Chưa có đề xuất điều chuyển. Nhấn <strong>"🚀 TẠO GỢI Ý ĐIỀU CHUYỂN"</strong> để bắt đầu!</div>
                     <div *ngIf="step2Done">Không tìm thấy gợi ý điều chuyển nào phù hợp.</div>
                   </td>
                 </tr>
-                <tr *ngFor="let group of displayGroupedSuggestions; let i = index" (click)="openDetailModal(group)" style="cursor: pointer;" title="Bấm vào dòng để xem chi tiết gợi ý điều chuyển">
+                <tr *ngFor="let group of cachedGroupedSuggestions; let i = index; trackBy: trackByGroupKey" (click)="openDetailModal(group)" style="cursor: pointer;" title="Bấm vào dòng để xem chi tiết gợi ý điều chuyển">
                   <td data-label="STT" class="text-center">{{ i + 1 }}</td>
                   <td data-label="Tên SP">{{ group.productName }}</td>
                   <td data-label="Mã SP">{{ group.productCode }}</td>
@@ -316,7 +316,7 @@ export interface GroupedExpiringStock {
                   <table class="table table-vcenter table-striped table-hover align-middle mb-0 w-100">
                     <thead class="bg-body-tertiary">
                       <tr>
-                        <th class="text-center" style="width: 45px;">#</th>
+                        <th class="text-center" style="width: 60px;">#</th>
                         <th style="width: 28%;">NT nguồn ➔ NT đích</th>
                         <th style="width: 12%;">Hạn dùng</th>
                         <th style="width: 12%;" class="text-end">Tồn nguồn</th>
@@ -393,7 +393,7 @@ export interface GroupedExpiringStock {
                   <table class="table table-vcenter table-striped align-middle mb-0 w-100">
                     <thead class="bg-body-tertiary">
                       <tr>
-                        <th class="text-center" style="width: 45px;">#</th>
+                        <th class="text-center" style="width: 60px;">#</th>
                         <th style="width: 35%;">NT Nguồn</th>
                         <th style="width: 25%;">Hạn dùng</th>
                         <th style="width: 25%;" class="text-end">SL Tồn</th>
@@ -519,6 +519,7 @@ export class TransferSuggestionsComponent implements OnInit {
 
   setExpiryFilter(filterKey: string): void {
     this.colFilterExpiry = filterKey;
+    this.updateDisplayGroups();
   }
 
   get expiryBucketCounts(): {
@@ -744,7 +745,8 @@ export class TransferSuggestionsComponent implements OnInit {
       this.nationalStoreStockMap = responseMap;
       this.step2Done = true;
       this.activeTab = "suggestions";
-      this.statusText = `Hoàn tất phân tích cho ${uniqueProductCodes.length} sản phẩm. Đã lập ${this.displayGroupedSuggestions.length} gợi ý luân chuyển tối ưu.`;
+      this.updateDisplayGroups();
+      this.statusText = `Hoàn tất phân tích cho ${uniqueProductCodes.length} sản phẩm. Đã lập ${this.cachedGroupedSuggestions.length} gợi ý luân chuyển tối ưu.`;
     } catch (err) {
       this.errorText = err instanceof Error ? err.message : String(err);
       this.statusText = "Lỗi xảy ra trong quá trình kiểm tra tiêu thụ toàn quốc.";
@@ -754,6 +756,74 @@ export class TransferSuggestionsComponent implements OnInit {
   }
 
   topNDestinations = 5;
+
+  cachedGroupedSuggestions: GroupedSuggestion[] = [];
+
+  updateDisplayGroups(): void {
+    this.cachedGroupedSuggestions = this.computeDisplayGroupedSuggestions();
+  }
+
+  trackByGroupKey(index: number, group: GroupedSuggestion): string {
+    return `${group.fromShopCode}|${group.productCode}`;
+  }
+
+  getTopRoutes(group: GroupedSuggestion, max = 3): ExpiringTransferSuggestion[] {
+    return group.items.slice(0, max);
+  }
+
+  computeDisplayGroupedSuggestions(): GroupedSuggestion[] {
+    const raw = this.displaySuggestions;
+    const map = new Map<string, ExpiringTransferSuggestion[]>();
+
+    for (const item of raw) {
+      const groupKey = `${item.fromShopCode}|${item.productCode}`;
+      if (!map.has(groupKey)) {
+        map.set(groupKey, []);
+      }
+      map.get(groupKey)!.push(item);
+    }
+
+    const groups: GroupedSuggestion[] = [];
+    map.forEach((items) => {
+      if (items.length === 0) return;
+      const first = items[0];
+
+      let minDays = first.daysRemaining;
+      let minExpiryText = first.expiryText;
+      for (const item of items) {
+        if (item.daysRemaining < minDays) {
+          minDays = item.daysRemaining;
+          minExpiryText = item.expiryText;
+        }
+      }
+
+      const totalSuggestedQty = items.reduce((sum, i) => sum + i.suggestedQty, 0);
+      const sameProvCount = items.filter((i) => i.isSameProvince).length;
+
+      groups.push({
+        productCode: first.productCode,
+        productName: first.productName,
+        fromShopCode: first.fromShopCode,
+        fromShopName: first.fromShopName,
+        unit: first.unit,
+        lot: "",
+        minDaysRemaining: minDays,
+        minExpiryText: minExpiryText,
+        totalSourceQuantity: first.sourceQuantity,
+        totalSuggestedQty: totalSuggestedQty,
+        suggestionCount: items.length,
+        sameProvinceCount: sameProvCount,
+        sourceShops: [`${first.fromShopCode} - ${first.fromShopName}`],
+        items: items.sort((a, b) => a.rank - b.rank),
+      });
+    });
+
+    return groups;
+  }
+
+  get displayGroupedSuggestions(): GroupedSuggestion[] {
+    return this.cachedGroupedSuggestions;
+  }
 
   // ==========================================
   // BƯỚC 3: THUẬT TOÁN GỢI Ý ĐIỀU CHUYỂN (HỖ TRỢ TOP N NHÀ THUỐC ĐÍCH)
@@ -782,8 +852,7 @@ export class TransferSuggestionsComponent implements OnInit {
       const sameProvinceDests = validDests.filter((d) => this.getProvince(d.StoreName) === sourceProvince);
       const otherProvinceDests = validDests.filter((d) => this.getProvince(d.StoreName) !== sourceProvince);
 
-      // Lấy tối đa 5 nhà thuốc (Top N): Ưu tiên xếp các nhà thuốc nội tỉnh trước,
-      // nếu chưa đủ 5 nhà thuốc thì lấy tiếp các nhà thuốc ngoại tỉnh có tốc độ bán cao nhất để bổ sung cho đủ 5.
+      // Lấy tối đa 5 nhà thuốc (Top N)
       const orderedDests = [...sameProvinceDests, ...otherProvinceDests].slice(0, this.topNDestinations);
 
       orderedDests.forEach((bestDest, index) => {
@@ -921,65 +990,6 @@ export class TransferSuggestionsComponent implements OnInit {
 
       return true;
     });
-  }
-
-  getDestShopCodes(group: GroupedSuggestion): string[] {
-    const codes = group.items.map((i) => i.toShopCode);
-    return Array.from(new Set(codes));
-  }
-
-  getTopRoutes(group: GroupedSuggestion, max = 3): ExpiringTransferSuggestion[] {
-    return group.items.slice(0, max);
-  }
-
-  get displayGroupedSuggestions(): GroupedSuggestion[] {
-    const raw = this.displaySuggestions;
-    const map = new Map<string, ExpiringTransferSuggestion[]>();
-
-    for (const item of raw) {
-      const groupKey = `${item.fromShopCode}|${item.productCode}`;
-      if (!map.has(groupKey)) {
-        map.set(groupKey, []);
-      }
-      map.get(groupKey)!.push(item);
-    }
-
-    const groups: GroupedSuggestion[] = [];
-    map.forEach((items) => {
-      if (items.length === 0) return;
-      const first = items[0];
-
-      let minDays = first.daysRemaining;
-      let minExpiryText = first.expiryText;
-      for (const item of items) {
-        if (item.daysRemaining < minDays) {
-          minDays = item.daysRemaining;
-          minExpiryText = item.expiryText;
-        }
-      }
-
-      const totalSuggestedQty = items.reduce((sum, i) => sum + i.suggestedQty, 0);
-      const sameProvCount = items.filter((i) => i.isSameProvince).length;
-
-      groups.push({
-        productCode: first.productCode,
-        productName: first.productName,
-        fromShopCode: first.fromShopCode,
-        fromShopName: first.fromShopName,
-        unit: first.unit,
-        lot: "",
-        minDaysRemaining: minDays,
-        minExpiryText: minExpiryText,
-        totalSourceQuantity: first.sourceQuantity,
-        totalSuggestedQty: totalSuggestedQty,
-        suggestionCount: items.length,
-        sameProvinceCount: sameProvCount,
-        sourceShops: [`${first.fromShopCode} - ${first.fromShopName}`],
-        items: items.sort((a, b) => a.rank - b.rank),
-      });
-    });
-
-    return groups;
   }
 
   get groupedExpiringStock(): GroupedExpiringStock[] {

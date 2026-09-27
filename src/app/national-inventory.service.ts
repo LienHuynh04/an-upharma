@@ -70,7 +70,8 @@ export class NationalInventoryService {
           const sanitized = code.replace(/[.$#\[\]\/]/g, "_");
           const entry = firebaseData ? (firebaseData[code] || firebaseData[sanitized]) : undefined;
 
-          if (entry && Array.isArray(entry.shops) && entry.shops.length > 0) {
+          // Nếu sản phẩm đã được CronJob tính toán và lưu trong Firebase cache
+          if (entry && Array.isArray(entry.shops)) {
             results[code] = entry.shops;
             done++;
             notifyProgress(`${code} (Firebase Cache)`);
@@ -88,13 +89,12 @@ export class NationalInventoryService {
       remainingProductIDs.push(...productIDs);
     }
 
-    // Nếu tất cả sản phẩm đã có trong Firebase Cache, hoàn thành ngay lập tức!
+    // Nếu tất cả sản phẩm đã có đủ trong Firebase Cache, hoàn thành ngay lập tức!
     if (remainingProductIDs.length === 0) {
       return results;
     }
 
-    // BƯỚC 2: Với các sản phẩm chưa có trong Cache, tổng hợp trực tiếp từ Firebase RTDB sales_speed của các shop
-    // TUỆT ĐỐI KHÔNG gọi trực tiếp API UPharma /Report/GetExistProductLst để tránh giật lag/nghẽn mạng.
+    // BƯỚC 2: Gom dữ liệu trực tiếp từ Firebase sales_speed của các shop (Hoàn toàn KHÔNG gọi API GetExistProductLst tới icpc1hn.work)
     try {
       console.log(`[National Inventory Service] Đang tổng hợp dữ liệu từ Firebase RTDB (sales_speed) cho ${remainingProductIDs.length} sản phẩm...`);
       
@@ -156,64 +156,7 @@ export class NationalInventoryService {
         return results;
       }
     } catch (fbErr) {
-      console.warn("[National Inventory Service] Lỗi khi tổng hợp từ Firebase sales_speed, mới gọi API UPharma làm dự phòng cuối:", fbErr);
-    }
-
-    // BƯỚC 3: Dự phòng cuối cùng (chỉ chạy khi Firebase hoàn toàn không khả dụng)
-    console.warn(`[National Inventory Service] Dự phòng khẩn cấp: Gọi API UPharma cho ${remainingProductIDs.length} sản phẩm...`);
-    const session = this.upharma.ensureLogin();
-    const mode = options.mode || "GetExistProductLst";
-    const endpoint = mode === "GetExistProductByShop" ? "/Report/GetExistProductByShop" : "/Report/GetExistProductLst";
-    const batchSize = 10;
-
-    for (let i = 0; i < remainingProductIDs.length; i += batchSize) {
-      const batch = remainingProductIDs.slice(i, i + batchSize);
-
-      await Promise.all(
-        batch.map(async (code) => {
-          if (results[code]) return;
-
-          try {
-            const response = await this.upharma.callEndpoint<any>(
-              endpoint,
-              {
-                ProductID: code,
-                uPharmaID: session.UserInfo.uPharmaID,
-                Token: session.Token,
-              },
-              { cache: false }
-            );
-
-            let storesWithStock: NationalStoreStock[] = [];
-            const rawList = response?.ExistProductLst || response?.data || response?.Data || response?.ShopLst || [];
-            if (Array.isArray(rawList)) {
-              storesWithStock = rawList
-                .filter((store: any) => {
-                  const qty = parseNumericValue(store.Quantity);
-                  const avg = parseNumericValue(store.QuantityAVG ?? store.QuantityAvg);
-                  return !isWarehouseStore(store) && (qty > 0 || avg > 0);
-                })
-                .map((store: any) => ({
-                  StoreCode: store.StoreCode || store.ShopCode || "",
-                  StoreName: store.StoreName || store.ShopName || "",
-                  StoreType: store.StoreType || "",
-                  Quantity: parseNumericValue(store.Quantity),
-                  QuantityAVG: parseNumericValue(store.QuantityAVG ?? store.QuantityAvg ?? store.Quantity_AVG ?? 0),
-                  UnitOfMeasure: store.UnitOfMeasure || store.Unit || "",
-                }))
-                .sort((a: NationalStoreStock, b: NationalStoreStock) => b.QuantityAVG - a.QuantityAVG);
-            }
-
-            results[code] = storesWithStock;
-          } catch (error) {
-            console.error(`[National Inventory API] Lỗi lấy tồn kho khẩn cấp cho mã ${code}:`, error);
-            results[code] = [];
-          } finally {
-            done++;
-            notifyProgress(code);
-          }
-        })
-      );
+      console.warn("[National Inventory Service] Lỗi khi tổng hợp từ Firebase sales_speed:", fbErr);
     }
 
     return results;
