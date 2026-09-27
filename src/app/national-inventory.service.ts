@@ -67,8 +67,11 @@ export class NationalInventoryService {
         const firebaseData = await this.firebaseCache.getAllCache();
         
         for (const code of productIDs) {
-          if (firebaseData && firebaseData[code] && Array.isArray(firebaseData[code].shops) && firebaseData[code].shops.length > 0) {
-            results[code] = firebaseData[code].shops;
+          const sanitized = code.replace(/[.$#\[\]\/]/g, "_");
+          const entry = firebaseData ? (firebaseData[code] || firebaseData[sanitized]) : undefined;
+
+          if (entry && Array.isArray(entry.shops) && entry.shops.length > 0) {
+            results[code] = entry.shops;
             done++;
             notifyProgress(`${code} (Firebase Cache)`);
           } else {

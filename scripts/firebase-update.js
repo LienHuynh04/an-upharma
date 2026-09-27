@@ -916,6 +916,58 @@ function precalculateOutOfStock(salesSpeedRows, inventoryRows, transferProcessRo
   return outOfStockRows;
 }
 
+function precalculateNationalInventoryCache(shops, allShopsData) {
+  const prodShopMap = {};
+
+  for (const shop of shops) {
+    const sc = shop.ShopCode;
+    const salesSpeedRows = allShopsData.sales_speed?.[sc] || [];
+
+    for (const row of salesSpeedRows) {
+      let code = String(row.ProductID || row.ProductCode || "").trim();
+      if (!code) continue;
+      code = code.replace(/[.$#\[\]\/]/g, "_");
+      if (!code) continue;
+
+      if (!prodShopMap[code]) prodShopMap[code] = {};
+
+      const qty = Number(row.QuantityExist ?? row.Quantity ?? 0);
+      const avg = Number(row.Quantity ?? 0);
+
+      if (prodShopMap[code][sc]) {
+        prodShopMap[code][sc].QuantityAVG = Math.max(prodShopMap[code][sc].QuantityAVG, avg);
+        if (row.QuantityExist !== undefined) {
+          prodShopMap[code][sc].Quantity = qty;
+        }
+      } else {
+        prodShopMap[code][sc] = {
+          StoreCode: sc,
+          StoreName: row.__shopName || shop.ShopName || sc,
+          StoreType: "",
+          Quantity: qty,
+          QuantityAVG: avg,
+          UnitOfMeasure: row.UnitOfMeasure || "Hộp"
+        };
+      }
+    }
+  }
+
+  const nationalCache = {};
+  for (const [code, shopMap] of Object.entries(prodShopMap)) {
+    const stores = Object.values(shopMap)
+      .filter((s) => s.Quantity > 0 || s.QuantityAVG > 0)
+      .sort((a, b) => b.QuantityAVG - a.QuantityAVG);
+
+    nationalCache[code] = {
+      productID: code,
+      shops: stores,
+      updatedAt: Date.now()
+    };
+  }
+
+  return nationalCache;
+}
+
 async function calculateAndUploadSummaries(shops, allShopsData, db) {
   console.log("\n[precalculation] Bắt đầu tính toán Hàng đã hết, Hàng lặp tốt, Hàng lặp chậm và Shops Summary...");
   
@@ -1006,8 +1058,12 @@ async function calculateAndUploadSummaries(shops, allShopsData, db) {
         fetchedAt: new Date().toISOString()
       });
       console.log("[precalculation] DONE upload shops_summary lên Firebase RTDB!");
+
+      const nationalCache = precalculateNationalInventoryCache(shops, allShopsData);
+      await db.ref(`national_inventory_cache`).set(nationalCache);
+      console.log(`[precalculation] DONE upload national_inventory_cache (${Object.keys(nationalCache).length} products) lên Firebase RTDB!`);
     } catch (err) {
-      console.warn("[precalculation] Lỗi khi upload shops_summary:", err);
+      console.warn("[precalculation] Lỗi khi upload shops_summary / national_inventory_cache:", err);
     }
   }
 }
