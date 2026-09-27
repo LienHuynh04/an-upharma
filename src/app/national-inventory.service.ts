@@ -94,63 +94,79 @@ export class NationalInventoryService {
       return results;
     }
 
-    // BƯỚC 2: Firebase cache NULL → gọi thẳng /Report/GetExistProductLst trên UPharma API
-    // API này trả về tồn kho + sức bán của sản phẩm trên TOÀN BỘ 35+ nhà thuốc toàn quốc
-    console.log(`[National Inventory Service] Firebase cache NULL → Fallback gọi GetExistProductLst cho ${remainingProductIDs.length} sản phẩm (batch 10)...`);
+    // BƯỚC 2: Firebase cache NULL / thiếu sản phẩm → Đọc sales_speed từ Firebase cho tất cả nhà thuốc (KHÔNG gọi API UPharma)
+    console.log(
+      `[National Inventory Service] Firebase cache thiếu ${remainingProductIDs.length} sản phẩm → Đọc sales_speed từ Firebase RTDB cho toàn bộ nhà thuốc...`
+    );
 
-    const BATCH_SIZE = 10;
-    for (let i = 0; i < remainingProductIDs.length; i += BATCH_SIZE) {
-      const batch = remainingProductIDs.slice(i, i + BATCH_SIZE);
+    try {
+      const salesSpeedRes = await this.upharma.callEndpoint<any>(
+        "/SalesInvoice/GetReportSalesSpeed",
+        {},
+        { cache: true, forceRefresh: options.forceRefresh }
+      );
 
-      await Promise.all(batch.map(async (code) => {
-        try {
-          const res = await this.upharma.callEndpoint<any>(
-            "/Report/GetExistProductLst",
-            {
-              ProductID: code,
-              _bypassFirebase: true,
-            },
-            { cache: true, forceRefresh: options.forceRefresh }
-          );
+      const allRows: any[] = Array.isArray(salesSpeedRes)
+        ? salesSpeedRes
+        : Array.isArray(salesSpeedRes?.data)
+        ? salesSpeedRes.data
+        : [];
 
-          // API trả về array các store trực tiếp hoặc bọc trong nhiều key khác nhau
-          let rawStores: any[] = [];
-          if (Array.isArray(res)) {
-            rawStores = res;
-          } else if (res && typeof res === 'object') {
-            rawStores =
-              res.InventoryLst || res.ExistProductLst || res.StoreLst ||
-              res.Data || res.data || res.DataLst || res.ListData || [];
-          }
+      // Gom nhóm theo ProductID
+      const productMap = new Map<string, NationalStoreStock[]>();
 
-          const stores: NationalStoreStock[] = rawStores
-            .filter((s: any) => !isWarehouseStore(s))
-            .map((s: any) => ({
-              StoreCode: String(s.StoreCode || s.ShopCode || "").trim(),
-              StoreName: String(s.StoreName || s.ShopName || "").trim(),
-              StoreType: String(s.StoreType || ""),
-              Quantity: parseNumericValue(s.QuantityExist ?? s.Quantity ?? 0),
-              QuantityAVG: parseNumericValue(s.QuantityAVG ?? s.AVGQuantity ?? s.Quantity ?? 0),
-              UnitOfMeasure: String(s.UnitOfMeasure || s.Unit || "Hộp"),
-            }))
-            .filter((s) => s.StoreCode && (s.Quantity > 0 || s.QuantityAVG > 0))
-            .sort((a, b) => b.QuantityAVG - a.QuantityAVG);
+      for (const row of allRows) {
+        const pCode = String(row.ProductID || row.ProductCode || "").trim();
+        if (!pCode) continue;
 
-          results[code] = stores;
-          done++;
-          notifyProgress(`${code} (UPharma API - ${stores.length} nhà thuốc)`);
-        } catch (err) {
-          console.warn(`[National Inventory Service] Lỗi GetExistProductLst cho ${code}:`, err);
+        if (isWarehouseStore(row)) continue;
+
+        const storeCode = String(row.StoreCode || row.ShopCode || row.__shopCode || "").trim();
+        const storeName = String(row.StoreName || row.ShopName || row.__shopName || storeCode).trim();
+        const qty = parseNumericValue(row.QuantityExist ?? row.Quantity ?? 0);
+        const qtyAVG = parseNumericValue(
+          row.QuantityAVG ?? row.AVGQuantity ?? row.QuantityAVG30 ?? row.Quantity ?? 0
+        );
+        const unit = String(row.UnitOfMeasure || row.Unit || "Hộp");
+
+        if (!storeCode || (qty <= 0 && qtyAVG <= 0)) continue;
+
+        const stock: NationalStoreStock = {
+          StoreCode: storeCode,
+          StoreName: storeName,
+          StoreType: String(row.StoreType || ""),
+          Quantity: qty,
+          QuantityAVG: qtyAVG,
+          UnitOfMeasure: unit,
+        };
+
+        const key = pCode.toUpperCase();
+        if (!productMap.has(key)) {
+          productMap.set(key, []);
+        }
+        productMap.get(key)!.push(stock);
+      }
+
+      for (const code of remainingProductIDs) {
+        const key = code.trim().toUpperCase();
+        const stores = productMap.get(key) || [];
+        stores.sort((a, b) => b.QuantityAVG - a.QuantityAVG);
+
+        results[code] = stores;
+        done++;
+        notifyProgress(`${code} (Firebase RTDB - ${stores.length} nhà thuốc)`);
+      }
+    } catch (err) {
+      console.warn("[National Inventory Service] Lỗi khi lấy sales_speed từ Firebase RTDB:", err);
+      for (const code of remainingProductIDs) {
+        if (!results[code]) {
           results[code] = [];
           done++;
-          notifyProgress(`${code} (lỗi)`);
+          notifyProgress(`${code} (lỗi Firebase)`);
         }
-      }));
+      }
     }
 
     return results;
   }
 }
-
-
-
