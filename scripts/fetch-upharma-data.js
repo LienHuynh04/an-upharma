@@ -646,11 +646,116 @@ async function run() {
   }
 
   await calculateAndUploadSummaries(shops, allShopsData, db);
+
+  // Bước cuối: Fetch GetExistProductLst cho toàn bộ mã SP → upload national_inventory_cache
+  await fetchAndUploadNationalInventoryCache(loginData, allShopsData, db);
   
   console.log("Hoàn thành fetch data!");
   clearInterval(heartbeatTimer);
   if (db) {
     process.exit(0);
+  }
+}
+
+/**
+ * Lấy danh sách mã SP unique từ sales_speed của tất cả shop,
+ * gọi GetExistProductLst (toàn quốc) theo batch 20 song song,
+ * upload kết quả lên Firebase RTDB /national_inventory_cache
+ */
+async function fetchAndUploadNationalInventoryCache(loginData, allShopsData, db) {
+  console.log("\n[national_cache] Bắt đầu xây dựng national_inventory_cache từ GetExistProductLst...");
+
+  // Thu thập tất cả mã SP unique từ sales_speed của các shop
+  const productSet = new Set();
+  for (const [, rows] of Object.entries(allShopsData.sales_speed || {})) {
+    for (const row of rows) {
+      const code = String(row.ProductID || row.ProductCode || "").trim();
+      if (code) productSet.add(code);
+    }
+  }
+
+  const productCodes = Array.from(productSet);
+  console.log(`[national_cache] Tìm thấy ${productCodes.length} mã SP unique → sẽ gọi GetExistProductLst cho từng mã...`);
+
+  if (productCodes.length === 0) {
+    console.warn("[national_cache] Không có mã SP nào để xử lý, bỏ qua.");
+    return;
+  }
+
+  const BATCH_SIZE = 20; // 20 request song song mỗi batch
+  const nationalCache = {};
+  let doneCount = 0;
+  let failCount = 0;
+
+  for (let i = 0; i < productCodes.length; i += BATCH_SIZE) {
+    const batch = productCodes.slice(i, i + BATCH_SIZE);
+
+    await Promise.all(batch.map(async (code) => {
+      try {
+        const res = await requestUpharma("/Report/GetExistProductLst", {
+          Token: loginData.Token,
+          uPharmaID: String(loginData.UserInfo.uPharmaID),
+          ProductID: code,
+        });
+
+        // Extract danh sách stores từ response (nhiều format khác nhau)
+        let rawStores = [];
+        if (Array.isArray(res)) {
+          rawStores = res;
+        } else if (res && typeof res === 'object') {
+          rawStores = res.InventoryLst || res.ExistProductLst || res.StoreLst ||
+                      res.Data || res.data || res.DataLst || [];
+        }
+
+        // Lọc kho tổng và chỉ lấy nhà thuốc có hàng
+        const stores = rawStores
+          .filter(s => {
+            const storeType = String(s.StoreType || "").toLowerCase();
+            const storeCode = String(s.StoreCode || "").toUpperCase();
+            return !storeType.includes("kho") && !storeCode.startsWith("KHO") && !storeCode.startsWith("DN") && storeCode !== "";
+          })
+          .map(s => ({
+            StoreCode: String(s.StoreCode || "").trim(),
+            StoreName: String(s.StoreName || "").trim(),
+            StoreType: String(s.StoreType || ""),
+            Quantity: Number(s.QuantityExist ?? s.Quantity ?? 0),
+            QuantityAVG: Number(s.QuantityAVG ?? s.AVGQuantity ?? s.Quantity ?? 0),
+            UnitOfMeasure: String(s.UnitOfMeasure || s.Unit || "Hộp"),
+          }))
+          .filter(s => s.StoreCode && (s.Quantity > 0 || s.QuantityAVG > 0))
+          .sort((a, b) => b.QuantityAVG - a.QuantityAVG);
+
+        // Sanitize key cho Firebase (không cho phép . $ # [ ] /)
+        const safeCode = code.replace(/[.$#[\]/]/g, "_");
+        nationalCache[safeCode] = {
+          productID: safeCode,
+          shops: stores,
+          updatedAt: Date.now(),
+        };
+        doneCount++;
+      } catch (err) {
+        failCount++;
+        // Không dừng toàn bộ — bỏ qua mã lỗi
+      }
+    }));
+
+    // Log tiến trình mỗi 100 mã
+    if ((i + BATCH_SIZE) % 100 === 0 || i + BATCH_SIZE >= productCodes.length) {
+      console.log(`[national_cache] Tiến trình: ${Math.min(i + BATCH_SIZE, productCodes.length)}/${productCodes.length} mã SP (✓ ${doneCount} thành công, ✗ ${failCount} lỗi)`);
+    }
+  }
+
+  console.log(`[national_cache] Hoàn thành! ${doneCount} mã SP có dữ liệu toàn quốc, ${failCount} mã lỗi.`);
+
+  if (db && Object.keys(nationalCache).length > 0) {
+    try {
+      await db.ref("national_inventory_cache").set(nationalCache);
+      console.log(`[national_cache] ✅ Đã upload national_inventory_cache lên Firebase RTDB (${Object.keys(nationalCache).length} mã SP)`);
+    } catch (err) {
+      console.error("[national_cache] ❌ Lỗi khi upload national_inventory_cache lên Firebase:", err.message);
+    }
+  } else if (!db) {
+    console.log("[national_cache] Không có Firebase → bỏ qua upload.");
   }
 }
 
