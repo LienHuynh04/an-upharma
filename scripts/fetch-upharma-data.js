@@ -688,15 +688,15 @@ async function fetchAndUploadNationalInventoryCache(loginData, allShopsData, db)
     return;
   }
 
-  const BATCH_SIZE = 20; // 20 request song song mỗi batch
   const nationalCache = {};
+  const failedCodes = new Set();
   let doneCount = 0;
-  let failCount = 0;
 
-  for (let i = 0; i < productCodes.length; i += BATCH_SIZE) {
-    const batch = productCodes.slice(i, i + BATCH_SIZE);
-
-    await Promise.all(batch.map(async (code) => {
+  // Helper hàm fetch 1 sản phẩm có auto-retry 3 lần
+  const fetchSingleProduct = async (code, maxRetries = 3) => {
+    let attempts = 0;
+    while (attempts < maxRetries) {
+      attempts++;
       try {
         const res = await requestUpharma("/Report/GetExistProductLst", {
           Token: loginData.Token,
@@ -704,7 +704,6 @@ async function fetchAndUploadNationalInventoryCache(loginData, allShopsData, db)
           ProductID: code,
         });
 
-        // Extract danh sách stores từ response (nhiều format khác nhau)
         let rawStores = [];
         if (Array.isArray(res)) {
           rawStores = res;
@@ -713,7 +712,6 @@ async function fetchAndUploadNationalInventoryCache(loginData, allShopsData, db)
                       res.Data || res.data || res.DataLst || [];
         }
 
-        // Lọc kho tổng và chỉ lấy nhà thuốc có hàng
         const stores = rawStores
           .filter(s => {
             const storeType = String(s.StoreType || "").toLowerCase();
@@ -731,27 +729,72 @@ async function fetchAndUploadNationalInventoryCache(loginData, allShopsData, db)
           .filter(s => s.StoreCode && (s.Quantity > 0 || s.QuantityAVG > 0))
           .sort((a, b) => b.QuantityAVG - a.QuantityAVG);
 
-        // Sanitize key cho Firebase (không cho phép . $ # [ ] /)
         const safeCode = code.replace(/[.$#[\]/]/g, "_");
         nationalCache[safeCode] = {
           productID: safeCode,
           shops: stores,
           updatedAt: Date.now(),
         };
-        doneCount++;
+        return true;
       } catch (err) {
-        failCount++;
-        // Không dừng toàn bộ — bỏ qua mã lỗi
+        if (attempts < maxRetries) {
+          await new Promise((r) => setTimeout(r, 400 * attempts)); // Backoff delay
+        }
+      }
+    }
+    return false;
+  };
+
+  const BATCH_SIZE = 10; // Giảm xuống 10 request song song để ổn định server UPharma
+
+  // VÒNG 1: Duyệt toàn bộ mã sản phẩm
+  for (let i = 0; i < productCodes.length; i += BATCH_SIZE) {
+    const batch = productCodes.slice(i, i + BATCH_SIZE);
+
+    await Promise.all(batch.map(async (code) => {
+      const success = await fetchSingleProduct(code, 3);
+      if (success) {
+        doneCount++;
+      } else {
+        failedCodes.add(code);
       }
     }));
 
-    // Log tiến trình mỗi 100 mã
+    // Nghỉ nhẹ 50ms giữa các batch để tránh bị server UPharma chặn IP/Rate limit
+    await new Promise((r) => setTimeout(r, 50));
+
     if ((i + BATCH_SIZE) % 100 === 0 || i + BATCH_SIZE >= productCodes.length) {
-      console.log(`[national_cache] Tiến trình: ${Math.min(i + BATCH_SIZE, productCodes.length)}/${productCodes.length} mã SP (✓ ${doneCount} thành công, ✗ ${failCount} lỗi)`);
+      console.log(`[national_cache] Lượt 1: ${Math.min(i + BATCH_SIZE, productCodes.length)}/${productCodes.length} mã SP (✓ ${doneCount} thành công, ✗ ${failedCodes.size} tạm lỗi)`);
     }
   }
 
-  console.log(`[national_cache] Hoàn thành! ${doneCount} mã SP có dữ liệu toàn quốc, ${failCount} mã lỗi.`);
+  // VÒNG 2: THỬ LẠI (RETRY PASS) cho tất cả mã sản phẩm bị lỗi ở Lượt 1
+  if (failedCodes.size > 0) {
+    const retryList = Array.from(failedCodes);
+    console.log(`\n[national_cache] 🔄 BẮT ĐẦU VÒNG 2: Tự động chạy lại (Retry Pass) cho ${retryList.length} mã SP bị lỗi...`);
+    failedCodes.clear();
+
+    for (let i = 0; i < retryList.length; i += BATCH_SIZE) {
+      const batch = retryList.slice(i, i + BATCH_SIZE);
+
+      await Promise.all(batch.map(async (code) => {
+        const success = await fetchSingleProduct(code, 4); // Thử lại tối đa 4 lần nữa
+        if (success) {
+          doneCount++;
+        } else {
+          failedCodes.add(code);
+        }
+      }));
+
+      await new Promise((r) => setTimeout(r, 100));
+
+      if ((i + BATCH_SIZE) % 100 === 0 || i + BATCH_SIZE >= retryList.length) {
+        console.log(`[national_cache] Lượt 2 (Retry): ${Math.min(i + BATCH_SIZE, retryList.length)}/${retryList.length} mã (Cập nhật: ✓ ${doneCount} thành công, ✗ ${failedCodes.size} vẫn lỗi)`);
+      }
+    }
+  }
+
+  console.log(`[national_cache] Hoàn thành! ${doneCount} mã SP có dữ liệu toàn quốc, ${failedCodes.size} mã lỗi cuối cùng.`);
 
   if (db && Object.keys(nationalCache).length > 0) {
     try {
