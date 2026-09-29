@@ -12,6 +12,7 @@ import {
   InventoryItem,
 } from "../inventory-utils";
 import { RawRecord, ShopInfo, UpharmaService } from "../upharma.service";
+import { ExcelExportService } from "../shared/services/excel-export.service";
 
 export type FefoStatus = "all" | "violation" | "compliant" | "in_stock" | "out_of_stock";
 
@@ -137,6 +138,7 @@ export class FefoComponent implements OnInit {
 
   constructor(
     private readonly upharmaService: UpharmaService,
+    private readonly excelExportService: ExcelExportService,
     private readonly router: Router,
   ) {}
 
@@ -622,20 +624,12 @@ export class FefoComponent implements OnInit {
         return;
       }
 
-      const worksheet = xlsx.utils.json_to_sheet(sheetRows);
-      xlsx.utils.book_append_sheet(workbook, worksheet, sheetName);
-
-      const buffer = xlsx.write(workbook, {
-        bookType: "xlsx",
-        type: "array",
-      }) as ArrayBuffer;
-
       const dateStr = new Date().toISOString().slice(0, 10);
       const shopTag = this.activeShopCode ? this.activeShopCode : "Tat_ca";
       const tabTag = this.activeTab === "detail" ? "Chi_tiet" : (this.activeTab === "shop_summary" ? "Tong_hop_Nha" : "Tong_hop_NV");
       const filename = `Bao_cao_FEFO_${tabTag}_${shopTag}_${dateStr}.xlsx`;
 
-      this.downloadExcelBuffer(buffer, filename);
+      await this.excelExportService.exportJsonToExcel(sheetRows, filename, sheetName);
     } catch (err) {
       console.error("Lỗi xuất file Excel:", err);
     }

@@ -44,10 +44,12 @@ interface SlowSellingCacheEntry {
 
 type SlowSellingTextFilterKey = "productName" | "productCode";
 
+import { ShopTabsComponent } from "../shared/components/shop-tabs/shop-tabs.component";
+
 @Component({
   selector: "app-slow-selling",
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ShopTabsComponent],
   templateUrl: "./slow-selling.component.html",
 })
 export class SlowSellingComponent implements OnInit {
@@ -104,8 +106,29 @@ export class SlowSellingComponent implements OnInit {
     };
   }
 
+  cachedTabs: SlowSellingShopTab[] = [];
+  cachedFilteredRows: SlowSellingItem[] = [];
+
   get tabs(): SlowSellingShopTab[] {
-    return this.shops.map((shop) => {
+    return this.cachedTabs;
+  }
+
+  get activeShopName(): string {
+    return this.shops.find((shop) => shop.ShopCode === this.activeShopCode)?.ShopName || this.activeShopCode;
+  }
+
+  get filteredRows(): SlowSellingItem[] {
+    return this.cachedFilteredRows;
+  }
+
+  get displayedRows(): SlowSellingItem[] {
+    return this.cachedFilteredRows.slice(0, this.visibleCount);
+  }
+
+  recomputeState(): void {
+    const activeCode = this.activeShopCode;
+
+    this.cachedTabs = this.shops.map((shop) => {
       const isLoaded = this.loadedShopKeys.has(this.getLoadedShopKey(shop.ShopCode));
       let count = 0;
       if (this.shopsSummary && this.shopsSummary[shop.ShopCode] !== undefined) {
@@ -122,24 +145,15 @@ export class SlowSellingComponent implements OnInit {
         loading: this.loadingShopKeys.has(this.getLoadedShopKey(shop.ShopCode)),
       };
     });
-  }
 
-  get activeShopName(): string {
-    return this.shops.find((shop) => shop.ShopCode === this.activeShopCode)?.ShopName || this.activeShopCode;
-  }
-
-  get filteredRows(): SlowSellingItem[] {
-    return this.rows.filter((row) => {
-      if (row.shopCode !== this.activeShopCode) {
-        return false;
+    const filtered: SlowSellingItem[] = [];
+    for (let i = 0; i < this.rows.length; i++) {
+      const row = this.rows[i];
+      if (row.shopCode === activeCode && this.matchesColumnFilters(row)) {
+        filtered.push(row);
       }
-
-      return this.matchesColumnFilters(row);
-    });
-  }
-
-  get displayedRows(): SlowSellingItem[] {
-    return this.filteredRows.slice(0, this.visibleCount);
+    }
+    this.cachedFilteredRows = filtered;
   }
 
   get hasActiveShopLoaded(): boolean {
@@ -176,6 +190,7 @@ export class SlowSellingComponent implements OnInit {
 
       this.loadingProgress = 25;
       shouldLoadActiveShop = Boolean(this.activeShopCode);
+      this.recomputeState();
     } catch (error) {
       this.errorText = error instanceof Error ? error.message : String(error);
     } finally {
@@ -191,6 +206,7 @@ export class SlowSellingComponent implements OnInit {
     this.activeShopCode = shopCode;
     this.visibleCount = 50;
     this.clearTableFilters();
+    this.recomputeState();
 
     if (!this.loadedShopKeys.has(this.getLoadedShopKey(shopCode))) {
       await this.loadActiveShop();
@@ -243,6 +259,7 @@ export class SlowSellingComponent implements OnInit {
 
   onFilterChange(): void {
     this.resetVisibleRows();
+    this.recomputeState();
   }
 
   onTableScroll(event: Event): void {
@@ -448,6 +465,7 @@ export class SlowSellingComponent implements OnInit {
       ...this.rows.filter((row) => row.shopCode !== shopCode),
       ...shopRows,
     ];
+    this.recomputeState();
   }
 
   private buildSlowSellingItems(rows: RawRecord[], shop: ShopInfo): SlowSellingItem[] {

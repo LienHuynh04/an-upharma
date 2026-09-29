@@ -137,6 +137,7 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
       });
 
       this.paymentMethodInfo = statistics.PaymentMethodInfo || { Cash: 0, Card: 0, VNPay: 0, CK: 0 };
+      this.paymentTotal = (Number(this.paymentMethodInfo.Cash) || 0) + (Number(this.paymentMethodInfo.Card) || 0) + (Number(this.paymentMethodInfo.VNPay) || 0) + (Number(this.paymentMethodInfo.CK) || 0);
       this.topProductSales = (statistics.TopProductSalesLst || []).slice(0, 5);
       this.salesDayLst = statistics.SalesDayLst || [];
       this.customerSalesLst = statistics.CustomerSalesLst || [];
@@ -169,13 +170,14 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
     return `${this.formatNumber(value)} VNĐ`;
   }
 
+  paymentTotal = 0;
+
   getPaymentTotal(): number {
-    return Object.values(this.paymentMethodInfo).reduce((sum, value) => sum + Number(value || 0), 0);
+    return this.paymentTotal;
   }
 
   getPaymentPercent(value: number): string {
-    const total = this.getPaymentTotal();
-    return total > 0 ? `${((Number(value || 0) / total) * 100).toFixed(2)}%` : "0%";
+    return this.paymentTotal > 0 ? `${((Number(value || 0) / this.paymentTotal) * 100).toFixed(2)}%` : "0%";
   }
 
   getTopProductRank(index: number): number {

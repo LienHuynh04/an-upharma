@@ -1,8 +1,9 @@
 import { CommonModule } from "@angular/common";
-import { Component, inject } from "@angular/core";
+import { Component, OnInit, inject } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { OperationShopInput, ReportCustomInputs, ReportGeneratorService } from "../report-generator.service";
 import { UpharmaService } from "../upharma.service";
+import { environment } from "../../environments/environment";
 
 @Component({
   selector: "app-report-config",
@@ -11,21 +12,128 @@ import { UpharmaService } from "../upharma.service";
   templateUrl: "./report-config.component.html",
   styleUrls: ["./report-config.component.css"],
 })
-export class ReportConfigComponent {
+export class ReportConfigComponent implements OnInit {
   private upharmaService = inject(UpharmaService);
   private reportGenerator = inject(ReportGeneratorService);
+  private readonly storageKey = "upharma_report_config_inputs";
 
   shops = this.upharmaService.getActiveShops();
   activeShopCode = "SHOP0025";
   exportLoading = false;
   downloadLoading = false;
+  saveLoading = false;
   exportStatusText = "";
   downloadStatusText = "";
+  saveSuccessText = "";
   
   reportHtml: string | null = null;
   blobUrl: string | null = null;
 
   reportInputs: ReportCustomInputs = this.createDefaultReportInputs();
+
+  private get firebaseDbUrl(): string {
+    const url = (environment as any).firebaseDbUrl || "";
+    return url.replace(/\/$/, "");
+  }
+
+  private get userConfigKey(): string {
+    try {
+      const session = this.upharmaService.getSession();
+      return session?.UserInfo?.uPharmaID ? String(session.UserInfo.uPharmaID) : "default_user";
+    } catch {
+      return "default_user";
+    }
+  }
+
+  async ngOnInit(): Promise<void> {
+    if (this.shops.length > 0) {
+      this.activeShopCode = this.shops[0].ShopCode;
+    }
+    await this.loadSavedReportInputs();
+  }
+
+  async loadSavedReportInputs(): Promise<void> {
+    const uPharmaID = this.userConfigKey;
+
+    // Read directly from Firebase RTDB (Syncs across tabs & devices, 0 localStorage)
+    if (this.firebaseDbUrl) {
+      try {
+        const url = `${this.firebaseDbUrl}/hidden_products/report_config_${uPharmaID}.json`;
+        const response = await fetch(url);
+        if (response.ok) {
+          const remoteData = (await response.json()) as ReportCustomInputs;
+          if (remoteData && Array.isArray(remoteData.shops) && remoteData.shops.length > 0) {
+            this.reportInputs = remoteData;
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn("Lỗi đọc cấu hình báo cáo từ Firebase:", e);
+      }
+    }
+
+    this.reportInputs = this.createDefaultReportInputs();
+  }
+
+  async saveReportInputs(): Promise<void> {
+    const uPharmaID = this.userConfigKey;
+    this.saveLoading = true;
+
+    try {
+      // Save directly to Firebase RTDB only (no localStorage)
+      if (this.firebaseDbUrl) {
+        const url = `${this.firebaseDbUrl}/hidden_products/report_config_${uPharmaID}.json`;
+        const response = await fetch(url, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...this.reportInputs,
+            updatedAt: new Date().toISOString(),
+          }),
+        });
+        if (!response.ok) {
+          throw new Error(`Firebase RTDB returned status ${response.status}`);
+        }
+      }
+
+      // Cleanup legacy localStorage key if present
+      localStorage.removeItem(this.storageKey);
+
+      this.saveSuccessText = "Đã lưu cấu hình lên Firebase RTDB thành công (tự động đồng bộ các tab)!";
+      setTimeout(() => {
+        this.saveSuccessText = "";
+      }, 4000);
+    } catch (e) {
+      alert("Lỗi khi lưu cấu hình lên Firebase: " + (e instanceof Error ? e.message : String(e)));
+    } finally {
+      this.saveLoading = false;
+    }
+  }
+
+  async resetReportInputs(): Promise<void> {
+    const uPharmaID = this.userConfigKey;
+    localStorage.removeItem(this.storageKey);
+    this.reportInputs = this.createDefaultReportInputs();
+    this.reportHtml = null;
+    if (this.blobUrl) {
+      URL.revokeObjectURL(this.blobUrl);
+      this.blobUrl = null;
+    }
+
+    if (this.firebaseDbUrl) {
+      try {
+        const url = `${this.firebaseDbUrl}/hidden_products/report_config_${uPharmaID}.json`;
+        await fetch(url, { method: "DELETE" });
+      } catch (e) {
+        console.warn("Lỗi xóa cấu hình Firebase:", e);
+      }
+    }
+
+    this.saveSuccessText = "Đã khôi phục cấu hình mặc định trên Firebase!";
+    setTimeout(() => {
+      this.saveSuccessText = "";
+    }, 3500);
+  }
 
   createDefaultReportInputs(): ReportCustomInputs {
     return {
@@ -59,15 +167,6 @@ export class ReportConfigComponent {
         },
       ],
     };
-  }
-
-  resetReportInputs(): void {
-    this.reportInputs = this.createDefaultReportInputs();
-    this.reportHtml = null;
-    if (this.blobUrl) {
-      URL.revokeObjectURL(this.blobUrl);
-      this.blobUrl = null;
-    }
   }
 
   getShopInput(shopCode: string): OperationShopInput {

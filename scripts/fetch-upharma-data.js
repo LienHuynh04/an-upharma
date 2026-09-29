@@ -665,147 +665,119 @@ async function run() {
 async function fetchAndUploadNationalInventoryCache(loginData, allShopsData, db) {
   console.log("\n[national_cache] Bắt đầu xây dựng national_inventory_cache từ GetExistProductLst...");
 
-  // Thu thập tất cả mã SP unique từ sales_speed và inventory của các shop
   const productSet = new Set();
+
+  // 1. Thu thập từ key_products, slow_selling, out_of_stock, stable_consumption
+  const priorityResources = ['key_products', 'slow_selling', 'out_of_stock', 'stable_consumption'];
+  for (const resName of priorityResources) {
+    for (const [, rows] of Object.entries(allShopsData[resName] || {})) {
+      if (Array.isArray(rows)) {
+        for (const row of rows) {
+          const code = String(row.ProductID || row.ProductCode || row.productCode || "").trim();
+          if (code) productSet.add(code);
+        }
+      }
+    }
+  }
+
+  // 2. Thu thập từ inventory và sales_speed (chỉ lấy SP có số lượng hoặc doanh số > 0)
   for (const [, rows] of Object.entries(allShopsData.sales_speed || {})) {
-    for (const row of rows) {
-      const code = String(row.ProductID || row.ProductCode || "").trim();
-      if (code) productSet.add(code);
+    if (Array.isArray(rows)) {
+      for (const row of rows) {
+        const code = String(row.ProductID || row.ProductCode || "").trim();
+        const qty = Number(row.Quantity || row.Amount || row.TotalAmount || 0);
+        if (code && qty > 0) productSet.add(code);
+      }
     }
   }
   for (const [, rows] of Object.entries(allShopsData.inventory || {})) {
-    for (const row of rows) {
-      const code = String(row.ProductID || row.ProductCode || row.ItemCode || row.MaSP || "").trim();
-      if (code) productSet.add(code);
+    if (Array.isArray(rows)) {
+      for (const row of rows) {
+        const code = String(row.ProductID || row.ProductCode || row.ItemCode || row.MaSP || "").trim();
+        const qty = Number(row.QuantityExist || row.Quantity || 0);
+        if (code && qty > 0) productSet.add(code);
+      }
     }
   }
 
   const productCodes = Array.from(productSet);
-  console.log(`[national_cache] Tìm thấy ${productCodes.length} mã SP unique → sẽ gọi GetExistProductLst cho từng mã...`);
+  console.log(`[national_cache] Tìm thấy ${productCodes.length} mã SP hoạt động unique → sẽ gọi GetExistProductLst cho từng mã...`);
 
   if (productCodes.length === 0) {
     console.warn("[national_cache] Không có mã SP nào để xử lý, bỏ qua.");
     return;
   }
 
-  const nationalCache = {};
-  const failedCodes = new Set();
+  const BATCH_SIZE = 20;
   let doneCount = 0;
+  let failCount = 0;
 
-  // Helper hàm fetch 1 sản phẩm có auto-retry 3 lần
-  const fetchSingleProduct = async (code, maxRetries = 3) => {
-    let attempts = 0;
-    while (attempts < maxRetries) {
-      attempts++;
-      try {
-        const res = await requestUpharma("/Report/GetExistProductLst", {
-          Token: loginData.Token,
-          uPharmaID: String(loginData.UserInfo.uPharmaID),
-          ProductID: code,
-        });
-
-        let rawStores = [];
-        if (Array.isArray(res)) {
-          rawStores = res;
-        } else if (res && typeof res === 'object') {
-          rawStores = res.InventoryLst || res.ExistProductLst || res.StoreLst ||
-                      res.Data || res.data || res.DataLst || [];
-        }
-
-        const stores = rawStores
-          .filter(s => {
-            const storeType = String(s.StoreType || "").toLowerCase();
-            const storeCode = String(s.StoreCode || "").toUpperCase();
-            return !storeType.includes("kho") && !storeCode.startsWith("KHO") && !storeCode.startsWith("DN") && storeCode !== "";
-          })
-          .map(s => ({
-            StoreCode: String(s.StoreCode || "").trim(),
-            StoreName: String(s.StoreName || "").trim(),
-            StoreType: String(s.StoreType || ""),
-            Quantity: Number(s.QuantityExist ?? s.Quantity ?? 0),
-            QuantityAVG: Number(s.QuantityAVG ?? s.AVGQuantity ?? s.Quantity ?? 0),
-            UnitOfMeasure: String(s.UnitOfMeasure || s.Unit || "Hộp"),
-          }))
-          .filter(s => s.StoreCode && (s.Quantity > 0 || s.QuantityAVG > 0))
-          .sort((a, b) => b.QuantityAVG - a.QuantityAVG);
-
-        const safeCode = code.replace(/[.$#[\]/]/g, "_");
-        nationalCache[safeCode] = {
-          productID: safeCode,
-          shops: stores,
-          updatedAt: Date.now(),
-        };
-        return true;
-      } catch (err) {
-        if (attempts < maxRetries) {
-          await new Promise((r) => setTimeout(r, 400 * attempts)); // Backoff delay
-        }
-      }
-    }
-    return false;
-  };
-
-  const BATCH_SIZE = 10; // Giảm xuống 10 request song song để ổn định server UPharma
-
-  // VÒNG 1: Duyệt toàn bộ mã sản phẩm
   for (let i = 0; i < productCodes.length; i += BATCH_SIZE) {
     const batch = productCodes.slice(i, i + BATCH_SIZE);
+    const batchUpdates = {};
 
-    await Promise.all(batch.map(async (code) => {
-      const success = await fetchSingleProduct(code, 3);
-      if (success) {
-        doneCount++;
-      } else {
-        failedCodes.add(code);
+    await Promise.all(
+      batch.map(async (code) => {
+        try {
+          const res = await requestUpharma("/Report/GetExistProductLst", {
+            Token: loginData.Token,
+            uPharmaID: String(loginData.UserInfo.uPharmaID),
+            ProductID: code,
+          });
+
+          let rawStores = [];
+          if (Array.isArray(res)) {
+            rawStores = res;
+          } else if (res && typeof res === "object") {
+            rawStores = res.InventoryLst || res.ExistProductLst || res.StoreLst || res.Data || res.data || res.DataLst || [];
+          }
+
+          const stores = rawStores
+            .filter((s) => {
+              const storeType = String(s.StoreType || "").toLowerCase();
+              const storeCode = String(s.StoreCode || "").toUpperCase();
+              return !storeType.includes("kho") && !storeCode.startsWith("KHO") && !storeCode.startsWith("DN") && storeCode !== "";
+            })
+            .map((s) => ({
+              StoreCode: String(s.StoreCode || "").trim(),
+              StoreName: String(s.StoreName || "").trim(),
+              StoreType: String(s.StoreType || ""),
+              Quantity: Number(s.QuantityExist ?? s.Quantity ?? 0),
+              QuantityAVG: Number(s.QuantityAVG ?? s.AVGQuantity ?? s.Quantity ?? 0),
+              UnitOfMeasure: String(s.UnitOfMeasure || s.Unit || "Hộp"),
+            }))
+            .filter((s) => s.StoreCode && (s.Quantity > 0 || s.QuantityAVG > 0))
+            .sort((a, b) => b.QuantityAVG - a.QuantityAVG);
+
+          const safeCode = code.replace(/[.$#[\]/]/g, "_");
+          batchUpdates[`national_inventory_cache/${safeCode}`] = {
+            productID: safeCode,
+            shops: stores,
+            updatedAt: Date.now(),
+          };
+          doneCount++;
+        } catch (err) {
+          failCount++;
+        }
+      })
+    );
+
+    if (db && Object.keys(batchUpdates).length > 0) {
+      try {
+        await db.ref().update(batchUpdates);
+      } catch (err) {
+        console.warn(`[national_cache] Lỗi update batch Firebase:`, err.message);
       }
-    }));
-
-    // Nghỉ nhẹ 50ms giữa các batch để tránh bị server UPharma chặn IP/Rate limit
-    await new Promise((r) => setTimeout(r, 50));
+    }
 
     if ((i + BATCH_SIZE) % 100 === 0 || i + BATCH_SIZE >= productCodes.length) {
-      console.log(`[national_cache] Lượt 1: ${Math.min(i + BATCH_SIZE, productCodes.length)}/${productCodes.length} mã SP (✓ ${doneCount} thành công, ✗ ${failedCodes.size} tạm lỗi)`);
+      console.log(`[national_cache] Tiến độ: ${Math.min(i + BATCH_SIZE, productCodes.length)}/${productCodes.length} mã SP (✓ ${doneCount} thành công, ✗ ${failCount} bỏ qua)`);
     }
+
+    await new Promise((r) => setTimeout(r, 30));
   }
 
-  // VÒNG 2: THỬ LẠI (RETRY PASS) cho tất cả mã sản phẩm bị lỗi ở Lượt 1
-  if (failedCodes.size > 0) {
-    const retryList = Array.from(failedCodes);
-    console.log(`\n[national_cache] 🔄 BẮT ĐẦU VÒNG 2: Tự động chạy lại (Retry Pass) cho ${retryList.length} mã SP bị lỗi...`);
-    failedCodes.clear();
-
-    for (let i = 0; i < retryList.length; i += BATCH_SIZE) {
-      const batch = retryList.slice(i, i + BATCH_SIZE);
-
-      await Promise.all(batch.map(async (code) => {
-        const success = await fetchSingleProduct(code, 4); // Thử lại tối đa 4 lần nữa
-        if (success) {
-          doneCount++;
-        } else {
-          failedCodes.add(code);
-        }
-      }));
-
-      await new Promise((r) => setTimeout(r, 100));
-
-      if ((i + BATCH_SIZE) % 100 === 0 || i + BATCH_SIZE >= retryList.length) {
-        console.log(`[national_cache] Lượt 2 (Retry): ${Math.min(i + BATCH_SIZE, retryList.length)}/${retryList.length} mã (Cập nhật: ✓ ${doneCount} thành công, ✗ ${failedCodes.size} vẫn lỗi)`);
-      }
-    }
-  }
-
-  console.log(`[national_cache] Hoàn thành! ${doneCount} mã SP có dữ liệu toàn quốc, ${failedCodes.size} mã lỗi cuối cùng.`);
-
-  if (db && Object.keys(nationalCache).length > 0) {
-    try {
-      await db.ref("national_inventory_cache").set(nationalCache);
-      console.log(`[national_cache] ✅ Đã upload national_inventory_cache lên Firebase RTDB (${Object.keys(nationalCache).length} mã SP)`);
-    } catch (err) {
-      console.error("[national_cache] ❌ Lỗi khi upload national_inventory_cache lên Firebase:", err.message);
-    }
-  } else if (!db) {
-    console.log("[national_cache] Không có Firebase → bỏ qua upload.");
-  }
+  console.log(`[national_cache] ✅ Hoàn thành! ${doneCount} mã SP đã được cập nhật thành công lên Firebase RTDB.`);
 }
 
 run().catch((error) => {

@@ -20,7 +20,6 @@ export class FirebaseInventoryService {
 
   /**
    * Tải toàn bộ bộ nhớ đệm tồn kho từ Firebase Realtime Database.
-   * Cách này nhanh hơn rất nhiều so với kiểm tra từng sản phẩm một.
    */
   async getAllCache(): Promise<Record<string, CacheEntry>> {
     if (!this.dbUrl) {
@@ -41,6 +40,46 @@ export class FirebaseInventoryService {
       console.error("[Firebase Cache] Lỗi khi tải toàn bộ cache:", error);
       return {};
     }
+  }
+
+  /**
+   * Tải bộ nhớ đệm tồn kho của MỘT sản phẩm cụ thể (On-Demand Fetch - Siêu nhẹ ~2KB).
+   */
+  async getProductCache(productID: string): Promise<CacheEntry | null> {
+    if (!this.dbUrl || !productID) return null;
+
+    try {
+      const sanitized = productID.trim().replace(/[.$#\[\]\/]/g, "_");
+      const url = `${this.dbUrl}/national_inventory_cache/${sanitized}.json`;
+      const response = await fetch(url);
+      if (!response.ok) return null;
+
+      const data = await response.json();
+      return data as CacheEntry;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  /**
+   * Tải bộ nhớ đệm tồn kho của DANH SÁCH sản phẩm cụ thể song song (Batch On-Demand Fetch).
+   */
+  async getBatchCache(productIDs: string[]): Promise<Record<string, CacheEntry>> {
+    if (!this.dbUrl || !productIDs || productIDs.length === 0) return {};
+
+    const results: Record<string, CacheEntry> = {};
+    const uniqueCodes = Array.from(new Set(productIDs.map((id) => id.trim())));
+
+    await Promise.all(
+      uniqueCodes.map(async (code) => {
+        const entry = await this.getProductCache(code);
+        if (entry) {
+          results[code] = entry;
+        }
+      })
+    );
+
+    return results;
   }
 
   /**

@@ -5,6 +5,7 @@ import { Router } from "@angular/router";
 import { normalizeFilterText, PRODUCT_NAME_COLLATOR } from "../inventory-utils";
 import { getCompletedMonthRange, selectCompletedMonths } from "../sales-period-utils";
 import { RawRecord, ShopInfo, UpharmaService } from "../upharma.service";
+import { ExcelExportService } from "../shared/services/excel-export.service";
 
 interface StableShopTab {
   shopCode: string;
@@ -90,6 +91,7 @@ export class StableConsumptionComponent implements OnInit {
 
   constructor(
     private readonly upharmaService: UpharmaService,
+    private readonly excelExportService: ExcelExportService,
     private readonly router: Router,
   ) {}
 
@@ -229,21 +231,13 @@ export class StableConsumptionComponent implements OnInit {
       return;
     }
 
-    const xlsx = await import("xlsx");
-    const workbook = xlsx.utils.book_new();
     const sheetRows = rows.map((row) => ({
       "Tên SP": row.productName,
       "Mã SP": row.productCode,
       "Tổng bán": row.totalQuantity,
     }));
-    const worksheet = xlsx.utils.json_to_sheet(sheetRows);
-    xlsx.utils.book_append_sheet(workbook, worksheet, "Hang lap tot");
 
-    const buffer = xlsx.write(workbook, {
-      bookType: "xlsx",
-      type: "array",
-    }) as ArrayBuffer;
-    this.downloadExcelBuffer(buffer, `hang-lap-tot-${this.activeShopCode || "shop"}.xlsx`);
+    await this.excelExportService.exportJsonToExcel(sheetRows, `hang-lap-tot-${this.activeShopCode || "shop"}.xlsx`, "Hang lap tot");
   }
 
   async applyDateFilter(): Promise<void> {

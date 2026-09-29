@@ -274,7 +274,7 @@ export class UpharmaService {
       const shopsToFetch =
         payloadShopCodes.length > 0
           ? this.shopList.filter((shop) => payloadShopCodes.includes(shop.ShopCode))
-          : this.shopList;
+          : (this.shopList.length > 0 ? [this.shopList[0]] : []);
 
       if (firebaseDbUrl && shopsToFetch.length > 0) {
         const normalizedFirebase = firebaseDbUrl.replace(/\/$/, "");
@@ -562,7 +562,7 @@ export class UpharmaService {
     const requestedShopCodes = new Set(options.shopCodes || []);
     const selectedShops = requestedShopCodes.size > 0
       ? this.shopList.filter((shop) => requestedShopCodes.has(shop.ShopCode))
-      : [...this.shopList];
+      : (this.shopList.length > 0 ? [this.shopList[0]] : []);
     const shops = [...selectedShops];
 
     const worker = async (): Promise<void> => {
@@ -690,7 +690,7 @@ export class UpharmaService {
         const requestedShopCodes = new Set(options.shopCodes || []);
         const shopsToFetch = requestedShopCodes.size > 0
           ? this.shopList.filter((shop) => requestedShopCodes.has(shop.ShopCode))
-          : this.shopList;
+          : (this.shopList.length > 0 ? [this.shopList[0]] : []);
         const shopsData: any[] = [];
         const failedShops: string[] = [];
         
@@ -1144,17 +1144,25 @@ export class UpharmaService {
       }
     }
 
-    const queue = Object.values(record).filter((value) => value && typeof value === "object");
+    const queue: { val: unknown; depth: number }[] = Object.values(record)
+      .filter((v) => v && typeof v === "object")
+      .map((val) => ({ val, depth: 1 }));
 
     while (queue.length > 0) {
-      const value = queue.shift();
+      const item = queue.shift();
+      if (!item) continue;
+      const { val, depth } = item;
 
-      if (Array.isArray(value)) {
-        return value.filter((item): item is RawRecord => Boolean(item) && typeof item === "object");
+      if (Array.isArray(val)) {
+        return val.filter((element): element is RawRecord => Boolean(element) && typeof element === "object");
       }
 
-      if (value && typeof value === "object") {
-        queue.push(...Object.values(value as RawRecord).filter((item) => item && typeof item === "object"));
+      if (depth < 2 && val && typeof val === "object") {
+        for (const child of Object.values(val as RawRecord)) {
+          if (child && typeof child === "object") {
+            queue.push({ val: child, depth: depth + 1 });
+          }
+        }
       }
     }
 

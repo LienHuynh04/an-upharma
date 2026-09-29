@@ -5,6 +5,7 @@ import { FormsModule } from "@angular/forms";
 import { isWarehouseStore, normalizeInventoryRow, parseNumericValue } from "../inventory-utils";
 import { RawRecord, ResourceResponse, ShopInfo, UpharmaService } from "../upharma.service";
 import { InventoryApiMode, NationalInventoryService, NationalStoreStock } from "../national-inventory.service";
+import { ExcelExportService } from "../shared/services/excel-export.service";
 
 export interface ExpiringStockItem {
   key: string;
@@ -18,6 +19,13 @@ export interface ExpiringStockItem {
   quantity: number;
   unit: string;
   priceText?: string;
+}
+
+interface TransferCacheEntry {
+  cacheKey: string;
+  expiringStockList: ExpiringStockItem[];
+  nationalStoreStockMap: Record<string, NationalStoreStock[]>;
+  savedAt: number;
 }
 
 export interface ExpiringTransferSuggestion {
@@ -596,6 +604,7 @@ export class TransferSuggestionsComponent implements OnInit {
   constructor(
     private readonly upharma: UpharmaService,
     private readonly nationalInventoryService: NationalInventoryService,
+    private readonly excelExportService: ExcelExportService,
   ) {}
 
   async ngOnInit(): Promise<void> {
@@ -625,10 +634,34 @@ export class TransferSuggestionsComponent implements OnInit {
     this.runFullProcess();
   }
 
-  async runFullProcess(): Promise<void> {
-    await this.runStep1(false);
+  async runFullProcess(forceRefresh = false): Promise<void> {
+    const session = this.upharma.getSession();
+    const uPharmaID = session?.UserInfo?.uPharmaID || 0;
+    const cacheKey = `transfer|${uPharmaID}|${this.selectedShopCode}|${this.expiryDaysThreshold}`;
+
+    if (!forceRefresh) {
+      const cached = await this.readCache(cacheKey);
+      if (cached && Date.now() - cached.savedAt < 15 * 60 * 1000) {
+        this.expiringStockList = cached.expiringStockList || [];
+        this.nationalStoreStockMap = cached.nationalStoreStockMap || {};
+        this.step1Done = true;
+        this.step2Done = true;
+        this.activeTab = "suggestions";
+        this.updateDisplayGroups();
+        this.statusText = `Đang hiển thị dữ liệu đã lưu lúc ${this.formatCacheTime(cached.savedAt)}. Bấm nút '1. Tải mới Tồn kho' để làm mới.`;
+        return;
+      }
+    }
+
+    await this.runStep1(forceRefresh);
     if (this.step1Done && this.expiringStockList.length > 0) {
-      await this.runStep2();
+      await this.runStep2(forceRefresh);
+      await this.writeCache({
+        cacheKey,
+        expiringStockList: this.expiringStockList,
+        nationalStoreStockMap: this.nationalStoreStockMap,
+        savedAt: Date.now(),
+      });
     }
   }
 
@@ -828,8 +861,21 @@ export class TransferSuggestionsComponent implements OnInit {
   // ==========================================
   // BƯỚC 3: THUẬT TOÁN GỢI Ý ĐIỀU CHUYỂN (HỖ TRỢ TOP N NHÀ THUỐC ĐÍCH)
   // ==========================================
-  get suggestionRows(): ExpiringTransferSuggestion[] {
-    if (!this.step2Done) return [];
+  cachedSuggestionRows: ExpiringTransferSuggestion[] = [];
+  cachedTotalSuggestedCount = 0;
+  cachedSameProvinceCount = 0;
+  cachedUniqueFromShops: string[] = [];
+  cachedUniqueToShops: string[] = [];
+
+  recomputeSuggestionRows(): void {
+    if (!this.step2Done) {
+      this.cachedSuggestionRows = [];
+      this.cachedTotalSuggestedCount = 0;
+      this.cachedSameProvinceCount = 0;
+      this.cachedUniqueFromShops = [];
+      this.cachedUniqueToShops = [];
+      return;
+    }
 
     const suggestions: ExpiringTransferSuggestion[] = [];
 
@@ -839,7 +885,6 @@ export class TransferSuggestionsComponent implements OnInit {
       const destList = this.nationalStoreStockMap[item.productCode];
       if (!destList || !Array.isArray(destList) || destList.length === 0) continue;
 
-      // Loại bỏ chính shop nguồn (shop cận date) và các Kho (Warehouse)
       const validDests = destList
         .filter((d: any) => d.StoreCode !== item.shopCode && !isWarehouseStore(d) && parseNumericValue(d.QuantityAVG) > 0)
         .sort((a, b) => parseNumericValue(b.QuantityAVG) - parseNumericValue(a.QuantityAVG));
@@ -848,11 +893,9 @@ export class TransferSuggestionsComponent implements OnInit {
 
       const sourceProvince = this.getProvince(item.shopName);
 
-      // Phân loại shop nội tỉnh và ngoại tỉnh
       const sameProvinceDests = validDests.filter((d) => this.getProvince(d.StoreName) === sourceProvince);
       const otherProvinceDests = validDests.filter((d) => this.getProvince(d.StoreName) !== sourceProvince);
 
-      // Lấy tối đa 5 nhà thuốc (Top N)
       const orderedDests = [...sameProvinceDests, ...otherProvinceDests].slice(0, this.topNDestinations);
 
       orderedDests.forEach((bestDest, index) => {
@@ -885,7 +928,22 @@ export class TransferSuggestionsComponent implements OnInit {
       });
     }
 
-    return suggestions;
+    this.cachedSuggestionRows = suggestions;
+    this.cachedTotalSuggestedCount = suggestions.length;
+    this.cachedSameProvinceCount = suggestions.filter((r) => r.isSameProvince).length;
+
+    const fromSet = new Set(suggestions.map((r) => r.fromShopCode));
+    this.cachedUniqueFromShops = Array.from(fromSet).sort();
+
+    const toSet = new Set(suggestions.map((r) => r.toShopCode));
+    this.cachedUniqueToShops = Array.from(toSet).sort();
+  }
+
+  get suggestionRows(): ExpiringTransferSuggestion[] {
+    if (this.cachedSuggestionRows.length === 0 && this.step2Done) {
+      this.recomputeSuggestionRows();
+    }
+    return this.cachedSuggestionRows;
   }
 
   // ==========================================
@@ -914,21 +972,19 @@ export class TransferSuggestionsComponent implements OnInit {
   }
 
   get totalSuggestedCount(): number {
-    return this.suggestionRows.length;
+    return this.cachedTotalSuggestedCount;
   }
 
   get sameProvinceCount(): number {
-    return this.suggestionRows.filter((r) => r.isSameProvince).length;
+    return this.cachedSameProvinceCount;
   }
 
   get uniqueFromShops(): string[] {
-    const set = new Set(this.suggestionRows.map((r) => r.fromShopCode));
-    return Array.from(set).sort();
+    return this.cachedUniqueFromShops;
   }
 
   get uniqueToShops(): string[] {
-    const set = new Set(this.suggestionRows.map((r) => r.toShopCode));
-    return Array.from(set).sort();
+    return this.cachedUniqueToShops;
   }
 
   selectedGroupForModal: GroupedSuggestion | null = null;
@@ -1060,8 +1116,6 @@ export class TransferSuggestionsComponent implements OnInit {
     const rows = this.filteredSuggestions;
     if (rows.length === 0) return;
 
-    const xlsx = await import("xlsx");
-    const workbook = xlsx.utils.book_new();
     const sheetRows = rows.map((row, idx) => ({
       "STT": idx + 1,
       "Xếp Hạng Gợi Ý": `Top ${row.rank}`,
@@ -1079,18 +1133,13 @@ export class TransferSuggestionsComponent implements OnInit {
       "Khu Vực": row.isSameProvince ? "Nội tỉnh" : "Ngoại tỉnh",
     }));
 
-    const worksheet = xlsx.utils.json_to_sheet(sheetRows);
-    xlsx.utils.book_append_sheet(workbook, worksheet, "Goi y chuyen hang can date");
-    const buffer = xlsx.write(workbook, { bookType: "xlsx", type: "array" }) as ArrayBuffer;
-    this.downloadExcelBuffer(buffer, `goi-y-dieu-chuyen-ton-kho-can-date.xlsx`);
+    await this.excelExportService.exportJsonToExcel(sheetRows, "goi-y-dieu-chuyen-ton-kho-can-date.xlsx", "Goi y chuyen hang can date");
   }
 
   async exportAuditExcel(): Promise<void> {
     const rows = this.filteredExpiringStock;
     if (rows.length === 0) return;
 
-    const xlsx = await import("xlsx");
-    const workbook = xlsx.utils.book_new();
     const sheetRows = rows.map((row, idx) => ({
       "STT": idx + 1,
       "Nhà Thuốc": `${row.shopCode} - ${row.shopName}`,
@@ -1103,10 +1152,7 @@ export class TransferSuggestionsComponent implements OnInit {
       "Đơn Vị": row.unit,
     }));
 
-    const worksheet = xlsx.utils.json_to_sheet(sheetRows);
-    xlsx.utils.book_append_sheet(workbook, worksheet, "Audit ton kho can date");
-    const buffer = xlsx.write(workbook, { bookType: "xlsx", type: "array" }) as ArrayBuffer;
-    this.downloadExcelBuffer(buffer, `audit-ton-kho-can-date.xlsx`);
+    await this.excelExportService.exportJsonToExcel(sheetRows, "audit-ton-kho-can-date.xlsx", "Audit ton kho can date");
   }
 
   private downloadExcelBuffer(buffer: ArrayBuffer, fileName: string): void {
@@ -1145,5 +1191,56 @@ export class TransferSuggestionsComponent implements OnInit {
     const parts = name.trim().split(/[-,-]/);
     const lastPart = parts[parts.length - 1]?.trim() || name;
     return lastPart;
+  }
+
+  private async readCache(cacheKey: string): Promise<TransferCacheEntry | null> {
+    try {
+      const db = await this.openCacheDb();
+      const entry = await new Promise<TransferCacheEntry | undefined>((resolve, reject) => {
+        const transaction = db.transaction("transferCache", "readonly");
+        const request = transaction.objectStore("transferCache").get(cacheKey);
+        request.onsuccess = () => resolve(request.result as TransferCacheEntry | undefined);
+        request.onerror = () => reject(request.error);
+      });
+      db.close();
+      return entry || null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async writeCache(entry: TransferCacheEntry): Promise<void> {
+    try {
+      const db = await this.openCacheDb();
+      await new Promise<void>((resolve, reject) => {
+        const transaction = db.transaction("transferCache", "readwrite");
+        const request = transaction.objectStore("transferCache").put(entry);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+      });
+      db.close();
+    } catch (err) {
+      console.warn("Không lưu được cache luân chuyển:", err);
+    }
+  }
+
+  private openCacheDb(): Promise<IDBDatabase> {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open("upharma-transfer-cache", 1);
+      request.onupgradeneeded = () => {
+        const db = request.result;
+        if (!db.objectStoreNames.contains("transferCache")) {
+          db.createObjectStore("transferCache", { keyPath: "cacheKey" });
+        }
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  private formatCacheTime(value: number): string {
+    const date = new Date(value);
+    const pad = (part: number) => String(part).padStart(2, "0");
+    return `${pad(date.getHours())}:${pad(date.getMinutes())} ${pad(date.getDate())}-${pad(date.getMonth() + 1)}`;
   }
 }

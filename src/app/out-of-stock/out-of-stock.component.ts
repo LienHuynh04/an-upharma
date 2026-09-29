@@ -5,6 +5,7 @@ import { Router } from "@angular/router";
 import { formatMoney, normalizeFilterText, PRODUCT_NAME_COLLATOR } from "../inventory-utils";
 import { RawRecord, ShopInfo, UpharmaService } from "../upharma.service";
 import { environment } from "../../environments/environment";
+import { ExcelExportService } from "../shared/services/excel-export.service";
 
 interface OutOfStockShopTab {
   shopCode: string;
@@ -95,6 +96,7 @@ export class OutOfStockComponent implements OnInit {
 
   constructor(
     private readonly upharmaService: UpharmaService,
+    private readonly excelExportService: ExcelExportService,
     private readonly router: Router,
   ) {}
 
@@ -296,7 +298,6 @@ export class OutOfStockComponent implements OnInit {
   }
 
   async exportExcel(): Promise<void> {
-    const xlsx = await import("xlsx");
     const activeShop = this.shops.find((shop) => shop.ShopCode === this.activeShopCode) || {
       ShopCode: this.activeShopCode,
       ShopName: this.activeShopName,
@@ -308,7 +309,6 @@ export class OutOfStockComponent implements OnInit {
       return;
     }
 
-    const workbook = xlsx.utils.book_new();
     const sheetRows = shopRows
       .sort((first, second) => PRODUCT_NAME_COLLATOR.compare(first.productName, second.productName))
       .map((row) => ({
@@ -318,14 +318,8 @@ export class OutOfStockComponent implements OnInit {
         "Tháng hết": this.getMonthDisplayLabel(row.shortageMonth),
         "Đơn vị": row.unit || "--",
       }));
-    const worksheet = xlsx.utils.json_to_sheet(sheetRows);
-    xlsx.utils.book_append_sheet(workbook, worksheet, this.makeSheetName(exportMonthKey));
 
-    const buffer = xlsx.write(workbook, {
-      bookType: "xlsx",
-      type: "array",
-    }) as ArrayBuffer;
-    this.downloadExcelBuffer(buffer, `hang-het-nha-${activeShop.ShopCode}.xlsx`);
+    await this.excelExportService.exportJsonToExcel(sheetRows, `hang-het-nha-${activeShop.ShopCode}.xlsx`, this.makeSheetName(exportMonthKey));
   }
 
   trackByShop(_: number, shop: OutOfStockShopTab): string {

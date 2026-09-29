@@ -97,7 +97,6 @@ export class LoginComponent implements OnInit {
         Password: this.password,
       });
       this.loadingProgress = 85;
-      this.upharmaService.prefetchSalesSpeed();
 
       const returnUrl = this.route.snapshot.queryParamMap.get("returnUrl") || "/dashboard";
       this.loadingProgress = 100;

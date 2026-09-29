@@ -275,7 +275,9 @@ export class InventoryNewComponent implements OnInit {
     }).format(rate);
   }
 
-  get shopCards(): ShopCard[] {
+  cachedShopCardsList: ShopCard[] = [];
+
+  recomputeShopCards(): void {
     const shopProducts = this.normalizedRows.reduce((productsByShop, row) => {
       const productCodes = productsByShop.get(row.shopCode) || new Set<string>();
       productCodes.add(this.getProductKey(row));
@@ -283,12 +285,19 @@ export class InventoryNewComponent implements OnInit {
       return productsByShop;
     }, new Map<string, Set<string>>());
 
-    return this.shopList.map((shop) => ({
+    this.cachedShopCardsList = this.shopList.map((shop) => ({
       shopCode: shop.ShopCode,
       shopName: shop.ShopName,
       label: shop.ShopCode,
       count: shopProducts.get(shop.ShopCode)?.size || 0,
     }));
+  }
+
+  get shopCards(): ShopCard[] {
+    if (this.cachedShopCardsList.length === 0 && this.normalizedRows.length > 0) {
+      this.recomputeShopCards();
+    }
+    return this.cachedShopCardsList;
   }
 
   get isLoading(): boolean {

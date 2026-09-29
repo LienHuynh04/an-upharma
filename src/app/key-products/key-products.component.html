@@ -23,23 +23,7 @@
   <div class="container-xl">
 
     <!-- Shop Tabs Selection -->
-    <div class="card mb-3" *ngIf="tabs.length > 0">
-      <div class="card-header p-0">
-        <ul class="nav nav-tabs card-header-tabs nav-fill w-100 m-0">
-          <li class="nav-item" *ngFor="let tab of tabs; trackBy: trackByShop">
-            <a
-              href="javascript:void(0)"
-              class="nav-link py-3"
-              [class.active]="tab.shopCode === activeShopCode"
-              (click)="setActiveShop(tab.shopCode)"
-            >
-              <i class="ti ti-building-store me-2" style="font-size: 1.15rem;"></i>
-              <strong [attr.title]="tab.shopName">{{ tab.shopCode }}</strong>
-            </a>
-          </li>
-        </ul>
-      </div>
-    </div>
+    <app-shop-tabs [tabs]="tabs" [activeShopCode]="activeShopCode" (shopSelected)="setActiveShop($event)"></app-shop-tabs>
 
     <!-- Stats Summary Section -->
     <div class="row g-3 mb-3" *ngIf="hasActiveShopLoaded && !loading">

@@ -1,5 +1,6 @@
 import { CommonModule } from "@angular/common";
-import { Component, OnInit, HostListener } from "@angular/core";
+import { Component, OnInit, OnDestroy, HostListener } from "@angular/core";
+import { Subscription } from "rxjs";
 import {
   NavigationEnd,
   Router,
@@ -15,7 +16,8 @@ import { UpharmaService } from "../upharma.service";
   imports: [CommonModule, RouterLink, RouterLinkActive, RouterOutlet],
   templateUrl: "./layout.component.html",
 })
-export class LayoutComponent implements OnInit {
+export class LayoutComponent implements OnInit, OnDestroy {
+  private routerSub?: Subscription;
   appClasses = {
     "is-sidebar-open": false,
     "layout-top": false,
@@ -70,10 +72,15 @@ export class LayoutComponent implements OnInit {
         return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
       };
 
+      const activeShopCode = this.activeComponent?.activeShopCode;
+      const shopsToProcess = activeShopCode 
+        ? shops.filter((s) => s.ShopCode === activeShopCode)
+        : (shops.length > 0 ? [shops[0]] : shops);
+
       // 1. Fetch Employee Plans
       const employeePlans: any[] = [];
       await Promise.all(
-        shops.map(async (shop) => {
+        shopsToProcess.map(async (shop) => {
           try {
             const res = await this.upharma.callEndpoint<any>("/EmployeePlan/GetEmployeePlanLst", {
               Month: currentMonth,
@@ -96,7 +103,7 @@ export class LayoutComponent implements OnInit {
       const startOfYear = `${currentYear}-01-01 00:00:00`;
       const endOfYear = `${currentYear}-12-31 23:59:59`;
       await Promise.all(
-        shops.map(async (shop) => {
+        shopsToProcess.map(async (shop) => {
           try {
             const res = await this.upharma.callEndpoint<any>("/ShopPlan/GetShopPlanByTime", {
               TimeStart: startOfYear,
@@ -119,6 +126,7 @@ export class LayoutComponent implements OnInit {
       try {
         await this.upharma.loadInventoryResource({ 
           forceRefresh: true,
+          shopCodes: shopsToProcess.map((s) => s.ShopCode),
           onShopLoaded: (shopCode, shopData) => {
              const mapped = shopData.map((row: any) => ({
                 ...row,
@@ -134,7 +142,7 @@ export class LayoutComponent implements OnInit {
       // 4. Fetch Orders Report
       const orderReportItems: any[] = [];
       await Promise.all(
-        shops.map(async (shop) => {
+        shopsToProcess.map(async (shop) => {
           try {
             const res = await this.upharma.callEndpoint<any>("/SalesInvoice/GetReportSalesByShop", {
               uPharmaID: session.UserInfo.uPharmaID,
@@ -811,11 +819,15 @@ renderDashboard(); renderInventory(); renderNearExpiryOrders(); renderTabs(); re
     this.applyDarkMode();
     this.checkSession();
     this.syncMenuState(this.router.url);
-    this.router.events.subscribe((event) => {
+    this.routerSub = this.router.events.subscribe((event) => {
       if (event instanceof NavigationEnd) {
         this.syncMenuState(event.urlAfterRedirects || event.url);
       }
     });
+  }
+
+  ngOnDestroy(): void {
+    this.routerSub?.unsubscribe();
   }
 
   get userInitial(): string {

@@ -4,6 +4,8 @@ import { FormsModule } from "@angular/forms";
 import { Router } from "@angular/router";
 import { normalizeFilterText } from "../inventory-utils";
 import { RawRecord, ShopInfo, UpharmaService } from "../upharma.service";
+import { ExcelExportService } from "../shared/services/excel-export.service";
+import { ShopTabsComponent } from "../shared/components/shop-tabs/shop-tabs.component";
 
 interface KeyProductShopTab {
   shopCode: string;
@@ -40,7 +42,7 @@ type KeyProductsTextFilterKey = "productName" | "productCode" | "status";
 @Component({
   selector: "app-key-products",
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ShopTabsComponent],
   templateUrl: "./key-products.component.html",
 })
 export class KeyProductsComponent implements OnInit {
@@ -82,6 +84,7 @@ export class KeyProductsComponent implements OnInit {
 
   constructor(
     private readonly upharmaService: UpharmaService,
+    private readonly excelExportService: ExcelExportService,
     private readonly router: Router,
   ) {}
 
@@ -89,6 +92,14 @@ export class KeyProductsComponent implements OnInit {
     this.sidebarCollapsed = localStorage.getItem("upharma_sidebar_collapsed") === "true";
     void this.loadKeyProducts();
   }
+
+  cachedTabs: KeyProductShopTab[] = [];
+  cachedShopRows: KeyProductItem[] = [];
+  cachedFilteredRows: KeyProductItem[] = [];
+  cachedTotalKeyProductsCount = 0;
+  cachedTotalKeyProductsAmount = 0;
+  cachedTotalKeyProductsPercent = 0;
+  cachedTotalStableProductsCount = 0;
 
   get pageClasses(): Record<string, boolean> {
     return {
@@ -98,23 +109,7 @@ export class KeyProductsComponent implements OnInit {
   }
 
   get tabs(): KeyProductShopTab[] {
-    return this.shops.map((shop) => {
-      const isLoaded = this.loadedShopKeys.has(shop.ShopCode);
-      let count = 0;
-      if (this.shopsSummary && this.shopsSummary[shop.ShopCode] !== undefined) {
-        count = this.shopsSummary[shop.ShopCode].keyCount || 0;
-      } else {
-        count = this.rows.filter((row) => row.shopCode === shop.ShopCode).length;
-      }
-
-      return {
-        shopCode: shop.ShopCode,
-        shopName: shop.ShopName,
-        count,
-        loaded: isLoaded || (this.shopsSummary && this.shopsSummary[shop.ShopCode] !== undefined),
-        loading: this.loadingShopKeys.has(shop.ShopCode),
-      };
-    });
+    return this.cachedTabs;
   }
 
   get activeShopName(): string {
@@ -122,39 +117,31 @@ export class KeyProductsComponent implements OnInit {
   }
 
   get filteredRows(): KeyProductItem[] {
-    return this.rows.filter((row) => {
-      if (row.shopCode !== this.activeShopCode) {
-        return false;
-      }
-
-      return this.matchesColumnFilters(row);
-    });
+    return this.cachedFilteredRows;
   }
 
   get displayedRows(): KeyProductItem[] {
-    return this.filteredRows.slice(0, this.visibleCount);
+    return this.cachedFilteredRows.slice(0, this.visibleCount);
   }
 
-  // Toàn bộ rows của shop đang xem, không qua filter — dùng cho thống kê cố định
   get shopRows(): KeyProductItem[] {
-    return this.rows.filter(row => row.shopCode === this.activeShopCode);
+    return this.cachedShopRows;
   }
 
   get totalKeyProductsCount(): number {
-    return this.shopRows.length;
+    return this.cachedTotalKeyProductsCount;
   }
 
   get totalKeyProductsAmount(): number {
-    return this.shopRows.reduce((sum, r) => sum + r.totalAmount, 0);
+    return this.cachedTotalKeyProductsAmount;
   }
 
   get totalKeyProductsPercent(): number {
-    const percent = this.shopRows.reduce((sum, r) => sum + r.percentOfTotal, 0);
-    return Number(percent.toFixed(2));
+    return this.cachedTotalKeyProductsPercent;
   }
 
   get totalStableProductsCount(): number {
-    return this.shopRows.filter(row => this.isStableProduct(row.productCode)).length;
+    return this.cachedTotalStableProductsCount;
   }
 
   get hasActiveShopLoaded(): boolean {
@@ -173,6 +160,59 @@ export class KeyProductsComponent implements OnInit {
     const month = String(lastMonth.getMonth() + 1).padStart(2, "0");
     const year = lastMonth.getFullYear();
     return `Tháng ${month}/${year}`;
+  }
+
+  recomputeState(): void {
+    const activeCode = this.activeShopCode;
+    
+    // 1. Recompute tabs
+    this.cachedTabs = this.shops.map((shop) => {
+      const isLoaded = this.loadedShopKeys.has(shop.ShopCode);
+      let count = 0;
+      if (this.shopsSummary && this.shopsSummary[shop.ShopCode] !== undefined) {
+        count = this.shopsSummary[shop.ShopCode].keyCount || 0;
+      } else {
+        count = this.rows.filter((row) => row.shopCode === shop.ShopCode).length;
+      }
+
+      return {
+        shopCode: shop.ShopCode,
+        shopName: shop.ShopName,
+        count,
+        loaded: isLoaded || (this.shopsSummary && this.shopsSummary[shop.ShopCode] !== undefined),
+        loading: this.loadingShopKeys.has(shop.ShopCode),
+      };
+    });
+
+    // 2. Recompute shopRows & filteredRows in single pass
+    const shopRowsList: KeyProductItem[] = [];
+    const filteredList: KeyProductItem[] = [];
+    let totalAmt = 0;
+    let totalPct = 0;
+    let stableCount = 0;
+
+    for (let i = 0; i < this.rows.length; i++) {
+      const row = this.rows[i];
+      if (row.shopCode === activeCode) {
+        shopRowsList.push(row);
+        totalAmt += row.totalAmount;
+        totalPct += row.percentOfTotal;
+        if (this.stableProductCodes.has(row.productCode)) {
+          stableCount++;
+        }
+
+        if (this.matchesColumnFilters(row)) {
+          filteredList.push(row);
+        }
+      }
+    }
+
+    this.cachedShopRows = shopRowsList;
+    this.cachedFilteredRows = filteredList;
+    this.cachedTotalKeyProductsCount = shopRowsList.length;
+    this.cachedTotalKeyProductsAmount = totalAmt;
+    this.cachedTotalKeyProductsPercent = Number(totalPct.toFixed(2));
+    this.cachedTotalStableProductsCount = stableCount;
   }
 
   async loadKeyProducts(): Promise<void> {
@@ -198,6 +238,7 @@ export class KeyProductsComponent implements OnInit {
 
       this.loadingProgress = 25;
       shouldLoadActiveShop = Boolean(this.activeShopCode);
+      this.recomputeState();
     } catch (error) {
       this.errorText = error instanceof Error ? error.message : String(error);
     } finally {
@@ -213,6 +254,7 @@ export class KeyProductsComponent implements OnInit {
     this.activeShopCode = shopCode;
     this.visibleCount = 50;
     this.clearTableFilters();
+    this.recomputeState();
 
     if (!this.loadedShopKeys.has(shopCode)) {
       await this.loadActiveShop();
@@ -234,26 +276,19 @@ export class KeyProductsComponent implements OnInit {
       return;
     }
 
-    const xlsx = await import("xlsx");
-    const workbook = xlsx.utils.book_new();
     const sheetRows = rows.map((row) => ({
       "Tên SP": row.productName,
       "Mã SP": row.productCode,
       "Doanh số": row.amount,
       "Tỷ trọng": `${row.percentOfTotal}%`,
     }));
-    const worksheet = xlsx.utils.json_to_sheet(sheetRows);
-    xlsx.utils.book_append_sheet(workbook, worksheet, "hang-key");
 
-    const buffer = xlsx.write(workbook, {
-      bookType: "xlsx",
-      type: "array",
-    }) as ArrayBuffer;
-    this.downloadExcelBuffer(buffer, `hang-key-${this.activeShopCode || "shop"}.xlsx`);
+    await this.excelExportService.exportJsonToExcel(sheetRows, `hang-key-${this.activeShopCode || "shop"}.xlsx`, "hang-key");
   }
 
   onFilterChange(): void {
     this.resetVisibleRows();
+    this.recomputeState();
   }
 
   onTableScroll(event: Event): void {
@@ -553,6 +588,7 @@ export class KeyProductsComponent implements OnInit {
       ...this.rows.filter((row) => row.shopCode !== shopCode),
       ...shopRows,
     ];
+    this.recomputeState();
   }
 
   private getCacheKey(shopCode: string, uPharmaID: number): string {

@@ -1,30 +1,9 @@
 import { bootstrapApplication } from "@angular/platform-browser";
-import { provideRouter, Routes, withHashLocation } from "@angular/router";
-import { ApiTestComponent } from "./app/api-test/api-test.component";
-import { CheckInventoryTestComponent } from "./app/check-inventory-test/check-inventory-test.component";
-import { InventorySystemTestComponent } from "./app/inventory-system-test/inventory-system-test.component";
-import { InventoryExpirationTestComponent } from "./app/inventory-expiration-test/inventory-expiration-test.component";
+import { PreloadAllModules, provideRouter, Routes, withHashLocation, withPreloading } from "@angular/router";
 import { authGuard } from "./app/auth.guard";
-import { EmployeePlanComponent } from "./app/employee-plan/employee-plan.component";
-import { InventoryNewComponent } from "./app/inventory-new/inventory-new.component";
-import { LoginComponent } from "./app/login/login.component";
-import { LabelPrintComponent } from "./app/label-print/label-print.component";
-import { TransferSuggestionsComponent } from "./app/transfer-suggestions/transfer-suggestions.component";
-// Backup trang Tồn kho toàn quốc:
-// import { NationalInventoryComponent } from "./app/national-inventory/national-inventory.component";
-import { OutOfStockComponent } from "./app/out-of-stock/out-of-stock.component";
-import { ProfileComponent } from "./app/profile/profile.component";
-import { DashboardComponent } from "./app/dashboard/dashboard.component";
-import { SalesInvoiceReportComponent } from "./app/sales-invoice-report/sales-invoice-report.component";
-import { ShopPlanYearComponent } from "./app/shop-plan-year/shop-plan-year.component";
-import { RootComponent } from "./app/root.component";
-// import { SlowSellingComponent } from "./app/slow-selling/slow-selling.component";
-import { StableConsumptionComponent } from "./app/stable-consumption/stable-consumption.component";
-import { KeyProductsComponent } from "./app/key-products/key-products.component";
 import { LayoutComponent } from "./app/layout/layout.component";
-import { FefoComponent } from "./app/fefo/fefo.component";
-import { ReportConfigComponent } from "./app/report-config/report-config.component";
-
+import { LoginComponent } from "./app/login/login.component";
+import { RootComponent } from "./app/root.component";
 
 const routes: Routes = [
   {
@@ -44,22 +23,22 @@ const routes: Routes = [
     children: [
       {
         path: "dashboard",
-        component: DashboardComponent,
+        loadComponent: () => import("./app/dashboard/dashboard.component").then((m) => m.DashboardComponent),
         title: "UPHARMA - Bảng điều khiển",
       },
       {
         path: "xuat-bao-cao",
-        component: ReportConfigComponent,
+        loadComponent: () => import("./app/report-config/report-config.component").then((m) => m.ReportConfigComponent),
         title: "UPHARMA - Báo cáo vận hành",
       },
       {
         path: "ton-kho",
-        component: InventoryNewComponent,
+        loadComponent: () => import("./app/inventory-new/inventory-new.component").then((m) => m.InventoryNewComponent),
         title: "UPHARMA - Tồn kho",
       },
       {
         path: "fefo",
-        component: FefoComponent,
+        loadComponent: () => import("./app/fefo/fefo.component").then((m) => m.FefoComponent),
         title: "UPHARMA - Kiểm tra FEFO",
       },
       {
@@ -69,67 +48,62 @@ const routes: Routes = [
       },
       {
         path: "profile",
-        component: ProfileComponent,
+        loadComponent: () => import("./app/profile/profile.component").then((m) => m.ProfileComponent),
         title: "UPHARMA - Thông tin cá nhân",
       },
       {
         path: "check-inventory-test",
-        component: CheckInventoryTestComponent,
+        loadComponent: () => import("./app/check-inventory-test/check-inventory-test.component").then((m) => m.CheckInventoryTestComponent),
         title: "UPHARMA - Test Kiểm kho",
       },
       {
         path: "inventory-system-test",
-        component: InventorySystemTestComponent,
+        loadComponent: () => import("./app/inventory-system-test/inventory-system-test.component").then((m) => m.InventorySystemTestComponent),
         title: "UPHARMA - Test Hệ thống tồn kho",
       },
       {
         path: "inventory-expiration-test",
-        component: InventoryExpirationTestComponent,
+        loadComponent: () => import("./app/inventory-expiration-test/inventory-expiration-test.component").then((m) => m.InventoryExpirationTestComponent),
         title: "UPHARMA - Test Hạn dùng",
       },
       {
         path: "lay-bao-cao-don-hang",
-        component: SalesInvoiceReportComponent,
+        loadComponent: () => import("./app/sales-invoice-report/sales-invoice-report.component").then((m) => m.SalesInvoiceReportComponent),
         title: "UPHARMA - Báo cáo đơn hàng",
       },
       {
         path: "chi-tieu-nhan-vien",
-        component: EmployeePlanComponent,
+        loadComponent: () => import("./app/employee-plan/employee-plan.component").then((m) => m.EmployeePlanComponent),
         title: "UPHARMA - Chỉ tiêu nhân viên",
       },
       {
         path: "chi-tieu-nha-thuoc-trong-nam",
-        component: ShopPlanYearComponent,
+        loadComponent: () => import("./app/shop-plan-year/shop-plan-year.component").then((m) => m.ShopPlanYearComponent),
         title: "UPHARMA - Chỉ tiêu nhà thuốc",
       },
       {
         path: "out-of-stock",
-        component: OutOfStockComponent,
+        loadComponent: () => import("./app/out-of-stock/out-of-stock.component").then((m) => m.OutOfStockComponent),
         title: "UPHARMA - Hàng đã hết",
       },
       {
         path: "hang-lap-tot",
-        component: StableConsumptionComponent,
+        loadComponent: () => import("./app/stable-consumption/stable-consumption.component").then((m) => m.StableConsumptionComponent),
         title: "UPHARMA - Hàng lặp tốt",
       },
       {
         path: "hang-da-het",
-        component: OutOfStockComponent,
+        loadComponent: () => import("./app/out-of-stock/out-of-stock.component").then((m) => m.OutOfStockComponent),
         title: "UPHARMA - Hàng đã hết",
       },
       {
         path: "hang-key",
-        component: KeyProductsComponent,
+        loadComponent: () => import("./app/key-products/key-products.component").then((m) => m.KeyProductsComponent),
         title: "UPHARMA - Hàng key",
       },
-      // {
-      //   path: "hang-ban-cham",
-      //   component: SlowSellingComponent,
-      //   title: "UPHARMA - Hàng bán chậm",
-      // },
       {
         path: "goi-y-chuyen-hang",
-        component: TransferSuggestionsComponent,
+        loadComponent: () => import("./app/transfer-suggestions/transfer-suggestions.component").then((m) => m.TransferSuggestionsComponent),
         title: "UPHARMA - Gợi ý chuyển hàng",
       },
       {
@@ -146,5 +120,5 @@ const routes: Routes = [
 ];
 
 bootstrapApplication(RootComponent, {
-  providers: [provideRouter(routes, withHashLocation())],
+  providers: [provideRouter(routes, withPreloading(PreloadAllModules), withHashLocation())],
 }).catch((error) => console.error(error));

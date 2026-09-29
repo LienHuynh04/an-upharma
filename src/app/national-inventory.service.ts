@@ -60,11 +60,11 @@ export class NationalInventoryService {
 
     const remainingProductIDs: string[] = [];
 
-    // BƯỚC 1: Thử lấy dữ liệu từ Firebase Cache chung (/national_inventory_cache.json)
+    // BƯỚC 1: Thử lấy dữ liệu từ Firebase bằng On-Demand Batch Fetch (~2KB/mã, cực nhanh)
     if (!options.forceRefresh) {
       try {
-        console.log(`[National Inventory Service] Đang truy vấn Firebase cache cho ${total} sản phẩm...`);
-        const firebaseData = await this.firebaseCache.getAllCache();
+        console.log(`[National Inventory Service] Đang truy vấn Firebase cache On-Demand cho ${total} sản phẩm...`);
+        const firebaseData = await this.firebaseCache.getBatchCache(productIDs);
         
         for (const code of productIDs) {
           const trimmed = code.trim();
@@ -89,13 +89,13 @@ export class NationalInventoryService {
           if (entry && Array.isArray(entry.shops)) {
             results[code] = entry.shops;
             done++;
-            notifyProgress(`${code} (Firebase Cache)`);
+            notifyProgress(`${code} (Firebase Cache On-Demand)`);
           } else {
             remainingProductIDs.push(code);
           }
         }
 
-        console.log(`[National Inventory Service] Đã lấy thành công ${done}/${total} sản phẩm từ Firebase Cache!`);
+        console.log(`[National Inventory Service] Đã lấy thành công ${done}/${total} sản phẩm từ Firebase Cache On-Demand!`);
       } catch (err) {
         console.warn("[National Inventory Service] Lỗi khi truy vấn Firebase Cache:", err);
         remainingProductIDs.push(...productIDs);

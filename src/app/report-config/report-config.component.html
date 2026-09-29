@@ -5,7 +5,7 @@
     <div class="card header-hero-card border-0 shadow-sm rounded-4 mb-4 overflow-hidden">
       <div class="card-body p-4">
         <div class="row align-items-center g-3">
-          <div class="col-lg-7">
+          <div class="col-lg-5">
             <div class="d-flex align-items-center gap-3 mb-2">
               <div class="hero-icon-box rounded-3 d-flex align-items-center justify-content-center">
                 <i class="ti ti-report-analytics text-primary fs-3"></i>
@@ -22,13 +22,31 @@
             </p>
           </div>
 
-          <div class="col-lg-5 text-lg-end">
-            <div class="d-flex flex-wrap gap-2 justify-content-lg-end">
+          <div class="col-lg-7 text-lg-end">
+            <div class="d-flex flex-wrap gap-2 justify-content-end align-items-center">
+              <button 
+                type="button" 
+                class="btn btn-primary shadow-sm d-inline-flex align-items-center gap-2 px-3.5 py-2 fw-bold rounded-3"
+                (click)="saveReportInputs()"
+                [disabled]="saveLoading || exportLoading || downloadLoading">
+                <span *ngIf="saveLoading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                <i *ngIf="!saveLoading" class="ti ti-cloud-upload fs-6"></i>
+                <span>{{ saveLoading ? 'Đang lưu Firebase...' : 'Lưu Cấu Hình' }}</span>
+              </button>
+              <button 
+                type="button" 
+                class="btn btn-outline-secondary border-2 d-inline-flex align-items-center gap-1.5 px-3 py-2 fw-bold rounded-3"
+                (click)="resetReportInputs()"
+                [disabled]="saveLoading || exportLoading || downloadLoading"
+                title="Khôi phục ví dụ mặc định">
+                <i class="ti ti-refresh fs-6"></i>
+                <span>Đặt Lại</span>
+              </button>
               <button 
                 type="button" 
                 class="btn btn-outline-success border-2 shadow-sm d-inline-flex align-items-center gap-2 px-3 py-2 fw-bold rounded-3"
                 (click)="generateReport(true)"
-                [disabled]="exportLoading || downloadLoading">
+                [disabled]="saveLoading || exportLoading || downloadLoading">
                 <span *ngIf="exportLoading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                 <i *ngIf="!exportLoading" class="ti ti-eye fs-6"></i>
                 <span>{{ exportLoading ? exportStatusText : 'Xem Báo Cáo' }}</span>
@@ -37,11 +55,14 @@
                 type="button" 
                 class="btn btn-success shadow-sm d-inline-flex align-items-center gap-2 px-3.5 py-2 fw-bold rounded-3"
                 (click)="downloadReport()"
-                [disabled]="downloadLoading || exportLoading">
+                [disabled]="saveLoading || downloadLoading || exportLoading">
                 <span *ngIf="downloadLoading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                 <i *ngIf="!downloadLoading" class="ti ti-download fs-6"></i>
                 <span>{{ downloadLoading ? downloadStatusText : 'Tải Báo Cáo (.html)' }}</span>
               </button>
+            </div>
+            <div *ngIf="saveSuccessText" class="mt-2 text-success fw-bold small animate-fade-in">
+              <i class="ti ti-circle-check me-1"></i>{{ saveSuccessText }}
             </div>
           </div>
         </div>
@@ -250,15 +271,36 @@
       <div class="card-footer p-3.5 d-flex flex-wrap align-items-center justify-content-between gap-3 border-top">
         <div class="d-flex align-items-center gap-2 text-secondary small">
           <i class="ti ti-bulb-filled text-warning fs-6"></i>
-          <span>Mẹo: Bạn có thể chọn từng nhà thuốc phía trên để tùy chỉnh nội dung báo cáo tương ứng.</span>
+          <span>Mẹo: Chọn từng nhà thuốc phía trên để tùy chỉnh nội dung báo cáo. Cấu hình sẽ tự động đồng bộ qua Firebase RTDB.</span>
         </div>
 
-        <div class="d-flex flex-wrap gap-2.5 ms-auto">
+        <div class="d-flex flex-wrap gap-2.5 ms-auto align-items-center justify-content-end">
+          <span *ngIf="saveSuccessText" class="text-success fw-bold small me-2 animate-fade-in">
+            <i class="ti ti-circle-check me-1"></i>{{ saveSuccessText }}
+          </span>
+          <button 
+            type="button" 
+            class="btn btn-primary fw-bold px-4 py-2 rounded-3 shadow-sm d-inline-flex align-items-center gap-2"
+            (click)="saveReportInputs()"
+            [disabled]="saveLoading || exportLoading || downloadLoading">
+            <span *ngIf="saveLoading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+            <i *ngIf="!saveLoading" class="ti ti-cloud-upload fs-6"></i>
+            <span>{{ saveLoading ? 'Đang lưu...' : 'Lưu Cấu Hình' }}</span>
+          </button>
+          <button 
+            type="button" 
+            class="btn btn-outline-secondary border-2 fw-bold px-3 py-2 rounded-3 shadow-sm d-inline-flex align-items-center gap-1.5"
+            (click)="resetReportInputs()"
+            [disabled]="saveLoading || exportLoading || downloadLoading"
+            title="Khôi phục ví dụ mặc định">
+            <i class="ti ti-refresh fs-6"></i>
+            <span>Đặt Lại</span>
+          </button>
           <button 
             type="button" 
             class="btn btn-outline-success border-2 fw-bold px-3.5 py-2 rounded-3 shadow-sm d-inline-flex align-items-center gap-2"
             (click)="generateReport(true)"
-            [disabled]="exportLoading || downloadLoading">
+            [disabled]="saveLoading || exportLoading || downloadLoading">
             <span *ngIf="exportLoading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
             <i *ngIf="!exportLoading" class="ti ti-eye"></i>
             <span>{{ exportLoading ? exportStatusText : 'Xem Báo Cáo' }}</span>
@@ -267,7 +309,7 @@
             type="button" 
             class="btn btn-success fw-bold px-4 py-2 rounded-3 shadow-sm d-inline-flex align-items-center gap-2"
             (click)="downloadReport()"
-            [disabled]="downloadLoading || exportLoading">
+            [disabled]="saveLoading || downloadLoading || exportLoading">
             <span *ngIf="downloadLoading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
             <i *ngIf="!downloadLoading" class="ti ti-download"></i>
             <span>{{ downloadLoading ? downloadStatusText : 'Tải Báo Cáo (.html)' }}</span>
