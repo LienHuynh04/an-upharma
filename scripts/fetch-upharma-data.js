@@ -665,11 +665,17 @@ async function run() {
 async function fetchAndUploadNationalInventoryCache(loginData, allShopsData, db) {
   console.log("\n[national_cache] Bắt đầu xây dựng national_inventory_cache từ GetExistProductLst...");
 
-  // Thu thập tất cả mã SP unique từ sales_speed của các shop
+  // Thu thập tất cả mã SP unique từ sales_speed và inventory của các shop
   const productSet = new Set();
   for (const [, rows] of Object.entries(allShopsData.sales_speed || {})) {
     for (const row of rows) {
       const code = String(row.ProductID || row.ProductCode || "").trim();
+      if (code) productSet.add(code);
+    }
+  }
+  for (const [, rows] of Object.entries(allShopsData.inventory || {})) {
+    for (const row of rows) {
+      const code = String(row.ProductID || row.ProductCode || row.ItemCode || row.MaSP || "").trim();
       if (code) productSet.add(code);
     }
   }

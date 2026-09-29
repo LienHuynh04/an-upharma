@@ -67,8 +67,23 @@ export class NationalInventoryService {
         const firebaseData = await this.firebaseCache.getAllCache();
         
         for (const code of productIDs) {
-          const sanitized = code.replace(/[.$#\[\]\/]/g, "_");
-          const entry = firebaseData ? (firebaseData[code] || firebaseData[sanitized]) : undefined;
+          const trimmed = code.trim();
+          const sanitized = trimmed.replace(/[.$#\[\]\/]/g, "_");
+          
+          let entry = firebaseData ? (
+            firebaseData[trimmed] || 
+            firebaseData[sanitized] || 
+            firebaseData[trimmed.toUpperCase()] || 
+            firebaseData[sanitized.toUpperCase()]
+          ) : undefined;
+
+          if (!entry && firebaseData) {
+            const keys = Object.keys(firebaseData);
+            const matchedKey = keys.find(k => k.toUpperCase() === sanitized.toUpperCase() || k.toUpperCase() === trimmed.toUpperCase());
+            if (matchedKey) {
+              entry = firebaseData[matchedKey];
+            }
+          }
 
           // Nếu sản phẩm đã được CronJob tính toán và lưu trong Firebase cache
           if (entry && Array.isArray(entry.shops)) {
