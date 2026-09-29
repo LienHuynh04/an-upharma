@@ -22,6 +22,7 @@ export class ReportConfigComponent implements OnInit {
   exportLoading = false;
   downloadLoading = false;
   saveLoading = false;
+  isLoadingConfig = true;
   exportStatusText = "";
   downloadStatusText = "";
   saveSuccessText = "";
@@ -29,7 +30,7 @@ export class ReportConfigComponent implements OnInit {
   reportHtml: string | null = null;
   blobUrl: string | null = null;
 
-  reportInputs: ReportCustomInputs = this.createDefaultReportInputs();
+  reportInputs: ReportCustomInputs = { shops: [] };
 
   private get firebaseDbUrl(): string {
     const url = (environment as any).firebaseDbUrl || "";
@@ -49,7 +50,12 @@ export class ReportConfigComponent implements OnInit {
     if (this.shops.length > 0) {
       this.activeShopCode = this.shops[0].ShopCode;
     }
-    await this.loadSavedReportInputs();
+    this.isLoadingConfig = true;
+    try {
+      await this.loadSavedReportInputs();
+    } finally {
+      this.isLoadingConfig = false;
+    }
   }
 
   async loadSavedReportInputs(): Promise<void> {
