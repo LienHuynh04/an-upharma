@@ -40,6 +40,7 @@ export class NationalInventoryService {
       mode?: InventoryApiMode;
       forceRefresh?: boolean;
       onProgress?: (p: NationalInventoryProgress) => void;
+      onItemResolved?: (productCode: string, stores: NationalStoreStock[]) => void;
     } = {}
   ): Promise<Record<string, NationalStoreStock[]>> {
     const total = productIDs.length;
@@ -90,6 +91,9 @@ export class NationalInventoryService {
             results[code] = entry.shops;
             done++;
             notifyProgress(`${code} (Firebase Cache On-Demand)`);
+            if (options.onItemResolved) {
+              options.onItemResolved(code, entry.shops);
+            }
           } else {
             remainingProductIDs.push(code);
           }
@@ -170,6 +174,9 @@ export class NationalInventoryService {
         results[code] = stores;
         done++;
         notifyProgress(`${code} (Firebase RTDB - ${stores.length} nhà thuốc)`);
+        if (options.onItemResolved) {
+          options.onItemResolved(code, stores);
+        }
       }
     } catch (err) {
       console.warn("[National Inventory Service] Lỗi khi lấy sales_speed từ Firebase RTDB:", err);
@@ -178,6 +185,9 @@ export class NationalInventoryService {
           results[code] = [];
           done++;
           notifyProgress(`${code} (lỗi Firebase)`);
+          if (options.onItemResolved) {
+            options.onItemResolved(code, []);
+          }
         }
       }
     }

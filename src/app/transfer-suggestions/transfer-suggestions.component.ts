@@ -757,13 +757,21 @@ export class TransferSuggestionsComponent implements OnInit {
     }
 
     this.loadingStep2 = true;
+    this.step2Done = true;
+    this.activeTab = "suggestions";
     this.statusText = `Đang tổng hợp dữ liệu tồn kho & sức bán cho ${uniqueProductCodes.length} sản phẩm từ Firebase Cache...`;
     this.errorText = "";
     this.progressPercent = 0;
     this.progressDone = 0;
     this.progressCurrentProduct = "";
 
+    const session = this.upharma.getSession();
+    const uPharmaID = session?.UserInfo?.uPharmaID || 0;
+    const cacheKey = `transfer|${uPharmaID}|${this.selectedShopCode}|${this.expiryDaysThreshold}`;
+
     try {
+      let resolvedCount = 0;
+
       const responseMap = await this.nationalInventoryService.resolve(uniqueProductCodes, {
         mode: this.selectedApiMode,
         forceRefresh: forceRefresh,
@@ -771,15 +779,38 @@ export class TransferSuggestionsComponent implements OnInit {
           this.progressPercent = Math.round((p.done / p.total) * 100);
           this.progressDone = p.done;
           this.progressCurrentProduct = p.currentProduct;
-          this.statusText = `Đang lấy dữ liệu nhu cầu toàn hệ thống: ${p.done}/${p.total} sản phẩm...`;
+          this.statusText = `Đang tải dữ liệu nhu cầu (Lazy Load): ${p.done}/${p.total} sản phẩm...`;
+        },
+        onItemResolved: (productCode, stores) => {
+          this.nationalStoreStockMap[productCode] = stores;
+          this.recomputeSuggestionRows();
+          this.updateDisplayGroups();
+
+          resolvedCount++;
+          // Progressive Cache: Lưu liên tục vào IndexedDB khi có dữ liệu mới
+          if (resolvedCount % 10 === 0 || resolvedCount === uniqueProductCodes.length) {
+            void this.writeCache({
+              cacheKey,
+              expiringStockList: this.expiringStockList,
+              nationalStoreStockMap: this.nationalStoreStockMap,
+              savedAt: Date.now(),
+            });
+          }
         },
       });
 
       this.nationalStoreStockMap = responseMap;
-      this.step2Done = true;
-      this.activeTab = "suggestions";
+      this.recomputeSuggestionRows();
       this.updateDisplayGroups();
-      this.statusText = `Hoàn tất phân tích cho ${uniqueProductCodes.length} sản phẩm. Đã lập ${this.cachedGroupedSuggestions.length} gợi ý luân chuyển tối ưu.`;
+
+      await this.writeCache({
+        cacheKey,
+        expiringStockList: this.expiringStockList,
+        nationalStoreStockMap: this.nationalStoreStockMap,
+        savedAt: Date.now(),
+      });
+
+      this.statusText = `Hoàn tất phân tích cho ${uniqueProductCodes.length} sản phẩm. Đã hiển thị ${this.cachedGroupedSuggestions.length} gợi ý luân chuyển tối ưu.`;
     } catch (err) {
       this.errorText = err instanceof Error ? err.message : String(err);
       this.statusText = "Lỗi xảy ra trong quá trình kiểm tra tiêu thụ toàn quốc.";
