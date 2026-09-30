@@ -1,5 +1,5 @@
 import { CommonModule } from "@angular/common";
-import { Component, OnInit } from "@angular/core";
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit, inject } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { Router } from "@angular/router";
 import { environment } from "../../environments/environment";
@@ -65,8 +65,10 @@ interface InventoryCacheRecord {
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: "./inventory-new.component.html",
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class InventoryNewComponent implements OnInit {
+  private cdr = inject(ChangeDetectorRef);
   readonly renderBatchSize = 200;
   readonly searchDebounceMs = 500;
   readonly expiryCards: { key: ExpiryCardKey; label: string; countKey?: keyof ExpirySummary }[] = [
@@ -533,6 +535,7 @@ export class InventoryNewComponent implements OnInit {
     this.userTitle = `${inventoryData.user.FullName} (ID - ${inventoryData.user.uPharmaID}) - ${this.shopList.length} nhà thuốc`;
     this.brandShopText = `${this.shopList.length} NHÀ THUỐC`;
     this.recomputeAll();
+    this.cdr.markForCheck();
   }
 
   private getDefaultShopCode(): string {

@@ -1,5 +1,5 @@
 import { CommonModule } from "@angular/common";
-import { Component, OnInit } from "@angular/core";
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit, inject } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { Router } from "@angular/router";
 import { formatMoney, normalizeFilterText, PRODUCT_NAME_COLLATOR } from "../inventory-utils";
@@ -42,8 +42,10 @@ type OutOfStockTextFilterKey = "productName" | "productCode" | "status" | "quant
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: "./out-of-stock.component.html",
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class OutOfStockComponent implements OnInit {
+  private cdr = inject(ChangeDetectorRef);
   readonly endpoint = "/SalesInvoice/GetOutOfStockCalculated";
   shopsSummary: any = null;
   shops: ShopInfo[] = [];
@@ -243,6 +245,7 @@ export class OutOfStockComponent implements OnInit {
     this.loadingProgress = 10;
     this.errorText = "";
     let shouldLoadActiveShop = false;
+    this.cdr.markForCheck();
 
     try {
       const session = this.upharmaService.ensureLogin();
@@ -266,6 +269,7 @@ export class OutOfStockComponent implements OnInit {
       this.errorText = error instanceof Error ? error.message : String(error);
     } finally {
       this.loading = false;
+      this.cdr.markForCheck();
     }
 
     if (shouldLoadActiveShop) {
@@ -276,6 +280,7 @@ export class OutOfStockComponent implements OnInit {
   async setActiveShop(shopCode: string): Promise<void> {
     this.activeShopCode = shopCode;
     this.visibleCount = 50;
+    this.cdr.markForCheck();
 
     if (!this.loadedShopKeys.has(this.getLoadedShopKey(shopCode))) {
       await this.loadShop(shopCode);
@@ -287,6 +292,7 @@ export class OutOfStockComponent implements OnInit {
       void this.loadStarProductsForShop(shopCode);
     }
     void this.refreshPlannedStatusForShop(shopCode);
+    this.cdr.markForCheck();
   }
 
   async reloadActiveShop(): Promise<void> {

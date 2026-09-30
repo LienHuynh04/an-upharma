@@ -1,5 +1,5 @@
 import { CommonModule } from "@angular/common";
-import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild, inject } from "@angular/core";
+import { AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, OnDestroy, ViewChild, inject } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import Chart from "chart.js/auto";
 import { UpharmaService } from "../upharma.service";
@@ -55,12 +55,25 @@ interface CustomerNewResponse {
   CustomerNewLst?: CustomerNewItem[];
 }
 
+interface DashboardCacheEntry {
+  cacheKey: string;
+  paymentMethodInfo: PaymentMethodInfo;
+  paymentTotal: number;
+  topProductSales: StatisticTopProduct[];
+  salesDayLst: StatisticSalesDay[];
+  customerSalesLst: StatisticCustomerSales[];
+  customerNewLst: CustomerNewItem[];
+  customerInfoLst: Array<{ title: string; percent: number; value: number }>;
+  savedAt: number;
+}
+
 @Component({
   selector: "app-dashboard",
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: "./dashboard.component.html",
   styleUrls: ["./dashboard.component.css"],
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class DashboardComponent implements AfterViewInit, OnDestroy {
   readonly statisticsEndpoint = "/CancelProduct/GetStatisticsShop";
@@ -84,6 +97,7 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
   exportLoading = false;
   exportStatusText = "";
   private salesChart: Chart | null = null;
+  private cdr = inject(ChangeDetectorRef);
 
   constructor(private readonly upharmaService: UpharmaService) {}
 
@@ -109,10 +123,29 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
       return;
     }
 
-    this.dashboardLoading = true;
-    this.chartLoading = true;
+    const cacheKey = `dashboard|${session.UserInfo?.uPharmaID || 0}|${this.activeShopCode}|${this.selectedStartDate}|${this.selectedEndDate}`;
+
+    // 1. Instant 0ms Load from IndexedDB if available
+    const cached = await this.readCache(cacheKey);
+    if (cached && (Date.now() - cached.savedAt < 10 * 60 * 1000)) {
+      this.paymentMethodInfo = cached.paymentMethodInfo;
+      this.paymentTotal = cached.paymentTotal;
+      this.topProductSales = cached.topProductSales;
+      this.salesDayLst = cached.salesDayLst;
+      this.customerSalesLst = cached.customerSalesLst;
+      this.customerNewLst = cached.customerNewLst;
+      this.customerInfoLst = cached.customerInfoLst;
+      this.dashboardLoading = false;
+      this.chartLoading = false;
+      this.renderSalesChart();
+      this.cdr.markForCheck();
+    } else {
+      this.dashboardLoading = true;
+      this.chartLoading = true;
+      this.cdr.markForCheck();
+    }
+
     this.dashboardErrorText = "";
-    this.customerNewLst = [];
 
     try {
       const customerNew = await this.upharmaService.callEndpoint<CustomerNewResponse>(this.customerNewEndpoint, {
@@ -125,7 +158,6 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
       });
 
       this.customerNewLst = customerNew.CustomerNewLst || [];
-      this.dashboardLoading = false;
 
       const statistics = await this.upharmaService.callEndpoint<StatisticsShopResponse>(this.statisticsEndpoint, {
         ShopCode: this.activeShopCode,
@@ -147,6 +179,19 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
         value: Number(item.Value || 0),
       }));
       this.renderSalesChart();
+
+      // Write fresh dashboard data to IndexedDB
+      void this.writeCache({
+        cacheKey,
+        paymentMethodInfo: this.paymentMethodInfo,
+        paymentTotal: this.paymentTotal,
+        topProductSales: this.topProductSales,
+        salesDayLst: this.salesDayLst,
+        customerSalesLst: this.customerSalesLst,
+        customerNewLst: this.customerNewLst,
+        customerInfoLst: this.customerInfoLst,
+        savedAt: Date.now(),
+      });
     } catch (error) {
       if (!this.isInvalidTokenError(error)) {
         this.dashboardErrorText = error instanceof Error ? error.message : String(error);
@@ -154,6 +199,7 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
     } finally {
       this.dashboardLoading = false;
       this.chartLoading = false;
+      this.cdr.markForCheck();
     }
   }
 
@@ -341,5 +387,51 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
 
   private isInvalidTokenError(error: unknown): boolean {
     return error instanceof Error && error.message.trim().toLowerCase() === "token không hợp lệ, vui lòng đăng nhập lại";
+  }
+
+  // IndexedDB Persistent Caching for 0ms Dashboard loads
+  private async readCache(cacheKey: string): Promise<DashboardCacheEntry | null> {
+    try {
+      const db = await this.openCacheDb();
+      const entry = await new Promise<DashboardCacheEntry | undefined>((resolve, reject) => {
+        const transaction = db.transaction("dashboardCache", "readonly");
+        const request = transaction.objectStore("dashboardCache").get(cacheKey);
+        request.onsuccess = () => resolve(request.result as DashboardCacheEntry | undefined);
+        request.onerror = () => reject(request.error);
+      });
+      db.close();
+      return entry || null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async writeCache(entry: DashboardCacheEntry): Promise<void> {
+    try {
+      const db = await this.openCacheDb();
+      await new Promise<void>((resolve, reject) => {
+        const transaction = db.transaction("dashboardCache", "readwrite");
+        const request = transaction.objectStore("dashboardCache").put(entry);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+      });
+      db.close();
+    } catch (err) {
+      console.warn("Không lưu được cache dashboard:", err);
+    }
+  }
+
+  private openCacheDb(): Promise<IDBDatabase> {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open("upharma-dashboard-cache", 1);
+      request.onupgradeneeded = () => {
+        const db = request.result;
+        if (!db.objectStoreNames.contains("dashboardCache")) {
+          db.createObjectStore("dashboardCache", { keyPath: "cacheKey" });
+        }
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
   }
 }

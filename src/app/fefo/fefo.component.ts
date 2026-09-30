@@ -1,5 +1,5 @@
 import { CommonModule } from "@angular/common";
-import { Component, OnInit } from "@angular/core";
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit, inject } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { Router } from "@angular/router";
 import { environment } from "../../environments/environment";
@@ -92,8 +92,10 @@ interface FefoSummary {
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: "./fefo.component.html",
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class FefoComponent implements OnInit {
+  private cdr = inject(ChangeDetectorRef);
   readonly searchDebounceMs = 300;
 
   shops: ShopInfo[] = [];
@@ -326,6 +328,7 @@ export class FefoComponent implements OnInit {
       this.errorText = err instanceof Error ? err.message : "Không thể tải dữ liệu kiểm tra FEFO.";
     } finally {
       this.loading = false;
+      this.cdr.markForCheck();
     }
   }
 

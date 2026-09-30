@@ -1,5 +1,5 @@
 import { CommonModule } from "@angular/common";
-import { Component, OnInit } from "@angular/core";
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit, inject } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 
 import { isWarehouseStore, normalizeInventoryRow, parseNumericValue } from "../inventory-utils";
@@ -447,9 +447,11 @@ export interface GroupedExpiringStock {
     .bg-purple {
       background-color: #6e42c1 !important;
     }
-  `]
+  `],
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class TransferSuggestionsComponent implements OnInit {
+  private cdr = inject(ChangeDetectorRef);
   userShops: ShopInfo[] = [];
   selectedShopCode = "ALL";
   expiryDaysThreshold = 3650;
@@ -780,11 +782,13 @@ export class TransferSuggestionsComponent implements OnInit {
           this.progressDone = p.done;
           this.progressCurrentProduct = p.currentProduct;
           this.statusText = `Đang tải dữ liệu nhu cầu (Lazy Load): ${p.done}/${p.total} sản phẩm...`;
+          this.cdr.markForCheck();
         },
         onItemResolved: (productCode, stores) => {
           this.nationalStoreStockMap[productCode] = stores;
           this.recomputeSuggestionRows();
           this.updateDisplayGroups();
+          this.cdr.markForCheck();
 
           resolvedCount++;
           // Progressive Cache: Lưu liên tục vào IndexedDB khi có dữ liệu mới
