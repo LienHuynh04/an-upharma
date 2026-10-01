@@ -9,7 +9,8 @@
     "fetch-data": "node scripts/fetch-upharma-data.js",
     "claude:sonnet": "scripts/claude-sonnet.sh",
     "build": "ng build",
-    "watch": "ng build --watch --configuration development"
+    "watch": "ng build --watch --configuration development",
+    "deploy": "npm run build && npx firebase deploy"
   },
   "dependencies": {
     "@angular/common": "20.3.26",
