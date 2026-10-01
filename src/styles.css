@@ -1270,4 +1270,47 @@ body.modal-open {
   width: 100% !important;
 }
 
+/* ────────────────────────────────────────────────────────────────
+   UI/UX ENHANCEMENTS & UTILITIES
+   Accessibility, Touch targets, Standardized controls & Typography
+   ──────────────────────────────────────────────────────────────── */
+.form-select,
+.form-select-sm {
+  font-size: 13px;
+  border-radius: 6px;
+  border-color: var(--upharma-border);
+  min-height: 36px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.form-select:focus,
+.form-select-sm:focus {
+  border-color: var(--tblr-primary);
+  box-shadow: 0 0 0 3px rgba(var(--tblr-primary-rgb), 0.15);
+}
+
+header.navbar .nav-link {
+  min-height: 38px !important;
+}
+
+header.navbar .dropdown-item {
+  min-height: 38px !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+.text-label-caps {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+  color: var(--upharma-muted-text) !important;
+}
+
+.progress-enhanced {
+  height: 8px !important;
+  border-radius: 50rem !important;
+}
+
+
 

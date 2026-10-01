@@ -134,4 +134,52 @@ export class FirebaseInventoryService {
       throw error;
     }
   }
+
+  /**
+   * Tải dữ liệu Gợi ý Điều Chuyển Hàng Cận Date ĐÃ ĐƯỢC TÍNH SẴN từ Firebase Server cho 1 Nhà Thuốc.
+   * Dung lượng siêu nhẹ (~20KB), tải trong 30ms.
+   */
+  async getShopTransferSuggestions(shopCode: string): Promise<any | null> {
+    if (!this.dbUrl || !shopCode) return null;
+
+    try {
+      const sanitized = shopCode.trim().replace(/[.$#\[\]\/]/g, "_");
+      const url = `${this.dbUrl}/transfer_suggestions_cache/${sanitized}.json`;
+      console.log(`[Firebase Cache] Đang tải gợi ý tính sẵn cho shop ${shopCode}: ${url}`);
+      const response = await fetch(url);
+      if (!response.ok) return null;
+
+      const data = await response.json();
+      return data || null;
+    } catch (error) {
+      console.warn(`[Firebase Cache] Không lấy được transfer_suggestions_cache cho ${shopCode}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Lưu dữ liệu gợi ý điều chuyển tính sẵn cho 1 nhà thuốc lên Firebase.
+   */
+  async saveShopTransferSuggestions(shopCode: string, suggestionsData: any): Promise<void> {
+    if (!this.dbUrl || !shopCode) return;
+
+    try {
+      const sanitized = shopCode.trim().replace(/[.$#\[\]\/]/g, "_");
+      const url = `${this.dbUrl}/transfer_suggestions_cache/${sanitized}.json`;
+      const payload = {
+        shopCode,
+        updatedAt: Date.now(),
+        ...suggestionsData,
+      };
+
+      await fetch(url, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      console.log(`[Firebase Cache] Đã lưu transfer_suggestions_cache thành công cho shop ${shopCode}`);
+    } catch (error) {
+      console.error(`[Firebase Cache] Lỗi khi lưu transfer_suggestions_cache cho shop ${shopCode}:`, error);
+    }
+  }
 }

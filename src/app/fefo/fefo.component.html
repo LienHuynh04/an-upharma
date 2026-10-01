@@ -154,7 +154,7 @@
               <th>Nhân viên</th>
               <th>HSD Đơn bán</th>
               <th>HSD cận nhất (Kho)</th>
-              <th>SL Bán / Tồn</th>
+              <th class="text-end">SL Bán / Tồn</th>
               <th>Trạng thái FEFO</th>
             </tr>
           </thead>
@@ -195,7 +195,7 @@
                 </div>
                 <span class="text-muted" *ngIf="!item.inStock">Không có tồn kho</span>
               </td>
-              <td>
+              <td class="text-end">
                 <div>SL Bán: <strong>{{ item.saleQtyText }}</strong></div>
                 <small class="text-secondary">
                   Tồn kho: <strong [class.text-danger]="item.totalStockQty === 0" [class.text-success]="item.totalStockQty > 0">{{ item.totalStockQty }}</strong>
@@ -203,6 +203,7 @@
               </td>
               <td>
                 <span [class]="item.badgeClass">
+                  <i class="ti ti-alert-triangle me-1" *ngIf="item.fefoStatus === 'violation'"></i>
                   {{ item.fefoStatusLabel }}
                 </span>
                 <div class="mt-1" *ngIf="item.inventoryLotsCount > 1">

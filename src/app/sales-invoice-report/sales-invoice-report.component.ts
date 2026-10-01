@@ -140,6 +140,42 @@ interface SalesInvoiceReportCacheEntry {
           </div>
         </div>
 
+        <!-- Table Card for Invoices Detail & Totals Footer -->
+        <div class="card mt-3" *ngIf="items.length > 0">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <h3 class="card-title">Chi tiết đơn hàng {{ selectedEmployeeName ? ('- ' + selectedEmployeeName) : '' }}</h3>
+            <span class="badge bg-primary-lt">Tổng {{ filteredRowCount }} dòng đơn</span>
+          </div>
+          <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+            <table class="table table-vcenter card-table table-striped table-hover">
+              <thead>
+                <tr>
+                  <th style="width: 50px;">STT</th>
+                  <th>Mã đơn</th>
+                  <th>Nhà thuốc</th>
+                  <th>Nhân viên</th>
+                  <th class="text-end">Tổng tiền (VNĐ)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let item of items; let idx = index">
+                  <td>{{ idx + 1 }}</td>
+                  <td><code>{{ item.productCode || item.rowKey || ('DH-' + (idx + 1)) }}</code></td>
+                  <td><span class="badge bg-secondary-lt">{{ item.shopCode }}</span></td>
+                  <td><span class="fw-semibold text-body">{{ item.employeeName }}</span></td>
+                  <td class="text-end fw-bold text-success">{{ item.amount | number:'1.0-0' }} đ</td>
+                </tr>
+              </tbody>
+              <tfoot class="bg-light fw-bold" style="position: sticky; bottom: 0; background-color: var(--upharma-bg) !important; z-index: 5;">
+                <tr>
+                  <td colspan="4" class="text-end text-uppercase">TỔNG CỘNG DOANH SỐ ĐANG XEM:</td>
+                  <td class="text-end text-primary h3 mb-0">{{ filteredTotalAmount | number:'1.0-0' }} đ</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+
         <div class="card" *ngIf="items.length === 0">
           <div class="card-body text-center py-5">
             <h3 class="card-title">Không có dữ liệu phù hợp bộ lọc</h3>

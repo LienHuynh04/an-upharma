@@ -162,7 +162,7 @@ export class ShopPlanIconComponent {
                       <app-shop-plan-icon name="chart"></app-shop-plan-icon>
                     </span>
                     <div>
-                      <div class="text-uppercase fw-bold text-secondary" style="font-size: 10px; letter-spacing: 0.5px;">Doanh số</div>
+                      <div class="text-label-caps">Doanh số</div>
                       <div class="h3 mb-0 text-success fw-bold">{{ formatNumber(item.AmountR) }} đ</div>
                     </div>
                   </div>
@@ -186,7 +186,7 @@ export class ShopPlanIconComponent {
                       <app-shop-plan-icon name="cart"></app-shop-plan-icon>
                     </span>
                     <div>
-                      <div class="text-uppercase fw-bold text-secondary" style="font-size: 10px; letter-spacing: 0.5px;">Điểm HHS</div>
+                      <div class="text-label-caps">Điểm HHS</div>
                       <div class="h3 mb-0 text-primary fw-bold">{{ formatNumber(item.PointSales01R) }}</div>
                     </div>
                   </div>

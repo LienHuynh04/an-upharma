@@ -61,30 +61,34 @@ export class NationalInventoryService {
 
     const remainingProductIDs: string[] = [];
 
-    // BƯỚC 1: Thử lấy dữ liệu từ Firebase bằng On-Demand Batch Fetch (~2KB/mã, cực nhanh)
+    // BƯỚC 1: Thử lấy dữ liệu từ Firebase cache
     if (!options.forceRefresh) {
       try {
-        console.log(`[National Inventory Service] Đang truy vấn Firebase cache On-Demand cho ${total} sản phẩm...`);
-        const firebaseData = await this.firebaseCache.getBatchCache(productIDs);
+        console.log(`[National Inventory Service] Đang truy vấn Firebase cache cho ${total} sản phẩm...`);
+        // Tối ưu: Nếu số lượng mã > 10, chỉ dùng 1 request tổng duy nhất (getAllCache) thay vì bắn hàng nghìn request lẻ (getBatchCache)
+        const firebaseData = total > 10 
+          ? await this.firebaseCache.getAllCache() 
+          : await this.firebaseCache.getBatchCache(productIDs);
+        
+        const upperMap = new Map<string, any>();
+        if (firebaseData) {
+          for (const k of Object.keys(firebaseData)) {
+            upperMap.set(k.toUpperCase(), firebaseData[k]);
+          }
+        }
         
         for (const code of productIDs) {
           const trimmed = code.trim();
           const sanitized = trimmed.replace(/[.$#\[\]\/]/g, "_");
+          const upperTrimmed = trimmed.toUpperCase();
+          const upperSanitized = sanitized.toUpperCase();
           
           let entry = firebaseData ? (
             firebaseData[trimmed] || 
             firebaseData[sanitized] || 
-            firebaseData[trimmed.toUpperCase()] || 
-            firebaseData[sanitized.toUpperCase()]
+            upperMap.get(upperTrimmed) || 
+            upperMap.get(upperSanitized)
           ) : undefined;
-
-          if (!entry && firebaseData) {
-            const keys = Object.keys(firebaseData);
-            const matchedKey = keys.find(k => k.toUpperCase() === sanitized.toUpperCase() || k.toUpperCase() === trimmed.toUpperCase());
-            if (matchedKey) {
-              entry = firebaseData[matchedKey];
-            }
-          }
 
           // Nếu sản phẩm đã được CronJob tính toán và lưu trong Firebase cache
           if (entry && Array.isArray(entry.shops)) {

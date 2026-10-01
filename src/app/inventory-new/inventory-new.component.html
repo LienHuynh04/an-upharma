@@ -64,15 +64,15 @@
         <table class="table table-vcenter card-table table-striped table-hover">
           <thead>
             <tr>
-              <th>STT</th>
+              <th style="width: 50px;">STT</th>
               <th>Tên SP</th>
               <th>Mã SP</th>
-              <th>Giá(VNĐ)</th>
+              <th class="text-end">Giá (VNĐ)</th>
               <th>Hạn dùng</th>
-              <th>SL</th>
-              <th>Tổng GT tồn kho</th>
+              <th class="text-end">SL</th>
+              <th class="text-end">Tổng GT tồn kho</th>
             </tr>
-            <tr class="column-filter-row" id="columnFilters">
+            <tr class="column-filter-row" id="columnFilters" style="background-color: var(--upharma-bg);">
               <th></th>
               <th>
                 <input
@@ -94,7 +94,7 @@
               </th>
               <th>
                 <input
-                  class="form-control form-control-sm"
+                  class="form-control form-control-sm text-end"
                   [(ngModel)]="columnFilters['price']"
                   (ngModelChange)="onColumnFilterInput('price')"
                   type="search"
@@ -118,7 +118,7 @@
               </th>
               <th>
                 <input
-                  class="form-control form-control-sm"
+                  class="form-control form-control-sm text-end"
                   [(ngModel)]="columnFilters['quantity']"
                   (ngModelChange)="onColumnFilterInput('quantity')"
                   type="search"
@@ -139,7 +139,7 @@
             >
               <td data-label="STT">{{ index + 1 }}</td>
               <td data-label="Tên SP">
-                <span class="d-none d-lg-inline">{{ item.productName }}</span>
+                <span class="d-none d-lg-inline font-weight-medium">{{ item.productName }}</span>
                 <button
                   class="btn btn-sm btn-action d-lg-none w-100 text-start border-0 bg-transparent"
                   type="button"
@@ -164,11 +164,18 @@
                   </span>
                 </button>
               </td>
-              <td data-label="Mã SP">{{ item.productCode }}</td>
-              <td data-label="Giá(VNĐ)">{{ item.priceText }}</td>
-              <td data-label="Hạn dùng">{{ item.expiryText }}</td>
-              <td data-label="SL">{{ item.quantity }}</td>
-              <td data-label="Tổng GT tồn kho">{{ item.stockValueText }}</td>
+              <td data-label="Mã SP"><code class="text-secondary">{{ item.productCode }}</code></td>
+              <td data-label="Giá(VNĐ)" class="text-end font-weight-medium">{{ item.priceText }}</td>
+              <td data-label="Hạn dùng">
+                <span class="badge" [ngClass]="{
+                  'bg-danger-lt text-danger': item.expiryStatus === 'expired' || item.expiryStatus === 'danger',
+                  'bg-warning-lt text-warning': item.expiryStatus === 'warning',
+                  'bg-success-lt text-success': item.expiryStatus === 'safe',
+                  'bg-secondary-lt text-secondary': item.expiryStatus === 'normal'
+                }">{{ item.expiryText }}</span>
+              </td>
+              <td data-label="SL" class="text-end fw-bold">{{ item.quantity }}</td>
+              <td data-label="Tổng GT tồn kho" class="text-end fw-bold text-primary">{{ item.stockValueText }}</td>
             </tr>
           </tbody>
         </table>

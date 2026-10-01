@@ -10,8 +10,8 @@
       </div>
       <div class="col-auto ms-auto d-print-none">
         <div class="btn-list">
-          <button type="button" class="btn btn-secondary" (click)="exportExcel()" [disabled]="loading || keyProductsRefreshing || filteredRows.length === 0">
-            Xuất excel
+          <button type="button" class="btn btn-outline-success" (click)="exportExcel()" [disabled]="loading || keyProductsRefreshing || filteredRows.length === 0">
+            <i class="ti ti-file-spreadsheet me-1"></i>Xuất Excel
           </button>
         </div>
       </div>
@@ -135,12 +135,12 @@
           <table class="table table-vcenter card-table table-striped table-hover stable-table" style="table-layout: fixed; width: 100%;">
           <thead>
             <tr>
-              <th style="width: 80px; min-width: 80px;">STT</th>
+              <th style="width: 60px; min-width: 60px;">STT</th>
               <th style="width: 35%;">Sản phẩm</th>
               <th style="width: 15%;">Mã</th>
-              <th style="width: 10%;">SL</th>
-              <th style="width: 15%;">Đơn giá VAT</th>
-              <th style="width: 10%;">Tỷ trọng</th>
+              <th class="text-end" style="width: 10%;">SL</th>
+              <th class="text-end" style="width: 15%;">Đơn giá VAT</th>
+              <th class="text-end" style="width: 10%;">Tỷ trọng</th>
               <th style="width: 15%;">Ghi chú</th>
             </tr>
             <tr class="column-filter-row" id="stableColumnFilters">
@@ -222,11 +222,13 @@
                   <span class="record-toggle-icon" aria-hidden="true">⌄</span>
                 </button>
               </td>
-              <td data-label="Mã sản phẩm">{{ item.productCode }}</td>
-              <td data-label="Số lượng">{{ item.quantity }}</td>
-              <td data-label="AmountIncludingVAT">{{ formatMoney(item.amountIncludingVAT) }}</td>
-              <td data-label="Tỷ trọng">
-                <strong>{{ item.percentOfTotal }}%</strong>
+              <td data-label="Mã sản phẩm"><code>{{ item.productCode }}</code></td>
+              <td data-label="Số lượng" class="text-end fw-bold">{{ item.quantity }}</td>
+              <td data-label="AmountIncludingVAT" class="text-end font-weight-medium">{{ formatMoney(item.amountIncludingVAT) }} đ</td>
+              <td data-label="Tỷ trọng" class="text-end">
+                <span class="badge" [ngClass]="item.percentOfTotal >= 10 ? 'bg-success-lt text-success' : 'bg-secondary-lt text-secondary'">
+                  {{ item.percentOfTotal }}%
+                </span>
               </td>
               <td data-label="Ghi chú">
                 <span *ngIf="isStableProduct(item.productCode)" class="status-chip status-chip--planned">Hàng thường trực</span>

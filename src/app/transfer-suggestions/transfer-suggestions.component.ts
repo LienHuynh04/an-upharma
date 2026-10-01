@@ -5,6 +5,7 @@ import { FormsModule } from "@angular/forms";
 import { isWarehouseStore, normalizeInventoryRow, parseNumericValue } from "../inventory-utils";
 import { RawRecord, ResourceResponse, ShopInfo, UpharmaService } from "../upharma.service";
 import { InventoryApiMode, NationalInventoryService, NationalStoreStock } from "../national-inventory.service";
+import { FirebaseInventoryService } from "../firebase-inventory.service";
 import { ExcelExportService } from "../shared/services/excel-export.service";
 
 export interface ExpiringStockItem {
@@ -142,7 +143,7 @@ export interface GroupedExpiringStock {
         </div>
 
         <!-- THỐNG KÊ HẠN DÙNG CARDS (100% GIỐNG TỒN KHO) -->
-        <div class="row row-deck row-cards mb-3" aria-label="Thống kê hạn dùng" *ngIf="step1Done">
+        <div class="row row-deck row-cards mb-3" aria-label="Thống kê hạn dùng">
           <div class="col-sm-6 col-md-3">
             <div
               class="card all cursor-pointer"
@@ -217,7 +218,7 @@ export interface GroupedExpiringStock {
         </div>
 
         <!-- BẢNG MAIN CONTAINER (100% GIỐNG TỒN KHO) -->
-        <div class="card" [class.filters-collapsed]="filtersCollapsed" *ngIf="step1Done">
+        <div class="card" [class.filters-collapsed]="filtersCollapsed">
           <button class="mobile-filter-toggle" type="button" (click)="filtersCollapsed = !filtersCollapsed">
             <span>{{ filtersCollapsed ? 'Hiện bộ lọc' : 'Ẩn bộ lọc' }}</span>
             <i class="ti" [class.ti-filter]="filtersCollapsed" [class.ti-filter-off]="!filtersCollapsed"></i>
@@ -239,16 +240,24 @@ export interface GroupedExpiringStock {
 
               </thead>
               <tbody>
-                <tr *ngIf="cachedGroupedSuggestions.length === 0">
+                <tr *ngIf="cachedGroupedSuggestions.length === 0 && (loadingStep1 || loadingStep2)">
+                  <td colspan="8" class="text-center text-secondary py-5">
+                    <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+                    <span>Đang tổng hợp nhu cầu & gợi ý điều chuyển cho <strong>{{ uniqueProductCount || 'tất cả' }}</strong> sản phẩm... ({{ progressPercent }}%)</span>
+                    <div class="progress progress-sm rounded-pill overflow-hidden mt-3 mx-auto" style="max-width: 400px; height: 6px;">
+                      <div class="progress-bar bg-primary progress-bar-striped progress-bar-animated" [style.width.%]="progressPercent"></div>
+                    </div>
+                  </td>
+                </tr>
+                <tr *ngIf="cachedGroupedSuggestions.length === 0 && !loadingStep1 && !loadingStep2">
                   <td colspan="8" class="text-center text-secondary py-4">
-                    <div *ngIf="!step2Done">Chưa có đề xuất điều chuyển. Nhấn <strong>"🚀 TẠO GỢI Ý ĐIỀU CHUYỂN"</strong> để bắt đầu!</div>
-                    <div *ngIf="step2Done">Không tìm thấy gợi ý điều chuyển nào phù hợp.</div>
+                    <div>Chưa có gợi ý điều chuyển nào phù hợp.</div>
                   </td>
                 </tr>
                 <tr *ngFor="let group of cachedGroupedSuggestions; let i = index; trackBy: trackByGroupKey" (click)="openDetailModal(group)" style="cursor: pointer;" title="Bấm vào dòng để xem chi tiết gợi ý điều chuyển">
                   <td data-label="STT" class="text-center font-monospace fw-bold" style="white-space: nowrap;">{{ i + 1 }}</td>
-                  <td data-label="Tên SP">{{ group.productName }}</td>
-                  <td data-label="Mã SP">{{ group.productCode }}</td>
+                  <td data-label="Tên SP" class="font-weight-medium">{{ group.productName }}</td>
+                  <td data-label="Mã SP"><code>{{ group.productCode }}</code></td>
                   <td data-label="Hạn dùng">
                     <span [class]="getExpiryMonthTag(group.minDaysRemaining).class">
                       {{ getExpiryMonthTag(group.minDaysRemaining).label }}
@@ -532,12 +541,27 @@ export class TransferSuggestionsComponent implements OnInit {
     this.updateDisplayGroups();
   }
 
+  private cachedBucketCounts: {
+    all: number; allQty: number; allRate: string;
+    danger: number; dangerQty: number; dangerRate: string;
+    warning: number; warningQty: number; warningRate: string;
+    safe: number; safeQty: number; safeRate: string;
+  } | null = null;
+
   get expiryBucketCounts(): {
     all: number; allQty: number; allRate: string;
     danger: number; dangerQty: number; dangerRate: string;
     warning: number; warningQty: number; warningRate: string;
     safe: number; safeQty: number; safeRate: string;
   } {
+    if (this.cachedBucketCounts) {
+      return this.cachedBucketCounts;
+    }
+    this.recomputeBucketCounts();
+    return this.cachedBucketCounts!;
+  }
+
+  private recomputeBucketCounts(): void {
     const raw = this.suggestionRows;
     const allKeys = new Set<string>();
     const dangerKeys = new Set<string>();
@@ -570,7 +594,7 @@ export class TransferSuggestionsComponent implements OnInit {
 
     const total = allKeys.size || 1;
 
-    return {
+    this.cachedBucketCounts = {
       all: allKeys.size,
       allQty,
       allRate: "100,00",
@@ -606,6 +630,7 @@ export class TransferSuggestionsComponent implements OnInit {
   constructor(
     private readonly upharma: UpharmaService,
     private readonly nationalInventoryService: NationalInventoryService,
+    private readonly firebaseCache: FirebaseInventoryService,
     private readonly excelExportService: ExcelExportService,
   ) {}
 
@@ -642,6 +667,51 @@ export class TransferSuggestionsComponent implements OnInit {
     const cacheKey = `transfer|${uPharmaID}|${this.selectedShopCode}|${this.expiryDaysThreshold}`;
 
     if (!forceRefresh) {
+      // 1. Thử tải dữ liệu Gợi Ý ĐÃ TÍNH SẴN TỪ FIREBASE SERVER (Siêu nhẹ ~20KB, 30ms)
+      try {
+        const targetShops = this.selectedShopCode === "ALL"
+          ? this.userShops.map((s) => s.ShopCode)
+          : [this.selectedShopCode];
+
+        const serverCaches = await Promise.all(
+          targetShops.map((sCode) => this.firebaseCache.getShopTransferSuggestions(sCode))
+        );
+
+        const validCaches = serverCaches.filter((c) => c && Array.isArray(c.expiringStockList));
+
+        if (validCaches.length > 0) {
+          console.log(`[Transfer Suggestions] ⚡ Nạp thành công cache tính sẵn cho ${validCaches.length} nhà thuốc nguồn`);
+
+          const combinedExpiringList: ExpiringStockItem[] = [];
+          const combinedNationalMap: Record<string, NationalStoreStock[]> = {};
+
+          for (const cache of validCaches) {
+            if (Array.isArray(cache.expiringStockList)) {
+              combinedExpiringList.push(...cache.expiringStockList);
+            }
+            if (cache.nationalStoreStockMap) {
+              Object.assign(combinedNationalMap, cache.nationalStoreStockMap);
+            }
+          }
+
+          this.expiringStockList = combinedExpiringList;
+          this.nationalStoreStockMap = combinedNationalMap;
+          this.step1Done = true;
+          this.step2Done = true;
+          this.activeTab = "suggestions";
+          this.recomputeSuggestionRows();
+          this.updateDisplayGroups();
+          
+          const labelText = this.selectedShopCode === "ALL" ? `Tất cả ${validCaches.length} NT nguồn` : `NT ${this.selectedShopCode}`;
+          this.statusText = `⚡ Đã nạp xong gợi ý tính sẵn từ Firebase Server cho ${labelText} (30ms).`;
+          this.cdr.markForCheck();
+          return;
+        }
+      } catch (err) {
+        console.warn("Không đọc được serverCache cho các shop, fallback về tính toán client:", err);
+      }
+
+      // 2. Thử đọc từ Cache Cục Bộ IndexedDB của Trình Duyệt
       const cached = await this.readCache(cacheKey);
       if (cached && Date.now() - cached.savedAt < 15 * 60 * 1000) {
         this.expiringStockList = cached.expiringStockList || [];
@@ -650,7 +720,7 @@ export class TransferSuggestionsComponent implements OnInit {
         this.step2Done = true;
         this.activeTab = "suggestions";
         this.updateDisplayGroups();
-        this.statusText = `Đang hiển thị dữ liệu đã lưu lúc ${this.formatCacheTime(cached.savedAt)}. Bấm nút '1. Tải mới Tồn kho' để làm mới.`;
+        this.statusText = `Đang hiển thị dữ liệu đã lưu lúc ${this.formatCacheTime(cached.savedAt)}.`;
         return;
       }
     }
@@ -663,6 +733,11 @@ export class TransferSuggestionsComponent implements OnInit {
         expiringStockList: this.expiringStockList,
         nationalStoreStockMap: this.nationalStoreStockMap,
         savedAt: Date.now(),
+      });
+      // Lưu lại lên Firebase transfer_suggestions_cache để các lần sau hoặc các máy khác dùng lại ngay
+      void this.firebaseCache.saveShopTransferSuggestions(this.selectedShopCode, {
+        expiringStockList: this.expiringStockList,
+        nationalStoreStockMap: this.nationalStoreStockMap,
       });
     }
   }
@@ -786,13 +861,16 @@ export class TransferSuggestionsComponent implements OnInit {
         },
         onItemResolved: (productCode, stores) => {
           this.nationalStoreStockMap[productCode] = stores;
-          this.recomputeSuggestionRows();
-          this.updateDisplayGroups();
-          this.cdr.markForCheck();
-
           resolvedCount++;
-          // Progressive Cache: Lưu liên tục vào IndexedDB khi có dữ liệu mới
-          if (resolvedCount % 10 === 0 || resolvedCount === uniqueProductCodes.length) {
+
+          // Tối ưu CPU: Chỉ recompute lại bảng sau mỗi 50 mã thay vì 1.781 lần liên tục gây đơ trình duyệt
+          if (resolvedCount % 50 === 0) {
+            this.recomputeSuggestionRows();
+            this.updateDisplayGroups();
+            this.cdr.markForCheck();
+          }
+
+          if (resolvedCount % 100 === 0 || resolvedCount === uniqueProductCodes.length) {
             void this.writeCache({
               cacheKey,
               expiringStockList: this.expiringStockList,
@@ -972,6 +1050,7 @@ export class TransferSuggestionsComponent implements OnInit {
 
     const toSet = new Set(suggestions.map((r) => r.toShopCode));
     this.cachedUniqueToShops = Array.from(toSet).sort();
+    this.cachedBucketCounts = null;
   }
 
   get suggestionRows(): ExpiringTransferSuggestion[] {

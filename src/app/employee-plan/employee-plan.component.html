@@ -17,7 +17,7 @@
         <div class="row g-3 align-items-center">
           <div class="col-md-3 col-sm-6">
             <div class="d-flex align-items-center gap-2">
-              <span class="text-secondary small fw-bold text-uppercase" style="font-size: 10px; min-width: 50px;">Tháng</span>
+              <span class="text-label-caps" style="min-width: 50px;">Tháng</span>
               <select class="form-select form-select-sm" [(ngModel)]="selectedMonth" name="selectedMonth">
                 <option *ngFor="let month of monthOptions" [ngValue]="month">{{ month }}</option>
               </select>
@@ -25,7 +25,7 @@
           </div>
           <div class="col-md-3 col-sm-6">
             <div class="d-flex align-items-center gap-2">
-              <span class="text-secondary small fw-bold text-uppercase" style="font-size: 10px; min-width: 50px;">Năm</span>
+              <span class="text-label-caps" style="min-width: 50px;">Năm</span>
               <select class="form-select form-select-sm" [(ngModel)]="selectedYear" name="selectedYear">
                 <option *ngFor="let year of yearOptions" [ngValue]="year">{{ year }}</option>
               </select>
@@ -173,7 +173,7 @@
                       <i class="ti ti-chart-bar" style="font-size: 1.1rem;"></i>
                     </span>
                     <div>
-                      <div class="text-uppercase fw-bold text-secondary" style="font-size: 10px; letter-spacing: 0.5px;">Doanh số</div>
+                      <div class="text-label-caps">Doanh số</div>
                       <div class="h3 mb-0 text-success fw-bold">{{ formatNumber(item.AmountR) }} đ</div>
                     </div>
                   </div>
@@ -197,7 +197,7 @@
                       <i class="ti ti-shopping-cart" style="font-size: 1.1rem;"></i>
                     </span>
                     <div>
-                      <div class="text-uppercase fw-bold text-secondary" style="font-size: 10px; letter-spacing: 0.5px;">Hệ số</div>
+                      <div class="text-label-caps">Hệ số</div>
                       <div class="h3 mb-0 text-primary fw-bold">{{ formatNumber(item.PointRatioR) }}</div>
                     </div>
                   </div>
@@ -217,15 +217,15 @@
               <div class="card-body py-3">
                 <div class="row g-2 text-center">
                   <div class="col-4">
-                    <div class="text-secondary small fw-bold" style="font-size: 10px;">Tỉ trọng</div>
+                    <div class="text-label-caps">Tỉ trọng</div>
                     <div class="h4 mb-0 mt-1">{{ formatPercent(getWeightedPointRatio(item)) }}</div>
                   </div>
                   <div class="col-4">
-                    <div class="text-secondary small fw-bold" style="font-size: 10px;">Dự kiến DS</div>
+                    <div class="text-label-caps">Dự kiến DS</div>
                     <div class="h4 mb-0 mt-1">{{ formatNumber(getProjectedValue(item.AmountR)) }} đ</div>
                   </div>
                   <div class="col-4">
-                    <div class="text-secondary small fw-bold" style="font-size: 10px;">Dự kiến HS</div>
+                    <div class="text-label-caps">Dự kiến HS</div>
                     <div class="h4 mb-0 mt-1">{{ formatNumber(getProjectedValue(item.PointRatioR)) }}</div>
                   </div>
                 </div>
