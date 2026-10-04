@@ -107,6 +107,11 @@ const routes: Routes = [
         title: "UPHARMA - Gợi ý chuyển hàng",
       },
       {
+        path: "ton-kho-toan-quoc",
+        loadComponent: () => import("./app/national-stock/national-stock.component").then((m) => m.NationalStockComponent),
+        title: "UPHARMA - Tồn kho toàn quốc",
+      },
+      {
         path: "cronjob",
         loadComponent: () => import("./app/cronjob/cronjob.component").then((m) => m.CronjobComponent),
         title: "UPHARMA - Đồng bộ dữ liệu",

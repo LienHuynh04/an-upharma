@@ -177,9 +177,28 @@ export class FirebaseInventoryService {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      console.log(`[Firebase Cache] Đã lưu transfer_suggestions_cache thành công cho shop ${shopCode}`);
     } catch (error) {
       console.error(`[Firebase Cache] Lỗi khi lưu transfer_suggestions_cache cho shop ${shopCode}:`, error);
+    }
+  }
+
+  /**
+   * Tải danh mục sản phẩm toàn hệ thống /product_catalog.json từ Firebase Realtime Database.
+   */
+  async getProductCatalog(): Promise<{ items: { c: string; n: string; u: string }[]; updatedAt?: number } | null> {
+    if (!this.dbUrl) return null;
+
+    try {
+      const url = `${this.dbUrl}/product_catalog.json`;
+      console.log(`[Firebase Cache] Đang tải danh mục sản phẩm từ: ${url}`);
+      const response = await fetch(url);
+      if (!response.ok) return null;
+
+      const data = await response.json();
+      return data || null;
+    } catch (error) {
+      console.warn("[Firebase Cache] Lỗi khi tải product_catalog từ Firebase:", error);
+      return null;
     }
   }
 }

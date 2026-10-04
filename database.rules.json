@@ -6,6 +6,10 @@
       ".read": "true",
       ".write": "auth != null"
     },
+    "product_catalog": {
+      ".read": "true",
+      ".write": "auth != null"
+    },
     "users_by_username": {
       "$username": {
         ".read": "auth != null",

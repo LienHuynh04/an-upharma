@@ -649,12 +649,61 @@ async function run() {
 
   // Bước cuối: Fetch GetExistProductLst cho toàn bộ mã SP → upload national_inventory_cache
   await fetchAndUploadNationalInventoryCache(loginData, allShopsData, db);
+
+  // Danh mục sản phẩm toàn hệ thống (GetItemLstWithFollower) → /product_catalog (lọc bỏ KM và Hàng Bỏ)
+  await fetchAndUploadProductCatalog(loginData, db, allShopsData);
   
   console.log("Hoàn thành fetch data!");
   clearInterval(heartbeatTimer);
   if (db) {
     process.exit(0);
   }
+}
+
+/**
+ * Trích xuất danh sách mã SP bị ngưng kinh doanh / hàng dừng từ allShopsData.product_off
+ */
+function getStoppedProductSet(allShopsData) {
+  const set = new Set();
+  if (allShopsData && allShopsData.product_off) {
+    for (const [, rows] of Object.entries(allShopsData.product_off)) {
+      if (Array.isArray(rows)) {
+        for (const r of rows) {
+          const code = String(r.ProductID || r.ProductCode || r.Product_ID || r.MaSP || r.ItemCode || r.Code || "").trim().toUpperCase();
+          if (code) set.add(code);
+        }
+      }
+    }
+  }
+  return set;
+}
+
+/**
+ * Kiểm tra xem sản phẩm có phải là hàng Khuyến Mãi (KM) không
+ */
+function isKmProduct(code, name) {
+  const c = String(code || "").trim().toUpperCase();
+  const n = String(name || "").trim().toUpperCase();
+  if (!c && !n) return false;
+  if (c.startsWith("KM") || n.startsWith("KM")) return true;
+  if (/\bKM\b/i.test(c) || /\bKM\b/i.test(n)) return true;
+  return false;
+}
+
+/**
+ * Kiểm tra xem sản phẩm có phải là Hàng Bỏ / Hàng Dừng kinh doanh không
+ */
+function isOffProduct(code, name, row, stoppedProductSet) {
+  const c = String(code || "").trim().toUpperCase();
+  if (c && stoppedProductSet && stoppedProductSet.has(c)) return true;
+  const n = String(name || "").trim().toLowerCase();
+  if (n.includes("hàng dừng") || n.includes("ngừng kinh doanh") || n.includes("hang dung") || n.includes("ngung kinh doanh")) return true;
+  if (row) {
+    const regType = String(pick(row, ["RegisterType", "Register_Type", "LoaiDangKy", "LoaiDK", "StatusName"])).trim().toLowerCase();
+    if (regType.includes("hàng dừng") || regType.includes("hang dung") || regType.includes("ngừng kinh doanh") || regType.includes("ngung kinh doanh") || regType.includes("bỏ")) return true;
+    if (row.IsOff === true || row.IsDelete === true || row.IsDiscontinued === true || row.IsStop === true) return true;
+  }
+  return false;
 }
 
 /**
@@ -700,8 +749,11 @@ async function fetchAndUploadNationalInventoryCache(loginData, allShopsData, db)
     }
   }
 
-  const productCodes = Array.from(productSet);
-  console.log(`[national_cache] Tìm thấy ${productCodes.length} mã SP hoạt động unique → sẽ gọi GetExistProductLst cho từng mã...`);
+  const stoppedSet = getStoppedProductSet(allShopsData);
+  const rawCodes = Array.from(productSet);
+  const productCodes = rawCodes.filter((code) => !isKmProduct(code, "") && !isOffProduct(code, "", null, stoppedSet));
+
+  console.log(`[national_cache] Tìm thấy ${rawCodes.length} mã SP unique → lọc còn ${productCodes.length} mã hoạt động sạch (loại bỏ KM & Hàng bỏ)`);
 
   if (productCodes.length === 0) {
     console.warn("[national_cache] Không có mã SP nào để xử lý, bỏ qua.");
@@ -778,6 +830,66 @@ async function fetchAndUploadNationalInventoryCache(loginData, allShopsData, db)
   }
 
   console.log(`[national_cache] ✅ Hoàn thành! ${doneCount} mã SP đã được cập nhật thành công lên Firebase RTDB.`);
+}
+
+/**
+ * Gọi /Product/GetItemLstWithFollower (toàn bộ danh mục) và lưu bản gọn lên Firebase RTDB /product_catalog
+ * Lọc bỏ hoàn toàn các sản phẩm Khuyến Mãi (KM) và Hàng Bỏ / Hàng Dừng.
+ */
+async function fetchAndUploadProductCatalog(loginData, db, allShopsData) {
+  console.log("\n[product_catalog] Đang tải danh mục sản phẩm từ GetItemLstWithFollower...");
+  try {
+    const res = await requestUpharma("/Product/GetItemLstWithFollower", {
+      Token: loginData.Token,
+      uPharmaID: String(loginData.UserInfo.uPharmaID),
+      ProductType: "",
+      Search: "",
+      NumberRow: 0,
+      PageNumber: 0,
+    });
+    const rows = extractArray(res);
+    const stoppedSet = getStoppedProductSet(allShopsData);
+    const seen = new Set();
+    const items = [];
+    let kmCount = 0;
+    let offCount = 0;
+
+    for (const p of rows) {
+      const c = String(p.ProductID ?? p.ProductCode ?? p.ItemID ?? p.Code ?? "").trim();
+      const n = String(p.ProductName ?? p.ItemName ?? p.Name ?? "").trim();
+      const u = String(p.UnitOfMeasure ?? p.Unit ?? "").trim();
+      if (!c || seen.has(c)) continue;
+
+      // 1. Loại bỏ hàng Khuyến Mãi (KM)
+      if (isKmProduct(c, n)) {
+        kmCount++;
+        continue;
+      }
+      // 2. Loại bỏ hàng Bỏ / Hàng Dừng kinh doanh
+      if (isOffProduct(c, n, p, stoppedSet)) {
+        offCount++;
+        continue;
+      }
+
+      seen.add(c);
+      items.push({ c, n, u });
+    }
+    items.sort((a, b) => a.c.localeCompare(b.c));
+
+    console.log(`[product_catalog] Tổng API: ${rows.length} SP → Đã lọc bỏ ${kmCount} sản phẩm KM và ${offCount} sản phẩm Bỏ/Dừng kinh doanh.`);
+
+    if (!items.length) {
+      console.warn("[product_catalog] API trả về rỗng sau khi lọc → giữ nguyên dữ liệu cũ trên Firebase.");
+      return;
+    }
+    if (db) {
+      await db.ref("product_catalog").set({ updatedAt: Date.now(), count: items.length, items });
+    }
+    fs.writeFileSync(path.join(DATA_DIR, "product_catalog.json"), JSON.stringify({ items }, null, 2));
+    console.log(`[product_catalog] ✅ Đã lưu ${items.length} sản phẩm sạch lên Firebase /product_catalog`);
+  } catch (err) {
+    console.warn("[product_catalog] Lỗi:", err.message || err);
+  }
 }
 
 run().catch((error) => {
