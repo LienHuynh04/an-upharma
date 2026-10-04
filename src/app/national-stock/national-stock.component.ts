@@ -35,14 +35,14 @@ interface StockGroup {
   imports: [CommonModule, FormsModule],
   styles: [`
     :host {
-      --ns-bg: var(--tblr-bg-surface, #fff);
+      --ns-bg: var(--tblr-bg-surface, #ffffff);
       --ns-bg-soft: var(--tblr-bg-surface-secondary, #f8fafc);
-      --ns-border: var(--tblr-border-color, #cbd5e1);
-      --ns-text: var(--tblr-body-color, #0f172a);
-      --ns-muted: var(--tblr-secondary, #64748b);
-      --ns-primary: var(--tblr-primary, #0284c7);
-      --ns-primary-soft: rgba(2, 132, 199, 0.08);
-      --ns-hover: rgba(2, 132, 199, 0.04);
+      --ns-border: var(--tblr-border-color, rgba(98, 105, 118, 0.16));
+      --ns-text: var(--tblr-body-color, #1d273b);
+      --ns-muted: var(--tblr-secondary, #667382);
+      --ns-primary: var(--tblr-primary, #206bc4);
+      --ns-primary-soft: rgba(32, 107, 196, 0.12);
+      --ns-hover: rgba(32, 107, 196, 0.06);
       display: block;
       color: var(--ns-text);
       font-family: inherit;
@@ -126,7 +126,7 @@ interface StockGroup {
       font-weight: 600;
       font-size: 0.875rem;
       background: var(--ns-primary);
-      color: #fff;
+      color: #ffffff;
       cursor: pointer;
       white-space: nowrap;
     }
@@ -156,9 +156,9 @@ interface StockGroup {
       text-align: center;
       font-weight: 700;
       font-size: 1rem;
-      color: #0284c7;
+      color: var(--ns-primary);
       padding: 0.625rem 1rem;
-      background: #ffffff;
+      background: var(--ns-bg);
       border-bottom: 1px solid var(--ns-border);
     }
     .ns-scroll {
@@ -176,7 +176,7 @@ interface StockGroup {
       top: 0;
       z-index: 2;
       background: var(--ns-bg-soft);
-      color: #334155;
+      color: var(--ns-text);
       font-weight: 600;
       text-align: left;
       padding: 0.5rem 0.625rem;
@@ -192,6 +192,7 @@ interface StockGroup {
     .ns-table td {
       padding: 0.4375rem 0.625rem;
       border: 1px solid var(--ns-border);
+      color: var(--ns-text);
     }
     .ns-table tbody tr.ns-row:hover td {
       background: var(--ns-hover);
@@ -209,10 +210,11 @@ interface StockGroup {
     }
     .ns-table td.pos {
       font-weight: 600;
-      color: #0284c7;
+      color: var(--ns-primary);
     }
     .ns-group td {
-      background: #f1f5f9;
+      background: var(--ns-bg-soft);
+      color: var(--ns-text);
       font-weight: 600;
       position: sticky;
       top: 33px;
@@ -235,7 +237,7 @@ interface StockGroup {
       gap: 0.75rem;
       align-items: center;
       padding: 0.5rem 0.75rem;
-      border-top: 1px solid var(--ns-border);
+      border-bottom: 1px solid var(--ns-border);
       background: var(--ns-bg-soft);
     }
     .ns-foot input {
@@ -264,13 +266,13 @@ interface StockGroup {
       padding: 2rem 1rem;
     }
     .ns-error {
-      border: 1px solid #ef4444;
-      color: #dc2626;
+      border: 1px solid var(--tblr-danger, #ef4444);
+      color: var(--tblr-danger, #dc2626);
       border-radius: 6px;
       padding: 0.625rem 0.875rem;
       margin-bottom: 1rem;
       font-size: 0.875rem;
-      background: #fef2f2;
+      background: rgba(239, 68, 68, 0.1);
     }
 
     /* Modal Chọn sản phẩm */
@@ -445,9 +447,7 @@ interface StockGroup {
           >⋯</button>
         </div>
 
-        <label class="ns-check">
-          <input type="checkbox" name="hideZero" [(ngModel)]="hideZero" /> Ẩn tồn = 0
-        </label>
+
 
         <button
           id="ns-search"
@@ -468,6 +468,16 @@ interface StockGroup {
       <!-- Main Table Card -->
       <section class="ns-card" *ngIf="searched && !loading && !error">
         <div class="ns-card-title">Danh sách kho</div>
+
+        <div class="ns-foot">
+          <input
+            id="ns-filter"
+            name="filter"
+            [(ngModel)]="filter"
+            placeholder="Lọc theo mã / tên kho..."
+          />
+          <span>{{ view.length }} điểm kho · Tổng tồn <b>{{ totalQty | number }}</b></span>
+        </div>
 
         <div class="ns-scroll ns-table-wrap">
           <table class="ns-table">
@@ -510,16 +520,6 @@ interface StockGroup {
           </table>
           <div class="ns-empty" *ngIf="groups.length === 0">Không có dữ liệu tồn kho.</div>
         </div>
-
-        <div class="ns-foot">
-          <input
-            id="ns-filter"
-            name="filter"
-            [(ngModel)]="filter"
-            placeholder="Lọc theo mã / tên kho..."
-          />
-          <span>{{ view.length }} điểm kho · Tổng tồn <b>{{ totalQty | number }}</b></span>
-        </div>
       </section>
     </div>
 
@@ -546,7 +546,6 @@ interface StockGroup {
             autocomplete="off"
           />
           <button class="ns-btn-ghost" type="button" (click)="pickerSearch = ''">Xoá</button>
-          <button class="ns-btn-ghost" type="button" (click)="loadProducts(true)" [disabled]="pickerLoading">Tải lại</button>
         </div>
 
         <div class="ns-error" style="margin: 0 1rem 0.75rem" *ngIf="pickerError">{{ pickerError }}</div>
@@ -612,7 +611,6 @@ export class NationalStockComponent implements OnInit {
 
   productId = "";
   selectedName = "";
-  hideZero = false;
   filter = "";
   loading = false;
   error = "";
@@ -666,7 +664,8 @@ export class NationalStockComponent implements OnInit {
               const name = String(p.n || p.name || p.ProductName || "").trim();
               return { code, name, key: NationalStockComponent.normalize(`${code} ${name}`) };
             })
-            .filter((p) => !NationalStockComponent.isKmOrOff(p.code, p.name));
+            .filter((p) => !NationalStockComponent.isKmOrOff(p.code, p.name))
+            .sort((a, b) => a.name.localeCompare(b.name, "vi"));
           return;
         }
         // Nếu Firebase trả về null và không bấm nút "Tải lại", không tự động gọi API Upharma
@@ -701,6 +700,7 @@ export class NationalStockComponent implements OnInit {
         seen.add(code);
         list.push({ code, name, key: NationalStockComponent.normalize(`${code} ${name}`) });
       }
+      list.sort((a, b) => a.name.localeCompare(b.name, "vi"));
       this.products = list;
     } catch (e) {
       this.pickerError = e instanceof Error ? e.message : String(e);
@@ -767,9 +767,7 @@ export class NationalStockComponent implements OnInit {
 
     try {
       const session: any = this.upharma.ensureLogin();
-      const res: any = await this.upharma.callEndpoint("/Inventory/GetExistProductLst", {
-        NumberRow: 0,
-        PageNumber: 0,
+      const res: any = await this.upharma.callEndpoint("/Report/GetExistProductLst", {
         ProductID: code,
         Token: session.Token,
         uPharmaID: String(session.UserInfo?.uPharmaID ?? ""),
@@ -810,9 +808,6 @@ export class NationalStockComponent implements OnInit {
 
   get view(): StockRow[] {
     let list = this.rawRows;
-    if (this.hideZero) {
-      list = list.filter((r) => r.Quantity > 0);
-    }
     const f = NationalStockComponent.normalize(this.filter.trim());
     if (f) {
       list = list.filter(

@@ -132,7 +132,7 @@ async function run() {
     items.push({ c, n, u });
   }
 
-  items.sort((a, b) => a.c.localeCompare(b.c));
+  items.sort((a, b) => a.n.localeCompare(b.n, 'vi'));
   console.log(`[sync-catalog] Kết quả sau lọc: ${items.length} sản phẩm sạch (Đã lọc ${kmCount} sản phẩm KM & ${offCount} sản phẩm Dừng).`);
 
   if (!items.length) {
