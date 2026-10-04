@@ -647,9 +647,6 @@ async function run() {
 
   await calculateAndUploadSummaries(shops, allShopsData, db);
 
-  // Bước cuối: Fetch GetExistProductLst cho toàn bộ mã SP → upload national_inventory_cache
-  await fetchAndUploadNationalInventoryCache(loginData, allShopsData, db);
-
   // Danh mục sản phẩm toàn hệ thống (GetItemLstWithFollower) → /product_catalog (lọc bỏ KM và Hàng Bỏ)
   await fetchAndUploadProductCatalog(loginData, db, allShopsData);
   

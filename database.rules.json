@@ -2,10 +2,7 @@
   "rules": {
     ".read": "false",
     ".write": "false",
-    "national_inventory_cache": {
-      ".read": "true",
-      ".write": "auth != null"
-    },
+
     "product_catalog": {
       ".read": "true",
       ".write": "auth != null"

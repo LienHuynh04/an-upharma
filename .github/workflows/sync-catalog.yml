@@ -1,0 +1,30 @@
+name: Cronjob Sync Product Catalog to Firebase
+
+on:
+  schedule:
+    # Chạy mỗi 30 phút một lần
+    - cron: '*/30 * * * *'
+  workflow_dispatch: # Cho phép kích hoạt chạy bằng tay từ giao diện GitHub Actions
+
+jobs:
+  sync-catalog:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci || npm install
+
+      - name: Run Sync Product Catalog to Firebase RTDB
+        env:
+          UPHARMA_USERNAME: ${{ secrets.UPHARMA_USERNAME }}
+          UPHARMA_PASSWORD: ${{ secrets.UPHARMA_PASSWORD }}
+          FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
+        run: node scripts/sync-firebase-catalog.js

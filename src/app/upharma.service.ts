@@ -256,7 +256,7 @@ export class UpharmaService {
       } else if (pathname.includes("GetProductOff")) {
         resourceName = "product_off";
       } else if (pathname.includes("GetItemLstWithFollower")) {
-        resourceName = "product_follower";
+        resourceName = "product_catalog";
       } else if (pathname.includes("GetReportSalesByShop")) {
         if (payload?.['_useFirebaseKeyProducts']) {
           resourceName = "key_products";
@@ -276,10 +276,31 @@ export class UpharmaService {
           ? this.shopList.filter((shop) => payloadShopCodes.includes(shop.ShopCode))
           : (this.shopList.length > 0 ? [this.shopList[0]] : []);
 
-      if (firebaseDbUrl && shopsToFetch.length > 0) {
+      if (firebaseDbUrl) {
         const normalizedFirebase = firebaseDbUrl.replace(/\/$/, "");
 
-        if (resourceName === 'dashboard_statistics' || resourceName === 'dashboard_customers') {
+        if (resourceName === 'product_catalog') {
+          const url = `${normalizedFirebase}/product_catalog.json`;
+          console.log(`[Firebase Fetch] Đang tải danh mục sản phẩm từ: ${url}`);
+          const response = await fetch(url);
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          const json = await response.json();
+          if (json && Array.isArray(json.items)) {
+            return json.items.map((i: any) => ({
+              ProductID: i.c,
+              ProductCode: i.c,
+              ProductName: i.n,
+              UnitOfMeasure: i.u,
+              Code: i.c,
+              Name: i.n
+            })) as unknown as T;
+          }
+          return (json?.data || json || []) as unknown as T;
+        }
+
+        if (shopsToFetch.length > 0 && (resourceName === 'dashboard_statistics' || resourceName === 'dashboard_customers')) {
           const shop = shopsToFetch[0];
           const url = `${normalizedFirebase}/shops/${shop.ShopCode}/upharma_data/${resourceName}.json`;
           console.log(`[Firebase Fetch] Đang tải ${resourceName} cho shop ${shop.ShopCode} từ: ${url}`);

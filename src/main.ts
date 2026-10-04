@@ -111,6 +111,7 @@ const routes: Routes = [
         loadComponent: () => import("./app/national-stock/national-stock.component").then((m) => m.NationalStockComponent),
         title: "UPHARMA - Tồn kho toàn quốc",
       },
+
       {
         path: "cronjob",
         loadComponent: () => import("./app/cronjob/cronjob.component").then((m) => m.CronjobComponent),

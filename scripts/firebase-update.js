@@ -1062,8 +1062,31 @@ async function calculateAndUploadSummaries(shops, allShopsData, db) {
       const nationalCache = precalculateNationalInventoryCache(shops, allShopsData);
       await db.ref(`national_inventory_cache`).set(nationalCache);
       console.log(`[precalculation] DONE upload national_inventory_cache (${Object.keys(nationalCache).length} products) lên Firebase RTDB!`);
+
+      // Tự động trích xuất danh mục sản phẩm sạch từ dữ liệu tồn kho để cập nhật /product_catalog
+      const catalogItems = [];
+      const seenProd = new Set();
+      for (const sc in (allShopsData.sales_speed || {})) {
+        for (const row of (allShopsData.sales_speed[sc] || [])) {
+          const c = String(row.ProductID || row.ProductCode || "").trim();
+          const n = String(row.ProductName || "").trim();
+          const u = String(row.UnitOfMeasure || "Hộp").trim();
+          if (!c || seenProd.has(c)) continue;
+          seenProd.add(c);
+          catalogItems.push({ c, n, u });
+        }
+      }
+      if (catalogItems.length > 0) {
+        catalogItems.sort((a, b) => a.c.localeCompare(b.c));
+        await db.ref("product_catalog").set({
+          updatedAt: Date.now(),
+          count: catalogItems.length,
+          items: catalogItems,
+        });
+        console.log(`[precalculation] DONE upload product_catalog (${catalogItems.length} sản phẩm) lên Firebase RTDB!`);
+      }
     } catch (err) {
-      console.warn("[precalculation] Lỗi khi upload shops_summary / national_inventory_cache:", err);
+      console.warn("[precalculation] Lỗi khi upload shops_summary / national_inventory_cache / product_catalog:", err);
     }
   }
 }
