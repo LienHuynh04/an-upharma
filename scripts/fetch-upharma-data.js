@@ -649,6 +649,12 @@ async function run() {
 
   // Danh mục sản phẩm toàn hệ thống (GetItemLstWithFollower) → /product_catalog (lọc bỏ KM và Hàng Bỏ)
   await fetchAndUploadProductCatalog(loginData, db, allShopsData);
+
+  // Tồn kho & sức bán toàn quốc từ GetExistProductLst → /national_inventory_cache
+  await fetchAndUploadNationalInventoryCache(loginData, allShopsData, db);
+
+  // Tự động tính toán và lưu cache gợi ý điều chuyển hàng cận date → /transfer_suggestions_cache/<shopCode>
+  await generateTransferSuggestionsForShops(shops, allShopsData, db);
   
   console.log("Hoàn thành fetch data!");
   clearInterval(heartbeatTimer);
@@ -827,6 +833,96 @@ async function fetchAndUploadNationalInventoryCache(loginData, allShopsData, db)
   }
 
   console.log(`[national_cache] ✅ Hoàn thành! ${doneCount} mã SP đã được cập nhật thành công lên Firebase RTDB.`);
+}
+
+function getDaysRemaining(dateText) {
+  if (!dateText) return null;
+  const str = String(dateText).trim();
+  const parts = str.split(/[-/]/);
+  if (parts.length === 3) {
+    let day, month, year;
+    if (parts[2].length === 4) {
+      day = parseInt(parts[0], 10);
+      month = parseInt(parts[1], 10) - 1;
+      year = parseInt(parts[2], 10);
+    } else if (parts[0].length === 4) {
+      year = parseInt(parts[0], 10);
+      month = parseInt(parts[1], 10) - 1;
+      day = parseInt(parts[2], 10);
+    }
+    if (year && !isNaN(month) && day) {
+      const exp = new Date(year, month, day);
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+      return Math.round((exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    }
+  }
+  return null;
+}
+
+/**
+ * Tự động tính toán và lưu cache gợi ý điều chuyển hàng cận date cho từng nhà thuốc
+ */
+async function generateTransferSuggestionsForShops(shops, allShopsData, db) {
+  if (!db) return;
+  console.log("\n[transfer_suggestions] Đang tổng hợp và lưu gợi ý điều chuyển cho các nhà thuốc...");
+
+  try {
+    const snap = await db.ref("national_inventory_cache").once("value");
+    const nationalCache = snap.val() || {};
+
+    for (const shop of shops) {
+      const sc = shop.ShopCode;
+      const invRows = allShopsData.inventory[sc] || [];
+      const expiringStockList = [];
+      const nationalStoreStockMap = {};
+
+      for (let idx = 0; idx < invRows.length; idx++) {
+        const row = invRows[idx];
+        const pCode = String(row.ProductID || row.ProductCode || row.ItemCode || "").trim();
+        const pName = String(row.ProductName || row.ItemName || pCode).trim();
+        const qty = Number(row.QuantityExist ?? row.Quantity ?? 0);
+        const expText = String(row.ExpireDate || row.ExpiryDate || row.DateExpire || row.HSD || "").trim();
+        const days = getDaysRemaining(expText);
+
+        if (pCode && qty > 0 && days !== null && days >= 0 && days <= 3650) {
+          expiringStockList.push({
+            key: `${sc}_${pCode}_${idx}`,
+            productCode: pCode,
+            productName: pName,
+            shopCode: sc,
+            shopName: shop.ShopName || sc,
+            lot: String(row.LotCode || row.Lot || "N/A"),
+            expiryText: expText,
+            daysRemaining: days,
+            quantity: qty,
+            unit: String(row.UnitOfMeasure || row.Unit || "Hộp"),
+          });
+
+          const safeCode = pCode.replace(/[.$#[\]/]/g, "_");
+          const upperCode = pCode.toUpperCase();
+          const entry = nationalCache[safeCode] || nationalCache[pCode] || nationalCache[upperCode];
+          if (entry && Array.isArray(entry.shops)) {
+            nationalStoreStockMap[pCode] = entry.shops;
+          }
+        }
+      }
+
+      const sanitizedShop = sc.replace(/[.$#[\]/]/g, "_");
+      await db.ref(`transfer_suggestions_cache/${sanitizedShop}`).set({
+        shopCode: sc,
+        updatedAt: Date.now(),
+        totalExpiringCount: expiringStockList.length,
+        expiringStockList,
+        nationalStoreStockMap,
+      });
+
+      console.log(`[transfer_suggestions] DONE ${sc}: ${expiringStockList.length} lô cận date`);
+    }
+    console.log("[transfer_suggestions] ✅ Hoàn tất cập nhật transfer_suggestions_cache lên Firebase RTDB!");
+  } catch (err) {
+    console.warn("[transfer_suggestions] Lỗi khi tạo gợi ý điều chuyển:", err);
+  }
 }
 
 /**

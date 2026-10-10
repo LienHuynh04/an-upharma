@@ -7,6 +7,14 @@
       ".read": "true",
       ".write": "auth != null"
     },
+    "national_inventory_cache": {
+      ".read": "true",
+      ".write": "auth != null"
+    },
+    "transfer_suggestions_cache": {
+      ".read": "true",
+      ".write": "auth != null"
+    },
     "users_by_username": {
       "$username": {
         ".read": "auth != null",

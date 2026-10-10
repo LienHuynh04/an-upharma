@@ -18,15 +18,95 @@ export class FirebaseInventoryService {
 
   constructor() {}
 
+  /**
+   * Tải toàn bộ bộ nhớ đệm tồn kho toàn quốc từ Firebase Realtime Database.
+   */
   async getAllCache(): Promise<Record<string, CacheEntry>> {
-    return {};
+    if (!this.dbUrl) return {};
+
+    try {
+      const url = `${this.dbUrl}/national_inventory_cache.json`;
+      console.log(`[Firebase Cache] Đang tải toàn bộ national_inventory_cache: ${url}`);
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const data = await response.json();
+      return data || {};
+    } catch (error) {
+      console.warn("[Firebase Cache] Lỗi khi tải toàn bộ national_inventory_cache:", error);
+      return {};
+    }
   }
 
-  async getBatchCache(_productIDs: string[]): Promise<Record<string, CacheEntry>> {
-    return {};
+  /**
+   * Tải bộ nhớ đệm tồn kho của MỘT sản phẩm cụ thể (On-Demand Fetch - Siêu nhẹ ~2KB).
+   */
+  async getProductCache(productID: string): Promise<CacheEntry | null> {
+    if (!this.dbUrl || !productID) return null;
+
+    try {
+      const sanitized = productID.trim().replace(/[.$#\[\]\/]/g, "_");
+      const url = `${this.dbUrl}/national_inventory_cache/${sanitized}.json`;
+      const response = await fetch(url);
+      if (!response.ok) return null;
+
+      const data = await response.json();
+      return data as CacheEntry;
+    } catch (error) {
+      return null;
+    }
   }
 
+  /**
+   * Tải bộ nhớ đệm tồn kho của DANH SÁCH sản phẩm cụ thể song song (Batch On-Demand Fetch).
+   */
+  async getBatchCache(productIDs: string[]): Promise<Record<string, CacheEntry>> {
+    if (!this.dbUrl || !productIDs || productIDs.length === 0) return {};
 
+    const results: Record<string, CacheEntry> = {};
+    const uniqueCodes = Array.from(new Set(productIDs.map((id) => id.trim())));
+
+    await Promise.all(
+      uniqueCodes.map(async (code) => {
+        const entry = await this.getProductCache(code);
+        if (entry) {
+          results[code] = entry;
+        }
+      })
+    );
+
+    return results;
+  }
+
+  /**
+   * Lưu thông tin tồn kho toàn quốc của một sản phẩm vào bộ nhớ đệm Firebase.
+   */
+  async saveCache(productID: string, shops: any[]): Promise<void> {
+    if (!this.dbUrl || !productID) return;
+
+    try {
+      const sanitized = productID.trim().replace(/[.$#\[\]\/]/g, "_");
+      const url = `${this.dbUrl}/national_inventory_cache/${sanitized}.json`;
+      const entry: CacheEntry = {
+        productID: sanitized,
+        shops,
+        updatedAt: Date.now(),
+      };
+
+      const response = await fetch(url, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(entry),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+    } catch (error) {
+      console.warn(`[Firebase Cache] Lỗi khi lưu cache cho sản phẩm ${productID}:`, error);
+    }
+  }
 
   /**
    * Tải dữ liệu Gợi ý Điều Chuyển Hàng Cận Date ĐÃ ĐƯỢC TÍNH SẴN từ Firebase Server cho 1 Nhà Thuốc.
