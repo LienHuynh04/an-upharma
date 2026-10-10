@@ -57,7 +57,7 @@ export class EmployeePlanComponent implements OnInit {
   readonly endpoint = "/EmployeePlan/GetEmployeePlanLst";
   readonly monthOptions = Array.from({ length: 12 }, (_, index) => index + 1);
   readonly yearOptions = Array.from({ length: 11 }, (_, index) => new Date().getFullYear() - 5 + index);
-  selectedMonth = new Date().getMonth() + 1;
+  selectedMonth = 10;
   selectedYear = new Date().getFullYear();
   tabs: ShopPlanTab[] = [];
   activeShopCode = "";

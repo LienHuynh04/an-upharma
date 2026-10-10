@@ -111,12 +111,6 @@ export class ShopPlanIconComponent {
         <div class="col-12 col-sm-auto ms-sm-auto mt-2 mt-sm-0 d-print-none">
           <div class="d-flex flex-wrap align-items-center gap-2" style="flex-wrap: wrap;">
             <div class="d-flex align-items-center gap-2">
-              <label class="form-label mb-0">Tháng</label>
-              <select class="form-select" [(ngModel)]="selectedMonth" name="selectedMonth">
-                <option *ngFor="let month of monthOptions" [ngValue]="month">{{ month }}</option>
-              </select>
-            </div>
-            <div class="d-flex align-items-center gap-2">
               <label class="form-label mb-0">Năm</label>
               <select class="form-select" [(ngModel)]="selectedYear" name="selectedYear">
                 <option *ngFor="let year of yearOptions" [ngValue]="year">{{ year }}</option>
@@ -254,7 +248,7 @@ export class ShopPlanYearComponent implements OnInit {
     { key: "CusLevel5", label: "H5" },
     { key: "CusLevel6", label: "H6" },
   ] as const;
-  selectedMonth = new Date().getMonth() + 1;
+  selectedMonth = 10;
   selectedYear = new Date().getFullYear();
   tabs: ShopTab[] = [];
 
@@ -295,8 +289,8 @@ export class ShopPlanYearComponent implements OnInit {
     }
     this.initTabs();
     this.tabs.forEach((tab) => { tab.loading = true; tab.errorText = ""; tab.items = []; });
-    const timeStart = `${this.selectedYear}-01-01 00:00:00`;
-    const timeEnd = `${this.selectedYear}-12-31 23:59:59`;
+    const timeStart = `${this.selectedYear}-10-01 00:00:00`;
+    const timeEnd = `${this.selectedYear}-10-31 23:59:59`;
     await Promise.all(shops.map(async (shop) => {
       const tab = this.tabs.find((entry) => entry.shopCode === shop.ShopCode);
       if (!tab) return;

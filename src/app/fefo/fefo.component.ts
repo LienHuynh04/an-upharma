@@ -25,6 +25,7 @@ export interface FefoItem {
   unit: string;
 
   // Sales order details
+  orderCode: string;
   soldLot: string;
   soldExpiryText: string;
   soldExpiryDays: number | null;
@@ -366,6 +367,19 @@ export class FefoComponent implements OnInit {
           this.pick(row, ["UnitOfMeasure", "UnitName", "Unit_Name", "Unit", "UnitCode", "DonVi", "DonViTinh", "DVT"]) || ""
         ).trim();
 
+        const orderCode = String(
+          this.pick(row, [
+            "HeaderID",
+            "OrderCode",
+            "InvoiceCode",
+            "InvoiceID",
+            "OrderID",
+            "ReferentCode",
+            "UserOrderID",
+            "Code",
+          ]) || ""
+        ).trim();
+
         const soldLot = String(
           this.pick(row, ["LotCode", "LotNo", "Lo", "SoLo", "BatchNo", "BatchCode"]) || "-"
         ).trim();
@@ -429,6 +443,7 @@ export class FefoComponent implements OnInit {
           productCode,
           productName,
           unit,
+          orderCode,
           soldLot,
           soldExpiryText,
           soldExpiryDays: this.parseDaysFromText(soldExpiryText),
@@ -448,7 +463,7 @@ export class FefoComponent implements OnInit {
           fefoStatus,
           fefoStatusLabel,
           badgeClass,
-          searchText: normalizeFilterText(`${productName} ${productCode} ${soldLot} ${employeeName}`),
+          searchText: normalizeFilterText(`${productName} ${productCode} ${soldLot} ${employeeName} ${orderCode}`),
           columnSearchText: {
             productName: normalizeFilterText(productName),
             productCode: normalizeFilterText(productCode),
@@ -505,6 +520,7 @@ export class FefoComponent implements OnInit {
           productCode: code,
           productName: first.productName,
           unit: first.unit,
+          orderCode: "-",
           soldLot: first.lot || "-",
           soldExpiryText: first.expiryText || "-",
           soldExpiryDays: first.expiryDaysRemaining,
@@ -607,6 +623,7 @@ export class FefoComponent implements OnInit {
       } else {
         sheetName = "Chi-tiet-FEFO";
         sheetRows = this.filteredRows.map((r) => ({
+          "Mã đơn bán": r.orderCode || "-",
           "Nhà thuốc": r.shopCode,
           "Mã SP": r.productCode,
           "Tên sản phẩm": r.productName,
