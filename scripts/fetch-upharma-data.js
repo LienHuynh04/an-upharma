@@ -973,21 +973,42 @@ function computeTransferSuggestionsForList(expiringStockList, nationalCache) {
 
     if (!entry || !Array.isArray(entry.shops) || entry.shops.length === 0) continue;
 
-    const validDests = entry.shops
-      .filter((d) => d.StoreCode !== item.shopCode && !isWarehouseStore(d) && Number(d.QuantityAVG || d.AVGQuantity || 0) > 0)
-      .sort((a, b) => Number(b.QuantityAVG || 0) - Number(a.QuantityAVG || 0));
-
-    if (validDests.length === 0) continue;
+    // Lọc bỏ chính shop nguồn và kho
+    const candidates = entry.shops.filter((d) => d.StoreCode !== item.shopCode && !isWarehouseStore(d));
+    if (candidates.length === 0) continue;
 
     const sourceProvince = getShopProvince(item.shopName);
-    const sameProv = validDests.filter((d) => getShopProvince(d.StoreName) === sourceProvince);
-    const otherProv = validDests.filter((d) => getShopProvince(d.StoreName) !== sourceProvince);
-    const ordered = [...sameProv, ...otherProv].slice(0, 5);
+
+    // Phân 4 cấp ưu tiên để luôn chọn đủ 5 nhà thuốc:
+    // 1. Nội tỉnh bán tốt (QuantityAVG > 0)
+    const sameProvSales = candidates
+      .filter((d) => getShopProvince(d.StoreName) === sourceProvince && Number(d.QuantityAVG || d.AVGQuantity || 0) > 0)
+      .sort((a, b) => Number(b.QuantityAVG || 0) - Number(a.QuantityAVG || 0));
+
+    // 2. Nội tỉnh khác (QuantityAVG <= 0, ưu tiên giữ hàng trong tỉnh)
+    const sameProvOther = candidates
+      .filter((d) => getShopProvince(d.StoreName) === sourceProvince && Number(d.QuantityAVG || d.AVGQuantity || 0) <= 0)
+      .sort((a, b) => Number(b.Quantity || 0) - Number(a.Quantity || 0));
+
+    // 3. Ngoại tỉnh bán tốt (QuantityAVG > 0)
+    const otherProvSales = candidates
+      .filter((d) => getShopProvince(d.StoreName) !== sourceProvince && Number(d.QuantityAVG || d.AVGQuantity || 0) > 0)
+      .sort((a, b) => Number(b.QuantityAVG || 0) - Number(a.QuantityAVG || 0));
+
+    // 4. Ngoại tỉnh khác (QuantityAVG <= 0, dự phòng để đủ 5 shop)
+    const otherProvOther = candidates
+      .filter((d) => getShopProvince(d.StoreName) !== sourceProvince && Number(d.QuantityAVG || d.AVGQuantity || 0) <= 0)
+      .sort((a, b) => Number(b.Quantity || 0) - Number(a.Quantity || 0));
+
+    // Bắt buộc lấy đúng 5 nhà thuốc (ưu tiên nội tỉnh tuyệt đối)
+    const ordered = [...sameProvSales, ...sameProvOther, ...otherProvSales, ...otherProvOther].slice(0, 5);
 
     ordered.forEach((dest, rankIdx) => {
       const isSame = sourceProvince === getShopProvince(dest.StoreName);
       const avg = Number(dest.QuantityAVG || 0);
-      const suggestedQty = Math.max(1, Math.min(Math.floor(qty), Math.round(avg || 1)));
+      const suggestedQty = avg > 0
+        ? Math.max(1, Math.min(Math.floor(qty), Math.round(avg || 1)))
+        : Math.max(1, Math.min(Math.floor(qty), 2));
 
       suggestions.push({
         key: `${item.key || item.shopCode}_${dest.StoreCode}_${rankIdx}`,

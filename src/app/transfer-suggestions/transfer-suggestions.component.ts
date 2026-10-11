@@ -280,13 +280,15 @@ export interface GroupedExpiringStock {
                   </td>
                   <td data-label="NT nguồn ➔ NT đích">
                     <div class="d-flex flex-column gap-1">
-                      <div *ngFor="let item of getTopRoutes(group)" class="d-flex align-items-center gap-1 flex-wrap">
+                      <div *ngFor="let item of getTopRoutes(group, 5)" class="d-flex align-items-center gap-1 flex-wrap">
                         <span class="badge bg-secondary-lt font-monospace fs-5">{{ group.fromShopCode }}</span>
                         <span class="text-secondary small">➔</span>
-                        <span class="badge bg-blue-lt text-blue font-monospace fs-5">{{ item.toShopCode }}</span>
+                        <span class="badge font-monospace fs-5" [ngClass]="item.isSameProvince ? 'bg-success text-white' : 'bg-blue-lt text-blue'">{{ item.toShopCode }}</span>
+                        <span class="badge bg-green-lt text-green fs-6 py-0 px-1" *ngIf="item.isSameProvince">Nội tỉnh</span>
+                        <span class="small text-muted text-truncate" style="max-width: 120px;" [title]="item.toShopName">{{ item.toShopName }}</span>
                       </div>
-                      <div *ngIf="group.items.length > 3">
-                        <span class="badge bg-secondary-lt text-secondary fs-6">+{{ group.items.length - 3 }} tuyến khác</span>
+                      <div *ngIf="group.items.length > 5">
+                        <span class="badge bg-secondary-lt text-secondary fs-6">+{{ group.items.length - 5 }} tuyến khác</span>
                       </div>
                     </div>
                   </td>
@@ -1002,7 +1004,7 @@ export class TransferSuggestionsComponent implements OnInit {
     return `${group.fromShopCode}|${group.productCode}`;
   }
 
-  getTopRoutes(group: GroupedSuggestion, max = 3): ExpiringTransferSuggestion[] {
+  getTopRoutes(group: GroupedSuggestion, max = 5): ExpiringTransferSuggestion[] {
     return group.items.slice(0, max);
   }
 
@@ -1061,7 +1063,7 @@ export class TransferSuggestionsComponent implements OnInit {
   }
 
   // ==========================================
-  // BƯỚC 3: THUẬT TOÁN GỢI Ý ĐIỀU CHUYỂN (HỖ TRỢ TOP N NHÀ THUỐC ĐÍCH)
+  // BƯỚC 3: THUẬT TOÁN GỢI Ý ĐIỀU CHUYỂN (BẮT BUỘC 5 NHÀ THUỐC ĐÍCH, ƯU TIÊN NỘI TỈNH)
   // ==========================================
   cachedSuggestionRows: ExpiringTransferSuggestion[] = [];
   cachedTotalSuggestedCount = 0;
@@ -1087,27 +1089,46 @@ export class TransferSuggestionsComponent implements OnInit {
       const destList = this.nationalStoreStockMap[item.productCode];
       if (!destList || !Array.isArray(destList) || destList.length === 0) continue;
 
-      const validDests = destList
-        .filter((d: any) => d.StoreCode !== item.shopCode && !isWarehouseStore(d) && parseNumericValue(d.QuantityAVG) > 0)
-        .sort((a, b) => parseNumericValue(b.QuantityAVG) - parseNumericValue(a.QuantityAVG));
-
-      if (validDests.length === 0) continue;
+      // Loại bỏ chính shop nguồn và các kho
+      const candidates = destList.filter(
+        (d: any) => d.StoreCode !== item.shopCode && !isWarehouseStore(d)
+      );
+      if (candidates.length === 0) continue;
 
       const sourceProvince = this.getProvince(item.shopName);
 
-      const sameProvinceDests = validDests.filter((d) => this.getProvince(d.StoreName) === sourceProvince);
-      const otherProvinceDests = validDests.filter((d) => this.getProvince(d.StoreName) !== sourceProvince);
+      // Phân 4 cấp ưu tiên để luôn chọn đủ 5 nhà thuốc:
+      // 1. Nội tỉnh có sức bán tốt (QuantityAVG > 0)
+      const sameProvSales = candidates
+        .filter((d: any) => this.getProvince(d.StoreName) === sourceProvince && parseNumericValue(d.QuantityAVG) > 0)
+        .sort((a: any, b: any) => parseNumericValue(b.QuantityAVG) - parseNumericValue(a.QuantityAVG));
 
-      const orderedDests = [...sameProvinceDests, ...otherProvinceDests].slice(0, this.topNDestinations);
+      // 2. Nội tỉnh khác (QuantityAVG <= 0, ưu tiên giữ hàng trong tỉnh)
+      const sameProvOther = candidates
+        .filter((d: any) => this.getProvince(d.StoreName) === sourceProvince && parseNumericValue(d.QuantityAVG) <= 0)
+        .sort((a: any, b: any) => parseNumericValue(b.Quantity) - parseNumericValue(a.Quantity));
 
-      orderedDests.forEach((bestDest, index) => {
+      // 3. Ngoại tỉnh có sức bán tốt (QuantityAVG > 0)
+      const otherProvSales = candidates
+        .filter((d: any) => this.getProvince(d.StoreName) !== sourceProvince && parseNumericValue(d.QuantityAVG) > 0)
+        .sort((a: any, b: any) => parseNumericValue(b.QuantityAVG) - parseNumericValue(a.QuantityAVG));
+
+      // 4. Ngoại tỉnh khác (QuantityAVG <= 0, dự phòng lấp đầy đủ 5 shop)
+      const otherProvOther = candidates
+        .filter((d: any) => this.getProvince(d.StoreName) !== sourceProvince && parseNumericValue(d.QuantityAVG) <= 0)
+        .sort((a: any, b: any) => parseNumericValue(b.Quantity) - parseNumericValue(a.Quantity));
+
+      // Ghép theo thứ tự ưu tiên và lấy đúng 5 nhà thuốc
+      const orderedDests = [...sameProvSales, ...sameProvOther, ...otherProvSales, ...otherProvOther].slice(0, 5);
+
+      orderedDests.forEach((bestDest: any, index: number) => {
         const destProvince = this.getProvince(bestDest.StoreName);
         const isSame = sourceProvince === destProvince;
+        const avg = parseNumericValue(bestDest.QuantityAVG);
 
-        const qty = Math.max(
-          1,
-          Math.min(Math.floor(item.quantity), Math.round(bestDest.QuantityAVG || 1))
-        );
+        const qty = avg > 0
+          ? Math.max(1, Math.min(Math.floor(item.quantity), Math.round(avg || 1)))
+          : Math.max(1, Math.min(Math.floor(item.quantity), 2));
 
         suggestions.push({
           key: `${item.key}|${bestDest.StoreCode}|${index}`,
@@ -1122,7 +1143,7 @@ export class TransferSuggestionsComponent implements OnInit {
           toShopCode: bestDest.StoreCode,
           toShopName: bestDest.StoreName,
           sourceQuantity: item.quantity,
-          destAvgSales: bestDest.QuantityAVG,
+          destAvgSales: avg,
           suggestedQty: qty,
           isSameProvince: isSame,
           rank: index + 1,
