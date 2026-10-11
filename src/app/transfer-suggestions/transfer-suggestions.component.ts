@@ -243,14 +243,14 @@ export interface GroupedExpiringStock {
             <table class="table table-vcenter card-table table-striped table-hover" style="table-layout: fixed; width: 100%;">
               <thead>
                 <tr>
-                  <th class="text-center" style="width: 50px; min-width: 50px;">STT</th>
+                  <th class="text-center" style="width: 70px; min-width: 70px;">STT</th>
                   <th style="width: 25%;">Tên SP</th>
                   <th style="width: 10%;">Mã SP</th>
                   <th style="width: 9%;">Hạn dùng</th>
-                  <th style="width: 28%;">NT nguồn ➔ NT đích</th>
+                  <th style="width: 27%;">NT nguồn ➔ NT đích</th>
                   <th class="text-end" style="width: 9%;">Tồn Nguồn</th>
                   <th class="text-end" style="width: 11%;">Tổng SL Đề xuất</th>
-                  <th class="text-center" style="width: 8%;">Số tuyến</th>
+                  <th class="text-center" style="width: 7%;">Số tuyến</th>
                 </tr>
 
               </thead>
