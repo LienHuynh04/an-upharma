@@ -243,14 +243,14 @@ export interface GroupedExpiringStock {
             <table class="table table-vcenter card-table table-striped table-hover" style="table-layout: fixed; width: 100%;">
               <thead>
                 <tr>
-                  <th class="text-center" style="width: 64px; min-width: 64px;">STT</th>
-                  <th style="width: 35%;">Tên SP</th>
-                  <th style="width: 12%;">Mã SP</th>
-                  <th style="width: 10%;">Hạn dùng</th>
-                  <th style="width: 18%;">NT nguồn ➔ NT đích</th>
-                  <th class="text-end" style="width: 9%;">Tồn Nguồn</th>
+                  <th class="text-center" style="width: 50px; min-width: 50px;">STT</th>
+                  <th style="width: 20%;">Tên SP</th>
+                  <th style="width: 10%;">Mã SP</th>
+                  <th style="width: 9%;">Hạn dùng</th>
+                  <th style="width: 35%;">NT nguồn ➔ NT đích</th>
+                  <th class="text-end" style="width: 8%;">Tồn Nguồn</th>
                   <th class="text-end" style="width: 9%;">Tổng SL Đề xuất</th>
-                  <th class="text-center" style="width: 7%;">Số tuyến</th>
+                  <th class="text-center" style="width: 6%;">Số tuyến</th>
                 </tr>
 
               </thead>
@@ -271,7 +271,7 @@ export interface GroupedExpiringStock {
                 </tr>
                 <tr *ngFor="let group of cachedGroupedSuggestions; let i = index; trackBy: trackByGroupKey" (click)="openDetailModal(group)" style="cursor: pointer;" title="Bấm vào dòng để xem chi tiết gợi ý điều chuyển">
                   <td data-label="STT" class="text-center font-monospace fw-bold" style="white-space: nowrap;">{{ i + 1 }}</td>
-                  <td data-label="Tên SP" class="font-weight-medium">{{ group.productName }}</td>
+                  <td data-label="Tên SP" class="font-weight-medium text-break" style="font-size: 0.92rem; line-height: 1.35;">{{ group.productName }}</td>
                   <td data-label="Mã SP"><code>{{ group.productCode }}</code></td>
                   <td data-label="Hạn dùng">
                     <span [class]="getExpiryMonthTag(group.minDaysRemaining).class">
@@ -280,12 +280,13 @@ export interface GroupedExpiringStock {
                   </td>
                   <td data-label="NT nguồn ➔ NT đích">
                     <div class="d-flex flex-column gap-1">
-                      <div *ngFor="let item of getTopRoutes(group, 5)" class="d-flex align-items-center gap-1 flex-wrap">
+                      <div *ngFor="let item of getTopRoutes(group, 5)" class="d-flex align-items-center gap-1 flex-wrap py-0-5">
                         <span class="badge bg-secondary-lt font-monospace fs-5">{{ group.fromShopCode }}</span>
                         <span class="text-secondary small">➔</span>
                         <span class="badge font-monospace fs-5" [ngClass]="item.isSameProvince ? 'bg-success text-white' : 'bg-blue-lt text-blue'">{{ item.toShopCode }}</span>
                         <span class="badge bg-green-lt text-green fs-6 py-0 px-1" *ngIf="item.isSameProvince">Nội tỉnh</span>
-                        <span class="small text-muted text-truncate" style="max-width: 120px;" [title]="item.toShopName">{{ item.toShopName }}</span>
+                        <span class="badge bg-primary-lt text-primary font-monospace fs-6 px-1" title="Số lượng đề xuất">{{ formatNumber(item.suggestedQty) }} {{ item.unit }}</span>
+                        <span class="small text-muted text-truncate" style="max-width: 250px;" [title]="item.toShopName">{{ item.toShopName }}</span>
                       </div>
                       <div *ngIf="group.items.length > 5">
                         <span class="badge bg-secondary-lt text-secondary fs-6">+{{ group.items.length - 5 }} tuyến khác</span>
