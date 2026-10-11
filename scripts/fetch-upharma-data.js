@@ -871,73 +871,59 @@ async function generateTransferSuggestionsForShops(shops, allShopsData, db, logi
   if (!db) return;
   console.log("\n[transfer_suggestions] Đang tổng hợp và lưu gợi ý điều chuyển cho các nhà thuốc...");
 
-  try {
-    const snap = await db.ref("national_inventory_cache").once("value");
-    const nationalCache = snap.val() || {};
+  const TIMEOUT_MS = 60000;
+  let timeoutId;
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error("Timeout 60s")), TIMEOUT_MS);
+  });
 
-    // Tìm các mã cận date thực tế của các shop user chưa có trong cache toàn quốc
-    const missingCodes = new Set();
-    for (const shop of shops) {
-      const invRows = allShopsData.inventory[shop.ShopCode] || [];
-      for (const row of invRows) {
-        const pCode = String(row.ProductID || row.ProductCode || row.ItemCode || "").trim();
-        const expText = String(
-          row.ExpirationDate || row.ExpDate || row.ExpireDate || row.ExpiredDate || row.ExpiryDate || row.DateExpire || row.HSD || ""
-        ).trim();
-        const days = getDaysRemaining(expText);
-        const qty = Number(row.QuantityExist ?? row.Quantity ?? 0);
-        if (pCode && qty > 0 && days !== null && days >= 0 && days <= 365) {
-          const safeCode = pCode.replace(/[.$#[\]/]/g, "_");
-          const upperCode = pCode.toUpperCase();
-          if (!nationalCache[safeCode] && !nationalCache[pCode] && !nationalCache[upperCode]) {
-            missingCodes.add(pCode);
+  try {
+    await Promise.race([
+      (async () => {
+        // 1. Chỉ tìm các mã cận date thực tế của các shop user
+        const expiringCodeSet = new Set();
+        for (const shop of shops) {
+          const invRows = allShopsData.inventory[shop.ShopCode] || [];
+          for (const row of invRows) {
+            const pCode = String(row.ProductID || row.ProductCode || row.ItemCode || "").trim();
+            const expText = String(
+              row.ExpirationDate || row.ExpDate || row.ExpireDate || row.ExpiredDate || row.ExpiryDate || row.DateExpire || row.HSD || ""
+            ).trim();
+            const days = getDaysRemaining(expText);
+            const qty = Number(row.QuantityExist ?? row.Quantity ?? 0);
+            if (pCode && qty > 0 && days !== null && days >= 0 && days <= 365) {
+              expiringCodeSet.add(pCode);
+            }
           }
         }
-      }
-    }
 
-    // Chỉ bổ sung nhanh những mã cận date thiếu (nếu có, tối đa 30 mã)
-    if (missingCodes.size > 0 && loginData && loginData.Token) {
-      const missingList = Array.from(missingCodes).slice(0, 30);
-      console.log(`[transfer_suggestions] Đang bổ sung nhanh ${missingList.length} mã cận date chưa có trong cache toàn quốc...`);
-      await Promise.all(
-        missingList.map(async (code) => {
-          try {
-            const res = await requestUpharma("/Report/GetExistProductLst", {
-              Token: loginData.Token,
-              uPharmaID: String(loginData.UserInfo.uPharmaID),
-              ProductID: code,
-            });
-            let rawStores = [];
-            if (Array.isArray(res)) {
-              rawStores = res;
-            } else if (res && typeof res === "object") {
-              rawStores = res.InventoryLst || res.ExistProductLst || res.StoreLst || res.Data || res.data || res.DataLst || [];
-            }
-            const stores = rawStores
-              .filter((s) => {
-                const storeType = String(s.StoreType || "").toLowerCase();
-                const storeCode = String(s.StoreCode || "").toUpperCase();
-                return !storeType.includes("kho") && !storeCode.startsWith("KHO") && !storeCode.startsWith("DN") && storeCode !== "";
-              })
-              .map((s) => ({
-                StoreCode: String(s.StoreCode || "").trim(),
-                StoreName: String(s.StoreName || "").trim(),
-                StoreType: String(s.StoreType || ""),
-                Quantity: Number(s.QuantityExist ?? s.Quantity ?? 0),
-                QuantityAVG: Number(s.QuantityAVG ?? s.AVGQuantity ?? s.Quantity ?? 0),
-                UnitOfMeasure: String(s.UnitOfMeasure || s.Unit || "Hộp"),
-              }))
-              .filter((s) => s.StoreCode && (s.Quantity > 0 || s.QuantityAVG > 0))
-              .sort((a, b) => b.QuantityAVG - a.QuantityAVG);
+        const uniqueCodes = Array.from(expiringCodeSet);
+        console.log(`[transfer_suggestions] Tìm thấy ${uniqueCodes.length} mã SP cận date của các shop. Đang nạp dữ liệu toàn quốc...`);
 
-            const safeCode = code.replace(/[.$#[\]/]/g, "_");
-            nationalCache[safeCode] = { productID: safeCode, shops: stores, updatedAt: Date.now() };
-            await db.ref(`national_inventory_cache/${safeCode}`).set(nationalCache[safeCode]);
-          } catch {}
-        })
-      );
-    }
+        // 2. Tải cache toàn quốc cho các mã này theo batch nhỏ (25 mã/lần), TUYỆT ĐỐI KHÔNG TẢI 40MB CẢ CÂY
+        const nationalCache = {};
+        const BATCH_SIZE = 25;
+        for (let i = 0; i < uniqueCodes.length; i += BATCH_SIZE) {
+          const chunk = uniqueCodes.slice(i, i + BATCH_SIZE);
+          await Promise.all(
+            chunk.map(async (code) => {
+              try {
+                const safeCode = code.replace(/[.$#[\]/]/g, "_");
+                const snap = await Promise.race([
+                  db.ref(`national_inventory_cache/${safeCode}`).once("value"),
+                  new Promise((_, r) => setTimeout(() => r(new Error("timeout")), 3000)),
+                ]);
+                const val = snap?.val();
+                if (val && Array.isArray(val.shops)) {
+                  nationalCache[safeCode] = val;
+                  nationalCache[code] = val;
+                }
+              } catch {}
+            })
+          );
+        }
+
+        console.log(`[transfer_suggestions] Đã lấy thành công ${Object.keys(nationalCache).length} mã từ cache toàn quốc.`);
 
 function getShopProvince(name) {
   if (!name) return "";
@@ -1186,9 +1172,14 @@ function computeTransferSuggestionsForList(expiringStockList, nationalCache) {
     });
     console.log(`[transfer_suggestions] DONE ALL: ${allCalcResult.groupedSuggestions.length} nhóm SP, ${allCalcResult.suggestions.length} gợi ý`);
 
-    console.log("[transfer_suggestions] ✅ Hoàn tất cập nhật pre-computed transfer_suggestions_cache lên Firebase RTDB!");
+        console.log("[transfer_suggestions] ✅ Hoàn tất cập nhật pre-computed transfer_suggestions_cache lên Firebase RTDB!");
+      })(),
+      timeoutPromise,
+    ]);
   } catch (err) {
-    console.warn("[transfer_suggestions] Lỗi khi tạo gợi ý điều chuyển:", err);
+    console.warn(`[transfer_suggestions] Bỏ qua gợi ý điều chuyển (${err.message}). Cronjob vẫn an toàn.`);
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
