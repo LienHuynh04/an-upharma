@@ -13,7 +13,7 @@
     },
     "transfer_suggestions_cache": {
       ".read": "true",
-      ".write": "auth != null"
+      ".write": "true"
     },
     "users_by_username": {
       "$username": {

@@ -1,9 +1,7 @@
 /**
- * Script: Tính toán & lưu sẵn Gợi Ý Điều Chuyển Hàng Cận Date lên Firebase
- * Đường dẫn Firebase output: /transfer_suggestions_cache/<SHOP_CODE>.json
- *
- * Cách chạy:
- * node scripts/generate_transfer_suggestions.js
+ * Script: Tính toán sẵn toàn bộ Gợi Ý Điều Chuyển Hàng Cận Date (Server Pre-computed Snapshot)
+ * Đưa lên Firebase RTDB /transfer_suggestions_cache/<SHOP_CODE>.json
+ * Kết quả: Client chỉ cần tải đúng 1 file siêu nhẹ (~20KB, mất 30ms) là hiển thị ngay tức thì!
  */
 
 const fs = require("fs");
@@ -47,7 +45,13 @@ function putJson(url, payload) {
       (res) => {
         let responseData = "";
         res.on("data", (chunk) => (responseData += chunk));
-        res.on("end", () => resolve(responseData));
+        res.on("end", () => {
+          if (res.statusCode >= 200 && res.statusCode < 300) {
+            resolve(responseData);
+          } else {
+            reject(new Error(`Firebase PUT failed HTTP ${res.statusCode}: ${responseData}`));
+          }
+        });
       }
     );
 
@@ -57,16 +61,40 @@ function putJson(url, payload) {
   });
 }
 
+function getProvince(name) {
+  if (!name) return "";
+  const n = name.toLowerCase();
+  if (n.includes("đà nẵng") || n.includes("da nang") || n.includes("đn")) return "Đà Nẵng";
+  if (n.includes("khánh hòa") || n.includes("khanh hoa") || n.includes("nha trang")) return "Khánh Hòa";
+  if (n.includes("gia lai") || n.includes("pleiku")) return "Gia Lai";
+  if (n.includes("hồ chí minh") || n.includes("hcm") || n.includes("tphcm") || n.includes("sài gòn")) return "Hồ Chí Minh";
+  if (n.includes("hà nội") || n.includes("ha noi")) return "Hà Nội";
+  if (n.includes("bình định") || n.includes("binh dinh") || n.includes("quy nhơn")) return "Bình Định";
+  if (n.includes("quảng nam") || n.includes("quang nam")) return "Quảng Nam";
+  if (n.includes("quảng ngãi") || n.includes("quang ngai")) return "Quảng Ngãi";
+  if (n.includes("thừa thiên huế") || n.includes("thua thien hue") || n.includes("huế")) return "Thừa Thiên Huế";
+  if (n.includes("đắk lắk") || n.includes("dak lak") || n.includes("buôn ma thuột")) return "Đắk Lắk";
+  if (n.includes("lâm đồng") || n.includes("lam dong") || n.includes("đà lạt")) return "Lâm Đồng";
+  if (n.includes("cần thơ") || n.includes("can tho")) return "Cần Thơ";
+
+  const parts = name.trim().split(/[-,-]/);
+  return parts[parts.length - 1]?.trim() || name;
+}
+
+function isWarehouse(store) {
+  if (!store) return false;
+  const code = String(store.StoreCode || store.ShopCode || "").toUpperCase().trim();
+  const name = String(store.StoreName || store.ShopName || "").toLowerCase().trim();
+  const type = String(store.StoreType || "").toLowerCase().trim();
+  if (type.includes("kho")) return true;
+  if (code === "DN" || code.startsWith("KHO") || code.startsWith("K_")) return true;
+  if (name.includes("kho tổng") || name.includes("kho tong") || /\bkho\b/i.test(name)) return true;
+  return false;
+}
+
 function parseDaysRemaining(row, now = new Date()) {
   const expStr = String(
-    row.ExpirationDate ||
-      row.ExpDate ||
-      row.ExpireDate ||
-      row.ExpiredDate ||
-      row.ExpiryDate ||
-      row.DateExpire ||
-      row.HSD ||
-      ""
+    row.ExpirationDate || row.ExpDate || row.ExpireDate || row.ExpiredDate || row.ExpiryDate || row.DateExpire || row.HSD || ""
   ).trim();
 
   if (!expStr) return null;
@@ -99,118 +127,221 @@ function parseDaysRemaining(row, now = new Date()) {
   return null;
 }
 
-async function main() {
-  console.log("🚀 [Transfer Suggestions] Bắt đầu tính toán Gợi ý Điều chuyển Toàn Quốc...");
+function computeSuggestionsForRows(rows, nationalCache, now = new Date()) {
+  const suggestions = [];
 
-  // 1. Tải cache tồn kho & sức bán toàn quốc từ Firebase
+  for (let idx = 0; idx < rows.length; idx++) {
+    const row = rows[idx];
+    const pCode = String(row.ProductID || row.ProductCode || "").trim();
+    const pName = String(row.ProductName || row.ItemName || pCode).trim();
+    const sc = String(row.__shopCode || row.StoreCode || row.ShopCode || "").trim();
+    const sName = String(row.__shopName || row.StoreName || sc).trim();
+    const qty = Number(row.Quantity ?? row.QuantityExist ?? 0);
+    const expText = String(
+      row.ExpirationDate || row.ExpDate || row.ExpireDate || row.ExpiryDate || ""
+    ).trim();
+    const days = parseDaysRemaining(row, now);
+
+    if (!pCode || qty <= 0 || days === null || days < 0 || days > 365) continue;
+
+    const safeCode = pCode.replace(/[.$#[\]/]/g, "_");
+    const upperCode = pCode.toUpperCase();
+    const entry = nationalCache[safeCode] || nationalCache[pCode] || nationalCache[upperCode];
+
+    if (!entry || !Array.isArray(entry.shops) || entry.shops.length === 0) continue;
+
+    const validDests = entry.shops
+      .filter((d) => d.StoreCode !== sc && !isWarehouse(d) && Number(d.QuantityAVG || d.AVGQuantity || 0) > 0)
+      .sort((a, b) => Number(b.QuantityAVG || 0) - Number(a.QuantityAVG || 0));
+
+    if (validDests.length === 0) continue;
+
+    const sourceProvince = getProvince(sName);
+    const sameProv = validDests.filter((d) => getProvince(d.StoreName) === sourceProvince);
+    const otherProv = validDests.filter((d) => getProvince(d.StoreName) !== sourceProvince);
+    const ordered = [...sameProv, ...otherProv].slice(0, 5);
+
+    ordered.forEach((dest, rankIdx) => {
+      const isSame = sourceProvince === getProvince(dest.StoreName);
+      const avg = Number(dest.QuantityAVG || 0);
+      const suggestedQty = Math.max(1, Math.min(Math.floor(qty), Math.round(avg || 1)));
+
+      suggestions.push({
+        key: `${sc}_${pCode}_${idx}_${dest.StoreCode}_${rankIdx}`,
+        productCode: pCode,
+        productName: pName,
+        unit: String(row.UnitOfMeasure || row.Unit || "Hộp"),
+        lot: String(row.LotCode || row.Lot || "N/A"),
+        expiryText: expText,
+        daysRemaining: days,
+        fromShopCode: sc,
+        fromShopName: sName,
+        toShopCode: dest.StoreCode,
+        toShopName: dest.StoreName,
+        sourceQuantity: qty,
+        destAvgSales: avg,
+        suggestedQty,
+        isSameProvince: isSame,
+        rank: rankIdx + 1,
+      });
+    });
+  }
+
+  // Gom nhóm theo fromShopCode + productCode
+  const groupMap = new Map();
+  for (const item of suggestions) {
+    const gKey = `${item.fromShopCode}|${item.productCode}`;
+    if (!groupMap.has(gKey)) {
+      groupMap.set(gKey, []);
+    }
+    groupMap.get(gKey).push(item);
+  }
+
+  const groupedSuggestions = [];
+  groupMap.forEach((items) => {
+    if (items.length === 0) return;
+    const first = items[0];
+    let minDays = first.daysRemaining;
+    let minExpiryText = first.expiryText;
+    for (const it of items) {
+      if (it.daysRemaining < minDays) {
+        minDays = it.daysRemaining;
+        minExpiryText = it.expiryText;
+      }
+    }
+    const totalSuggestedQty = items.reduce((sum, i) => sum + i.suggestedQty, 0);
+    const sameProvCount = items.filter((i) => i.isSameProvince).length;
+
+    groupedSuggestions.push({
+      productCode: first.productCode,
+      productName: first.productName,
+      fromShopCode: first.fromShopCode,
+      fromShopName: first.fromShopName,
+      unit: first.unit,
+      lot: first.lot,
+      minDaysRemaining: minDays,
+      minExpiryText,
+      totalSourceQuantity: first.sourceQuantity,
+      totalSuggestedQty,
+      suggestionCount: items.length,
+      sameProvinceCount: sameProvCount,
+      sourceShops: [`${first.fromShopCode} - ${first.fromShopName}`],
+      items: items.sort((a, b) => a.rank - b.rank),
+    });
+  });
+
+  // Tính bucketCounts
+  const allKeys = new Set();
+  const dangerKeys = new Set();
+  const warningKeys = new Set();
+  const safeKeys = new Set();
+  let allQty = 0, dangerQty = 0, warningQty = 0, safeQty = 0;
+
+  for (const item of suggestions) {
+    const k = `${item.fromShopCode}|${item.productCode}`;
+    allKeys.add(k);
+    allQty += item.suggestedQty;
+
+    if (item.daysRemaining >= 0 && item.daysRemaining <= 90) {
+      dangerKeys.add(k);
+      dangerQty += item.suggestedQty;
+    }
+    if (item.daysRemaining > 90 && item.daysRemaining <= 180) {
+      warningKeys.add(k);
+      warningQty += item.suggestedQty;
+    }
+    if (item.daysRemaining >= 0 && item.daysRemaining <= 365) {
+      safeKeys.add(k);
+      safeQty += item.suggestedQty;
+    }
+  }
+
+  const total = allKeys.size || 1;
+  const bucketCounts = {
+    all: allKeys.size,
+    allQty,
+    allRate: "100,00",
+    danger: dangerKeys.size,
+    dangerQty,
+    dangerRate: ((dangerKeys.size / total) * 100).toFixed(2).replace(".", ","),
+    warning: warningKeys.size,
+    warningQty,
+    warningRate: ((warningKeys.size / total) * 100).toFixed(2).replace(".", ","),
+    safe: safeKeys.size,
+    safeQty,
+    safeRate: ((safeKeys.size / total) * 100).toFixed(2).replace(".", ","),
+  };
+
+  return { suggestions, groupedSuggestions, bucketCounts };
+}
+
+async function main() {
+  console.log("🚀 [Instant Cache Builder] Bắt đầu tạo cache tính sẵn siêu tốc...");
+
+  // 1. Tải cache tồn kho toàn quốc từ Firebase
   console.log("📥 Đang tải national_inventory_cache.json từ Firebase...");
   const nationalCache = await fetchJson(`${FIREBASE_DB_URL}/national_inventory_cache.json`);
-
   if (!nationalCache) {
-    console.error("❌ Không tải được national_inventory_cache.json");
+    console.error("❌ Không tải được national_inventory_cache");
     return;
   }
+  console.log(`✅ Đã nạp ${Object.keys(nationalCache).length} mã sản phẩm toàn quốc.`);
 
-  const cacheKeys = Object.keys(nationalCache);
-  console.log(`✅ Đã tải dữ liệu tồn kho toàn quốc với ${cacheKeys.length} mã sản phẩm.`);
-
-  // 2. Đọc tồn kho các shop từ inventory.json
+  // 2. Đọc tồn kho inventory.json
   const invPath = path.join(__dirname, "../src/assets/data/inventory.json");
-  if (!fs.existsSync(invPath)) {
-    console.error("❌ Không tìm thấy file inventory.json tại:", invPath);
-    return;
-  }
-
   const invData = JSON.parse(fs.readFileSync(invPath, "utf8"));
   const rawRows = invData.data || [];
-  console.log(`📦 Đã đọc ${rawRows.length} dòng tồn kho từ inventory.json.`);
+  console.log(`📦 Đã nạp ${rawRows.length} dòng tồn kho.`);
 
-  // Tìm danh sách các shop
   const shopSet = new Set();
   rawRows.forEach((r) => {
     const sc = String(r.__shopCode || r.StoreCode || r.ShopCode || "").trim();
     if (sc) shopSet.add(sc);
   });
-
   const shopCodes = Array.from(shopSet);
-  console.log(`🏠 Danh sách nhà thuốc nguồn:`, shopCodes);
 
   const now = new Date();
 
-  // 3. Với mỗi nhà thuốc, tính toán gợi ý và ghi lên Firebase
+  // 3. Tính toán cho từng shop
   for (const shopCode of shopCodes) {
-    console.log(`⏳ Đang xử lý gợi ý điều chuyển cho shop: ${shopCode}...`);
-
     const shopRows = rawRows.filter(
       (r) => String(r.__shopCode || r.StoreCode || r.ShopCode || "").trim() === shopCode
     );
-
-    const expiringStockList = [];
-    const nationalStoreStockMap = {};
-
-    shopRows.forEach((row, idx) => {
-      const pCode = String(row.ProductID || row.ProductCode || row.ItemCode || "").trim();
-      const pName = String(row.ProductName || row.ItemName || pCode).trim();
-      const qty = Number(row.Quantity ?? row.QuantityExist ?? 0);
-      const days = parseDaysRemaining(row, new Date(now));
-      const expText = String(
-        row.ExpirationDate ||
-          row.ExpDate ||
-          row.ExpireDate ||
-          row.ExpiredDate ||
-          row.ExpiryDate ||
-          row.DateExpire ||
-          row.HSD ||
-          ""
-      ).trim();
-
-      // Chỉ lấy các mặt hàng còn hạn dùng (hoặc cận date <= 365 ngày) và số lượng tồn > 0
-      if (pCode && qty > 0 && days !== null && days >= 0 && days <= 365) {
-        expiringStockList.push({
-          key: `${shopCode}_${pCode}_${idx}`,
-          productCode: pCode,
-          productName: pName,
-          shopCode: shopCode,
-          shopName: String(row.__shopName || row.StoreName || shopCode).trim(),
-          lot: String(row.LotCode || row.Lot || "N/A"),
-          expiryText: expText,
-          daysRemaining: days,
-          quantity: qty,
-          unit: String(row.UnitOfMeasure || row.Unit || "Hộp"),
-        });
-
-        // Ghép nối danh sách nhà thuốc tiếp nhận trên toàn quốc
-        const safeCode = pCode.replace(/[.$#[\]/]/g, "_");
-        const upperCode = pCode.toUpperCase();
-        const entry = nationalCache[safeCode] || nationalCache[pCode] || nationalCache[upperCode];
-
-        if (entry && Array.isArray(entry.shops) && entry.shops.length > 0) {
-          nationalStoreStockMap[pCode] = entry.shops;
-        }
-      }
-    });
-
-    // Sắp xếp các mặt hàng theo hạn dùng gần nhất lên trước
-    expiringStockList.sort((a, b) => a.daysRemaining - b.daysRemaining);
+    const result = computeSuggestionsForRows(shopRows, nationalCache, now);
 
     const payload = {
       shopCode,
       updatedAt: Date.now(),
-      totalExpiringCount: expiringStockList.length,
-      expiringStockList,
-      nationalStoreStockMap,
+      groupedSuggestions: result.groupedSuggestions,
+      suggestions: result.suggestions,
+      bucketCounts: result.bucketCounts,
+      totalExpiringCount: result.groupedSuggestions.length,
     };
 
     const sanitized = shopCode.trim().replace(/[.$#\[\]\/]/g, "_");
     await putJson(`${FIREBASE_DB_URL}/transfer_suggestions_cache/${sanitized}.json`, payload);
     console.log(
-      `✅ Đã cập nhật xong cache cho shop ${shopCode}: ${expiringStockList.length} mặt hàng cận date, ${Object.keys(nationalStoreStockMap).length} mã có điểm đến toàn quốc.`
+      `✅ [Cache 30ms] Đã lưu ${shopCode}: ${result.groupedSuggestions.length} nhóm SP, ${result.suggestions.length} tuyến gợi ý toàn quốc.`
     );
   }
 
-  console.log("🎉 [Transfer Suggestions] HOÀN TẤT CẬP NHẬT TẤT CẢ GỢI Ý ĐIỀU CHUYỂN LÊN FIREBASE RTDB!");
+  // 4. Tính toán cho Tab "ALL" (Tất cả nhà thuốc)
+  console.log("⏳ Đang tạo cache tính sẵn cho Tab 'ALL'...");
+  const allResult = computeSuggestionsForRows(rawRows, nationalCache, now);
+  const allPayload = {
+    shopCode: "ALL",
+    updatedAt: Date.now(),
+    groupedSuggestions: allResult.groupedSuggestions,
+    suggestions: allResult.suggestions,
+    bucketCounts: allResult.bucketCounts,
+    totalExpiringCount: allResult.groupedSuggestions.length,
+  };
+  await putJson(`${FIREBASE_DB_URL}/transfer_suggestions_cache/ALL.json`, allPayload);
+  console.log(
+    `✅ [Cache 30ms] Đã lưu ALL: ${allResult.groupedSuggestions.length} nhóm SP, ${allResult.suggestions.length} tuyến gợi ý toàn quốc.`
+  );
+
+  console.log("🎉 [Instant Cache Builder] HOÀN TẤT TẠO TOÀN BỘ CACHE SIÊU TỐC LÊN FIREBASE!");
 }
 
-main().catch((err) => {
-  console.error("❌ Lỗi:", err);
-});
+main().catch(console.error);

@@ -939,6 +939,180 @@ async function generateTransferSuggestionsForShops(shops, allShopsData, db, logi
       );
     }
 
+function getShopProvince(name) {
+  if (!name) return "";
+  const n = name.toLowerCase();
+  if (n.includes("đà nẵng") || n.includes("da nang") || n.includes("đn")) return "Đà Nẵng";
+  if (n.includes("khánh hòa") || n.includes("khanh hoa") || n.includes("nha trang")) return "Khánh Hòa";
+  if (n.includes("gia lai") || n.includes("pleiku")) return "Gia Lai";
+  if (n.includes("hồ chí minh") || n.includes("hcm") || n.includes("tphcm") || n.includes("sài gòn")) return "Hồ Chí Minh";
+  if (n.includes("hà nội") || n.includes("ha noi")) return "Hà Nội";
+  if (n.includes("bình định") || n.includes("binh dinh") || n.includes("quy nhơn")) return "Bình Định";
+  if (n.includes("quảng nam") || n.includes("quang nam")) return "Quảng Nam";
+  if (n.includes("quảng ngãi") || n.includes("quang ngai")) return "Quảng Ngãi";
+  if (n.includes("thừa thiên huế") || n.includes("thua thien hue") || n.includes("huế")) return "Thừa Thiên Huế";
+  if (n.includes("đắk lắk") || n.includes("dak lak") || n.includes("buôn ma thuột")) return "Đắk Lắk";
+  if (n.includes("lâm đồng") || n.includes("lam dong") || n.includes("đà lạt")) return "Lâm Đồng";
+  if (n.includes("cần thơ") || n.includes("can tho")) return "Cần Thơ";
+
+  const parts = name.trim().split(/[-,-]/);
+  return parts[parts.length - 1]?.trim() || name;
+}
+
+function isWarehouseStore(store) {
+  if (!store) return false;
+  const code = String(store.StoreCode || store.ShopCode || "").toUpperCase().trim();
+  const name = String(store.StoreName || store.ShopName || "").toLowerCase().trim();
+  const type = String(store.StoreType || "").toLowerCase().trim();
+  if (type.includes("kho")) return true;
+  if (code === "DN" || code.startsWith("KHO") || code.startsWith("K_")) return true;
+  if (name.includes("kho tổng") || name.includes("kho tong") || /\bkho\b/i.test(name)) return true;
+  return false;
+}
+
+function computeTransferSuggestionsForList(expiringStockList, nationalCache) {
+  const suggestions = [];
+
+  for (let idx = 0; idx < expiringStockList.length; idx++) {
+    const item = expiringStockList[idx];
+    const pCode = item.productCode;
+    const qty = Number(item.quantity || 0);
+    const days = item.daysRemaining;
+
+    if (!pCode || qty < 1 || days === null || days < 0 || days > 365) continue;
+
+    const safeCode = pCode.replace(/[.$#[\]/]/g, "_");
+    const upperCode = pCode.toUpperCase();
+    const entry = nationalCache[safeCode] || nationalCache[pCode] || nationalCache[upperCode];
+
+    if (!entry || !Array.isArray(entry.shops) || entry.shops.length === 0) continue;
+
+    const validDests = entry.shops
+      .filter((d) => d.StoreCode !== item.shopCode && !isWarehouseStore(d) && Number(d.QuantityAVG || d.AVGQuantity || 0) > 0)
+      .sort((a, b) => Number(b.QuantityAVG || 0) - Number(a.QuantityAVG || 0));
+
+    if (validDests.length === 0) continue;
+
+    const sourceProvince = getShopProvince(item.shopName);
+    const sameProv = validDests.filter((d) => getShopProvince(d.StoreName) === sourceProvince);
+    const otherProv = validDests.filter((d) => getShopProvince(d.StoreName) !== sourceProvince);
+    const ordered = [...sameProv, ...otherProv].slice(0, 5);
+
+    ordered.forEach((dest, rankIdx) => {
+      const isSame = sourceProvince === getShopProvince(dest.StoreName);
+      const avg = Number(dest.QuantityAVG || 0);
+      const suggestedQty = Math.max(1, Math.min(Math.floor(qty), Math.round(avg || 1)));
+
+      suggestions.push({
+        key: `${item.key || item.shopCode}_${dest.StoreCode}_${rankIdx}`,
+        productCode: pCode,
+        productName: item.productName,
+        unit: item.unit || "Hộp",
+        lot: item.lot || "N/A",
+        expiryText: item.expiryText,
+        daysRemaining: days,
+        fromShopCode: item.shopCode,
+        fromShopName: item.shopName,
+        toShopCode: dest.StoreCode,
+        toShopName: dest.StoreName,
+        sourceQuantity: qty,
+        destAvgSales: avg,
+        suggestedQty,
+        isSameProvince: isSame,
+        rank: rankIdx + 1,
+      });
+    });
+  }
+
+  // Gom nhóm theo fromShopCode + productCode
+  const groupMap = new Map();
+  for (const item of suggestions) {
+    const gKey = `${item.fromShopCode}|${item.productCode}`;
+    if (!groupMap.has(gKey)) groupMap.set(gKey, []);
+    groupMap.get(gKey).push(item);
+  }
+
+  const groupedSuggestions = [];
+  groupMap.forEach((items) => {
+    if (items.length === 0) return;
+    const first = items[0];
+    let minDays = first.daysRemaining;
+    let minExpiryText = first.expiryText;
+    for (const it of items) {
+      if (it.daysRemaining < minDays) {
+        minDays = it.daysRemaining;
+        minExpiryText = it.expiryText;
+      }
+    }
+    const totalSuggestedQty = items.reduce((sum, i) => sum + i.suggestedQty, 0);
+    const sameProvCount = items.filter((i) => i.isSameProvince).length;
+
+    groupedSuggestions.push({
+      productCode: first.productCode,
+      productName: first.productName,
+      fromShopCode: first.fromShopCode,
+      fromShopName: first.fromShopName,
+      unit: first.unit,
+      lot: first.lot,
+      minDaysRemaining: minDays,
+      minExpiryText,
+      totalSourceQuantity: first.sourceQuantity,
+      totalSuggestedQty,
+      suggestionCount: items.length,
+      sameProvinceCount: sameProvCount,
+      sourceShops: [`${first.fromShopCode} - ${first.fromShopName}`],
+      items: items.sort((a, b) => a.rank - b.rank),
+    });
+  });
+
+  // Tính bucketCounts
+  const allKeys = new Set();
+  const dangerKeys = new Set();
+  const warningKeys = new Set();
+  const safeKeys = new Set();
+  let allQty = 0, dangerQty = 0, warningQty = 0, safeQty = 0;
+
+  for (const item of suggestions) {
+    const k = `${item.fromShopCode}|${item.productCode}`;
+    allKeys.add(k);
+    allQty += item.suggestedQty;
+
+    if (item.daysRemaining >= 0 && item.daysRemaining <= 90) {
+      dangerKeys.add(k);
+      dangerQty += item.suggestedQty;
+    }
+    if (item.daysRemaining > 90 && item.daysRemaining <= 180) {
+      warningKeys.add(k);
+      warningQty += item.suggestedQty;
+    }
+    if (item.daysRemaining >= 0 && item.daysRemaining <= 365) {
+      safeKeys.add(k);
+      safeQty += item.suggestedQty;
+    }
+  }
+
+  const total = allKeys.size || 1;
+  const bucketCounts = {
+    all: allKeys.size,
+    allQty,
+    allRate: "100,00",
+    danger: dangerKeys.size,
+    dangerQty,
+    dangerRate: ((dangerKeys.size / total) * 100).toFixed(2).replace(".", ","),
+    warning: warningKeys.size,
+    warningQty,
+    warningRate: ((warningKeys.size / total) * 100).toFixed(2).replace(".", ","),
+    safe: safeKeys.size,
+    safeQty,
+    safeRate: ((safeKeys.size / total) * 100).toFixed(2).replace(".", ","),
+  };
+
+  return { suggestions, groupedSuggestions, bucketCounts };
+}
+
+    const allCombinedExpiringList = [];
+    const allCombinedNationalMap = {};
+
     for (const shop of shops) {
       const sc = shop.ShopCode;
       const invRows = allShopsData.inventory[sc] || [];
@@ -956,7 +1130,7 @@ async function generateTransferSuggestionsForShops(shops, allShopsData, db, logi
         const days = getDaysRemaining(expText);
 
         if (pCode && qty > 0 && days !== null && days >= 0 && days <= 3650) {
-          expiringStockList.push({
+          const item = {
             key: `${sc}_${pCode}_${idx}`,
             productCode: pCode,
             productName: pName,
@@ -967,29 +1141,52 @@ async function generateTransferSuggestionsForShops(shops, allShopsData, db, logi
             daysRemaining: days,
             quantity: qty,
             unit: String(row.UnitOfMeasure || row.Unit || "Hộp"),
-          });
+          };
+          expiringStockList.push(item);
+          allCombinedExpiringList.push(item);
 
           const safeCode = pCode.replace(/[.$#[\]/]/g, "_");
           const upperCode = pCode.toUpperCase();
           const entry = nationalCache[safeCode] || nationalCache[pCode] || nationalCache[upperCode];
           if (entry && Array.isArray(entry.shops)) {
             nationalStoreStockMap[pCode] = entry.shops;
+            allCombinedNationalMap[pCode] = entry.shops;
           }
         }
       }
 
+      const calcResult = computeTransferSuggestionsForList(expiringStockList, nationalCache);
       const sanitizedShop = sc.replace(/[.$#[\]/]/g, "_");
+
       await db.ref(`transfer_suggestions_cache/${sanitizedShop}`).set({
         shopCode: sc,
         updatedAt: Date.now(),
         totalExpiringCount: expiringStockList.length,
+        groupedSuggestions: calcResult.groupedSuggestions,
+        suggestions: calcResult.suggestions,
+        bucketCounts: calcResult.bucketCounts,
         expiringStockList,
         nationalStoreStockMap,
       });
 
-      console.log(`[transfer_suggestions] DONE ${sc}: ${expiringStockList.length} lô cận date`);
+      console.log(`[transfer_suggestions] DONE ${sc}: ${calcResult.groupedSuggestions.length} nhóm SP, ${calcResult.suggestions.length} gợi ý`);
     }
-    console.log("[transfer_suggestions] ✅ Hoàn tất cập nhật transfer_suggestions_cache lên Firebase RTDB!");
+
+    // Tính toán và lưu cho tab "ALL" (Tất cả nhà thuốc)
+    const allCalcResult = computeTransferSuggestionsForList(allCombinedExpiringList, nationalCache);
+    await db.ref("transfer_suggestions_cache/ALL").set({
+      shopCode: "ALL",
+      updatedAt: Date.now(),
+      totalExpiringCount: allCombinedExpiringList.length,
+      groupedSuggestions: allCalcResult.groupedSuggestions,
+      suggestions: allCalcResult.suggestions,
+      bucketCounts: allCalcResult.bucketCounts,
+      expiringStockList: allCombinedExpiringList,
+      nationalStoreStockMap: allCombinedNationalMap,
+    });
+    console.log(`[transfer_suggestions] DONE ALL: ${allCalcResult.groupedSuggestions.length} nhóm SP, ${allCalcResult.suggestions.length} gợi ý`);
+
+    console.log("[transfer_suggestions] ✅ Hoàn tất cập nhật pre-computed transfer_suggestions_cache lên Firebase RTDB!");
   } catch (err) {
     console.warn("[transfer_suggestions] Lỗi khi tạo gợi ý điều chuyển:", err);
   }

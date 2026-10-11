@@ -24,6 +24,9 @@ export interface ExpiringStockItem {
 
 interface TransferCacheEntry {
   cacheKey: string;
+  groupedSuggestions?: GroupedSuggestion[];
+  suggestions?: ExpiringTransferSuggestion[];
+  bucketCounts?: any;
   expiringStockList: ExpiringStockItem[];
   nationalStoreStockMap: Record<string, NationalStoreStock[]>;
   savedAt: number;
@@ -684,80 +687,144 @@ export class TransferSuggestionsComponent implements OnInit {
       this.nationalStoreStockMap = {};
       this.cachedSuggestionRows = [];
       this.cachedGroupedSuggestions = [];
+      this.cachedBucketCounts = null;
       this.step1Done = false;
       this.step2Done = false;
       this.statusText = "Đang quét lại toàn bộ dữ liệu tồn kho & tiêu thụ toàn quốc...";
       this.cdr.markForCheck();
     } else {
-      // 1. Thử tải dữ liệu Gợi Ý ĐÃ TÍNH SẴN TỪ FIREBASE SERVER (Siêu nhẹ ~20KB, 30ms)
-      try {
-        const targetShops = this.selectedShopCode === "ALL"
-          ? this.userShops.map((s) => s.ShopCode)
-          : [this.selectedShopCode];
-
-        const serverCaches = await Promise.all(
-          targetShops.map((sCode) => this.firebaseCache.getShopTransferSuggestions(sCode))
-        );
-
-        const validCaches = serverCaches.filter((c) => c && Array.isArray(c.expiringStockList) && c.expiringStockList.length > 0);
-
-        if (validCaches.length > 0) {
-          console.log(`[Transfer Suggestions] ⚡ Nạp thành công cache tính sẵn cho ${validCaches.length} nhà thuốc nguồn`);
-
-          const combinedExpiringList: ExpiringStockItem[] = [];
-          const combinedNationalMap: Record<string, NationalStoreStock[]> = {};
-
-          for (const cache of validCaches) {
-            if (Array.isArray(cache.expiringStockList)) {
-              combinedExpiringList.push(...cache.expiringStockList);
-            }
-            if (cache.nationalStoreStockMap) {
-              Object.assign(combinedNationalMap, cache.nationalStoreStockMap);
-            }
-          }
-
-          this.expiringStockList = combinedExpiringList;
-          this.nationalStoreStockMap = combinedNationalMap;
-          this.step1Done = true;
-          this.step2Done = true;
-          this.activeTab = "suggestions";
-          this.recomputeSuggestionRows();
-          this.updateDisplayGroups();
-          
-          const labelText = this.selectedShopCode === "ALL" ? `Tất cả ${validCaches.length} NT nguồn` : `NT ${this.selectedShopCode}`;
-          this.statusText = `⚡ Đã nạp xong gợi ý tính sẵn từ Firebase Server cho ${labelText} (30ms).`;
-          this.cdr.markForCheck();
-          return;
-        }
-      } catch (err) {
-        console.warn("Không đọc được serverCache cho các shop, fallback về tính toán client:", err);
-      }
-
-      // 2. Thử đọc từ Cache Cục Bộ IndexedDB của Trình Duyệt
+      // 1. TẢI TỨC THÌ TỪ INDEXEDDB CỦA TRÌNH DUYỆT (0ms)
       const cached = await this.readCache(cacheKey);
-      if (cached && Date.now() - cached.savedAt < 15 * 60 * 1000) {
+      if (
+        cached &&
+        Date.now() - cached.savedAt < 30 * 60 * 1000 &&
+        ((cached.groupedSuggestions && cached.groupedSuggestions.length > 0) ||
+          (cached.expiringStockList && cached.expiringStockList.length > 0))
+      ) {
+        this.cachedGroupedSuggestions = cached.groupedSuggestions || [];
+        this.cachedSuggestionRows = cached.suggestions || [];
+        this.cachedBucketCounts = cached.bucketCounts || null;
         this.expiringStockList = cached.expiringStockList || [];
         this.nationalStoreStockMap = cached.nationalStoreStockMap || {};
         this.step1Done = true;
         this.step2Done = true;
         this.activeTab = "suggestions";
+
+        if (this.cachedGroupedSuggestions.length === 0 && this.cachedSuggestionRows.length === 0) {
+          this.recomputeSuggestionRows();
+        }
         this.updateDisplayGroups();
-        this.statusText = `Đang hiển thị dữ liệu đã lưu lúc ${this.formatCacheTime(cached.savedAt)}.`;
+
+        this.statusText = `⚡ Hiển thị tức thì từ bộ nhớ máy lúc ${this.formatCacheTime(cached.savedAt)} (0ms).`;
+        this.cdr.markForCheck();
         return;
+      }
+
+      // 2. NẠP DỮ LIỆU TÍNH SẴN TỪ FIREBASE SERVER (1 request siêu nhẹ ~30KB, mất 30ms)
+      try {
+        let serverCache: any = null;
+
+        if (this.selectedShopCode === "ALL") {
+          // Thử nạp trực tiếp cache ALL tính sẵn
+          serverCache = await this.firebaseCache.getShopTransferSuggestions("ALL");
+
+          // Nếu ALL chưa có hoặc rỗng, thử gộp từ các nhà thuốc thành viên
+          if (!serverCache || (!serverCache.groupedSuggestions?.length && !serverCache.expiringStockList?.length)) {
+            const targetShops = this.userShops.map((s) => s.ShopCode);
+            const serverCaches = await Promise.all(
+              targetShops.map((sCode) => this.firebaseCache.getShopTransferSuggestions(sCode))
+            );
+            const valid = serverCaches.filter(
+              (c) =>
+                c &&
+                ((c.groupedSuggestions && c.groupedSuggestions.length > 0) ||
+                  (c.expiringStockList && c.expiringStockList.length > 0))
+            );
+
+            if (valid.length > 0) {
+              const combinedGroups: GroupedSuggestion[] = [];
+              const combinedSuggestions: ExpiringTransferSuggestion[] = [];
+              const combinedExpiring: ExpiringStockItem[] = [];
+              const combinedMap: Record<string, NationalStoreStock[]> = {};
+
+              for (const c of valid) {
+                if (Array.isArray(c.groupedSuggestions)) combinedGroups.push(...c.groupedSuggestions);
+                if (Array.isArray(c.suggestions)) combinedSuggestions.push(...c.suggestions);
+                if (Array.isArray(c.expiringStockList)) combinedExpiring.push(...c.expiringStockList);
+                if (c.nationalStoreStockMap) Object.assign(combinedMap, c.nationalStoreStockMap);
+              }
+
+              serverCache = {
+                groupedSuggestions: combinedGroups,
+                suggestions: combinedSuggestions,
+                expiringStockList: combinedExpiring,
+                nationalStoreStockMap: combinedMap,
+                updatedAt: valid[0].updatedAt || Date.now(),
+              };
+            }
+          }
+        } else {
+          serverCache = await this.firebaseCache.getShopTransferSuggestions(this.selectedShopCode);
+        }
+
+        if (
+          serverCache &&
+          ((serverCache.groupedSuggestions && serverCache.groupedSuggestions.length > 0) ||
+            (serverCache.expiringStockList && serverCache.expiringStockList.length > 0))
+        ) {
+          this.cachedGroupedSuggestions = serverCache.groupedSuggestions || [];
+          this.cachedSuggestionRows = serverCache.suggestions || [];
+          this.cachedBucketCounts = serverCache.bucketCounts || null;
+          this.expiringStockList = serverCache.expiringStockList || [];
+          this.nationalStoreStockMap = serverCache.nationalStoreStockMap || {};
+          this.step1Done = true;
+          this.step2Done = true;
+          this.activeTab = "suggestions";
+
+          if (this.cachedGroupedSuggestions.length === 0 && this.cachedSuggestionRows.length === 0) {
+            this.recomputeSuggestionRows();
+          }
+          this.updateDisplayGroups();
+
+          // Lưu ngay vào IndexedDB để lần sau tải trong 0ms
+          await this.writeCache({
+            cacheKey,
+            groupedSuggestions: this.cachedGroupedSuggestions,
+            suggestions: this.cachedSuggestionRows,
+            bucketCounts: this.cachedBucketCounts,
+            expiringStockList: this.expiringStockList,
+            nationalStoreStockMap: this.nationalStoreStockMap,
+            savedAt: serverCache.updatedAt || Date.now(),
+          });
+
+          const labelText = this.selectedShopCode === "ALL" ? "Tất cả nhà thuốc" : `NT ${this.selectedShopCode}`;
+          this.statusText = `⚡ Đã nạp xong gợi ý toàn quốc từ Firebase Server cho ${labelText} (30ms).`;
+          this.cdr.markForCheck();
+          return;
+        }
+      } catch (err) {
+        console.warn("Không nạp được cache Firebase, fallback về tính toán cục bộ:", err);
       }
     }
 
+    // 3. FALLBACK: NẾU CHƯA CÓ CACHE HOẶC BẤM QUÉT LẠI
     await this.runStep1(forceRefresh);
     if (this.step1Done && this.expiringStockList.length > 0) {
       await this.runStep2(forceRefresh);
       await this.writeCache({
         cacheKey,
+        groupedSuggestions: this.cachedGroupedSuggestions,
+        suggestions: this.cachedSuggestionRows,
+        bucketCounts: this.cachedBucketCounts,
         expiringStockList: this.expiringStockList,
         nationalStoreStockMap: this.nationalStoreStockMap,
         savedAt: Date.now(),
       });
-      // Lưu lại lên Firebase transfer_suggestions_cache để các lần sau hoặc các máy khác dùng lại ngay
+      // Lưu lại lên Firebase RTDB để các lần sau hoặc thiết bị khác tải ngay 30ms
       void this.firebaseCache.saveShopTransferSuggestions(this.selectedShopCode, {
+        groupedSuggestions: this.cachedGroupedSuggestions,
+        suggestions: this.cachedSuggestionRows,
+        bucketCounts: this.cachedBucketCounts,
         expiringStockList: this.expiringStockList,
         nationalStoreStockMap: this.nationalStoreStockMap,
       });
