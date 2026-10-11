@@ -650,11 +650,9 @@ async function run() {
   // Danh mục sản phẩm toàn hệ thống (GetItemLstWithFollower) → /product_catalog (lọc bỏ KM và Hàng Bỏ)
   await fetchAndUploadProductCatalog(loginData, db, allShopsData);
 
-  // Tồn kho & sức bán toàn quốc từ GetExistProductLst → /national_inventory_cache
-  await fetchAndUploadNationalInventoryCache(loginData, allShopsData, db);
-
   // Tự động tính toán và lưu cache gợi ý điều chuyển hàng cận date → /transfer_suggestions_cache/<shopCode>
-  await generateTransferSuggestionsForShops(shops, allShopsData, db);
+  // (Đọc từ national_inventory_cache có sẵn trên Firebase, chỉ mất vài giây thay vì 2 giờ)
+  await generateTransferSuggestionsForShops(shops, allShopsData, db, loginData);
   
   console.log("Hoàn thành fetch data!");
   clearInterval(heartbeatTimer);
@@ -869,13 +867,77 @@ function getDaysRemaining(dateText) {
 /**
  * Tự động tính toán và lưu cache gợi ý điều chuyển hàng cận date cho từng nhà thuốc
  */
-async function generateTransferSuggestionsForShops(shops, allShopsData, db) {
+async function generateTransferSuggestionsForShops(shops, allShopsData, db, loginData) {
   if (!db) return;
   console.log("\n[transfer_suggestions] Đang tổng hợp và lưu gợi ý điều chuyển cho các nhà thuốc...");
 
   try {
     const snap = await db.ref("national_inventory_cache").once("value");
     const nationalCache = snap.val() || {};
+
+    // Tìm các mã cận date thực tế của các shop user chưa có trong cache toàn quốc
+    const missingCodes = new Set();
+    for (const shop of shops) {
+      const invRows = allShopsData.inventory[shop.ShopCode] || [];
+      for (const row of invRows) {
+        const pCode = String(row.ProductID || row.ProductCode || row.ItemCode || "").trim();
+        const expText = String(
+          row.ExpirationDate || row.ExpDate || row.ExpireDate || row.ExpiredDate || row.ExpiryDate || row.DateExpire || row.HSD || ""
+        ).trim();
+        const days = getDaysRemaining(expText);
+        const qty = Number(row.QuantityExist ?? row.Quantity ?? 0);
+        if (pCode && qty > 0 && days !== null && days >= 0 && days <= 365) {
+          const safeCode = pCode.replace(/[.$#[\]/]/g, "_");
+          const upperCode = pCode.toUpperCase();
+          if (!nationalCache[safeCode] && !nationalCache[pCode] && !nationalCache[upperCode]) {
+            missingCodes.add(pCode);
+          }
+        }
+      }
+    }
+
+    // Chỉ bổ sung nhanh những mã cận date thiếu (nếu có, tối đa 30 mã)
+    if (missingCodes.size > 0 && loginData && loginData.Token) {
+      const missingList = Array.from(missingCodes).slice(0, 30);
+      console.log(`[transfer_suggestions] Đang bổ sung nhanh ${missingList.length} mã cận date chưa có trong cache toàn quốc...`);
+      await Promise.all(
+        missingList.map(async (code) => {
+          try {
+            const res = await requestUpharma("/Report/GetExistProductLst", {
+              Token: loginData.Token,
+              uPharmaID: String(loginData.UserInfo.uPharmaID),
+              ProductID: code,
+            });
+            let rawStores = [];
+            if (Array.isArray(res)) {
+              rawStores = res;
+            } else if (res && typeof res === "object") {
+              rawStores = res.InventoryLst || res.ExistProductLst || res.StoreLst || res.Data || res.data || res.DataLst || [];
+            }
+            const stores = rawStores
+              .filter((s) => {
+                const storeType = String(s.StoreType || "").toLowerCase();
+                const storeCode = String(s.StoreCode || "").toUpperCase();
+                return !storeType.includes("kho") && !storeCode.startsWith("KHO") && !storeCode.startsWith("DN") && storeCode !== "";
+              })
+              .map((s) => ({
+                StoreCode: String(s.StoreCode || "").trim(),
+                StoreName: String(s.StoreName || "").trim(),
+                StoreType: String(s.StoreType || ""),
+                Quantity: Number(s.QuantityExist ?? s.Quantity ?? 0),
+                QuantityAVG: Number(s.QuantityAVG ?? s.AVGQuantity ?? s.Quantity ?? 0),
+                UnitOfMeasure: String(s.UnitOfMeasure || s.Unit || "Hộp"),
+              }))
+              .filter((s) => s.StoreCode && (s.Quantity > 0 || s.QuantityAVG > 0))
+              .sort((a, b) => b.QuantityAVG - a.QuantityAVG);
+
+            const safeCode = code.replace(/[.$#[\]/]/g, "_");
+            nationalCache[safeCode] = { productID: safeCode, shops: stores, updatedAt: Date.now() };
+            await db.ref(`national_inventory_cache/${safeCode}`).set(nationalCache[safeCode]);
+          } catch {}
+        })
+      );
+    }
 
     for (const shop of shops) {
       const sc = shop.ShopCode;
