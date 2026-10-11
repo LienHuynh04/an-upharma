@@ -244,13 +244,13 @@ export interface GroupedExpiringStock {
               <thead>
                 <tr>
                   <th class="text-center" style="width: 50px; min-width: 50px;">STT</th>
-                  <th style="width: 20%;">Tên SP</th>
+                  <th style="width: 25%;">Tên SP</th>
                   <th style="width: 10%;">Mã SP</th>
                   <th style="width: 9%;">Hạn dùng</th>
-                  <th style="width: 35%;">NT nguồn ➔ NT đích</th>
-                  <th class="text-end" style="width: 8%;">Tồn Nguồn</th>
-                  <th class="text-end" style="width: 9%;">Tổng SL Đề xuất</th>
-                  <th class="text-center" style="width: 6%;">Số tuyến</th>
+                  <th style="width: 28%;">NT nguồn ➔ NT đích</th>
+                  <th class="text-end" style="width: 9%;">Tồn Nguồn</th>
+                  <th class="text-end" style="width: 11%;">Tổng SL Đề xuất</th>
+                  <th class="text-center" style="width: 8%;">Số tuyến</th>
                 </tr>
 
               </thead>
@@ -280,13 +280,12 @@ export interface GroupedExpiringStock {
                   </td>
                   <td data-label="NT nguồn ➔ NT đích">
                     <div class="d-flex flex-column gap-1">
-                      <div *ngFor="let item of getTopRoutes(group, 5)" class="d-flex align-items-center gap-1 flex-wrap py-0-5">
+                      <div *ngFor="let item of getTopRoutes(group, 5)" class="d-flex align-items-center gap-1 flex-wrap">
                         <span class="badge bg-secondary-lt font-monospace fs-5">{{ group.fromShopCode }}</span>
                         <span class="text-secondary small">➔</span>
-                        <span class="badge font-monospace fs-5" [ngClass]="item.isSameProvince ? 'bg-success text-white' : 'bg-blue-lt text-blue'">{{ item.toShopCode }}</span>
+                        <span class="badge font-monospace fs-5" [ngClass]="item.isSameProvince ? 'bg-success text-white' : 'bg-blue-lt text-blue'" [title]="item.toShopName">{{ item.toShopCode }}</span>
                         <span class="badge bg-green-lt text-green fs-6 py-0 px-1" *ngIf="item.isSameProvince">Nội tỉnh</span>
-                        <span class="badge bg-primary-lt text-primary font-monospace fs-6 px-1" title="Số lượng đề xuất">{{ formatNumber(item.suggestedQty) }} {{ item.unit }}</span>
-                        <span class="small text-muted text-truncate" style="max-width: 250px;" [title]="item.toShopName">{{ item.toShopName }}</span>
+                        <span class="badge bg-primary-lt text-primary font-monospace fs-6 px-1">{{ formatNumber(item.suggestedQty) }} {{ item.unit }}</span>
                       </div>
                       <div *ngIf="group.items.length > 5">
                         <span class="badge bg-secondary-lt text-secondary fs-6">+{{ group.items.length - 5 }} tuyến khác</span>
