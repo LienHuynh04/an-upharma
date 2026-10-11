@@ -93,6 +93,18 @@ export interface GroupedExpiringStock {
               Gợi ý Điều Chuyển Hàng Cận Date
             </h2>
           </div>
+          <div class="col-auto ms-auto d-print-none">
+            <button
+              type="button"
+              class="btn btn-primary d-flex align-items-center gap-2 px-3 py-2 shadow-sm"
+              [disabled]="loadingStep1 || loadingStep2"
+              (click)="runFullProcess(true)"
+              title="Xóa bộ nhớ đệm và quét lại toàn bộ dữ liệu cận date & tiêu thụ toàn quốc"
+            >
+              <i class="ti ti-refresh" [class.ti-spin]="loadingStep1 || loadingStep2"></i>
+              <span class="fw-bold">{{ (loadingStep1 || loadingStep2) ? 'Đang quét toàn quốc...' : 'Quét lại toàn quốc' }}</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -666,7 +678,17 @@ export class TransferSuggestionsComponent implements OnInit {
     const uPharmaID = session?.UserInfo?.uPharmaID || 0;
     const cacheKey = `transfer|${uPharmaID}|${this.selectedShopCode}|${this.expiryDaysThreshold}`;
 
-    if (!forceRefresh) {
+    if (forceRefresh) {
+      await this.deleteCache(cacheKey);
+      this.expiringStockList = [];
+      this.nationalStoreStockMap = {};
+      this.cachedSuggestionRows = [];
+      this.cachedGroupedSuggestions = [];
+      this.step1Done = false;
+      this.step2Done = false;
+      this.statusText = "Đang quét lại toàn bộ dữ liệu tồn kho & tiêu thụ toàn quốc...";
+      this.cdr.markForCheck();
+    } else {
       // 1. Thử tải dữ liệu Gợi Ý ĐÃ TÍNH SẴN TỪ FIREBASE SERVER (Siêu nhẹ ~20KB, 30ms)
       try {
         const targetShops = this.selectedShopCode === "ALL"
@@ -677,7 +699,7 @@ export class TransferSuggestionsComponent implements OnInit {
           targetShops.map((sCode) => this.firebaseCache.getShopTransferSuggestions(sCode))
         );
 
-        const validCaches = serverCaches.filter((c) => c && Array.isArray(c.expiringStockList));
+        const validCaches = serverCaches.filter((c) => c && Array.isArray(c.expiringStockList) && c.expiringStockList.length > 0);
 
         if (validCaches.length > 0) {
           console.log(`[Transfer Suggestions] ⚡ Nạp thành công cache tính sẵn cho ${validCaches.length} nhà thuốc nguồn`);
@@ -1335,6 +1357,21 @@ export class TransferSuggestionsComponent implements OnInit {
       db.close();
     } catch (err) {
       console.warn("Không lưu được cache luân chuyển:", err);
+    }
+  }
+
+  private async deleteCache(cacheKey: string): Promise<void> {
+    try {
+      const db = await this.openCacheDb();
+      await new Promise<void>((resolve, reject) => {
+        const transaction = db.transaction("transferCache", "readwrite");
+        const request = transaction.objectStore("transferCache").delete(cacheKey);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+      });
+      db.close();
+    } catch {
+      // ignore
     }
   }
 

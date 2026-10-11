@@ -838,8 +838,14 @@ async function fetchAndUploadNationalInventoryCache(loginData, allShopsData, db)
 function getDaysRemaining(dateText) {
   if (!dateText) return null;
   const str = String(dateText).trim();
-  const parts = str.split(/[-/]/);
-  if (parts.length === 3) {
+  const d = new Date(str.replace(' ', 'T'));
+  if (!isNaN(d.getTime())) {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    return Math.round((d.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  }
+  const parts = str.split(/[-/T ]/);
+  if (parts.length >= 3) {
     let day, month, year;
     if (parts[2].length === 4) {
       day = parseInt(parts[0], 10);
@@ -882,7 +888,9 @@ async function generateTransferSuggestionsForShops(shops, allShopsData, db) {
         const pCode = String(row.ProductID || row.ProductCode || row.ItemCode || "").trim();
         const pName = String(row.ProductName || row.ItemName || pCode).trim();
         const qty = Number(row.QuantityExist ?? row.Quantity ?? 0);
-        const expText = String(row.ExpireDate || row.ExpiryDate || row.DateExpire || row.HSD || "").trim();
+        const expText = String(
+          row.ExpirationDate || row.ExpDate || row.ExpireDate || row.ExpiredDate || row.ExpiryDate || row.DateExpire || row.HSD || ""
+        ).trim();
         const days = getDaysRemaining(expText);
 
         if (pCode && qty > 0 && days !== null && days >= 0 && days <= 3650) {

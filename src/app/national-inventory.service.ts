@@ -66,10 +66,7 @@ export class NationalInventoryService {
     if (!options.forceRefresh) {
       try {
         console.log(`[National Inventory Service] Đang truy vấn Firebase cache cho ${total} sản phẩm...`);
-        // Tối ưu: Nếu số lượng mã > 10, chỉ dùng 1 request tổng duy nhất (getAllCache) thay vì bắn hàng trăm request lẻ
-        const firebaseData = total > 10 
-          ? await this.firebaseCache.getAllCache() 
-          : await this.firebaseCache.getBatchCache(productIDs);
+        const firebaseData = await this.firebaseCache.getBatchCache(productIDs);
         
         const upperMap = new Map<string, any>();
         if (firebaseData) {

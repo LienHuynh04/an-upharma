@@ -67,14 +67,18 @@ export class FirebaseInventoryService {
     const results: Record<string, CacheEntry> = {};
     const uniqueCodes = Array.from(new Set(productIDs.map((id) => id.trim())));
 
-    await Promise.all(
-      uniqueCodes.map(async (code) => {
-        const entry = await this.getProductCache(code);
-        if (entry) {
-          results[code] = entry;
-        }
-      })
-    );
+    const CHUNK_SIZE = 25;
+    for (let i = 0; i < uniqueCodes.length; i += CHUNK_SIZE) {
+      const chunk = uniqueCodes.slice(i, i + CHUNK_SIZE);
+      await Promise.all(
+        chunk.map(async (code) => {
+          const entry = await this.getProductCache(code);
+          if (entry && Array.isArray(entry.shops)) {
+            results[code] = entry;
+          }
+        })
+      );
+    }
 
     return results;
   }
