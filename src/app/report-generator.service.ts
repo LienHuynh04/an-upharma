@@ -201,10 +201,76 @@ export class ReportGeneratorService {
     onProgress?.("Đang tổng hợp đơn hàng cận date & báo cáo FEFO...", 75);
     const nearExpiryOrdersMap: Record<string, Record<string, { totalAmount: number; employees: { name: string; amount: number }[] }>> = {};
     const salesRowsByShop: Record<string, any[]> = {};
+    const salesLoadErrorsByShop = new Set<string>();
 
     const past12MonthsStart = new Date(now.getFullYear() - 1, now.getMonth(), 1);
     const timeStart12M = `${past12MonthsStart.getFullYear()}-${pad(past12MonthsStart.getMonth() + 1)}-01 00:00:00`;
     const timeEndNow = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+    const pickField = (row: Record<string, any>, keys: string[]): unknown => {
+      const fields = new Map(
+        Object.keys(row || {}).map((key) => [key.toLowerCase().replaceAll("_", ""), key]),
+      );
+
+      for (const key of keys) {
+        const actualKey = fields.get(key.toLowerCase().replaceAll("_", ""));
+        const value = actualKey ? row[actualKey] : undefined;
+        if (value !== undefined && value !== null && value !== "") {
+          return value;
+        }
+      }
+      return "";
+    };
+    const extractSalesRows = (response: any): any[] => {
+      const preferredKeys = [
+        "SalesInvoiceLst",
+        "ReportSalesLst",
+        "SalesReportLst",
+        "Data",
+        "data",
+        "DataLst",
+        "Rows",
+        "rows",
+        "Table",
+        "result",
+      ];
+      const findRows = (value: any): any[] => {
+        if (Array.isArray(value)) {
+          return value;
+        }
+        if (!value || typeof value !== "object") {
+          return [];
+        }
+        for (const key of preferredKeys) {
+          if (Array.isArray(value[key])) {
+            return value[key];
+          }
+        }
+
+        for (const child of Object.values(value)) {
+          const rows = findRows(child);
+          if (rows.length > 0) {
+            return rows;
+          }
+        }
+        return [];
+      };
+
+      const childKeys = ["SalesLineLst", "OrderLineLst", "ProductLst", "DetailLst", "Details", "Items", "items"];
+      return findRows(response).flatMap((parent) => {
+        if (!parent || typeof parent !== "object" || Array.isArray(parent)) {
+          return [];
+        }
+        const childRows = childKeys
+          .map((key) => parent[key])
+          .find((value): value is any[] => Array.isArray(value));
+        if (!childRows?.length) {
+          return [parent];
+        }
+        return childRows
+          .filter((child) => child && typeof child === "object" && !Array.isArray(child))
+          .map((child) => ({ ...parent, ...child }));
+      });
+    };
 
     await Promise.all(
       shops.map(async (shop) => {
@@ -224,21 +290,16 @@ export class ReportGeneratorService {
               TimeStart: timeStart12M,
               TimeEnd: timeEndNow,
               ShopCode: shop.ShopCode,
-              _useFirebaseCache: true,
+              _bypassFirebase: true,
             },
-            { cache: true }
+            { cache: true, forceRefresh: true }
           );
 
-          const extractRows = (obj: any): any[] => {
-            const keys = ["SalesInvoiceLst", "ReportSalesLst", "SalesReportLst", "Data", "data", "DataLst", "Rows", "rows"];
-            for (const k of keys) {
-              if (Array.isArray(obj?.[k])) return obj[k];
-            }
-            return [];
-          };
-
-          const rawRows = extractRows(res);
-          salesRowsByShop[shop.ShopCode] = rawRows;
+          const rawRows = extractSalesRows(res);
+          salesRowsByShop[shop.ShopCode] = rawRows.filter((row) => {
+            const rowShopCode = String(pickField(row, ["ShopCode", "__shopCode", "BranchCode", "StoreCode"]) || "").trim();
+            return !rowShopCode || rowShopCode === shop.ShopCode;
+          });
           const r3EmpMap = new Map<string, number>();
           const r6EmpMap = new Map<string, number>();
           const r12EmpMap = new Map<string, number>();
@@ -300,6 +361,7 @@ export class ReportGeneratorService {
           };
         } catch (e) {
           console.warn("Lỗi tải báo cáo đơn hàng cho shop", shop.ShopCode, e);
+          salesLoadErrorsByShop.add(shop.ShopCode);
         }
       })
     );
@@ -311,6 +373,7 @@ export class ReportGeneratorService {
       errRate: string;
       affectedProds: number;
       totalWrongQty: number;
+      dataLoadError: boolean;
       empSummaries: {
         employeeName: string;
         totalLines: number;
@@ -355,12 +418,39 @@ export class ReportGeneratorService {
       }>();
 
       rawSales.forEach((row) => {
-        const prodCode = String(row["ProductID"] || row["ProductCode"] || row["MaSP"] || "").trim();
+        const prodCode = String(pickField(row, [
+          "ProductID",
+          "ProductCode",
+          "Product_ID",
+          "MaSP",
+          "MaSanPham",
+          "ItemCode",
+        ]) || "").trim();
         if (!prodCode || prodCode.toUpperCase().includes("VOUCHER") || prodCode.toUpperCase().startsWith("VC")) return;
 
-        const empName = String(row["SalesName"] || row["EmployeeName"] || row["StaffName"] || row["FullName"] || row["SellerName"] || "Dược sĩ / Thu ngân").trim();
-        const saleQty = parseNumericValue(row["Quantity"] || row["Qty"] || row["SL"] || row["SoLuong"] || 1);
-        const expStr = String(row["ExpirationDate"] || row["ExpDate"] || row["ExpiryDate"] || row["HanDung"] || row["HSD"] || "").trim();
+        const empName = String(pickField(row, [
+          "SalesName",
+          "EmployeeName",
+          "StaffName",
+          "SalesStaffName",
+          "FullName",
+          "SellerName",
+          "NhanVien",
+        ]) || "Dược sĩ / Thu ngân").trim();
+        const saleQty = parseNumericValue(pickField(row, ["Quantity", "Qty", "SL", "SoLuong", "AmountQty"]) || 1);
+        const expStr = String(pickField(row, [
+          "ExpirationDate",
+          "ExpDate",
+          "ExpireDate",
+          "ExpiredDate",
+          "ExpiryDate",
+          "ExpDateTxt",
+          "ExpDateText",
+          "HanDung",
+          "HSD",
+          "DateExpired",
+          "NgayHetHan",
+        ]) || "").trim();
 
         const soldDays = expStr ? getExpiryDaysRemaining(expStr) : null;
         const invList = invByProd.get(prodCode) || [];
@@ -385,56 +475,27 @@ export class ReportGeneratorService {
         }
       });
 
-      if (totalLines === 0) {
-        const empList = employeePlansMap[shop.ShopCode] || [];
-        totalLines = invItems.length || (1500 + (empList.length || 3) * 100);
-        wrongCases = invItems.filter((i) => i.expiryDaysRemaining !== null && i.expiryDaysRemaining <= 90).length;
-        if (wrongCases === 0) wrongCases = Math.round(totalLines * 0.05);
-        totalWrongQty = wrongCases * 5;
-        const errRate = ((wrongCases / totalLines) * 100).toFixed(2).replace(".", ",") + "%";
+      const errRate = totalLines > 0
+        ? ((wrongCases / totalLines) * 100).toFixed(2).replace(".", ",") + "%"
+        : "0,00%";
+      const empSummaries = Array.from(empMap.values()).map((e) => ({
+        employeeName: e.employeeName,
+        totalLines: e.totalLines,
+        wrongCases: e.wrongCases,
+        errRate: e.totalLines > 0 ? ((e.wrongCases / e.totalLines) * 100).toFixed(2).replace(".", ",") + "%" : "0,00%",
+        affectedProds: e.affectedProdsSet.size,
+        totalWrongQty: e.totalWrongQty,
+      }));
 
-        const empSummaries = empList.map((e: any) => {
-          const eLines = Math.max(1, Math.round(totalLines / Math.max(1, empList.length)));
-          const eWrong = Math.round(wrongCases / Math.max(1, empList.length));
-          const eRate = ((eWrong / eLines) * 100).toFixed(2).replace(".", ",") + "%";
-          return {
-            employeeName: e.EmployeeName || "Nhân viên",
-            totalLines: eLines,
-            wrongCases: eWrong,
-            errRate: eRate,
-            affectedProds: Math.round(eWrong * 0.8),
-            totalWrongQty: eWrong * 5,
-          };
-        });
-
-        fefoStatsByShop[shop.ShopCode] = {
-          totalLines,
-          wrongCases,
-          errRate,
-          affectedProds: affectedProdsSet.size || Math.round(wrongCases * 0.7),
-          totalWrongQty,
-          empSummaries,
-        };
-      } else {
-        const errRate = ((wrongCases / totalLines) * 100).toFixed(2).replace(".", ",") + "%";
-        const empSummaries = Array.from(empMap.values()).map((e) => ({
-          employeeName: e.employeeName,
-          totalLines: e.totalLines,
-          wrongCases: e.wrongCases,
-          errRate: e.totalLines > 0 ? ((e.wrongCases / e.totalLines) * 100).toFixed(2).replace(".", ",") + "%" : "0,00%",
-          affectedProds: e.affectedProdsSet.size,
-          totalWrongQty: e.totalWrongQty,
-        }));
-
-        fefoStatsByShop[shop.ShopCode] = {
-          totalLines,
-          wrongCases,
-          errRate,
-          affectedProds: affectedProdsSet.size,
-          totalWrongQty,
-          empSummaries,
-        };
-      }
+      fefoStatsByShop[shop.ShopCode] = {
+        totalLines,
+        wrongCases,
+        errRate,
+        affectedProds: affectedProdsSet.size,
+        totalWrongQty,
+        dataLoadError: salesLoadErrorsByShop.has(shop.ShopCode),
+        empSummaries,
+      };
     });
 
     const html = this.buildFullHtml({
@@ -469,6 +530,7 @@ export class ReportGeneratorService {
       errRate: string;
       affectedProds: number;
       totalWrongQty: number;
+      dataLoadError: boolean;
       empSummaries: {
         employeeName: string;
         totalLines: number;
@@ -777,6 +839,7 @@ export class ReportGeneratorService {
 
         return `
       <div id="fefo-s${shopNum}" class="tab-content ${active}" data-lines="${fmtNum(stats.totalLines)}" data-wrong="${fmtNum(stats.wrongCases)}" data-rate="${stats.errRate}">
+        ${stats.dataLoadError ? '<p class="alert alert-warning">Không tải được dữ liệu đơn bán hàng cho nhà thuốc này. Các số liệu FEFO bên dưới chưa thể đối soát.</p>' : ""}
         <div class="table-wrap" style="margin-bottom:14px">
           <table><thead><tr><th>Tổng số dòng bán</th><th>Số ca sai FEFO</th><th>Tỷ lệ % sai</th><th>Số mã SP ảnh hưởng</th><th>Tổng SL bán sai thứ tự</th></tr></thead>
             <tbody><tr><td><div class="fefo-metric"><strong>${fmtNum(stats.totalLines)}</strong></div></td><td><div class="fefo-metric"><strong>${fmtNum(stats.wrongCases)}</strong></div></td><td style="text-align:center"><span class="fefo-rate">${stats.errRate}</span></td><td><div class="fefo-metric"><strong>${fmtNum(stats.affectedProds)}</strong></div></td><td><div class="fefo-metric"><strong>${fmtNum(stats.totalWrongQty)}</strong></div></td></tr></tbody>
