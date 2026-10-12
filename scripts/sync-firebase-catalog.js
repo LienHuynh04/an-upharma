@@ -48,12 +48,12 @@ async function upharmaLogin() {
     throw new Error("Thiếu UPHARMA_USERNAME hoặc UPHARMA_PASSWORD");
   }
   console.log(`[sync-catalog] Đang đăng nhập Upharma tài khoản: ${UPHARMA_USERNAME}...`);
-  const res = await requestUpharma("/User/Login", {
+  const res = await requestUpharma("/User/UserLogin", {
     UserName: UPHARMA_USERNAME,
     Password: UPHARMA_PASSWORD,
   });
   if (!res || !res.Token) {
-    throw new Error("Đăng nhập Upharma thất bại hoặc không nhận được Token");
+    throw new Error(`Đăng nhập Upharma thất bại: ${res?.RespText || "Không nhận được Token"}`);
   }
   return res;
 }
