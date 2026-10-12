@@ -279,6 +279,7 @@ export class KeyProductsComponent implements OnInit {
     const sheetRows = rows.map((row) => ({
       "Tên SP": row.productName,
       "Mã SP": row.productCode,
+      "Số lượng": row.quantity,
       "Doanh số": row.amount,
       "Tỷ trọng": `${row.percentOfTotal}%`,
     }));
