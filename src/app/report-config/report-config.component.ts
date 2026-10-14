@@ -1,7 +1,16 @@
 import { CommonModule } from "@angular/common";
 import { Component, OnInit, inject } from "@angular/core";
 import { FormsModule } from "@angular/forms";
-import { OperationShopInput, ReportCustomInputs, ReportGeneratorService } from "../report-generator.service";
+import {
+  EmployeePlanItem,
+  FefoSummaryItem,
+  InventoryExpiryItem,
+  OperationShopInput,
+  ReportCustomInputs,
+  ReportGeneratorService,
+  ReportLiveMetrics,
+  ShopKpiItem,
+} from "../report-generator.service";
 import { UpharmaService } from "../upharma.service";
 import { environment } from "../../environments/environment";
 
@@ -22,9 +31,14 @@ export class ReportConfigComponent implements OnInit {
   exportLoading = false;
   downloadLoading = false;
   saveLoading = false;
+  fetchDataLoading = false;
   isLoadingConfig = true;
+  showDataForm = false;
+  activeDataTab: "kpis" | "inventory" | "fefo" | "employees" = "kpis";
+  
   exportStatusText = "";
   downloadStatusText = "";
+  fetchDataStatusText = "";
   saveSuccessText = "";
   
   reportHtml: string | null = null;
@@ -194,6 +208,216 @@ export class ReportConfigComponent implements OnInit {
       this.reportInputs.shops.push(shop);
     }
     return shop;
+  }
+
+  async fetchLiveReportData(): Promise<void> {
+    if (this.fetchDataLoading) return;
+    this.fetchDataLoading = true;
+    this.fetchDataStatusText = "Bắt đầu lấy dữ liệu từ hệ thống...";
+
+    try {
+      const metrics = await this.reportGenerator.collectReportLiveMetrics((msg, pct) => {
+        this.fetchDataStatusText = `${msg} (${pct}%)`;
+      });
+      this.reportInputs.liveMetrics = metrics;
+      this.showDataForm = true;
+      setTimeout(() => {
+        const dataFormElem = document.getElementById("data-override-section");
+        if (dataFormElem) {
+          dataFormElem.scrollIntoView({ behavior: "smooth" });
+        }
+      }, 150);
+    } catch (error) {
+      console.error("Lỗi lấy dữ liệu báo cáo:", error);
+      alert("Lỗi khi lấy dữ liệu: " + (error instanceof Error ? error.message : String(error)));
+    } finally {
+      this.fetchDataLoading = false;
+      this.fetchDataStatusText = "";
+    }
+  }
+
+  clearLiveMetrics(): void {
+    if (confirm("Bạn có chắc muốn xóa dữ liệu đã lấy này? Hệ thống sẽ thu thập lại từ đầu khi xuất báo cáo.")) {
+      this.reportInputs.liveMetrics = undefined;
+      this.showDataForm = false;
+    }
+  }
+
+  getShopKpi(shopCode: string): ShopKpiItem {
+    if (!this.reportInputs.liveMetrics) {
+      this.reportInputs.liveMetrics = {
+        collectedAt: new Date().toISOString(),
+        month: new Date().getMonth() + 1,
+        year: new Date().getFullYear(),
+        shopKpis: {},
+        inventoryStats: {},
+        fefoStats: {},
+        employeePlans: {},
+      };
+    }
+    if (!this.reportInputs.liveMetrics.shopKpis[shopCode]) {
+      this.reportInputs.liveMetrics.shopKpis[shopCode] = {
+        salesTarget: 0,
+        salesActual: 0,
+        salesPercent: 0,
+        salesProjected: 0,
+        hhsTarget: 0,
+        hhsActual: 0,
+        hhsPercent: 0,
+        hhsProjected: 0,
+        hhsRatio: 0,
+      };
+    }
+    return this.reportInputs.liveMetrics.shopKpis[shopCode];
+  }
+
+  getInventoryStats(shopCode: string): InventoryExpiryItem {
+    if (!this.reportInputs.liveMetrics) {
+      this.getShopKpi(shopCode);
+    }
+    if (!this.reportInputs.liveMetrics!.inventoryStats[shopCode]) {
+      this.reportInputs.liveMetrics!.inventoryStats[shopCode] = {
+        totalQty: 0,
+        totalVal: 0,
+        expiredCount: 0,
+        expiredVal: 0,
+        m3Count: 0,
+        m3Val: 0,
+        m6Count: 0,
+        m6Val: 0,
+        y1Count: 0,
+        y1Val: 0,
+        normalCount: 0,
+        normalVal: 0,
+      };
+    }
+    return this.reportInputs.liveMetrics!.inventoryStats[shopCode];
+  }
+
+  getFefoStats(shopCode: string): FefoSummaryItem {
+    if (!this.reportInputs.liveMetrics) {
+      this.getShopKpi(shopCode);
+    }
+    if (!this.reportInputs.liveMetrics!.fefoStats[shopCode]) {
+      this.reportInputs.liveMetrics!.fefoStats[shopCode] = {
+        totalLines: 0,
+        wrongCases: 0,
+        errRate: "0,00%",
+        affectedProds: 0,
+        totalWrongQty: 0,
+        empSummaries: [],
+      };
+    }
+    return this.reportInputs.liveMetrics!.fefoStats[shopCode];
+  }
+
+  getEmployeePlans(shopCode: string): EmployeePlanItem[] {
+    if (!this.reportInputs.liveMetrics) {
+      this.getShopKpi(shopCode);
+    }
+    if (!this.reportInputs.liveMetrics!.employeePlans[shopCode]) {
+      this.reportInputs.liveMetrics!.employeePlans[shopCode] = [];
+    }
+    return this.reportInputs.liveMetrics!.employeePlans[shopCode];
+  }
+
+  formatMoney(val: number): string {
+    return new Intl.NumberFormat("vi-VN").format(Math.round(val || 0)) + " đ";
+  }
+
+  formatNumber(val: number): string {
+    return new Intl.NumberFormat("vi-VN").format(Math.round(val || 0));
+  }
+
+  recalculateKpis(shopCode: string): void {
+    const kpi = this.getShopKpi(shopCode);
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1;
+    const currentYear = now.getFullYear();
+    const completedDays = Math.max(1, now.getDate() - 1);
+    const totalDays = new Date(currentYear, currentMonth, 0).getDate();
+
+    if (kpi.salesTarget > 0) {
+      kpi.salesPercent = Math.round((kpi.salesActual / kpi.salesTarget) * 100);
+    } else {
+      kpi.salesPercent = 0;
+    }
+
+    if (kpi.hhsTarget > 0) {
+      kpi.hhsPercent = Math.round((kpi.hhsActual / kpi.hhsTarget) * 100);
+    } else {
+      kpi.hhsPercent = 0;
+    }
+
+    if (completedDays > 0) {
+      kpi.salesProjected = Math.round((kpi.salesActual / completedDays) * totalDays);
+      kpi.hhsProjected = Math.round((kpi.hhsActual / completedDays) * totalDays);
+    }
+
+    if (kpi.salesActual > 0) {
+      kpi.hhsRatio = Math.round(((kpi.hhsActual * 1000) / kpi.salesActual) * 100);
+    } else {
+      kpi.hhsRatio = 0;
+    }
+  }
+
+  recalculateInventoryTotals(shopCode: string): void {
+    const inv = this.getInventoryStats(shopCode);
+    inv.totalVal = (inv.expiredVal || 0) + (inv.m3Val || 0) + (inv.m6Val || 0) + (inv.y1Val || 0) + (inv.normalVal || 0);
+  }
+
+  recalculateFefo(shopCode: string): void {
+    const fefo = this.getFefoStats(shopCode);
+    if (fefo.totalLines > 0) {
+      const pct = (fefo.wrongCases / fefo.totalLines) * 100;
+      fefo.errRate = pct.toFixed(2).replace(".", ",") + "%";
+    } else {
+      fefo.errRate = "0,00%";
+    }
+  }
+
+  addEmployee(shopCode: string): void {
+    const list = this.getEmployeePlans(shopCode);
+    list.push({
+      employeeCode: "",
+      employeeName: "Dược sĩ mới",
+      targetAmount: 0,
+      actualAmount: 0,
+      targetPoint: 0,
+      actualPoint: 0,
+      quantityCus: 0,
+      quantityCusNew: 0,
+      quantityInvoice: 0,
+    });
+  }
+
+  removeEmployee(shopCode: string, index: number): void {
+    const list = this.getEmployeePlans(shopCode);
+    if (index >= 0 && index < list.length) {
+      list.splice(index, 1);
+    }
+  }
+
+  addFefoEmployee(shopCode: string): void {
+    const fefo = this.getFefoStats(shopCode);
+    if (!fefo.empSummaries) {
+      fefo.empSummaries = [];
+    }
+    fefo.empSummaries.push({
+      employeeName: "Dược sĩ",
+      totalLines: 0,
+      wrongCases: 0,
+      errRate: "0,00%",
+      affectedProds: 0,
+      totalWrongQty: 0,
+    });
+  }
+
+  removeFefoEmployee(shopCode: string, index: number): void {
+    const fefo = this.getFefoStats(shopCode);
+    if (fefo.empSummaries && index >= 0 && index < fefo.empSummaries.length) {
+      fefo.empSummaries.splice(index, 1);
+    }
   }
 
   async previewDirectly(): Promise<void> {

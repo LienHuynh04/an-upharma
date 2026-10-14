@@ -28,16 +28,38 @@
                 type="button" 
                 class="btn btn-primary shadow-sm d-inline-flex align-items-center gap-2 px-3.5 py-2 fw-bold rounded-3"
                 (click)="saveReportInputs()"
-                [disabled]="saveLoading || exportLoading || downloadLoading">
+                [disabled]="saveLoading || exportLoading || downloadLoading || fetchDataLoading">
                 <span *ngIf="saveLoading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                 <i *ngIf="!saveLoading" class="ti ti-cloud-upload fs-6"></i>
                 <span>{{ saveLoading ? 'Đang lưu Firebase...' : 'Lưu Cấu Hình' }}</span>
               </button>
+
+              <button 
+                type="button" 
+                class="btn btn-info text-white shadow-sm d-inline-flex align-items-center gap-2 px-3.5 py-2 fw-bold rounded-3"
+                (click)="fetchLiveReportData()"
+                [disabled]="fetchDataLoading || saveLoading || exportLoading || downloadLoading"
+                title="Lấy trước toàn bộ số liệu từ hệ thống để kiểm tra và chỉnh sửa trước khi xuất">
+                <span *ngIf="fetchDataLoading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                <i *ngIf="!fetchDataLoading" class="ti ti-database-import fs-6"></i>
+                <span>{{ fetchDataLoading ? (fetchDataStatusText || 'Đang lấy dữ liệu...') : 'Lấy Dữ Liệu Tự Động' }}</span>
+              </button>
+
+              <button 
+                *ngIf="reportInputs.liveMetrics"
+                type="button" 
+                class="btn btn-outline-info border-2 d-inline-flex align-items-center gap-1.5 px-3 py-2 fw-bold rounded-3"
+                (click)="showDataForm = !showDataForm"
+                title="Ẩn hoặc hiện bảng kiểm tra số liệu">
+                <i class="ti fs-6" [ngClass]="showDataForm ? 'ti-eye-off' : 'ti-table-options'"></i>
+                <span>{{ showDataForm ? 'Ẩn Bảng Số Liệu' : 'Mở Bảng Số Liệu' }}</span>
+              </button>
+
               <button 
                 type="button" 
                 class="btn btn-outline-secondary border-2 d-inline-flex align-items-center gap-1.5 px-3 py-2 fw-bold rounded-3"
                 (click)="resetReportInputs()"
-                [disabled]="saveLoading || exportLoading || downloadLoading"
+                [disabled]="saveLoading || exportLoading || downloadLoading || fetchDataLoading"
                 title="Khôi phục ví dụ mặc định">
                 <i class="ti ti-refresh fs-6"></i>
                 <span>Đặt Lại</span>
@@ -46,7 +68,7 @@
                 type="button" 
                 class="btn btn-outline-success border-2 shadow-sm d-inline-flex align-items-center gap-2 px-3 py-2 fw-bold rounded-3"
                 (click)="generateReport(true)"
-                [disabled]="saveLoading || exportLoading || downloadLoading">
+                [disabled]="saveLoading || exportLoading || downloadLoading || fetchDataLoading">
                 <span *ngIf="exportLoading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                 <i *ngIf="!exportLoading" class="ti ti-eye fs-6"></i>
                 <span>{{ exportLoading ? exportStatusText : 'Xem Báo Cáo' }}</span>
@@ -55,7 +77,7 @@
                 type="button" 
                 class="btn btn-success shadow-sm d-inline-flex align-items-center gap-2 px-3.5 py-2 fw-bold rounded-3"
                 (click)="downloadReport()"
-                [disabled]="saveLoading || downloadLoading || exportLoading">
+                [disabled]="saveLoading || downloadLoading || exportLoading || fetchDataLoading">
                 <span *ngIf="downloadLoading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                 <i *ngIf="!downloadLoading" class="ti ti-download fs-6"></i>
                 <span>{{ downloadLoading ? downloadStatusText : 'Tải Báo Cáo (.html)' }}</span>
@@ -291,9 +313,19 @@
           </span>
           <button 
             type="button" 
+            class="btn btn-info text-white fw-bold px-3.5 py-2 rounded-3 shadow-sm d-inline-flex align-items-center gap-2"
+            (click)="fetchLiveReportData()"
+            [disabled]="fetchDataLoading || saveLoading || exportLoading || downloadLoading"
+            title="Lấy trước dữ liệu để kiểm tra và chỉnh sửa">
+            <span *ngIf="fetchDataLoading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+            <i *ngIf="!fetchDataLoading" class="ti ti-database-import fs-6"></i>
+            <span>{{ fetchDataLoading ? (fetchDataStatusText || 'Đang lấy...') : 'Lấy Dữ Liệu Tự Động' }}</span>
+          </button>
+          <button 
+            type="button" 
             class="btn btn-primary fw-bold px-4 py-2 rounded-3 shadow-sm d-inline-flex align-items-center gap-2"
             (click)="saveReportInputs()"
-            [disabled]="saveLoading || exportLoading || downloadLoading">
+            [disabled]="saveLoading || exportLoading || downloadLoading || fetchDataLoading">
             <span *ngIf="saveLoading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
             <i *ngIf="!saveLoading" class="ti ti-cloud-upload fs-6"></i>
             <span>{{ saveLoading ? 'Đang lưu...' : 'Lưu Cấu Hình' }}</span>
@@ -302,7 +334,7 @@
             type="button" 
             class="btn btn-outline-secondary border-2 fw-bold px-3 py-2 rounded-3 shadow-sm d-inline-flex align-items-center gap-1.5"
             (click)="resetReportInputs()"
-            [disabled]="saveLoading || exportLoading || downloadLoading"
+            [disabled]="saveLoading || exportLoading || downloadLoading || fetchDataLoading"
             title="Khôi phục ví dụ mặc định">
             <i class="ti ti-refresh fs-6"></i>
             <span>Đặt Lại</span>
@@ -311,7 +343,7 @@
             type="button" 
             class="btn btn-outline-success border-2 fw-bold px-3.5 py-2 rounded-3 shadow-sm d-inline-flex align-items-center gap-2"
             (click)="generateReport(true)"
-            [disabled]="saveLoading || exportLoading || downloadLoading">
+            [disabled]="saveLoading || exportLoading || downloadLoading || fetchDataLoading">
             <span *ngIf="exportLoading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
             <i *ngIf="!exportLoading" class="ti ti-eye"></i>
             <span>{{ exportLoading ? exportStatusText : 'Xem Báo Cáo' }}</span>
@@ -320,12 +352,822 @@
             type="button" 
             class="btn btn-success fw-bold px-4 py-2 rounded-3 shadow-sm d-inline-flex align-items-center gap-2"
             (click)="downloadReport()"
-            [disabled]="saveLoading || downloadLoading || exportLoading">
+            [disabled]="saveLoading || downloadLoading || exportLoading || fetchDataLoading">
             <span *ngIf="downloadLoading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
             <i *ngIf="!downloadLoading" class="ti ti-download"></i>
             <span>{{ downloadLoading ? downloadStatusText : 'Tải Báo Cáo (.html)' }}</span>
           </button>
         </div>
+      </div>
+    </div>
+
+    <!-- ─────────────────────────────────────────────────────────────
+         CARD LỚN: FORM KIỂM TRA & TÙY CHỈNH SỐ LIỆU BÁO CÁO
+         (Data Preview & Override Section)
+         ───────────────────────────────────────────────────────────── -->
+    <div id="data-override-section" class="card data-override-card border-0 shadow-sm rounded-4 mb-4 overflow-hidden">
+      <!-- Card Header -->
+      <div class="card-header bg-surface border-bottom p-3.5">
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+          <div class="d-flex align-items-center gap-3">
+            <div class="override-icon-box rounded-3 d-flex align-items-center justify-content-center">
+              <i class="ti ti-adjustments-alt text-info fs-3"></i>
+            </div>
+            <div>
+              <div class="d-flex align-items-center gap-2 flex-wrap">
+                <h2 class="h4 fw-bold text-body mb-0">Bảng Kiểm Tra & Tùy Chỉnh Số Liệu Báo Cáo</h2>
+                <span *ngIf="reportInputs.liveMetrics" class="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1 rounded-pill small">
+                  <i class="ti ti-circle-check me-1"></i>Đã thu thập: {{ reportInputs.liveMetrics.collectedAt | date:'HH:mm:ss dd/MM/yyyy' }}
+                </span>
+                <span *ngIf="!reportInputs.liveMetrics" class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2.5 py-1 rounded-pill small">
+                  <i class="ti ti-alert-circle me-1"></i>Chưa thu thập dữ liệu
+                </span>
+              </div>
+              <p class="text-secondary small mb-0 mt-1">
+                Kiểm tra trước dữ liệu từ hệ thống. Nếu có số liệu bị thiếu hoặc lỗi, bạn có thể sửa trực tiếp vào ô tương ứng trước khi xem hoặc tải báo cáo HTML.
+              </p>
+            </div>
+          </div>
+
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <button 
+              type="button" 
+              class="btn btn-sm btn-info text-white rounded-3 fw-bold px-3 py-1.5 shadow-sm d-inline-flex align-items-center gap-1.5"
+              (click)="fetchLiveReportData()"
+              [disabled]="fetchDataLoading || saveLoading || exportLoading">
+              <span *ngIf="fetchDataLoading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+              <i *ngIf="!fetchDataLoading" class="ti ti-rotate-clockwise fs-6"></i>
+              <span>{{ fetchDataLoading ? 'Đang lấy...' : (reportInputs.liveMetrics ? 'Thu Thập Lại' : 'Lấy Dữ Liệu Tự Động') }}</span>
+            </button>
+            <button 
+              *ngIf="reportInputs.liveMetrics"
+              type="button" 
+              class="btn btn-sm btn-outline-danger border-2 rounded-3 fw-bold px-2.5 py-1.5 d-inline-flex align-items-center gap-1"
+              (click)="clearLiveMetrics()"
+              title="Xóa dữ liệu thu thập và quay lại chế độ xuất báo cáo tự động">
+              <i class="ti ti-trash fs-6"></i>
+              <span>Xóa Số Liệu</span>
+            </button>
+            <button 
+              *ngIf="reportInputs.liveMetrics"
+              type="button" 
+              class="btn btn-sm btn-outline-secondary rounded-3 fw-bold px-2.5 py-1.5 d-inline-flex align-items-center gap-1"
+              (click)="showDataForm = !showDataForm">
+              <i class="ti fs-6" [ngClass]="showDataForm ? 'ti-chevron-up' : 'ti-chevron-down'"></i>
+              <span>{{ showDataForm ? 'Thu gọn' : 'Mở rộng' }}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Empty State khi chưa lấy dữ liệu -->
+      <div *ngIf="!reportInputs.liveMetrics" class="card-body p-5 text-center">
+        <div class="empty-state-icon mb-3">
+          <i class="ti ti-database-search text-info" style="font-size: 3.5rem;"></i>
+        </div>
+        <h5 class="fw-bold text-body mb-2">Chưa Có Số Liệu Được Tải Về</h5>
+        <p class="text-secondary small mx-auto mb-4" style="max-width: 520px;">
+          Bấm nút <strong>"Lấy Dữ Liệu Tự Động"</strong> để hệ thống tự động cào và tính toán toàn bộ số liệu về Chỉ tiêu doanh số, Điểm HHS, Tồn kho hạn dùng, Đơn cận date và Vi phạm FEFO. Sau đó bạn có thể kiểm tra và chỉnh sửa lại nếu cần.
+        </p>
+        <button 
+          type="button" 
+          class="btn btn-info text-white fw-bold px-4 py-2.5 rounded-3 shadow-sm d-inline-flex align-items-center gap-2"
+          (click)="fetchLiveReportData()"
+          [disabled]="fetchDataLoading">
+          <span *ngIf="fetchDataLoading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+          <i *ngIf="!fetchDataLoading" class="ti ti-database-import fs-5"></i>
+          <span>{{ fetchDataLoading ? (fetchDataStatusText || 'Đang lấy dữ liệu...') : 'Lấy Dữ Liệu Tự Động Ngay' }}</span>
+        </button>
+      </div>
+
+      <!-- Main Form Body khi đã có dữ liệu và showDataForm === true -->
+      <div *ngIf="reportInputs.liveMetrics && showDataForm" class="card-body p-4 animate-fade-in">
+        
+        <!-- Shop Tabs Selector trong Form Lớn -->
+        <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+          <div class="d-flex align-items-center gap-2">
+            <span class="fw-bold text-secondary text-uppercase tracking-wider fs-7">
+              <i class="ti ti-building-store me-1 text-primary"></i>Nhà thuốc đang chọn:
+            </span>
+            <div class="btn-group" role="group">
+              <button 
+                *ngFor="let shop of shops"
+                type="button" 
+                class="btn btn-sm fw-bold px-3 py-1.5"
+                [ngClass]="activeShopCode === shop.ShopCode ? 'btn-primary' : 'btn-outline-secondary'"
+                (click)="activeShopCode = shop.ShopCode">
+                {{ shop.ShopCode }} ({{ shop.ShopName }})
+              </button>
+            </div>
+          </div>
+
+          <div class="text-secondary small">
+            <i class="ti ti-info-circle me-1 text-info"></i>
+            Tháng báo cáo: <strong>{{ reportInputs.liveMetrics.month }}/{{ reportInputs.liveMetrics.year }}</strong>
+          </div>
+        </div>
+
+        <!-- Sub-Navigation Category Tabs -->
+        <ul class="nav nav-tabs nav-fill mb-4 data-cat-tabs border-bottom">
+          <li class="nav-item">
+            <button 
+              type="button"
+              class="nav-link fw-bold d-flex align-items-center justify-content-center gap-2 py-2.5"
+              [class.active]="activeDataTab === 'kpis'"
+              (click)="activeDataTab = 'kpis'">
+              <i class="ti ti-target-arrow text-primary fs-5"></i>
+              <span>1. Chỉ Tiêu & Doanh Số (KPIs)</span>
+            </button>
+          </li>
+          <li class="nav-item">
+            <button 
+              type="button"
+              class="nav-link fw-bold d-flex align-items-center justify-content-center gap-2 py-2.5"
+              [class.active]="activeDataTab === 'inventory'"
+              (click)="activeDataTab = 'inventory'">
+              <i class="ti ti-package text-warning fs-5"></i>
+              <span>2. Tồn Kho & Hạn Dùng</span>
+            </button>
+          </li>
+          <li class="nav-item">
+            <button 
+              type="button"
+              class="nav-link fw-bold d-flex align-items-center justify-content-center gap-2 py-2.5"
+              [class.active]="activeDataTab === 'fefo'"
+              (click)="activeDataTab = 'fefo'">
+              <i class="ti ti-alert-triangle text-danger fs-5"></i>
+              <span>3. Vi Phạm FEFO</span>
+            </button>
+          </li>
+          <li class="nav-item">
+            <button 
+              type="button"
+              class="nav-link fw-bold d-flex align-items-center justify-content-center gap-2 py-2.5"
+              [class.active]="activeDataTab === 'employees'"
+              (click)="activeDataTab = 'employees'">
+              <i class="ti ti-users text-success fs-5"></i>
+              <span>4. Kế Hoạch Nhân Viên</span>
+            </button>
+          </li>
+        </ul>
+
+        <!-- TAB 1: CHỈ TIÊU & DOANH SỐ (KPIS) -->
+        <div *ngIf="activeDataTab === 'kpis'" class="tab-pane-content animate-fade-in">
+          <div class="row g-4 mb-4">
+            <!-- Cột Doanh Số Bán Lẻ -->
+            <div class="col-lg-6">
+              <div class="card h-100 border rounded-3 p-3.5 shadow-2sm card-accent-blue">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                  <h5 class="fw-bold text-body mb-0 d-flex align-items-center gap-2">
+                    <span class="badge bg-primary text-white rounded-pill px-2.5 py-1 fs-7">💰 Doanh Số Bán Lẻ</span>
+                  </h5>
+                  <span class="text-secondary small">Đơn vị: VNĐ</span>
+                </div>
+
+                <div class="mb-3">
+                  <label class="form-label small fw-bold text-secondary mb-1">Mục tiêu Doanh số (Target):</label>
+                  <div class="input-group">
+                    <input 
+                      type="number" 
+                      class="form-control form-control-styled fw-bold text-primary" 
+                      [(ngModel)]="getShopKpi(activeShopCode).salesTarget"
+                      (ngModelChange)="recalculateKpis(activeShopCode)">
+                    <span class="input-group-text bg-body-tertiary text-secondary">VNĐ</span>
+                  </div>
+                  <div class="form-text small text-body-secondary mt-1">
+                    Bằng chữ: <strong>{{ formatMoney(getShopKpi(activeShopCode).salesTarget) }}</strong>
+                  </div>
+                </div>
+
+                <div class="mb-3">
+                  <label class="form-label small fw-bold text-secondary mb-1">Doanh số Thực tế (Actual):</label>
+                  <div class="input-group">
+                    <input 
+                      type="number" 
+                      class="form-control form-control-styled fw-bold text-success" 
+                      [(ngModel)]="getShopKpi(activeShopCode).salesActual"
+                      (ngModelChange)="recalculateKpis(activeShopCode)">
+                    <span class="input-group-text bg-body-tertiary text-secondary">VNĐ</span>
+                  </div>
+                  <div class="form-text small text-body-secondary mt-1">
+                    Bằng chữ: <strong>{{ formatMoney(getShopKpi(activeShopCode).salesActual) }}</strong>
+                  </div>
+                </div>
+
+                <div class="row g-2">
+                  <div class="col-sm-6">
+                    <label class="form-label small fw-bold text-secondary mb-1">% Đạt Doanh số:</label>
+                    <div class="input-group input-group-sm">
+                      <input 
+                        type="number" 
+                        class="form-control form-control-styled fw-bold text-center" 
+                        [(ngModel)]="getShopKpi(activeShopCode).salesPercent">
+                      <span class="input-group-text bg-body-tertiary">%</span>
+                    </div>
+                  </div>
+                  <div class="col-sm-6">
+                    <label class="form-label small fw-bold text-secondary mb-1">Dự kiến cuối tháng:</label>
+                    <div class="input-group input-group-sm">
+                      <input 
+                        type="number" 
+                        class="form-control form-control-styled fw-bold" 
+                        [(ngModel)]="getShopKpi(activeShopCode).salesProjected">
+                      <span class="input-group-text bg-body-tertiary">VNĐ</span>
+                    </div>
+                    <div class="form-text small text-body-secondary text-truncate" style="font-size: 11px;">
+                      {{ formatMoney(getShopKpi(activeShopCode).salesProjected || 0) }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Cột Điểm Hàng Hoá Số (HHS) -->
+            <div class="col-lg-6">
+              <div class="card h-100 border rounded-3 p-3.5 shadow-2sm card-accent-purple">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                  <h5 class="fw-bold text-body mb-0 d-flex align-items-center gap-2">
+                    <span class="badge bg-purple text-white rounded-pill px-2.5 py-1 fs-7">💎 Điểm Hàng Hoá Số (HHS)</span>
+                  </h5>
+                  <span class="text-secondary small">Đơn vị: Điểm</span>
+                </div>
+
+                <div class="mb-3">
+                  <label class="form-label small fw-bold text-secondary mb-1">Mục tiêu Điểm HHS (Target):</label>
+                  <div class="input-group">
+                    <input 
+                      type="number" 
+                      class="form-control form-control-styled fw-bold text-purple" 
+                      [(ngModel)]="getShopKpi(activeShopCode).hhsTarget"
+                      (ngModelChange)="recalculateKpis(activeShopCode)">
+                    <span class="input-group-text bg-body-tertiary text-secondary">Điểm</span>
+                  </div>
+                  <div class="form-text small text-body-secondary mt-1">
+                    Định dạng: <strong>{{ formatNumber(getShopKpi(activeShopCode).hhsTarget) }} điểm</strong>
+                  </div>
+                </div>
+
+                <div class="mb-3">
+                  <label class="form-label small fw-bold text-secondary mb-1">Điểm HHS Thực tế (Actual):</label>
+                  <div class="input-group">
+                    <input 
+                      type="number" 
+                      class="form-control form-control-styled fw-bold text-success" 
+                      [(ngModel)]="getShopKpi(activeShopCode).hhsActual"
+                      (ngModelChange)="recalculateKpis(activeShopCode)">
+                    <span class="input-group-text bg-body-tertiary text-secondary">Điểm</span>
+                  </div>
+                  <div class="form-text small text-body-secondary mt-1">
+                    Định dạng: <strong>{{ formatNumber(getShopKpi(activeShopCode).hhsActual) }} điểm</strong>
+                  </div>
+                </div>
+
+                <div class="row g-2">
+                  <div class="col-sm-4">
+                    <label class="form-label small fw-bold text-secondary mb-1">% Đạt HHS:</label>
+                    <div class="input-group input-group-sm">
+                      <input 
+                        type="number" 
+                        class="form-control form-control-styled fw-bold text-center" 
+                        [(ngModel)]="getShopKpi(activeShopCode).hhsPercent">
+                      <span class="input-group-text bg-body-tertiary">%</span>
+                    </div>
+                  </div>
+                  <div class="col-sm-4">
+                    <label class="form-label small fw-bold text-secondary mb-1">Dự kiến HHS:</label>
+                    <div class="input-group input-group-sm">
+                      <input 
+                        type="number" 
+                        class="form-control form-control-styled fw-bold" 
+                        [(ngModel)]="getShopKpi(activeShopCode).hhsProjected">
+                    </div>
+                    <div class="form-text small text-body-secondary text-truncate" style="font-size: 11px;">
+                      {{ formatNumber(getShopKpi(activeShopCode).hhsProjected || 0) }} đ
+                    </div>
+                  </div>
+                  <div class="col-sm-4">
+                    <label class="form-label small fw-bold text-secondary mb-1">Tỷ lệ HHS/DS (%):</label>
+                    <div class="input-group input-group-sm">
+                      <input 
+                        type="number" 
+                        class="form-control form-control-styled fw-bold text-center" 
+                        [(ngModel)]="getShopKpi(activeShopCode).hhsRatio">
+                      <span class="input-group-text bg-body-tertiary">%</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="d-flex justify-content-end align-items-center gap-2">
+            <button 
+              type="button" 
+              class="btn btn-outline-primary rounded-3 btn-sm fw-bold d-inline-flex align-items-center gap-1.5"
+              (click)="recalculateKpis(activeShopCode)">
+              <i class="ti ti-calculator fs-6"></i>
+              <span>Tự Động Tính Lại Tỷ Lệ % & Dự Kiến</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- TAB 2: TỒN KHO & HẠN DÙNG -->
+        <div *ngIf="activeDataTab === 'inventory'" class="tab-pane-content animate-fade-in">
+          <div class="table-responsive border rounded-3 mb-3">
+            <table class="table table-hover align-middle mb-0 data-table-custom">
+              <thead class="table-light">
+                <tr>
+                  <th style="min-width: 200px;">Phân Nhóm Hạn Dùng</th>
+                  <th style="width: 180px;">Số Mặt Hàng (SKU)</th>
+                  <th style="min-width: 220px;">Giá Trị Tồn Kho (VNĐ)</th>
+                  <th style="min-width: 180px;">Định Dạng Tiền</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- 1. Quá hạn -->
+                <tr>
+                  <td>
+                    <div class="d-flex align-items-center gap-2">
+                      <span class="status-indicator bg-danger"></span>
+                      <div>
+                        <span class="fw-bold text-danger">🔴 Hết Hạn / Quá Hạn</span>
+                        <div class="small text-secondary" style="font-size: 11px;">Hạn dùng &lt; 0 ngày</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <input 
+                      type="number" 
+                      class="form-control form-control-sm form-control-styled fw-bold" 
+                      [(ngModel)]="getInventoryStats(activeShopCode).expiredCount">
+                  </td>
+                  <td>
+                    <input 
+                      type="number" 
+                      class="form-control form-control-sm form-control-styled fw-bold text-danger" 
+                      [(ngModel)]="getInventoryStats(activeShopCode).expiredVal"
+                      (ngModelChange)="recalculateInventoryTotals(activeShopCode)">
+                  </td>
+                  <td class="text-secondary small fw-bold">
+                    {{ formatMoney(getInventoryStats(activeShopCode).expiredVal) }}
+                  </td>
+                </tr>
+
+                <!-- 2. Cận date <= 3 tháng -->
+                <tr>
+                  <td>
+                    <div class="d-flex align-items-center gap-2">
+                      <span class="status-indicator bg-warning"></span>
+                      <div>
+                        <span class="fw-bold text-warning-emphasis">🟠 Cận Date &le; 3 Tháng</span>
+                        <div class="small text-secondary" style="font-size: 11px;">Hạn dùng từ 0 đến 90 ngày (Cấp bách)</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <input 
+                      type="number" 
+                      class="form-control form-control-sm form-control-styled fw-bold" 
+                      [(ngModel)]="getInventoryStats(activeShopCode).m3Count">
+                  </td>
+                  <td>
+                    <input 
+                      type="number" 
+                      class="form-control form-control-sm form-control-styled fw-bold text-warning-emphasis" 
+                      [(ngModel)]="getInventoryStats(activeShopCode).m3Val"
+                      (ngModelChange)="recalculateInventoryTotals(activeShopCode)">
+                  </td>
+                  <td class="text-secondary small fw-bold">
+                    {{ formatMoney(getInventoryStats(activeShopCode).m3Val) }}
+                  </td>
+                </tr>
+
+                <!-- 3. Cận date 3 - 6 tháng -->
+                <tr>
+                  <td>
+                    <div class="d-flex align-items-center gap-2">
+                      <span class="status-indicator bg-info"></span>
+                      <div>
+                        <span class="fw-bold text-info">🟡 Cận Date 3 - 6 Tháng</span>
+                        <div class="small text-secondary" style="font-size: 11px;">Hạn dùng từ 91 đến 180 ngày</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <input 
+                      type="number" 
+                      class="form-control form-control-sm form-control-styled fw-bold" 
+                      [(ngModel)]="getInventoryStats(activeShopCode).m6Count">
+                  </td>
+                  <td>
+                    <input 
+                      type="number" 
+                      class="form-control form-control-sm form-control-styled fw-bold text-info" 
+                      [(ngModel)]="getInventoryStats(activeShopCode).m6Val"
+                      (ngModelChange)="recalculateInventoryTotals(activeShopCode)">
+                  </td>
+                  <td class="text-secondary small fw-bold">
+                    {{ formatMoney(getInventoryStats(activeShopCode).m6Val) }}
+                  </td>
+                </tr>
+
+                <!-- 4. Cận date 6 - 12 tháng -->
+                <tr>
+                  <td>
+                    <div class="d-flex align-items-center gap-2">
+                      <span class="status-indicator bg-primary"></span>
+                      <div>
+                        <span class="fw-bold text-primary">🔵 Cận Date 6 - 12 Tháng</span>
+                        <div class="small text-secondary" style="font-size: 11px;">Hạn dùng từ 181 đến 360 ngày</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <input 
+                      type="number" 
+                      class="form-control form-control-sm form-control-styled fw-bold" 
+                      [(ngModel)]="getInventoryStats(activeShopCode).y1Count">
+                  </td>
+                  <td>
+                    <input 
+                      type="number" 
+                      class="form-control form-control-sm form-control-styled fw-bold text-primary" 
+                      [(ngModel)]="getInventoryStats(activeShopCode).y1Val"
+                      (ngModelChange)="recalculateInventoryTotals(activeShopCode)">
+                  </td>
+                  <td class="text-secondary small fw-bold">
+                    {{ formatMoney(getInventoryStats(activeShopCode).y1Val) }}
+                  </td>
+                </tr>
+
+                <!-- 5. Hàng bình thường > 12 tháng -->
+                <tr>
+                  <td>
+                    <div class="d-flex align-items-center gap-2">
+                      <span class="status-indicator bg-success"></span>
+                      <div>
+                        <span class="fw-bold text-success">🟢 Hạn An Toàn (&gt; 12 Tháng)</span>
+                        <div class="small text-secondary" style="font-size: 11px;">Hạn dùng &gt; 360 ngày</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <input 
+                      type="number" 
+                      class="form-control form-control-sm form-control-styled fw-bold" 
+                      [(ngModel)]="getInventoryStats(activeShopCode).normalCount">
+                  </td>
+                  <td>
+                    <input 
+                      type="number" 
+                      class="form-control form-control-sm form-control-styled fw-bold text-success" 
+                      [(ngModel)]="getInventoryStats(activeShopCode).normalVal"
+                      (ngModelChange)="recalculateInventoryTotals(activeShopCode)">
+                  </td>
+                  <td class="text-secondary small fw-bold">
+                    {{ formatMoney(getInventoryStats(activeShopCode).normalVal) }}
+                  </td>
+                </tr>
+
+                <!-- TỔNG CỘNG -->
+                <tr class="table-light fw-bold">
+                  <td>
+                    <div class="d-flex align-items-center gap-2">
+                      <i class="ti ti-building-warehouse text-primary fs-5"></i>
+                      <span>Tổng Cộng Tồn Kho:</span>
+                    </div>
+                  </td>
+                  <td>
+                    <input 
+                      type="number" 
+                      class="form-control form-control-sm form-control-styled fw-bold" 
+                      [(ngModel)]="getInventoryStats(activeShopCode).totalQty">
+                  </td>
+                  <td>
+                    <input 
+                      type="number" 
+                      class="form-control form-control-sm form-control-styled fw-bold text-body" 
+                      [(ngModel)]="getInventoryStats(activeShopCode).totalVal">
+                  </td>
+                  <td class="text-primary small fw-bold">
+                    {{ formatMoney(getInventoryStats(activeShopCode).totalVal) }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="d-flex justify-content-end align-items-center gap-2">
+            <button 
+              type="button" 
+              class="btn btn-outline-warning rounded-3 btn-sm fw-bold d-inline-flex align-items-center gap-1.5"
+              (click)="recalculateInventoryTotals(activeShopCode)">
+              <i class="ti ti-sum fs-6"></i>
+              <span>Tự Tính Lại Tổng Giá Trị Tồn Kho</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- TAB 3: VI PHẠM FEFO -->
+        <div *ngIf="activeDataTab === 'fefo'" class="tab-pane-content animate-fade-in">
+          <!-- Bảng chỉ số tổng hợp FEFO của Nhà thuốc -->
+          <div class="card border rounded-3 p-3 mb-4 shadow-2sm bg-body-tertiary">
+            <h6 class="fw-bold text-body mb-3 d-flex align-items-center gap-2">
+              <i class="ti ti-file-analytics text-danger fs-5"></i>
+              Chỉ Số Vi Phạm FEFO Tổng Hợp Của Nhà Thuốc
+            </h6>
+            <div class="row g-3">
+              <div class="col-md-2 col-sm-6">
+                <label class="form-label small fw-bold text-secondary mb-1">Tổng dòng xuất bán:</label>
+                <input 
+                  type="number" 
+                  class="form-control form-control-sm form-control-styled fw-bold text-center" 
+                  [(ngModel)]="getFefoStats(activeShopCode).totalLines"
+                  (ngModelChange)="recalculateFefo(activeShopCode)">
+              </div>
+              <div class="col-md-2 col-sm-6">
+                <label class="form-label small fw-bold text-secondary mb-1">Số ca sai FEFO:</label>
+                <input 
+                  type="number" 
+                  class="form-control form-control-sm form-control-styled fw-bold text-danger text-center" 
+                  [(ngModel)]="getFefoStats(activeShopCode).wrongCases"
+                  (ngModelChange)="recalculateFefo(activeShopCode)">
+              </div>
+              <div class="col-md-2 col-sm-6">
+                <label class="form-label small fw-bold text-secondary mb-1">Tỷ lệ sai FEFO:</label>
+                <input 
+                  type="text" 
+                  class="form-control form-control-sm form-control-styled fw-bold text-center text-danger" 
+                  [(ngModel)]="getFefoStats(activeShopCode).errRate">
+              </div>
+              <div class="col-md-3 col-sm-6">
+                <label class="form-label small fw-bold text-secondary mb-1">Số SP bị ảnh hưởng:</label>
+                <input 
+                  type="number" 
+                  class="form-control form-control-sm form-control-styled fw-bold text-center" 
+                  [(ngModel)]="getFefoStats(activeShopCode).affectedProds">
+              </div>
+              <div class="col-md-3 col-sm-6">
+                <label class="form-label small fw-bold text-secondary mb-1">Tổng SL xuất sai:</label>
+                <input 
+                  type="number" 
+                  class="form-control form-control-sm form-control-styled fw-bold text-center" 
+                  [(ngModel)]="getFefoStats(activeShopCode).totalWrongQty">
+              </div>
+            </div>
+            <div class="d-flex justify-content-end mt-2">
+              <button 
+                type="button" 
+                class="btn btn-sm btn-link text-decoration-none fw-bold text-danger d-inline-flex align-items-center gap-1"
+                (click)="recalculateFefo(activeShopCode)">
+                <i class="ti ti-calculator"></i>
+                <span>Tự động tính lại tỷ lệ % sai</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Bảng Chi Tiết Nhân Viên Vi Phạm FEFO -->
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="fw-bold text-body mb-0 d-flex align-items-center gap-2">
+              <i class="ti ti-users text-danger fs-5"></i>
+              Chi Tiết Nhân Viên Vi Phạm FEFO
+            </h6>
+            <button 
+              type="button" 
+              class="btn btn-outline-danger btn-sm rounded-3 fw-bold d-inline-flex align-items-center gap-1"
+              (click)="addFefoEmployee(activeShopCode)">
+              <i class="ti ti-plus fs-6"></i>
+              <span>Thêm Nhân Viên</span>
+            </button>
+          </div>
+
+          <div class="table-responsive border rounded-3 mb-3">
+            <table class="table table-hover align-middle mb-0 data-table-custom">
+              <thead class="table-light">
+                <tr>
+                  <th style="width: 50px;">STT</th>
+                  <th style="min-width: 180px;">Tên Nhân Viên</th>
+                  <th style="width: 130px;">Tổng Dòng</th>
+                  <th style="width: 130px;">Số Ca Sai</th>
+                  <th style="width: 120px;">Tỷ Lệ Sai</th>
+                  <th style="width: 130px;">Số SP Sai</th>
+                  <th style="width: 130px;">Tổng SL Sai</th>
+                  <th style="width: 60px;">Xóa</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let emp of getFefoStats(activeShopCode).empSummaries; let i = index">
+                  <td class="text-center text-secondary small fw-bold">{{ i + 1 }}</td>
+                  <td>
+                    <input 
+                      type="text" 
+                      class="form-control form-control-sm form-control-styled fw-bold" 
+                      [(ngModel)]="emp.employeeName">
+                  </td>
+                  <td>
+                    <input 
+                      type="number" 
+                      class="form-control form-control-sm form-control-styled text-center" 
+                      [(ngModel)]="emp.totalLines">
+                  </td>
+                  <td>
+                    <input 
+                      type="number" 
+                      class="form-control form-control-sm form-control-styled text-center fw-bold text-danger" 
+                      [(ngModel)]="emp.wrongCases">
+                  </td>
+                  <td>
+                    <input 
+                      type="text" 
+                      class="form-control form-control-sm form-control-styled text-center text-danger fw-bold" 
+                      [(ngModel)]="emp.errRate">
+                  </td>
+                  <td>
+                    <input 
+                      type="number" 
+                      class="form-control form-control-sm form-control-styled text-center" 
+                      [(ngModel)]="emp.affectedProds">
+                  </td>
+                  <td>
+                    <input 
+                      type="number" 
+                      class="form-control form-control-sm form-control-styled text-center" 
+                      [(ngModel)]="emp.totalWrongQty">
+                  </td>
+                  <td class="text-center">
+                    <button 
+                      type="button" 
+                      class="btn btn-sm btn-outline-danger border-0 p-1 rounded-circle"
+                      (click)="removeFefoEmployee(activeShopCode, i)"
+                      title="Xóa dòng này">
+                      <i class="ti ti-trash fs-6"></i>
+                    </button>
+                  </td>
+                </tr>
+                <tr *ngIf="!getFefoStats(activeShopCode).empSummaries || getFefoStats(activeShopCode).empSummaries.length === 0">
+                  <td colspan="8" class="text-center text-secondary py-3 small">
+                    Chưa có nhân viên nào trong danh sách vi phạm FEFO. Bấm "Thêm Nhân Viên" để bổ sung nếu cần.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- TAB 4: KẾ HOẠCH & DOANH SỐ NHÂN VIÊN -->
+        <div *ngIf="activeDataTab === 'employees'" class="tab-pane-content animate-fade-in">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <div>
+              <h6 class="fw-bold text-body mb-0 d-flex align-items-center gap-2">
+                <i class="ti ti-users-group text-success fs-5"></i>
+                Danh Sách Chỉ Tiêu & Thực Hiện Từng Nhân Viên
+              </h6>
+              <div class="text-secondary small">
+                Nhà thuốc: <strong>{{ activeShopCode }}</strong> (Tổng: {{ getEmployeePlans(activeShopCode).length }} nhân viên)
+              </div>
+            </div>
+            <button 
+              type="button" 
+              class="btn btn-outline-success btn-sm rounded-3 fw-bold d-inline-flex align-items-center gap-1.5"
+              (click)="addEmployee(activeShopCode)">
+              <i class="ti ti-user-plus fs-6"></i>
+              <span>Thêm Dược Sĩ</span>
+            </button>
+          </div>
+
+          <div class="table-responsive border rounded-3 mb-3">
+            <table class="table table-hover align-middle mb-0 data-table-custom">
+              <thead class="table-light">
+                <tr>
+                  <th style="width: 45px;">STT</th>
+                  <th style="width: 110px;">Mã NV</th>
+                  <th style="min-width: 170px;">Tên Nhân Viên</th>
+                  <th style="min-width: 160px;">Mục Tiêu DS (VNĐ)</th>
+                  <th style="min-width: 160px;">DS Thực Tế (VNĐ)</th>
+                  <th style="width: 130px;">Target HHS</th>
+                  <th style="width: 130px;">HHS Đạt</th>
+                  <th style="width: 90px;">Số Khách</th>
+                  <th style="width: 90px;">Số Đơn</th>
+                  <th style="width: 50px;">Xóa</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let emp of getEmployeePlans(activeShopCode); let i = index">
+                  <td class="text-center text-secondary small fw-bold">{{ i + 1 }}</td>
+                  <td>
+                    <input 
+                      type="text" 
+                      class="form-control form-control-sm form-control-styled" 
+                      [(ngModel)]="emp.employeeCode"
+                      placeholder="Mã NV">
+                  </td>
+                  <td>
+                    <input 
+                      type="text" 
+                      class="form-control form-control-sm form-control-styled fw-bold text-body" 
+                      [(ngModel)]="emp.employeeName"
+                      placeholder="Họ và tên">
+                  </td>
+                  <td>
+                    <input 
+                      type="number" 
+                      class="form-control form-control-sm form-control-styled text-primary fw-bold" 
+                      [(ngModel)]="emp.targetAmount">
+                    <div class="form-text small text-truncate" style="font-size: 10px;">
+                      {{ formatMoney(emp.targetAmount) }}
+                    </div>
+                  </td>
+                  <td>
+                    <input 
+                      type="number" 
+                      class="form-control form-control-sm form-control-styled text-success fw-bold" 
+                      [(ngModel)]="emp.actualAmount">
+                    <div class="form-text small text-truncate" style="font-size: 10px;">
+                      {{ formatMoney(emp.actualAmount) }}
+                    </div>
+                  </td>
+                  <td>
+                    <input 
+                      type="number" 
+                      class="form-control form-control-sm form-control-styled text-purple text-center fw-bold" 
+                      [(ngModel)]="emp.targetPoint">
+                  </td>
+                  <td>
+                    <input 
+                      type="number" 
+                      class="form-control form-control-sm form-control-styled text-success text-center fw-bold" 
+                      [(ngModel)]="emp.actualPoint">
+                  </td>
+                  <td>
+                    <input 
+                      type="number" 
+                      class="form-control form-control-sm form-control-styled text-center" 
+                      [(ngModel)]="emp.quantityCus">
+                  </td>
+                  <td>
+                    <input 
+                      type="number" 
+                      class="form-control form-control-sm form-control-styled text-center" 
+                      [(ngModel)]="emp.quantityInvoice">
+                  </td>
+                  <td class="text-center">
+                    <button 
+                      type="button" 
+                      class="btn btn-sm btn-outline-danger border-0 p-1 rounded-circle"
+                      (click)="removeEmployee(activeShopCode, i)"
+                      title="Xóa nhân viên này">
+                      <i class="ti ti-trash fs-6"></i>
+                    </button>
+                  </td>
+                </tr>
+                <tr *ngIf="getEmployeePlans(activeShopCode).length === 0">
+                  <td colspan="10" class="text-center text-secondary py-3 small">
+                    Chưa có nhân viên nào cho nhà thuốc này. Bấm "Thêm Dược Sĩ" để thêm mới.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Sticky Action Bar dưới chân Form Lớn -->
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 pt-3 border-top mt-4">
+          <div class="d-flex align-items-center gap-2 text-secondary small">
+            <i class="ti ti-check text-success fs-5"></i>
+            <span>Dữ liệu đã sửa sẽ được lưu trực tiếp vào cấu hình Firebase và dùng để xuất báo cáo HTML.</span>
+          </div>
+
+          <div class="d-flex flex-wrap align-items-center gap-2 ms-auto">
+            <button 
+              type="button" 
+              class="btn btn-primary fw-bold px-3.5 py-2 rounded-3 shadow-sm d-inline-flex align-items-center gap-2"
+              (click)="saveReportInputs()"
+              [disabled]="saveLoading || exportLoading">
+              <span *ngIf="saveLoading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+              <i *ngIf="!saveLoading" class="ti ti-cloud-upload fs-6"></i>
+              <span>Lưu Cấu Hình & Số Liệu</span>
+            </button>
+            <button 
+              type="button" 
+              class="btn btn-outline-success border-2 fw-bold px-3.5 py-2 rounded-3 shadow-sm d-inline-flex align-items-center gap-2"
+              (click)="generateReport(true)"
+              [disabled]="exportLoading || saveLoading">
+              <span *ngIf="exportLoading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+              <i *ngIf="!exportLoading" class="ti ti-eye fs-6"></i>
+              <span>Xem Báo Cáo Ngay</span>
+            </button>
+            <button 
+              type="button" 
+              class="btn btn-success fw-bold px-4 py-2 rounded-3 shadow-sm d-inline-flex align-items-center gap-2"
+              (click)="downloadReport()"
+              [disabled]="downloadLoading || saveLoading">
+              <span *ngIf="downloadLoading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+              <i *ngIf="!downloadLoading" class="ti ti-download fs-6"></i>
+              <span>Tải Báo Cáo (.html)</span>
+            </button>
+          </div>
+        </div>
+
       </div>
     </div>
 

@@ -19,18 +19,89 @@ export interface OperationShopInput {
   nextWeekItemsText: string;
 }
 
+export interface ShopKpiItem {
+  salesTarget: number;
+  salesActual: number;
+  salesPercent?: number;
+  salesProjected?: number;
+  hhsTarget: number;
+  hhsActual: number;
+  hhsPercent?: number;
+  hhsProjected?: number;
+  hhsRatio?: number;
+}
+
+export interface InventoryExpiryItem {
+  totalQty: number;
+  totalVal: number;
+  expiredCount: number;
+  expiredVal: number;
+  m3Count: number;
+  m3Val: number;
+  m6Count: number;
+  m6Val: number;
+  y1Count: number;
+  y1Val: number;
+  normalCount: number;
+  normalVal: number;
+}
+
+export interface FefoSummaryItem {
+  totalLines: number;
+  wrongCases: number;
+  errRate: string;
+  affectedProds: number;
+  totalWrongQty: number;
+  dataLoadError?: boolean;
+  empSummaries: {
+    employeeName: string;
+    totalLines: number;
+    wrongCases: number;
+    errRate: string;
+    affectedProds: number;
+    totalWrongQty: number;
+  }[];
+}
+
+export interface EmployeePlanItem {
+  employeeCode?: string;
+  employeeName: string;
+  targetAmount: number;
+  actualAmount: number;
+  targetPoint: number;
+  actualPoint: number;
+  quantityCus?: number;
+  quantityCusNew?: number;
+  quantityInvoice?: number;
+}
+
+export interface ReportLiveMetrics {
+  collectedAt: string;
+  month: number;
+  year: number;
+  shopKpis: Record<string, ShopKpiItem>;
+  inventoryStats: Record<string, InventoryExpiryItem>;
+  fefoStats: Record<string, FefoSummaryItem>;
+  employeePlans: Record<string, EmployeePlanItem[]>;
+  nearExpiryOrders?: Record<string, Record<string, { totalAmount: number; employees: { name: string; amount: number }[] }>>;
+}
+
 export interface ReportCustomInputs {
   shops?: OperationShopInput[];
+  liveMetrics?: ReportLiveMetrics;
 }
 
 @Injectable({ providedIn: "root" })
 export class ReportGeneratorService {
   private upharmaService = inject(UpharmaService);
 
-  async generateReportHtml(
-    customInputs?: ReportCustomInputs,
+  /**
+   * Thu thập toàn bộ dữ liệu trực tiếp từ các hệ thống (Shop Plans, Tồn kho hạn dùng, Doanh số 12M, FEFO, Nhân viên)
+   * Trả về bộ dữ liệu ReportLiveMetrics để user kiểm tra, sửa đổi trước khi xuất báo cáo.
+   */
+  async collectReportLiveMetrics(
     onProgress?: ReportProgressCallback
-  ): Promise<{ html: string; filename: string }> {
+  ): Promise<ReportLiveMetrics> {
     onProgress?.("Đang chuẩn bị phiên làm việc...", 5);
     const session = this.upharmaService.ensureLogin();
     let shops = this.upharmaService.getActiveShops();
@@ -46,8 +117,6 @@ export class ReportGeneratorService {
     const currentMonth = now.getMonth() + 1;
     const currentYear = now.getFullYear();
     const pad = (v: number) => String(v).padStart(2, "0");
-    const dateStr = `${pad(now.getDate())}${pad(currentMonth)}_${currentYear}`;
-    const filename = `Bao_Cao_Tong_Hop_Upharma_${dateStr}.html`;
 
     // 1. Fetch Employee Plans & Shop Plans
     onProgress?.("Đang tải dữ liệu chỉ tiêu nhà thuốc & nhân viên...", 20);
@@ -520,10 +589,136 @@ export class ReportGeneratorService {
       };
     });
 
-    const html = this.buildFullHtml({
-      filename,
+    const completedDays = Math.max(1, now.getDate() - 1);
+    const totalDays = new Date(currentYear, currentMonth, 0).getDate();
+    const shopKpis: Record<string, ShopKpiItem> = {};
+
+    shops.forEach((shop) => {
+      const sp = shopPlansMap[shop.ShopCode] || {};
+      const emps = employeePlansMap[shop.ShopCode] || [];
+
+      const salesActual = Number(sp.AmountR) || emps.reduce((sum, e) => sum + (Number(e.AmountR) || 0), 0);
+      const salesTarget = Number(sp.Amount) || emps.reduce((sum, e) => sum + (Number(e.Amount) || 0), 0) || 1;
+      const hhsActual = Number(sp.PointSales01R) || emps.reduce((sum, e) => sum + (Number(e.PointRatioR) || 0), 0);
+      const hhsTarget = Number(sp.PointSales01) || emps.reduce((sum, e) => sum + (Number(e.PointRatio) || 0), 0) || 1;
+
+      const salesPercent = Math.round((salesActual / salesTarget) * 100);
+      const hhsPercent = Math.round((hhsActual / hhsTarget) * 100);
+      const salesProjected = completedDays > 0 ? Math.round((salesActual / completedDays) * totalDays) : salesActual;
+      const hhsProjected = completedDays > 0 ? Math.round((hhsActual / completedDays) * totalDays) : hhsActual;
+      const hhsRatio = salesActual > 0 ? Math.round(((hhsActual * 1000) / salesActual) * 100) : 0;
+
+      shopKpis[shop.ShopCode] = {
+        salesTarget,
+        salesActual,
+        salesPercent,
+        salesProjected,
+        hhsTarget,
+        hhsActual,
+        hhsPercent,
+        hhsProjected,
+        hhsRatio,
+      };
+    });
+
+    const employeePlansClean: Record<string, EmployeePlanItem[]> = {};
+    shops.forEach((shop) => {
+      const emps = employeePlansMap[shop.ShopCode] || [];
+      employeePlansClean[shop.ShopCode] = emps.map((e) => ({
+        employeeCode: e.EmployeeCode || "",
+        employeeName: e.EmployeeName || "Nhân viên",
+        targetAmount: Number(e.Amount) || 0,
+        actualAmount: Number(e.AmountR) || 0,
+        targetPoint: Number(e.PointRatio) || 0,
+        actualPoint: Number(e.PointRatioR) || 0,
+        quantityCus: Number(e.QuantityCus) || 0,
+        quantityCusNew: Number(e.QuantityCusNew) || 0,
+        quantityInvoice: Number(e.QuantityInvoice) || 0,
+      }));
+    });
+
+    onProgress?.("Hoàn tất thu thập dữ liệu báo cáo!", 100);
+
+    return {
+      collectedAt: new Date().toISOString(),
       month: currentMonth,
       year: currentYear,
+      shopKpis,
+      inventoryStats: inventoryStatsByShop,
+      fefoStats: fefoStatsByShop,
+      employeePlans: employeePlansClean,
+      nearExpiryOrders: nearExpiryOrdersMap,
+    };
+  }
+
+  /**
+   * Xuất báo cáo HTML: nếu đã có liveMetrics (user đã kiểm tra/sửa đổi) thì dùng trực tiếp,
+   * nếu chưa có thì tự động thu thập từ các hệ thống.
+   */
+  async generateReportHtml(
+    customInputs?: ReportCustomInputs,
+    onProgress?: ReportProgressCallback
+  ): Promise<{ html: string; filename: string }> {
+    const session = this.upharmaService.ensureLogin();
+    let shops = this.upharmaService.getActiveShops();
+    if (!shops || shops.length === 0) {
+      shops = [
+        { ShopCode: "SHOP0025", ShopName: "Nhà thuốc số 25" },
+        { ShopCode: "SHOP0097", ShopName: "Nhà thuốc số 97" },
+        { ShopCode: "SHOP0144", ShopName: "Nhà thuốc số 144" },
+      ];
+    }
+
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1;
+    const currentYear = now.getFullYear();
+    const pad = (v: number) => String(v).padStart(2, "0");
+    const dateStr = `${pad(now.getDate())}${pad(currentMonth)}_${currentYear}`;
+    const filename = `Bao_Cao_Tong_Hop_Upharma_${dateStr}.html`;
+
+    let liveMetrics = customInputs?.liveMetrics;
+    if (!liveMetrics) {
+      liveMetrics = await this.collectReportLiveMetrics(onProgress);
+    } else {
+      onProgress?.("Đang áp dụng dữ liệu đã kiểm tra & chỉnh sửa...", 80);
+    }
+
+    const shopPlansMap: Record<string, any> = {};
+    const employeePlansMap: Record<string, any[]> = {};
+
+    shops.forEach((shop) => {
+      const kpi = liveMetrics?.shopKpis?.[shop.ShopCode];
+      if (kpi) {
+        shopPlansMap[shop.ShopCode] = {
+          Amount: kpi.salesTarget,
+          AmountR: kpi.salesActual,
+          PointSales01: kpi.hhsTarget,
+          PointSales01R: kpi.hhsActual,
+          TimeModify: liveMetrics?.collectedAt || new Date().toISOString(),
+        };
+      }
+      const emps = liveMetrics?.employeePlans?.[shop.ShopCode] || [];
+      employeePlansMap[shop.ShopCode] = emps.map((e) => ({
+        EmployeeCode: e.employeeCode || "",
+        EmployeeName: e.employeeName || "Nhân viên",
+        Amount: e.targetAmount || 0,
+        AmountR: e.actualAmount || 0,
+        PointRatio: e.targetPoint || 0,
+        PointRatioR: e.actualPoint || 0,
+        QuantityCus: e.quantityCus || 0,
+        QuantityCusNew: e.quantityCusNew || 0,
+        QuantityInvoice: e.quantityInvoice || 0,
+      }));
+    });
+
+    const inventoryStatsByShop = liveMetrics.inventoryStats || {};
+    const nearExpiryOrdersMap = liveMetrics.nearExpiryOrders || {};
+    const fefoStatsByShop = liveMetrics.fefoStats || {};
+
+    const html = this.buildFullHtml({
+      filename,
+      month: liveMetrics.month || currentMonth,
+      year: liveMetrics.year || currentYear,
       shops,
       shopPlansMap,
       employeePlansMap,
@@ -546,22 +741,7 @@ export class ReportGeneratorService {
     employeePlansMap: Record<string, any[]>;
     inventoryStatsByShop: Record<string, any>;
     nearExpiryOrdersMap: Record<string, Record<string, { totalAmount: number; employees: { name: string; amount: number }[] }>>;
-    fefoStatsByShop: Record<string, {
-      totalLines: number;
-      wrongCases: number;
-      errRate: string;
-      affectedProds: number;
-      totalWrongQty: number;
-      dataLoadError: boolean;
-      empSummaries: {
-        employeeName: string;
-        totalLines: number;
-        wrongCases: number;
-        errRate: string;
-        affectedProds: number;
-        totalWrongQty: number;
-      }[];
-    }>;
+    fefoStatsByShop: Record<string, FefoSummaryItem>;
     customInputs?: ReportCustomInputs;
   }): string {
     const { filename, month, year, shops, shopPlansMap, employeePlansMap, inventoryStatsByShop, nearExpiryOrdersMap, fefoStatsByShop, customInputs } = data;
