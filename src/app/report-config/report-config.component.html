@@ -455,8 +455,9 @@
                 type="button" 
                 class="btn btn-sm fw-bold px-3 py-1.5"
                 [ngClass]="activeShopCode === shop.ShopCode ? 'btn-primary' : 'btn-outline-secondary'"
-                (click)="activeShopCode = shop.ShopCode">
-                {{ shop.ShopCode }} ({{ shop.ShopName }})
+                (click)="activeShopCode = shop.ShopCode"
+                [title]="shop.ShopName">
+                {{ shop.ShopCode }}
               </button>
             </div>
           </div>
