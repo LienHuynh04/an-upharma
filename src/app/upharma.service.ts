@@ -711,24 +711,40 @@ export class UpharmaService {
         const requestedShopCodes = new Set(options.shopCodes || []);
         const shopsToFetch = requestedShopCodes.size > 0
           ? this.shopList.filter((shop) => requestedShopCodes.has(shop.ShopCode))
-          : (this.shopList.length > 0 ? [this.shopList[0]] : []);
+          : [...this.shopList];
         const shopsData: any[] = [];
         const failedShops: string[] = [];
         
         await Promise.all(
           shopsToFetch.map(async (shop) => {
-            try {
-              const url = `${normalizedFirebase}/shops/${shop.ShopCode}/upharma_data/${resourceName}.json`;
-              console.log(`[Firebase Fetch] Đang tải ${resourceName} cho shop ${shop.ShopCode} từ: ${url}`);
-              
+            const url = `${normalizedFirebase}/shops/${shop.ShopCode}/upharma_data/${resourceName}.json`;
+            console.log(`[Firebase Fetch] Đang tải ${resourceName} cho shop ${shop.ShopCode} từ: ${url}`);
+            
+            // Helper fetch với timeout và retry tự động 1 lần
+            const fetchShopData = async (attempt = 1): Promise<any> => {
               const controller = new AbortController();
-              const timeoutId = setTimeout(() => controller.abort(), 8000);
+              const timeoutMs = attempt === 1 ? 30000 : 20000;
+              const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-              const response = await fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timeoutId));
-              if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
+              try {
+                const response = await fetch(url, { signal: controller.signal });
+                if (!response.ok) {
+                  throw new Error(`HTTP ${response.status}`);
+                }
+                return await response.json();
+              } catch (fetchErr: any) {
+                if (attempt === 1) {
+                  console.warn(`[Firebase Fetch] Thử lại tải ${resourceName} cho ${shop.ShopCode} do: ${fetchErr.message}`);
+                  return await fetchShopData(2);
+                }
+                throw fetchErr;
+              } finally {
+                clearTimeout(timeoutId);
               }
-              const json = await response.json();
+            };
+
+            try {
+              const json = await fetchShopData();
               let rawList: any[] = [];
               if (json) {
                 if (Array.isArray(json)) {
@@ -767,6 +783,22 @@ export class UpharmaService {
           })
         );
         
+        // Fallback an toàn: Nếu toàn bộ shop tải từ Firebase bị rỗng/lỗi, đọc từ file tĩnh dự phòng
+        if (shopsData.length === 0 && failedShops.length > 0) {
+          console.warn(`[Firebase Fallback] Tất cả shop tải từ Firebase bị lỗi (${failedShops.join(", ")}). Đang fallback sang file tĩnh assets/data/${resourceName}.json`);
+          try {
+            const staticUrl = this.getStaticDataUrl(`assets/data/${resourceName}.json`);
+            const staticResp = await fetch(staticUrl);
+            if (staticResp.ok) {
+              const staticData = await staticResp.json() as ResourceResponse;
+              if (options.onFresh) options.onFresh(staticData);
+              return staticData;
+            }
+          } catch (fallbackErr) {
+            console.error(`[Firebase Fallback] Lỗi đọc file tĩnh:`, fallbackErr);
+          }
+        }
+
         const combinedData: ResourceResponse = {
           success: true,
           resource: resourceName,

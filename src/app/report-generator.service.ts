@@ -1,7 +1,7 @@
 import { Injectable, inject } from "@angular/core";
 import { UpharmaService, ShopInfo } from "./upharma.service";
 import { calculateDaysProgress } from "./sales-period-utils";
-import { normalizeInventoryRow, parseNumericValue, getExpiryDaysRemaining } from "./inventory-utils";
+import { normalizeFilterText, normalizeInventoryRow, parseNumericValue, getExpiryDaysRemaining } from "./inventory-utils";
 
 export interface ReportProgressCallback {
   (message: string, progressPercent: number): void;
@@ -114,6 +114,7 @@ export class ReportGeneratorService {
     try {
       await this.upharmaService.loadInventoryResource({
         forceRefresh: true,
+        shopCodes: shops.map((shop) => shop.ShopCode),
         onShopLoaded: (shopCode, shopData) => {
           if (!inventoryByShop[shopCode]) inventoryByShop[shopCode] = [];
           inventoryByShop[shopCode].push(...shopData);
@@ -404,6 +405,16 @@ export class ReportGeneratorService {
       });
 
       const rawSales = salesRowsByShop[shop.ShopCode] || [];
+      const currentEmployees = employeePlansMap[shop.ShopCode] || [];
+      const currentEmployeesByName = new Map<string, any>();
+      const currentEmployeesByCode = new Map<string, any>();
+      currentEmployees.forEach((employee) => {
+        const employeeName = String(employee.EmployeeName || "").trim();
+        const normalizedName = normalizeFilterText(employeeName);
+        const employeeCode = String(employee.EmployeeCode || "").trim().toUpperCase();
+        if (normalizedName) currentEmployeesByName.set(normalizedName, employee);
+        if (employeeCode) currentEmployeesByCode.set(employeeCode, employee);
+      });
       let totalLines = 0;
       let wrongCases = 0;
       const affectedProdsSet = new Set<string>();
@@ -428,7 +439,7 @@ export class ReportGeneratorService {
         ]) || "").trim();
         if (!prodCode || prodCode.toUpperCase().includes("VOUCHER") || prodCode.toUpperCase().startsWith("VC")) return;
 
-        const empName = String(pickField(row, [
+        const rowEmployeeName = String(pickField(row, [
           "SalesName",
           "EmployeeName",
           "StaffName",
@@ -437,6 +448,17 @@ export class ReportGeneratorService {
           "SellerName",
           "NhanVien",
         ]) || "Dược sĩ / Thu ngân").trim();
+        const rowEmployeeCode = String(pickField(row, [
+          "EmployeeCode",
+          "SalesCode",
+          "StaffCode",
+          "SellerCode",
+          "UserCode",
+        ]) || "").trim().toUpperCase();
+        const currentEmployee = (rowEmployeeCode && currentEmployeesByCode.get(rowEmployeeCode))
+          || currentEmployeesByName.get(normalizeFilterText(rowEmployeeName));
+        if (!currentEmployee) return;
+        const empName = currentEmployee?.EmployeeName || rowEmployeeName;
         const saleQty = parseNumericValue(pickField(row, ["Quantity", "Qty", "SL", "SoLuong", "AmountQty"]) || 1);
         const expStr = String(pickField(row, [
           "ExpirationDate",

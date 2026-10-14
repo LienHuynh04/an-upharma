@@ -293,10 +293,11 @@ export class InventoryNewComponent implements OnInit {
       label: shop.ShopCode,
       count: shopProducts.get(shop.ShopCode)?.size || 0,
     }));
+    this.cdr.markForCheck();
   }
 
   get shopCards(): ShopCard[] {
-    if (this.cachedShopCardsList.length === 0 && this.normalizedRows.length > 0) {
+    if (this.cachedShopCardsList.length === 0 && this.shopList.length > 0) {
       this.recomputeShopCards();
     }
     return this.cachedShopCardsList;
@@ -441,7 +442,9 @@ export class InventoryNewComponent implements OnInit {
     this.inventoryCacheStatus = "Đang hiển thị dữ liệu mẫu vì API chưa tải được.";
     this.inventoryRefreshing = false;
     this.inventoryRefreshProgress = 0;
+    this.recomputeShopCards();
     this.recomputeAll();
+    this.cdr.markForCheck();
   }
 
   private async refreshInventoryFromApi(cacheKey: string, runInBackground: boolean): Promise<void> {
@@ -449,24 +452,35 @@ export class InventoryNewComponent implements OnInit {
       this.inventoryCacheStatus = this.inventoryCacheStatus || "Đang cập nhật dữ liệu tồn kho mới...";
       this.inventoryRefreshing = true;
       this.inventoryRefreshProgress = Math.max(this.inventoryRefreshProgress, 30);
+      this.cdr.markForCheck();
     } else {
       this.startLoading("inventory", "Đang lấy dữ liệu tồn kho...");
       this.inventoryCacheStatus = "";
       this.inventoryRefreshing = true;
-      this.inventoryRefreshProgress = 15;
+      this.inventoryRefreshProgress = 20;
+      this.cdr.markForCheck();
     }
 
     try {
-      this.inventoryRefreshProgress = Math.max(this.inventoryRefreshProgress, 65);
-      
       if (!runInBackground) {
         this.normalizedRows = [];
+        this.recomputeShopCards();
         this.recomputeAll();
+        this.cdr.markForCheck();
       }
+
+      let loadedShopsCount = 0;
+      const totalShops = this.shopList.length || 1;
 
       const inventoryData = await this.upharmaService.loadInventoryResource({
         forceRefresh: true,
+        shopCodes: this.shopList.map((shop) => shop.ShopCode),
         onShopLoaded: (shopCode, shopData) => {
+          loadedShopsCount++;
+          // Tiến độ mượt mà từ 25% lên 85% theo từng nhà thuốc hoàn tất
+          this.inventoryRefreshProgress = Math.min(85, Math.round(25 + (loadedShopsCount / totalShops) * 60));
+          this.cdr.markForCheck();
+
           if (runInBackground) return;
           const shopName = this.shopList.find(s => s.ShopCode === shopCode)?.ShopName || shopCode;
           const mapped = shopData.map((row) => ({
@@ -475,19 +489,29 @@ export class InventoryNewComponent implements OnInit {
             __shopName: shopName
           }));
           const normalized = mapped.map((row, index) => normalizeInventoryRow(row, this.normalizedRows.length + index));
-          this.normalizedRows = [...this.normalizedRows, ...normalized].sort(compareInventoryItems);
+          // Gom mảng trực tiếp, không sort ngay ở đây để tránh nghẽn CPU/đơ UI
+          this.normalizedRows = [...this.normalizedRows, ...normalized];
+          this.recomputeShopCards();
           this.recomputeAll();
+          this.cdr.markForCheck();
         }
       });
+
       this.applyInventoryData(inventoryData);
-      await this.writeInventoryCache({
-        cacheKey,
-        data: inventoryData,
-        savedAt: Date.now(),
-      });
+
+      // Chỉ ghi cache khi thực sự có dữ liệu hợp lệ
+      if (inventoryData?.data && inventoryData.data.length > 0) {
+        await this.writeInventoryCache({
+          cacheKey,
+          data: inventoryData,
+          savedAt: Date.now(),
+        });
+      }
+
       this.inventoryRefreshing = false;
       this.inventoryRefreshProgress = 100;
       this.inventoryCacheStatus = `Dữ liệu tồn kho đã cập nhật lúc ${this.formatCacheTime(Date.now())}.`;
+      this.cdr.markForCheck();
 
       const failedShops = Object.values(this.remoteDatasets).flatMap((resource) => resource?.failedShops || []);
       if (failedShops.length) {
@@ -504,10 +528,12 @@ export class InventoryNewComponent implements OnInit {
       this.inventoryRefreshing = false;
       this.inventoryRefreshProgress = 100;
       this.inventoryCacheStatus = "Chưa cập nhật được dữ liệu mới, vẫn đang hiển thị dữ liệu đã lưu.";
+      this.cdr.markForCheck();
     } finally {
       if (!runInBackground) {
         this.stopLoading("inventory");
       }
+      this.cdr.markForCheck();
     }
   }
 
@@ -531,9 +557,15 @@ export class InventoryNewComponent implements OnInit {
       });
 
     this.normalizedRows = rawRows.map((row, index) => normalizeInventoryRow(row, index)).sort(compareInventoryItems);
-    this.activeShopCode = this.getDefaultShopCode();
+
+    // Giữ lại nhà thuốc đang chọn nếu hợp lệ, tránh nhảy về mặc định
+    if (!this.activeShopCode || !this.shopList.some((s) => s.ShopCode === this.activeShopCode)) {
+      this.activeShopCode = this.getDefaultShopCode();
+    }
+
     this.userTitle = `${inventoryData.user.FullName} (ID - ${inventoryData.user.uPharmaID}) - ${this.shopList.length} nhà thuốc`;
     this.brandShopText = `${this.shopList.length} NHÀ THUỐC`;
+    this.recomputeShopCards();
     this.recomputeAll();
     this.cdr.markForCheck();
   }
@@ -549,7 +581,7 @@ export class InventoryNewComponent implements OnInit {
   private getInventoryCacheKey(userId: number): string {
     const shopCodes = this.shopList.map((shop) => shop.ShopCode).join(",");
 
-    return `inventory_new:${userId}:${shopCodes}:v1`;
+    return `inventory_new:${userId}:${shopCodes}:v2`;
   }
 
   private async readInventoryCache(cacheKey: string): Promise<InventoryCacheRecord | null> {
@@ -570,6 +602,10 @@ export class InventoryNewComponent implements OnInit {
   }
 
   private async writeInventoryCache(record: InventoryCacheRecord): Promise<void> {
+    if (!record?.data?.data || record.data.data.length === 0) {
+      return;
+    }
+
     try {
       const db = await this.openInventoryCacheDb();
 
@@ -587,17 +623,34 @@ export class InventoryNewComponent implements OnInit {
 
   private openInventoryCacheDb(): Promise<IDBDatabase> {
     return new Promise((resolve, reject) => {
-      const request = indexedDB.open("upharma-cache", 1);
+      const timer = setTimeout(() => reject(new Error("IndexedDB timeout")), 3000);
+      try {
+        const request = indexedDB.open("upharma-cache", 1);
 
-      request.onupgradeneeded = () => {
-        const db = request.result;
+        request.onblocked = () => {
+          clearTimeout(timer);
+          reject(new Error("IndexedDB blocked"));
+        };
 
-        if (!db.objectStoreNames.contains("inventory")) {
-          db.createObjectStore("inventory", { keyPath: "cacheKey" });
-        }
-      };
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
+        request.onupgradeneeded = () => {
+          const db = request.result;
+
+          if (!db.objectStoreNames.contains("inventory")) {
+            db.createObjectStore("inventory", { keyPath: "cacheKey" });
+          }
+        };
+        request.onsuccess = () => {
+          clearTimeout(timer);
+          resolve(request.result);
+        };
+        request.onerror = () => {
+          clearTimeout(timer);
+          reject(request.error);
+        };
+      } catch (err) {
+        clearTimeout(timer);
+        reject(err);
+      }
     });
   }
 
@@ -799,12 +852,14 @@ export class InventoryNewComponent implements OnInit {
   private startLoading(taskId: string, title: string): void {
     this.loadingTasks.set(taskId, title);
     this.loadingTitle = title;
+    this.cdr.markForCheck();
   }
 
   private stopLoading(taskId: string): void {
     this.loadingTasks.delete(taskId);
     const titles = Array.from(this.loadingTasks.values());
     this.loadingTitle = titles[titles.length - 1] || "";
+    this.cdr.markForCheck();
   }
 
   private getStoredLayoutMode(): LayoutMode {
