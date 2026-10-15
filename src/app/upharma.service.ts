@@ -152,6 +152,66 @@ function isExcludedProduct(rawCode: string, rawName: string): boolean {
   return EXCLUDED_PRODUCT_CODES.has(code);
 }
 
+/**
+ * Một rule quyết định endpoint nào đọc từ Firebase resource nào.
+ *
+ * FIX (2026-10-15) — bước 1 tách God Object UpharmaService: trước đây 2 chuỗi
+ * if-else với `pathname.includes(...)` × 11 nằm rải trong callEndpoint (226 dòng),
+ * cộng magic flags (`_bypassFirebase`, `_useFirebaseCache`, `_useFirebaseKeyProducts`)
+ * do 7 file caller tự set — thêm endpoint mới phải sửa 2 chỗ, không type-check nào bắt được.
+ *
+ * Giờ: thêm endpoint mới = thêm 1 dòng vào FIREBASE_RESOURCE_RULES.
+ * `resolveFirebaseResource` là pure function — unit test được độc lập.
+ */
+export interface FirebaseResourceRule {
+  /** Substring của pathname để match, ví dụ "GetReportSalesSpeed". */
+  endpoint: string;
+  /** Tên resource trên Firebase, hoặc hàm chọn theo payload. */
+  resource: string | ((payload: RawRecord) => string);
+  /** Điều kiện phụ trên payload — thay cho magic flag rải rác ở caller. */
+  when?: (payload: RawRecord) => boolean;
+}
+
+export const FIREBASE_RESOURCE_RULES: FirebaseResourceRule[] = [
+  { endpoint: "GetReportSalesSpeed", resource: "sales_speed" },
+  { endpoint: "GetStableConsumptionCalculated", resource: "stable_consumption_calculated" },
+  { endpoint: "GetSlowSellingCalculated", resource: "slow_selling_calculated" },
+  { endpoint: "GetOutOfStockCalculated", resource: "out_of_stock_calculated" },
+  { endpoint: "GetKeyProductsCalculated", resource: "key_products_calculated" },
+  { endpoint: "GetTransferOrderProcess", resource: "transfer_process" },
+  { endpoint: "GetProductOff", resource: "product_off" },
+  { endpoint: "GetItemLstWithFollower", resource: "product_catalog" },
+  {
+    endpoint: "GetReportSalesByShop",
+    resource: (p) => (p["_useFirebaseKeyProducts"] ? "key_products" : "sales_report"),
+    when: (p) => !!p["_useFirebaseCache"] || !!p["_useFirebaseKeyProducts"],
+  },
+  {
+    endpoint: "GetStatisticsShop",
+    resource: "dashboard_statistics",
+    when: (p) => !!p["_useFirebaseCache"],
+  },
+  {
+    endpoint: "GetCustomerNewLst",
+    resource: "dashboard_customers",
+    when: (p) => !!p["_useFirebaseCache"],
+  },
+];
+
+/**
+ * Quyết định endpoint + payload → Firebase resource name.
+ * @returns tên resource, hoặc null nếu phải đi API trực tiếp.
+ */
+export function resolveFirebaseResource(pathname: string, payload: RawRecord): string | null {
+  if (payload?.["_bypassFirebase"]) return null;
+  for (const rule of FIREBASE_RESOURCE_RULES) {
+    if (!pathname.includes(rule.endpoint)) continue;
+    if (rule.when && !rule.when(payload)) continue;
+    return typeof rule.resource === "function" ? rule.resource(payload) : rule.resource;
+  }
+  return null;
+}
+
 @Injectable({ providedIn: "root" })
 export class UpharmaService {
   readonly resourceNames = ["inventory", "invoices", "messages", "employees", "orders"] as const;
@@ -247,50 +307,11 @@ export class UpharmaService {
       }
     }
 
-    const isFirebaseTarget =
-      !payload?.['_bypassFirebase'] &&
-      (pathname.includes("GetReportSalesSpeed") ||
-      pathname.includes("GetTransferOrderProcess") ||
-      pathname.includes("GetProductOff") ||
-      pathname.includes("GetItemLstWithFollower") ||
-      pathname.includes("GetStableConsumptionCalculated") ||
-      pathname.includes("GetSlowSellingCalculated") ||
-      pathname.includes("GetOutOfStockCalculated") ||
-      pathname.includes("GetKeyProductsCalculated") ||
-      (pathname.includes("GetStatisticsShop") && payload?.['_useFirebaseCache']) ||
-      (pathname.includes("GetCustomerNewLst") && payload?.['_useFirebaseCache']) ||
-      (pathname.includes("GetReportSalesByShop") && (payload?.['_useFirebaseCache'] || payload?.['_useFirebaseKeyProducts'])));
+    // FIX (2026-10-15): routing endpoint → Firebase resource dùng registry khai báo
+    // ở đầu file (FIREBASE_RESOURCE_RULES). Thêm endpoint mới = thêm 1 dòng.
+    const resourceName = resolveFirebaseResource(pathname, payload);
 
-    if (isFirebaseTarget) {
-      let resourceName = "";
-      if (pathname.includes("GetReportSalesSpeed")) {
-        resourceName = "sales_speed";
-      } else if (pathname.includes("GetStableConsumptionCalculated")) {
-        resourceName = "stable_consumption_calculated";
-      } else if (pathname.includes("GetSlowSellingCalculated")) {
-        resourceName = "slow_selling_calculated";
-      } else if (pathname.includes("GetOutOfStockCalculated")) {
-        resourceName = "out_of_stock_calculated";
-      } else if (pathname.includes("GetKeyProductsCalculated")) {
-        resourceName = "key_products_calculated";
-      } else if (pathname.includes("GetTransferOrderProcess")) {
-        resourceName = "transfer_process";
-      } else if (pathname.includes("GetProductOff")) {
-        resourceName = "product_off";
-      } else if (pathname.includes("GetItemLstWithFollower")) {
-        resourceName = "product_catalog";
-      } else if (pathname.includes("GetReportSalesByShop")) {
-        if (payload?.['_useFirebaseKeyProducts']) {
-          resourceName = "key_products";
-        } else {
-          resourceName = "sales_report";
-        }
-      } else if (pathname.includes("GetStatisticsShop") && payload?.['_useFirebaseCache']) {
-        resourceName = "dashboard_statistics";
-      } else if (pathname.includes("GetCustomerNewLst") && payload?.['_useFirebaseCache']) {
-        resourceName = "dashboard_customers";
-      }
-
+    if (resourceName) {
       const firebaseDbUrl = (environment as any).firebaseDbUrl;
       const payloadShopCodes = this.extractShopCodesFromPayload(payload);
       const shopsToFetch =
