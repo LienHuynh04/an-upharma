@@ -1,5 +1,5 @@
 import { CommonModule } from "@angular/common";
-import { Component, OnInit } from "@angular/core";
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit, inject } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { Router } from "@angular/router";
 import { normalizeFilterText, PRODUCT_NAME_COLLATOR } from "../inventory-utils";
@@ -49,10 +49,12 @@ type StableMonthWindow = '1d' | '7d' | '2m' | '6m' | '9m';
 @Component({
   selector: "app-stable-consumption",
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, FormsModule],
   templateUrl: "./stable-consumption.component.html",
 })
 export class StableConsumptionComponent implements OnInit {
+  private cdr = inject(ChangeDetectorRef);
   readonly endpoint = "/SalesInvoice/GetStableConsumptionCalculated";
   shopsSummary: any = null;
   shops: ShopInfo[] = [];
@@ -182,6 +184,7 @@ export class StableConsumptionComponent implements OnInit {
     } catch (error) {
       this.errorText = error instanceof Error ? error.message : String(error);
     } finally {
+      this.cdr.markForCheck();
       this.loading = false;
     }
 
@@ -275,6 +278,10 @@ export class StableConsumptionComponent implements OnInit {
   trackByRow(_: number, row: StableItem): string {
     return row.rowKey;
   }
+  trackByMonth(index: number): number {
+    return index;
+  }
+
 
   openStableDetail(row: StableItem): void {
     this.selectedStableItem = row;
@@ -448,6 +455,7 @@ export class StableConsumptionComponent implements OnInit {
       }
       this.loadingProgress = 100;
     } finally {
+      this.cdr.markForCheck();
       this.loadingShopKeys.delete(loadedShopKey);
       this.stableRefreshing = this.loadingShopKeys.size > 0;
     }
