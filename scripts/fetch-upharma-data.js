@@ -31,6 +31,14 @@ const EXCLUDED_SHOP_CODES = new Set(
 );
 
 const DATA_DIR = path.join(__dirname, '..', 'src', 'assets', 'data');
+/**
+ * Chuẩn hóa key cho Firebase RTDB (dùng chung logic với src/app/firebase-key.utils.ts).
+ * RTDB cấm các ký tự `. $ # [ ] /` trong key.
+ */
+function sanitizeFirebaseKey(key) {
+  return String(key ?? "").trim().replace(/[.$#[\]/]/g, "_");
+}
+
 const REQUEST_TIMEOUT_MS = Number(process.env.UPHARMA_REQUEST_TIMEOUT_MS || 120000);
 const SHOP_CONCURRENCY = Math.max(1, Number(process.env.UPHARMA_SHOP_CONCURRENCY || 3));
 const HEARTBEAT_MS = Number(process.env.UPHARMA_HEARTBEAT_MS || 30000);
@@ -802,7 +810,7 @@ async function fetchAndUploadNationalInventoryCache(loginData, allShopsData, db)
             .filter((s) => s.StoreCode && (s.Quantity > 0 || s.QuantityAVG > 0))
             .sort((a, b) => b.QuantityAVG - a.QuantityAVG);
 
-          const safeCode = code.replace(/[.$#[\]/]/g, "_");
+          const safeCode = sanitizeFirebaseKey(code);
           batchUpdates[`national_inventory_cache/${safeCode}`] = {
             productID: safeCode,
             shops: stores,
@@ -908,7 +916,7 @@ async function generateTransferSuggestionsForShops(shops, allShopsData, db, logi
           await Promise.all(
             chunk.map(async (code) => {
               try {
-                const safeCode = code.replace(/[.$#[\]/]/g, "_");
+                const safeCode = sanitizeFirebaseKey(code);
                 const snap = await Promise.race([
                   db.ref(`national_inventory_cache/${safeCode}`).once("value"),
                   new Promise((_, r) => setTimeout(() => r(new Error("timeout")), 3000)),
@@ -967,7 +975,7 @@ function computeTransferSuggestionsForList(expiringStockList, nationalCache) {
 
     if (!pCode || qty < 1 || days === null || days < 0 || days > 365) continue;
 
-    const safeCode = pCode.replace(/[.$#[\]/]/g, "_");
+    const safeCode = sanitizeFirebaseKey(pCode);
     const upperCode = pCode.toUpperCase();
     const entry = nationalCache[safeCode] || nationalCache[pCode] || nationalCache[upperCode];
 
@@ -1152,7 +1160,7 @@ function computeTransferSuggestionsForList(expiringStockList, nationalCache) {
           expiringStockList.push(item);
           allCombinedExpiringList.push(item);
 
-          const safeCode = pCode.replace(/[.$#[\]/]/g, "_");
+          const safeCode = sanitizeFirebaseKey(pCode);
           const upperCode = pCode.toUpperCase();
           const entry = nationalCache[safeCode] || nationalCache[pCode] || nationalCache[upperCode];
           if (entry && Array.isArray(entry.shops)) {
@@ -1163,7 +1171,7 @@ function computeTransferSuggestionsForList(expiringStockList, nationalCache) {
       }
 
       const calcResult = computeTransferSuggestionsForList(expiringStockList, nationalCache);
-      const sanitizedShop = sc.replace(/[.$#[\]/]/g, "_");
+      const sanitizedShop = sanitizeFirebaseKey(sc);
 
       await db.ref(`transfer_suggestions_cache/${sanitizedShop}`).set({
         shopCode: sc,
