@@ -1,5 +1,5 @@
 import { Injectable, inject } from "@angular/core";
-import { UpharmaService, ShopInfo } from "./upharma.service";
+import { UpharmaService, ShopInfo, isExcludedProduct } from "./upharma.service";
 import { calculateDaysProgress } from "./sales-period-utils";
 import { normalizeFilterText, normalizeInventoryRow, parseNumericValue, getExpiryDaysRemaining } from "./inventory-utils";
 
@@ -506,7 +506,7 @@ export class ReportGeneratorService {
           "MaSanPham",
           "ItemCode",
         ]) || "").trim();
-        if (!prodCode || prodCode.toUpperCase().includes("VOUCHER") || prodCode.toUpperCase().startsWith("VC")) return;
+        if (!prodCode || isExcludedProduct(prodCode, "")) return;
 
         const rowEmployeeName = String(pickField(row, [
           "SalesName",
