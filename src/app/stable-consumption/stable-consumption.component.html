@@ -191,7 +191,7 @@
 
     <h3>Các tháng đạt</h3>
     <div class="stable-detail-month-grid">
-      <article *ngFor="let month of item.stableMonths.slice(-2)" [class.is-strong]="month.quantity >= 4">
+      <article *ngFor="let month of item.stableMonths.slice(-2); trackBy: trackByMonth" [class.is-strong]="month.quantity >= 4">
         <span>{{ month.sessionText || month.label }}</span>
         <strong>{{ month.quantityText }}</strong>
         <small>{{ item.unit || "--" }}</small>
