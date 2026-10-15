@@ -1,5 +1,5 @@
 import { CommonModule } from "@angular/common";
-import { Component, OnInit } from "@angular/core";
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit, inject } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import {
   UNDER_12_MONTHS_DAYS,
@@ -38,6 +38,7 @@ interface SalesInvoiceReportCacheEntry {
 @Component({
   selector: "app-sales-invoice-report",
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, FormsModule],
   template: `
   <div class="page-header d-print-none">
@@ -189,6 +190,7 @@ interface SalesInvoiceReportCacheEntry {
   styles: [],
 })
 export class SalesInvoiceReportComponent implements OnInit {
+  private cdr = inject(ChangeDetectorRef);
   readonly endpoint = "/SalesInvoice/GetReportSalesByShop";
   readonly rangeOptions: Record<RangeKey, number> = {
     "3m": 3,
@@ -362,6 +364,7 @@ export class SalesInvoiceReportComponent implements OnInit {
       this.items = [];
       this.reportCacheStatus = "";
     } finally {
+      this.cdr.markForCheck();
       this.loading = false;
       this.hasLoaded = true;
     }
