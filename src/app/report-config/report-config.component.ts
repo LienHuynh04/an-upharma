@@ -1,5 +1,5 @@
 import { CommonModule } from "@angular/common";
-import { Component, OnInit, inject } from "@angular/core";
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit, inject } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import {
   EmployeePlanItem,
@@ -17,11 +17,21 @@ import { environment } from "../../environments/environment";
 @Component({
   selector: "app-report-config",
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, FormsModule],
   templateUrl: "./report-config.component.html",
   styleUrls: ["./report-config.component.css"],
 })
 export class ReportConfigComponent implements OnInit {
+  private cdr = inject(ChangeDetectorRef);
+  trackByShopCode(_: number, shop: any): string {
+    return shop?.ShopCode ?? _;
+  }
+
+  trackByIndex(index: number): number {
+    return index;
+  }
+
   private upharmaService = inject(UpharmaService);
   private reportGenerator = inject(ReportGeneratorService);
   private readonly storageKey = "upharma_report_config_inputs";
@@ -68,6 +78,7 @@ export class ReportConfigComponent implements OnInit {
     try {
       await this.loadSavedReportInputs();
     } finally {
+      this.cdr.markForCheck();
       this.isLoadingConfig = false;
     }
   }
@@ -122,10 +133,12 @@ export class ReportConfigComponent implements OnInit {
       this.saveSuccessText = "Đã lưu cấu hình lên Firebase RTDB thành công (tự động đồng bộ các tab)!";
       setTimeout(() => {
         this.saveSuccessText = "";
+        this.cdr.markForCheck();
       }, 4000);
     } catch (e) {
       alert("Lỗi khi lưu cấu hình lên Firebase: " + (e instanceof Error ? e.message : String(e)));
     } finally {
+      this.cdr.markForCheck();
       this.saveLoading = false;
     }
   }
@@ -152,6 +165,7 @@ export class ReportConfigComponent implements OnInit {
     this.saveSuccessText = "Đã khôi phục cấu hình mặc định trên Firebase!";
     setTimeout(() => {
       this.saveSuccessText = "";
+      this.cdr.markForCheck();
     }, 3500);
   }
 
@@ -231,6 +245,7 @@ export class ReportConfigComponent implements OnInit {
       console.error("Lỗi lấy dữ liệu báo cáo:", error);
       alert("Lỗi khi lấy dữ liệu: " + (error instanceof Error ? error.message : String(error)));
     } finally {
+      this.cdr.markForCheck();
       this.fetchDataLoading = false;
       this.fetchDataStatusText = "";
     }
@@ -458,6 +473,7 @@ export class ReportConfigComponent implements OnInit {
       console.error("Lỗi xuất HTML báo cáo:", error);
       alert("Lỗi khi xuất HTML báo cáo: " + (error instanceof Error ? error.message : String(error)));
     } finally {
+      this.cdr.markForCheck();
       this.exportLoading = false;
       this.exportStatusText = "";
     }
@@ -486,6 +502,7 @@ export class ReportConfigComponent implements OnInit {
       console.error("Lỗi tải báo cáo:", error);
       alert("Lỗi khi tải báo cáo: " + (error instanceof Error ? error.message : String(error)));
     } finally {
+      this.cdr.markForCheck();
       this.downloadLoading = false;
       this.downloadStatusText = "";
     }
