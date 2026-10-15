@@ -25,6 +25,13 @@ export type InventoryApiMode = "GetExistProductLst" | "GetExistProductByShop";
   providedIn: "root",
 })
 export class NationalInventoryService {
+  /**
+   * Tuổi tối đa của cache tồn kho toàn quốc trên Firebase. Sync chạy mỗi giờ —
+   * quá 6h nghĩa là sync đã hỏng nhiều phiên. FIX (2026-10-15): trước đây không
+   * kiểm tra TTL, quyết định tồn kho trên số liệu nhiều ngày tuổi.
+   */
+  private readonly NATIONAL_CACHE_MAX_AGE_MS = 6 * 60 * 60 * 1000;
+
   constructor(
     private readonly upharma: UpharmaService,
     private readonly firebaseCache: FirebaseInventoryService
@@ -88,8 +95,16 @@ export class NationalInventoryService {
             upperMap.get(upperSanitized)
           ) : undefined;
 
-          // Nếu sản phẩm đã có trong Firebase cache và có danh sách stores
-          if (entry && Array.isArray(entry.shops)) {
+          // Nếu sản phẩm đã có trong Firebase cache (còn hạn) và có danh sách stores
+          const entryUpdatedAt = Number(entry?.updatedAt) || 0;
+          const isEntryStale =
+            entryUpdatedAt > 0 && Date.now() - entryUpdatedAt > this.NATIONAL_CACHE_MAX_AGE_MS;
+          if (isEntryStale) {
+            console.warn(
+              `[National Inventory] Bỏ qua cache đã cũ ${Math.round((Date.now() - entryUpdatedAt) / 3600000)}h của ${code} — tải mới từ API.`
+            );
+          }
+          if (entry && !isEntryStale && Array.isArray(entry.shops)) {
             const validShops = entry.shops.map((s: any) => ({
               StoreCode: String(s.StoreCode || "").trim(),
               StoreName: String(s.StoreName || "").trim(),
