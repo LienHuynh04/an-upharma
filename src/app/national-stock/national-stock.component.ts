@@ -1,5 +1,5 @@
 import { CommonModule } from "@angular/common";
-import { Component, HostListener, inject, OnInit } from "@angular/core";
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, HostListener, inject, OnInit } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { UpharmaService } from "../upharma.service";
 import { FirebaseInventoryService } from "../firebase-inventory.service";
@@ -33,6 +33,7 @@ interface StockGroup {
   selector: "app-national-stock",
   standalone: true,
   imports: [CommonModule, FormsModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styles: [`
     :host {
       --ns-bg: var(--tblr-bg-surface, #ffffff);
@@ -605,6 +606,7 @@ interface StockGroup {
   `,
 })
 export class NationalStockComponent implements OnInit {
+  private cdr = inject(ChangeDetectorRef);
   private upharma = inject(UpharmaService);
   private firebaseCache = inject(FirebaseInventoryService);
   private nationalInventory = inject(NationalInventoryService);
@@ -709,6 +711,7 @@ export class NationalStockComponent implements OnInit {
       this.pickerError = e instanceof Error ? e.message : String(e);
     } finally {
       this.pickerLoading = false;
+      this.cdr.markForCheck();
     }
   }
 
@@ -810,6 +813,7 @@ export class NationalStockComponent implements OnInit {
       this.error = e instanceof Error ? e.message : String(e);
     } finally {
       this.loading = false;
+      this.cdr.markForCheck();
     }
   }
 
