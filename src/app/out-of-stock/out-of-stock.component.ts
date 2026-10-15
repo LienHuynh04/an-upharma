@@ -3,7 +3,7 @@ import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit, inject }
 import { FormsModule } from "@angular/forms";
 import { Router } from "@angular/router";
 import { formatMoney, normalizeFilterText, PRODUCT_NAME_COLLATOR } from "../inventory-utils";
-import { RawRecord, ShopInfo, UpharmaService } from "../upharma.service";
+import { RawRecord, ShopInfo, UpharmaService, isExcludedProduct } from "../upharma.service";
 import { environment } from "../../environments/environment";
 import { ExcelExportService } from "../shared/services/excel-export.service";
 
@@ -555,7 +555,7 @@ export class OutOfStockComponent implements OnInit {
       const filteredSales = rawSales.filter((row) => {
         const pName = String(row["productName"] || row["ProductName"] || row["ItemName"] || "").toUpperCase();
         const pCode = String(row["productCode"] || row["ProductCode"] || row["ProductID"] || row["ItemCode"] || "").toUpperCase();
-        return !(pName.includes("VOUCHER") || pCode.startsWith("VC"));
+        return !isExcludedProduct(pCode, pName);
       });
 
       const parsedSales = filteredSales.map((row, index) => {
