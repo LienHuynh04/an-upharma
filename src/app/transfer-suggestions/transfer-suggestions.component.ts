@@ -478,6 +478,15 @@ export interface GroupedExpiringStock {
 })
 export class TransferSuggestionsComponent implements OnInit {
   private cdr = inject(ChangeDetectorRef);
+
+  /**
+   * Tham số nghiệp vụ cho thuật toán gợi ý điều chuyển (tune theo thực tế vận hành).
+   * - SOURCE_SAFETY_STOCK_RATIO: tỷ lệ tồn cận date GIỮ LẠI ở shop nguồn (không gợi ý
+   *   chuyển quá (1 - ratio)). Tránh rút cạn nguồn về 0 khi việc chuyển hàng bị trễ/hủy.
+   * - DEST_COVERAGE_PERIODS: số kỳ bán hàng mục tiêu khi tính nhu cầu của shop đích.
+   */
+  private readonly SOURCE_SAFETY_STOCK_RATIO = 0.2;
+  private readonly DEST_COVERAGE_PERIODS = 1;
   userShops: ShopInfo[] = [];
   selectedShopCode = "ALL";
   expiryDaysThreshold = 3650;
@@ -1121,14 +1130,30 @@ export class TransferSuggestionsComponent implements OnInit {
       // Ghép theo thứ tự ưu tiên và lấy đúng 5 nhà thuốc
       const orderedDests = [...sameProvSales, ...sameProvOther, ...otherProvSales, ...otherProvOther].slice(0, 5);
 
+      // FIX (2026-10-15): công thức cũ `min(tồn nguồn, round(avg đích))` có 3 lỗi:
+      //  1. Rút cạn shop nguồn về 0 (không trừ tồn an toàn).
+      //  2. 5 tuyến mỗi tuyến đòi tới min(toàn bộ tồn nguồn) → cộng dồn vượt tồn thực.
+      //  3. Không trừ tồn hiện tại của đích → dồn ứ hàng ở đích.
+      // Cách sửa: giữ tồn an toàn ở nguồn, chia tuần tự theo thứ tự ưu tiên
+      // (tuyến sau chỉ nhận phần còn lại → tổng 5 tuyến không vượt tồn nguồn),
+      // và trừ tồn hiện tại của đích khỏi nhu cầu.
+      const totalSourceQty = Math.floor(item.quantity);
+      const safetyStock = Math.floor(totalSourceQty * this.SOURCE_SAFETY_STOCK_RATIO);
+      let remainingQty = Math.max(0, totalSourceQty - safetyStock);
+
       orderedDests.forEach((bestDest: any, index: number) => {
+        if (remainingQty < 1) return; // nguồn đã chia hết cho tuyến ưu tiên cao hơn
         const destProvince = this.getProvince(bestDest.StoreName);
         const isSame = sourceProvince === destProvince;
         const avg = parseNumericValue(bestDest.QuantityAVG);
+        const destQty = parseNumericValue(bestDest.Quantity);
 
-        const qty = avg > 0
-          ? Math.max(1, Math.min(Math.floor(item.quantity), Math.round(avg || 1)))
-          : Math.max(1, Math.min(Math.floor(item.quantity), 2));
+        const wantQty = avg > 0 ? Math.max(1, Math.round(avg * this.DEST_COVERAGE_PERIODS)) : 2;
+        // Không dồn ứ: đích đã đủ/không thiếu hàng thì bỏ qua tuyến này
+        const needQty = Math.max(0, wantQty - destQty);
+        const qty = Math.min(needQty, remainingQty);
+        if (qty < 1) return;
+        remainingQty -= qty;
 
         suggestions.push({
           key: `${item.key}|${bestDest.StoreCode}|${index}`,
