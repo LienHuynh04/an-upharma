@@ -12,7 +12,7 @@ import {
   parseNumericValue,
   InventoryItem,
 } from "../inventory-utils";
-import { RawRecord, ShopInfo, UpharmaService } from "../upharma.service";
+import { RawRecord, ShopInfo, UpharmaService, isExcludedProduct } from "../upharma.service";
 import { ExcelExportService } from "../shared/services/excel-export.service";
 
 export type FefoStatus = "all" | "violation" | "compliant" | "in_stock" | "out_of_stock";
@@ -350,11 +350,7 @@ export class FefoComponent implements OnInit {
           this.pick(row, ["ProductName", "Product_Name", "ProductFullName", "Product_Name_Full", "TenSP", "TenSanPham", "Name", "ItemName"]) || productCode || "Sản phẩm"
         ).trim();
 
-        if (
-          productCode.toUpperCase().includes("VOUCHER") ||
-          productName.toUpperCase().includes("VOUCHER") ||
-          productCode.toUpperCase().startsWith("VC")
-        ) {
+        if (isExcludedProduct(productCode, productName)) {
           return;
         }
         const shopCode = String(
@@ -487,11 +483,7 @@ export class FefoComponent implements OnInit {
         const matchedShop = this.shops.find((s) => s.ShopCode === itemShopCode);
         const itemShopName = matchedShop ? matchedShop.ShopName : itemShopCode;
 
-        if (
-          code.toUpperCase().includes("VOUCHER") ||
-          first.productName.toUpperCase().includes("VOUCHER") ||
-          code.toUpperCase().startsWith("VC")
-        ) {
+        if (isExcludedProduct(code, first.productName)) {
           continue;
         }
         const hasMultipleLots = invList.length > 1;
