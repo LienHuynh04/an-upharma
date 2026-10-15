@@ -1,9 +1,9 @@
 import { CommonModule } from "@angular/common";
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit, inject } from "@angular/core";
+import { Component, OnInit } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { Router } from "@angular/router";
 import { normalizeFilterText } from "../inventory-utils";
-import { RawRecord, ShopInfo, UpharmaService } from "../upharma.service";
+import { RawRecord, ShopInfo, UpharmaService, isExcludedProduct } from "../upharma.service";
 import { ExcelExportService } from "../shared/services/excel-export.service";
 import { ShopTabsComponent } from "../shared/components/shop-tabs/shop-tabs.component";
 
@@ -42,12 +42,10 @@ type KeyProductsTextFilterKey = "productName" | "productCode" | "status";
 @Component({
   selector: "app-key-products",
   standalone: true,
-  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, FormsModule, ShopTabsComponent],
   templateUrl: "./key-products.component.html",
 })
 export class KeyProductsComponent implements OnInit {
-  private cdr = inject(ChangeDetectorRef);
   readonly endpoint = "/SalesInvoice/GetReportSalesByShop";
   shopsSummary: any = null;
   shops: ShopInfo[] = [];
@@ -244,7 +242,6 @@ export class KeyProductsComponent implements OnInit {
     } catch (error) {
       this.errorText = error instanceof Error ? error.message : String(error);
     } finally {
-      this.cdr.markForCheck();
       this.loading = false;
     }
 
@@ -496,11 +493,7 @@ export class KeyProductsComponent implements OnInit {
         const pName = String(row["productName"] || row["ProductName"] || row["ItemName"] || "").toUpperCase();
         const pCode = String(row["productCode"] || row["ProductCode"] || row["ProductID"] || row["ItemCode"] || "").toUpperCase();
         
-        // Exclude if name contains "VOUCHER" or code starts with "VC"
-        if (pName.includes("VOUCHER") || pCode.startsWith("VC")) {
-          return false;
-        }
-        return true;
+        return !isExcludedProduct(pCode, pName);
       });
 
       const parsedRows = filteredRawArray.map((row, index) => {
@@ -582,7 +575,6 @@ export class KeyProductsComponent implements OnInit {
       }
       this.loadingProgress = 100;
     } finally {
-      this.cdr.markForCheck();
       this.loadingShopKeys.delete(loadedShopKey);
       this.keyProductsRefreshing = this.loadingShopKeys.size > 0;
     }
