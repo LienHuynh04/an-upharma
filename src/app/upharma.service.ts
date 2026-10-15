@@ -144,7 +144,7 @@ const EXCLUDED_PRODUCT_CODES = new Set<string>([
 /**
  * Kiểm tra một dòng dữ liệu có phải voucher/hàng phi tồn kho cần loại bỏ không.
  */
-function isExcludedProduct(rawCode: string, rawName: string): boolean {
+export function isExcludedProduct(rawCode: string, rawName: string): boolean {
   const code = rawCode.toUpperCase().trim();
   const name = rawName.toUpperCase().trim();
   if (!code && !name) return false;
