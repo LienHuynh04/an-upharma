@@ -620,6 +620,9 @@ export class NationalStockComponent implements OnInit {
   sortAsc = false;
 
   rawRows: StockRow[] = [];
+  /** FIX (2026-10-15): version tăng mỗi khi rawRows đổi — dùng để invalidate cache của getter `groups`. */
+  private dataVersion = 0;
+  private groupsCache: { key: string; value: StockGroup[] } | null = null;
   products: ProductItem[] = [];
 
   pickerOpen = false;
@@ -759,6 +762,8 @@ export class NationalStockComponent implements OnInit {
     this.error = "";
     this.searched = true;
     this.rawRows = [];
+    this.dataVersion++;
+    this.groupsCache = null;
 
     const matchedProd = this.products.find((p) => p.code.toLowerCase() === code.toLowerCase());
     if (matchedProd) {
@@ -778,6 +783,8 @@ export class NationalStockComponent implements OnInit {
         ? res
         : res?.Data || res?.data || res?.ItemLst || (Object.values(res || {}).find((v) => Array.isArray(v)) as any[]) || [];
 
+      this.dataVersion++;
+      this.groupsCache = null;
       this.rawRows = rawStores.map((s: any) => {
         const storeTypeStr = String(s.StoreType || s["StoreType"] || "").trim();
         const storeCodeStr = String(s.StoreCode || s["StoreCode"] || "").trim();
@@ -833,6 +840,18 @@ export class NationalStockComponent implements OnInit {
   }
 
   get groups(): StockGroup[] {
+    // FIX (2026-10-15): getter cũ rebuild Map + clone toàn bộ rows (mọi shop × mọi SKU)
+    // mỗi CD cycle trong khi component dùng Default strategy. Memoize theo
+    // phiên bản dữ liệu + filter/sort — chỉ tính lại khi input thật sự đổi.
+    const key = `${this.dataVersion}|${this.filter}|${this.sortField}|${this.sortAsc}`;
+    const cached = this.groupsCache;
+    if (cached && cached.key === key) return cached.value;
+    const value = this.computeGroups();
+    this.groupsCache = { key, value };
+    return value;
+  }
+
+  private computeGroups(): StockGroup[] {
     const map = new Map<string, StockRow[]>();
     for (const r of this.view) {
       const key = r.StoreType || (r.isWarehouse ? "Kho tổng" : "Nhà thuốc");
