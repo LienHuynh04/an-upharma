@@ -32,9 +32,7 @@
             "styles": [
               "src/styles.css"
             ],
-            "scripts": [
-              "node_modules/@tabler/core/dist/js/tabler.min.js"
-            ]
+            "scripts": []
           },
           "configurations": {
             "production": {
