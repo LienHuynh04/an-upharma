@@ -94,7 +94,7 @@
         </div>
 
         <div class="row g-2 shop-tab-grid">
-          <div class="col-md-4" *ngFor="let shop of shops">
+          <div class="col-md-4" *ngFor="let shop of shops; trackBy: trackByShopCode">
             <button 
               type="button" 
               class="w-100 shop-tab-btn p-3 rounded-3 border text-start transition-all"
@@ -135,7 +135,7 @@
         </div>
 
         <div *ngIf="!isLoadingConfig">
-          <div *ngFor="let shop of shops">
+          <div *ngFor="let shop of shops; trackBy: trackByShopCode">
             <div *ngIf="activeShopCode === shop.ShopCode" class="animate-fade-in">
             
             <!-- Operational Status Selector Bar -->
@@ -434,7 +434,7 @@
             </span>
             <div class="btn-group" role="group">
               <button 
-                *ngFor="let shop of shops"
+                *ngFor="let shop of shops; trackBy: trackByShopCode"
                 type="button" 
                 class="btn btn-sm fw-bold px-3 py-1.5"
                 [ngClass]="activeShopCode === shop.ShopCode ? 'btn-primary' : 'btn-outline-secondary'"
@@ -940,7 +940,7 @@
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let emp of getFefoStats(activeShopCode).empSummaries; let i = index">
+                <tr *ngFor="let emp of getFefoStats(activeShopCode).empSummaries; let i = index; trackBy: trackByIndex">
                   <td class="text-center text-secondary small fw-bold">{{ i + 1 }}</td>
                   <td>
                     <input 
@@ -1036,7 +1036,7 @@
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let emp of getEmployeePlans(activeShopCode); let i = index">
+                <tr *ngFor="let emp of getEmployeePlans(activeShopCode); let i = index; trackBy: trackByIndex">
                   <td class="text-center text-secondary small fw-bold">{{ i + 1 }}</td>
                   <td>
                     <input 
