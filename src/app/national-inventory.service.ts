@@ -2,6 +2,7 @@ import { Injectable } from "@angular/core";
 import { isWarehouseStore, parseNumericValue } from "./inventory-utils";
 import { UpharmaService } from "./upharma.service";
 import { FirebaseInventoryService } from "./firebase-inventory.service";
+import { sanitizeFirebaseKey } from "./firebase-key.utils";
 
 export interface NationalInventoryProgress {
   done: number;
@@ -84,7 +85,7 @@ export class NationalInventoryService {
         
         for (const code of productIDs) {
           const trimmed = code.trim();
-          const sanitized = trimmed.replace(/[.$#\[\]\/]/g, "_");
+          const sanitized = sanitizeFirebaseKey(trimmed);
           const upperTrimmed = trimmed.toUpperCase();
           const upperSanitized = sanitized.toUpperCase();
           
