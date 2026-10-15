@@ -1,5 +1,6 @@
 import { Injectable } from "@angular/core";
 import { environment } from "../environments/environment";
+import { sanitizeFirebaseKey } from "./firebase-key.utils";
 
 export interface CacheEntry {
   productID: string;
@@ -46,7 +47,7 @@ export class FirebaseInventoryService {
     if (!this.dbUrl || !productID) return null;
 
     try {
-      const sanitized = productID.trim().replace(/[.$#\[\]\/]/g, "_");
+      const sanitized = sanitizeFirebaseKey(productID);
       const url = `${this.dbUrl}/national_inventory_cache/${sanitized}.json`;
       const response = await fetch(url);
       if (!response.ok) return null;
@@ -90,7 +91,7 @@ export class FirebaseInventoryService {
     if (!this.dbUrl || !productID) return;
 
     try {
-      const sanitized = productID.trim().replace(/[.$#\[\]\/]/g, "_");
+      const sanitized = sanitizeFirebaseKey(productID);
       const url = `${this.dbUrl}/national_inventory_cache/${sanitized}.json`;
       const entry: CacheEntry = {
         productID: sanitized,
@@ -120,7 +121,7 @@ export class FirebaseInventoryService {
     if (!this.dbUrl || !shopCode) return null;
 
     try {
-      const sanitized = shopCode.trim().replace(/[.$#\[\]\/]/g, "_");
+      const sanitized = sanitizeFirebaseKey(shopCode);
       const url = `${this.dbUrl}/transfer_suggestions_cache/${sanitized}.json`;
       console.log(`[Firebase Cache] Đang tải gợi ý tính sẵn cho shop ${shopCode}: ${url}`);
       const response = await fetch(url);
@@ -141,7 +142,7 @@ export class FirebaseInventoryService {
     if (!this.dbUrl || !shopCode) return;
 
     try {
-      const sanitized = shopCode.trim().replace(/[.$#\[\]\/]/g, "_");
+      const sanitized = sanitizeFirebaseKey(shopCode);
       const url = `${this.dbUrl}/transfer_suggestions_cache/${sanitized}.json`;
       const payload = {
         shopCode,
