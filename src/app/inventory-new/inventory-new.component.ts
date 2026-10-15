@@ -173,6 +173,17 @@ export class InventoryNewComponent implements OnInit {
     safe: 0,
     normal: 0,
   };
+  /**
+   * FIX (2026-10-15): cache tổng giá trị tồn kho. Trước đây getTotalInventoryValue()
+   * filter+reduce toàn bộ rows mỗi lần gọi, trong khi 6 expiry cards gọi nó 12 lần
+   * mỗi change detection cycle. Giá trị được tính lại trong updateExpiryDashboard().
+   */
+  cachedTotalInventoryValue = 0;
+  /** Dùng chung 1 instance — khởi tạo Intl.NumberFormat rất đắt, không new mỗi lần gọi. */
+  private readonly percentFormatter = new Intl.NumberFormat("vi-VN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
   columnFilters: Record<string, string> = {
     productName: "",
     productCode: "",
@@ -271,10 +282,7 @@ export class InventoryNewComponent implements OnInit {
     const cardValue = cardKey === "all" ? totalValue : this.expiryValueSummary[cardKey] || 0;
     const rate = totalValue > 0 ? (cardValue / totalValue) * 100 : 0;
 
-    return new Intl.NumberFormat("vi-VN", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(rate);
+    return this.percentFormatter.format(rate);
   }
 
   cachedShopCardsList: ShopCard[] = [];
@@ -670,6 +678,10 @@ export class InventoryNewComponent implements OnInit {
 
   private updateExpiryDashboard(): void {
     const rowsForSummary = this.getRowsForActiveShop();
+    this.cachedTotalInventoryValue = rowsForSummary.reduce(
+      (sum, item) => sum + (Number(item.stockValue) || 0),
+      0,
+    );
     const productCodes: Record<keyof ExpirySummary, Set<string>> = {
       expired: new Set<string>(),
       danger: new Set<string>(),
@@ -794,10 +806,7 @@ export class InventoryNewComponent implements OnInit {
   }
 
   private getTotalInventoryValue(): number {
-    return this.getRowsForActiveShop().reduce(
-      (sum, item) => sum + (Number(item.stockValue) || 0),
-      0,
-    );
+    return this.cachedTotalInventoryValue;
   }
 
   private countUniqueProducts(items: InventoryItem[]): number {
