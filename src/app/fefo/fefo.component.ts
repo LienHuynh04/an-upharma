@@ -5,6 +5,7 @@ import { Router } from "@angular/router";
 import { environment } from "../../environments/environment";
 import {
   formatMoney,
+  getExpiryDaysRemaining,
   normalizeFilterText,
   normalizeInventoryRow,
   PRODUCT_NAME_COLLATOR,
@@ -418,7 +419,7 @@ export class FefoComponent implements OnInit {
           fefoExpiryText = earliestInvItem.expiryText || "N/A";
           fefoExpiryDays = earliestInvItem.expiryDaysRemaining;
 
-          const soldDays = this.parseDaysFromText(soldExpiryText);
+          const soldDays = getExpiryDaysRemaining(soldExpiryText);
 
           if (soldDays !== null && fefoExpiryDays !== null && soldDays > fefoExpiryDays + 30) {
             // Sold a lot expiring later while earlier expiring lot exists in stock -> Violation!
@@ -446,7 +447,7 @@ export class FefoComponent implements OnInit {
           orderCode,
           soldLot,
           soldExpiryText,
-          soldExpiryDays: this.parseDaysFromText(soldExpiryText),
+          soldExpiryDays: getExpiryDaysRemaining(soldExpiryText),
           saleDateText,
           saleQty,
           saleQtyText: formatMoney(saleQty),
@@ -901,33 +902,7 @@ export class FefoComponent implements OnInit {
     return str;
   }
 
-  private parseDaysFromText(dateText: string): number | null {
-    if (!dateText || dateText === "N/A" || dateText === "-") return null;
-    const cleanStr = String(dateText).trim().split(" ")[0];
-    const parts = cleanStr.split(/[/.-]/);
-    if (parts.length === 3) {
-      let day = 1;
-      let month = 0;
-      let year = 2026;
-
-      if (parts[0].length === 4) {
-        // YYYY-MM-DD
-        year = parseInt(parts[0], 10);
-        month = parseInt(parts[1], 10) - 1;
-        day = parseInt(parts[2], 10);
-      } else if (parts[2].length === 4) {
-        // DD/MM/YYYY
-        day = parseInt(parts[0], 10);
-        month = parseInt(parts[1], 10) - 1;
-        year = parseInt(parts[2], 10);
-      }
-
-      if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
-        const targetDate = new Date(year, month, day);
-        const diffTime = targetDate.getTime() - Date.now();
-        return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      }
-    }
-    return null;
-  }
+  // FIX (2026-10-15): xóa parseDaysFromText local (hardcode year 2026, Math.ceil trên
+  // Date.now() không chuẩn midnight → lệch ±1 ngày). Dùng chung getExpiryDaysRemaining
+  // từ inventory-utils — 1 implementation duy nhất cho cả app.
 }
