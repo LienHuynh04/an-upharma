@@ -151,11 +151,14 @@ export function normalizeInventoryRow(row: RawRecord, rowIndex = 0): InventoryIt
       "NgayHetHan",
       "NgayHSD",
     ],
+    // FIX (2026-10-15): thêm "export" vào exclude — trước đây substring "exp" match nhầm
+    // field "ExportDate" thành HSD, khiến FEFO tính sai hoàn toàn.
     pickByKeywords(row, ["exp", "expire", "expiry", "handung", "hsd", "hethan"], [
       "create",
       "update",
       "import",
       "input",
+      "export",
     ]),
   );
   const unit = String(
