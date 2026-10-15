@@ -487,6 +487,12 @@ export class TransferSuggestionsComponent implements OnInit {
    */
   private readonly SOURCE_SAFETY_STOCK_RATIO = 0.2;
   private readonly DEST_COVERAGE_PERIODS = 1;
+  /**
+   * Tuổi tối đa của cache gợi ý trên Firebase server. Sync chạy mỗi giờ qua GitHub
+   * Actions — quá 6h nghĩa là sync đã hỏng nhiều phiên, không được dùng số liệu cũ
+   * để gợi ý chuyển hàng (tiền/hàng thật).
+   */
+  private readonly SERVER_CACHE_MAX_AGE_MS = 6 * 60 * 60 * 1000;
   userShops: ShopInfo[] = [];
   selectedShopCode = "ALL";
   expiryDaysThreshold = 3650;
@@ -778,7 +784,26 @@ export class TransferSuggestionsComponent implements OnInit {
           serverCache = await this.firebaseCache.getShopTransferSuggestions(this.selectedShopCode);
         }
 
+        // FIX (2026-10-15): cache Firebase server trước đây KHÔNG kiểm tra updatedAt —
+        // sync hỏng nhiều ngày thì app vẫn gợi ý chuyển hàng trên số liệu cũ.
+        // Quá SERVER_CACHE_MAX_AGE_MS thì bỏ qua, rơi xuống bước 3 tính toán mới từ API.
+        const serverCacheUpdatedAt = Number(serverCache?.updatedAt) || 0;
+        const serverCacheAgeMs = serverCacheUpdatedAt > 0 ? Date.now() - serverCacheUpdatedAt : 0;
+        const isServerCacheStale =
+          serverCacheUpdatedAt > 0 && serverCacheAgeMs > this.SERVER_CACHE_MAX_AGE_MS;
+
+        if (isServerCacheStale) {
+          const ageHours = Math.round(serverCacheAgeMs / 3600000);
+          console.warn(
+            `[TransferSuggestions] Bỏ qua cache Firebase đã cũ ${ageHours}h (giới hạn 6h) — tính toán mới từ API.`
+          );
+          this.statusText = `⚠️ Dữ liệu gợi ý trên Firebase đã cũ (${ageHours} giờ), đang tính toán mới từ API...`;
+          this.cdr.markForCheck();
+          // không return — rơi xuống bước 3
+        }
+
         if (
+          !isServerCacheStale &&
           serverCache &&
           ((serverCache.groupedSuggestions && serverCache.groupedSuggestions.length > 0) ||
             (serverCache.expiringStockList && serverCache.expiringStockList.length > 0))
@@ -809,7 +834,9 @@ export class TransferSuggestionsComponent implements OnInit {
           });
 
           const labelText = this.selectedShopCode === "ALL" ? "Tất cả nhà thuốc" : `NT ${this.selectedShopCode}`;
-          this.statusText = `⚡ Đã nạp xong gợi ý toàn quốc từ Firebase Server cho ${labelText} (30ms).`;
+          const ageLabel =
+            serverCacheUpdatedAt > 0 ? ` — dữ liệu lúc ${this.formatCacheTime(serverCacheUpdatedAt)}` : "";
+          this.statusText = `⚡ Đã nạp xong gợi ý toàn quốc từ Firebase Server cho ${labelText} (30ms)${ageLabel}.`;
           this.cdr.markForCheck();
           return;
         }
