@@ -1,5 +1,5 @@
 import { CommonModule } from "@angular/common";
-import { Component, OnInit } from "@angular/core";
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit, inject } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { Router } from "@angular/router";
 import { normalizeFilterText } from "../inventory-utils";
@@ -42,10 +42,12 @@ type KeyProductsTextFilterKey = "productName" | "productCode" | "status";
 @Component({
   selector: "app-key-products",
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, FormsModule, ShopTabsComponent],
   templateUrl: "./key-products.component.html",
 })
 export class KeyProductsComponent implements OnInit {
+  private cdr = inject(ChangeDetectorRef);
   readonly endpoint = "/SalesInvoice/GetReportSalesByShop";
   shopsSummary: any = null;
   shops: ShopInfo[] = [];
@@ -242,6 +244,7 @@ export class KeyProductsComponent implements OnInit {
     } catch (error) {
       this.errorText = error instanceof Error ? error.message : String(error);
     } finally {
+      this.cdr.markForCheck();
       this.loading = false;
     }
 
@@ -579,6 +582,7 @@ export class KeyProductsComponent implements OnInit {
       }
       this.loadingProgress = 100;
     } finally {
+      this.cdr.markForCheck();
       this.loadingShopKeys.delete(loadedShopKey);
       this.keyProductsRefreshing = this.loadingShopKeys.size > 0;
     }
