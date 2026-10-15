@@ -1032,7 +1032,34 @@ export class UpharmaService {
     try {
       localStorage.setItem(cacheKey, JSON.stringify({ savedAt: Date.now(), data } satisfies CachedCall));
     } catch {
-      this.clearResourceCache();
+      // FIX (2026-10-15): trước đây quota đầy → xóa SẠCH toàn bộ cache → mọi request
+      // sau đó đổ dồn về API (thundering herd). Giờ chỉ dọn entry hết hạn rồi thử lại;
+      // vẫn đầy thì bỏ qua lần ghi này, giữ nguyên cache cũ.
+      this.evictStaleCacheEntries();
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify({ savedAt: Date.now(), data } satisfies CachedCall));
+      } catch {
+        console.warn("[UpharmaService] localStorage đầy, bỏ qua ghi cache:", cacheKey);
+      }
+    }
+  }
+
+  /** Dọn các entry cache đã hết hạn để lấy chỗ — không bao giờ xóa cache còn hạn. */
+  private evictStaleCacheEntries(): void {
+    const now = Date.now();
+    for (const key of Object.keys(localStorage)) {
+      const isCallCache = key.startsWith(this.callCacheKeyPrefix);
+      const isResourceCache = key.startsWith(this.cacheStorageKeyPrefix);
+      if (!isCallCache && !isResourceCache) continue;
+      try {
+        const entry = JSON.parse(localStorage.getItem(key) || "null") as { savedAt?: number } | null;
+        const ttl = isCallCache ? this.callCacheTtlMs : this.cacheTtlMs;
+        if (!entry?.savedAt || now - entry.savedAt > ttl) {
+          localStorage.removeItem(key);
+        }
+      } catch {
+        localStorage.removeItem(key);
+      }
     }
   }
 
@@ -1069,7 +1096,13 @@ export class UpharmaService {
     try {
       localStorage.setItem(cacheKey, JSON.stringify({ savedAt: Date.now(), data } satisfies CachedResource));
     } catch {
-      this.clearResourceCache();
+      // FIX (2026-10-15): xem writeCallCache — không xóa sạch cache khi hết quota.
+      this.evictStaleCacheEntries();
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify({ savedAt: Date.now(), data } satisfies CachedResource));
+      } catch {
+        console.warn("[UpharmaService] localStorage đầy, bỏ qua ghi cache:", cacheKey);
+      }
     }
   }
 
@@ -1096,6 +1129,11 @@ export class UpharmaService {
     }
 
     if (!response.ok) {
+      // FIX (2026-10-15): đường direct API trước đây không phát hiện token hết hạn —
+      // user kẹt ở trạng thái "đã login nhưng API lỗi" tới hết ngày. Đồng bộ với parseApiResponse.
+      if (response.status === 401 || response.status === 403 || this.isTokenErrorMessage(data)) {
+        this.handleInvalidToken();
+      }
       throw new Error(`${pathname}: HTTP ${response.status}`);
     }
 
@@ -1199,6 +1237,16 @@ export class UpharmaService {
     throw new Error("Token không hợp lệ, vui lòng đăng nhập lại");
   }
 
+  /**
+   * Kiểm tra một object có giống dòng tồn kho không (có key mã/tên sản phẩm).
+   * Dùng để validate kết quả BFS trong extractArray.
+   */
+  private static isInventoryLikeRowStatic(item: RawRecord): boolean {
+    return ["ProductCode", "ProductID", "MaSP", "Code", "ProductName", "TenSP", "Name"].some(
+      (k) => k in item
+    );
+  }
+
   private extractArray(data: unknown): RawRecord[] {
     if (Array.isArray(data)) {
       return data.filter((item): item is RawRecord => Boolean(item) && typeof item === "object");
@@ -1229,7 +1277,14 @@ export class UpharmaService {
       const { val, depth } = item;
 
       if (Array.isArray(val)) {
-        return val.filter((element): element is RawRecord => Boolean(element) && typeof element === "object");
+        // FIX (2026-10-15): trước đây lấy bừa mảng đầu tiên ở độ sâu ≤2 — API thêm
+        // field mảng mới (errors, shops...) là render rác thành tồn kho. Chỉ nhận
+        // mảng mà item có key dạng mã/tên sản phẩm.
+        const candidates = val.filter((element): element is RawRecord => Boolean(element) && typeof element === "object");
+        if (candidates.length > 0 && candidates.slice(0, 10).some(UpharmaService.isInventoryLikeRowStatic)) {
+          return candidates;
+        }
+        continue;
       }
 
       if (depth < 2 && val && typeof val === "object") {
