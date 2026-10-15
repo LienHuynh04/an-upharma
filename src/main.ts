@@ -1,9 +1,29 @@
 import { bootstrapApplication } from "@angular/platform-browser";
-import { PreloadAllModules, provideRouter, Routes, withHashLocation, withPreloading } from "@angular/router";
+import {
+  PreloadingStrategy,
+  provideRouter,
+  Route,
+  Routes,
+  withHashLocation,
+  withPreloading,
+} from "@angular/router";
+import { Observable, of } from "rxjs";
 import { authGuard } from "./app/auth.guard";
 import { LayoutComponent } from "./app/layout/layout.component";
 import { LoginComponent } from "./app/login/login.component";
 import { RootComponent } from "./app/root.component";
+
+/**
+ * Chỉ preload các route được đánh dấu `data: { preload: true }`.
+ *
+ * FIX (2026-10-15): PreloadAllModules cũ tải ngầm TOÀN BỘ chunk (kể cả 3 trang
+ * test) ngay sau lần tải đầu — user mở dashboard nhưng vẫn tải ~640KB JS thừa.
+ */
+export class SelectivePreloadingStrategy implements PreloadingStrategy {
+  preload(route: Route, load: () => Observable<unknown>): Observable<unknown> {
+    return route.data?.["preload"] ? load() : of(null);
+  }
+}
 
 const routes: Routes = [
   {
@@ -25,6 +45,7 @@ const routes: Routes = [
         path: "dashboard",
         loadComponent: () => import("./app/dashboard/dashboard.component").then((m) => m.DashboardComponent),
         title: "UPHARMA - Bảng điều khiển",
+        data: { preload: true },
       },
       {
         path: "xuat-bao-cao",
@@ -126,5 +147,5 @@ const routes: Routes = [
 ];
 
 bootstrapApplication(RootComponent, {
-  providers: [provideRouter(routes, withPreloading(PreloadAllModules), withHashLocation())],
+  providers: [provideRouter(routes, withPreloading(SelectivePreloadingStrategy), withHashLocation())],
 }).catch((error) => console.error(error));
