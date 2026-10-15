@@ -130,6 +130,28 @@ interface CachedFirebaseRows {
   data: RawRecord[];
 }
 
+/**
+ * Mã sản phẩm bị loại khỏi dữ liệu tồn kho (voucher / hàng phi tồn kho).
+ *
+ * QUY TẮC: chỉ thêm MÃ CHÍNH XÁC vào đây. Tuyệt đối không dùng prefix rộng
+ * như "VC" — từng có bug `code.startsWith("VC")` xóa lặng lẽ toàn bộ sản phẩm
+ * mã VC… (Vitamin C, vật tư y tế) khỏi tồn kho toàn app.
+ */
+const EXCLUDED_PRODUCT_CODES = new Set<string>([
+  // Thêm mã voucher chính xác tại đây, ví dụ: "VC-GIFT-TET-2026",
+]);
+
+/**
+ * Kiểm tra một dòng dữ liệu có phải voucher/hàng phi tồn kho cần loại bỏ không.
+ */
+function isExcludedProduct(rawCode: string, rawName: string): boolean {
+  const code = rawCode.toUpperCase().trim();
+  const name = rawName.toUpperCase().trim();
+  if (!code && !name) return false;
+  if (code.includes("VOUCHER") || name.includes("VOUCHER")) return true;
+  return EXCLUDED_PRODUCT_CODES.has(code);
+}
+
 @Injectable({ providedIn: "root" })
 export class UpharmaService {
   readonly resourceNames = ["inventory", "invoices", "messages", "employees", "orders"] as const;
@@ -760,9 +782,9 @@ export class UpharmaService {
 
               const filteredData = rawList
                 .filter((item: any) => {
-                  const code = String(item?.ProductCode || item?.ProductID || item?.MaSP || item?.Code || "").toUpperCase().trim();
-                  const name = String(item?.ProductName || item?.Product_Name || item?.TenSP || item?.Name || "").toUpperCase().trim();
-                  return !(code.includes("VOUCHER") || name.includes("VOUCHER") || code.startsWith("VC"));
+                  const code = String(item?.ProductCode || item?.ProductID || item?.MaSP || item?.Code || "");
+                  const name = String(item?.ProductName || item?.Product_Name || item?.TenSP || item?.Name || "");
+                  return !isExcludedProduct(code, name);
                 })
                 .map((item: any) => ({
                   ...item,
