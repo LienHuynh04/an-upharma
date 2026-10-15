@@ -9,7 +9,6 @@ import {
 } from "@angular/router";
 import { Observable, of } from "rxjs";
 import { authGuard } from "./app/auth.guard";
-import { LayoutComponent } from "./app/layout/layout.component";
 import { LoginComponent } from "./app/login/login.component";
 import { RootComponent } from "./app/root.component";
 
@@ -38,7 +37,8 @@ const routes: Routes = [
   },
   {
     path: "",
-    component: LayoutComponent,
+    loadComponent: () =>
+      import("./app/layout/layout.component").then((m) => m.LayoutComponent),
     canActivate: [authGuard],
     children: [
       {
