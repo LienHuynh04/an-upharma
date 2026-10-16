@@ -32,6 +32,9 @@ export class TabStateService {
   /** Scroll position per tab path. */
   private readonly scrollPositions = new Map<string, number>();
 
+  /** Last activation time per tab path — drives LRU eviction without reordering tabs. */
+  private readonly lastUsed = new Map<string, number>();
+
   private static readonly ICONS: Record<string, string> = {
     "/dashboard": "ti ti-home",
     "/xuat-bao-cao": "ti ti-file-export",
@@ -92,20 +95,31 @@ export class TabStateService {
     if (TabStateService.EXCLUDED.has(path) || path === "/") return;
 
     const tabs = [...this.tabsSubject.value];
-    const existingIdx = tabs.findIndex((t) => t.path === path);
-    if (existingIdx >= 0) {
-      // Move to end (most recently used)
-      const [existing] = tabs.splice(existingIdx, 1);
-      tabs.push(existing);
-    } else {
+    if (!tabs.some((t) => t.path === path)) {
       tabs.push({
         path,
         title: TabStateService.TITLES[path] ?? this.titleFromPath(path),
         icon: TabStateService.ICONS[path] ?? "ti ti-file",
       });
-      // LRU eviction
-      while (tabs.length > this.maxTabs) tabs.shift();
+      // LRU eviction: drop the least-recently-used tab (never the one just opened).
+      // Tab order stays stable — eviction uses lastUsed timestamps, not position.
+      while (tabs.length > this.maxTabs) {
+        const victim = tabs
+          .filter((t) => t.path !== path)
+          .sort(
+            (a, b) =>
+              (this.lastUsed.get(a.path) ?? 0) - (this.lastUsed.get(b.path) ?? 0)
+          )[0];
+        if (!victim) break;
+        tabs.splice(
+          tabs.findIndex((t) => t.path === victim.path),
+          1
+        );
+        this.scrollPositions.delete(victim.path);
+        this.lastUsed.delete(victim.path);
+      }
     }
+    this.lastUsed.set(path, Date.now());
     this.tabsSubject.next(tabs);
     this.activePathSubject.next(path);
   }
@@ -122,6 +136,7 @@ export class TabStateService {
   closeTab(path: string): string {
     const tabs = this.tabsSubject.value.filter((t) => t.path !== path);
     this.scrollPositions.delete(path);
+    this.lastUsed.delete(path);
     this.tabsSubject.next(tabs);
     if (this.activePathSubject.value === path) {
       const fallback = tabs.length > 0 ? tabs[tabs.length - 1].path : "/dashboard";

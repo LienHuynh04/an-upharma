@@ -3,10 +3,12 @@ import {
   PreloadingStrategy,
   provideRouter,
   Route,
+  RouteReuseStrategy,
   Routes,
   withHashLocation,
   withPreloading,
 } from "@angular/router";
+import { TabReuseStrategy } from "./app/tab-reuse.strategy";
 import { Observable, of } from "rxjs";
 import { authGuard } from "./app/auth.guard";
 import { LoginComponent } from "./app/login/login.component";
@@ -147,5 +149,9 @@ const routes: Routes = [
 ];
 
 bootstrapApplication(RootComponent, {
-  providers: [provideRouter(routes, withPreloading(SelectivePreloadingStrategy), withHashLocation())],
+  providers: [
+    provideRouter(routes, withPreloading(SelectivePreloadingStrategy), withHashLocation()),
+    // Keep tab components alive so switching tabs preserves filters/scroll/data
+    { provide: RouteReuseStrategy, useClass: TabReuseStrategy },
+  ],
 }).catch((error) => console.error(error));

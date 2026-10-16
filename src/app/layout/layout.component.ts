@@ -11,6 +11,7 @@ import {
 } from "@angular/router";
 import { UpharmaService } from "../upharma.service";
 import { TabStateService, OpenTab } from "../tab-state.service";
+import { TabReuseStrategy } from "../tab-reuse.strategy";
 
 @Component({
   selector: "app-layout",
@@ -50,7 +51,8 @@ export class LayoutComponent implements OnInit, OnDestroy {
   constructor(
     public upharma: UpharmaService,
     public router: Router,
-    public tabState: TabStateService
+    public tabState: TabStateService,
+    private reuseStrategy: TabReuseStrategy
   ) {}
 
   tabs: OpenTab[] = [];
@@ -864,6 +866,8 @@ renderDashboard(); renderInventory(); renderNearExpiryOrders(); renderTabs(); re
   onCloseTab(tab: OpenTab, event: MouseEvent): void {
     event.preventDefault();
     event.stopPropagation();
+    // Drop the cached component so reopening the tab starts fresh
+    this.reuseStrategy.clear(tab.path);
     const next = this.tabState.closeTab(tab.path);
     if (next !== this.router.url) {
       void this.router.navigateByUrl(next);
