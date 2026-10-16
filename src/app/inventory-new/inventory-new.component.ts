@@ -131,6 +131,7 @@ export class InventoryNewComponent implements OnInit {
   };
   loadingTitle = "";
   inventoryCacheStatus = "Đang chuẩn bị dữ liệu tồn kho...";
+  shopLoadWarnings: string[] = [];
   inventoryRefreshProgress = 5;
   inventoryRefreshing = true;
   activeN8nWorkflowKey: N8nWorkflowKey = "expiry";
@@ -522,6 +523,8 @@ export class InventoryNewComponent implements OnInit {
       this.cdr.markForCheck();
 
       const failedShops = Object.values(this.remoteDatasets).flatMap((resource) => resource?.failedShops || []);
+      // UI FIX (2026-10-16): surface failed/stale shops in the template, not just console.
+      this.shopLoadWarnings = [...new Set(failedShops)];
       if (failedShops.length) {
         console.warn("Một số API nhà thuốc tải thất bại:", failedShops);
       }
