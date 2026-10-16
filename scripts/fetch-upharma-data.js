@@ -430,8 +430,15 @@ async function run() {
   console.log("Đã lưu login.json (đã ẩn danh PII)");
 
   if (db) {
+    // SECURITY FIX (2026-10-16): never push raw loginData (contains auth Token)
+    // to Firebase. Reuse the sanitized copy and strip any token fields.
+    const loginForFirebase = sanitizePIIDeep(loginData);
+    delete loginForFirebase.Token;
+    delete loginForFirebase.token;
+    delete loginForFirebase.Password;
+    delete loginForFirebase.password;
     await db.ref(`users_by_username/${UPHARMA_USERNAME}/login_info`).set({
-      ...loginData,
+      ...loginForFirebase,
       fetchedAt: new Date().toISOString()
     });
     
@@ -534,7 +541,9 @@ async function run() {
 
             const pNameUpper = pName.toUpperCase();
             const pCodeUpper = pCode.toUpperCase();
-            if (pNameUpper.includes("VOUCHER") || pCodeUpper.startsWith("VC")) {
+            // FIX (2026-10-16): same as app isExcludedProduct — never use startsWith("VC")
+            // (would silently drop real products like Vitamin C).
+            if (pNameUpper.includes("VOUCHER") || pCodeUpper.includes("VOUCHER")) {
               continue;
             }
 
@@ -1671,7 +1680,16 @@ async function calculateAndUploadSummaries(shops, allShopsData, db) {
     summaryMap[sc].outOfStockCount = outStockRows.length;
     summaryMap[sc].keyCount = keyProductRows.length;
 
-    if (db) {
+    // DATA FIX (2026-10-16): skip shops whose source data failed to sync.
+    // Pushing empty arrays here would overwrite good cached data with nothing.
+    const hasSourceData =
+      (allShopsData.sales_speed[sc] !== undefined && allShopsData.sales_speed[sc] !== null) ||
+      (allShopsData.inventory[sc] !== undefined && allShopsData.inventory[sc] !== null);
+    if (!hasSourceData) {
+      console.warn(`[precalculation] SKIP shop ${sc}: missing source data (sync failed) — keeping previous Firebase data.`);
+    }
+
+    if (db && hasSourceData) {
       try {
         await db.ref(`shops/${sc}/upharma_data/stable_consumption_calculated`).set({
           success: true,
