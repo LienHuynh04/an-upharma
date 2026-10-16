@@ -788,6 +788,15 @@ export class UpharmaService {
 
             try {
               const json = await fetchShopData();
+              // DATA FIX (2026-10-16): flag stale Firebase data instead of silently using it.
+              // The sync script skips pushing when a shop's API call fails, so old data
+              // can linger. Surface it via failedShops so the UI can warn.
+              const fetchedAtMs = json && json.fetchedAt ? Date.parse(json.fetchedAt) : 0;
+              const STALE_AFTER_MS = 12 * 60 * 60 * 1000; // 12h (sync runs hourly)
+              if (fetchedAtMs > 0 && Date.now() - fetchedAtMs > STALE_AFTER_MS) {
+                const ageH = Math.round((Date.now() - fetchedAtMs) / 3600000);
+                failedShops.push(`${shop.ShopCode}: data cũ ${ageH}h trên Firebase (sync lỗi?)`);
+              }
               let rawList: any[] = [];
               if (json) {
                 if (Array.isArray(json)) {
