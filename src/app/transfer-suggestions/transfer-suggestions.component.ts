@@ -96,18 +96,6 @@ export interface GroupedExpiringStock {
               Gợi ý Điều Chuyển Hàng Cận Date
             </h2>
           </div>
-          <div class="col-auto ms-auto d-print-none">
-            <button
-              type="button"
-              class="btn btn-primary d-flex align-items-center gap-2 px-3 py-2 shadow-sm"
-              [disabled]="loadingStep1 || loadingStep2"
-              (click)="runFullProcess(true)"
-              title="Xóa bộ nhớ đệm và quét lại toàn bộ dữ liệu cận date & tiêu thụ toàn quốc"
-            >
-              <i class="ti ti-refresh" [class.ti-spin]="loadingStep1 || loadingStep2"></i>
-              <span class="fw-bold">{{ (loadingStep1 || loadingStep2) ? 'Đang quét toàn quốc...' : 'Quét lại toàn quốc' }}</span>
-            </button>
-          </div>
         </div>
       </div>
     </div>
@@ -693,23 +681,11 @@ export class TransferSuggestionsComponent implements OnInit {
     this.runFullProcess();
   }
 
-  async runFullProcess(forceRefresh = false): Promise<void> {
+  async runFullProcess(): Promise<void> {
     const session = this.upharma.getSession();
     const uPharmaID = session?.UserInfo?.uPharmaID || 0;
     const cacheKey = `transfer|${uPharmaID}|${this.selectedShopCode}|${this.expiryDaysThreshold}`;
 
-    if (forceRefresh) {
-      await this.deleteCache(cacheKey);
-      this.expiringStockList = [];
-      this.nationalStoreStockMap = {};
-      this.cachedSuggestionRows = [];
-      this.cachedGroupedSuggestions = [];
-      this.cachedBucketCounts = null;
-      this.step1Done = false;
-      this.step2Done = false;
-      this.statusText = "Đang quét lại toàn bộ dữ liệu tồn kho & tiêu thụ toàn quốc...";
-      this.cdr.markForCheck();
-    } else {
       // 1. TẢI TỨC THÌ TỪ INDEXEDDB CỦA TRÌNH DUYỆT (0ms)
       const cached = await this.readCache(cacheKey);
       if (
@@ -843,12 +819,10 @@ export class TransferSuggestionsComponent implements OnInit {
       } catch (err) {
         console.warn("Không nạp được cache Firebase, fallback về tính toán cục bộ:", err);
       }
-    }
-
-    // 3. FALLBACK: NẾU CHƯA CÓ CACHE HOẶC BẤM QUÉT LẠI
-    await this.runStep1(forceRefresh);
+    // 3. FALLBACK: NẾU CHƯA CÓ CACHE
+    await this.runStep1();
     if (this.step1Done && this.expiringStockList.length > 0) {
-      await this.runStep2(forceRefresh);
+      await this.runStep2();
       await this.writeCache({
         cacheKey,
         groupedSuggestions: this.cachedGroupedSuggestions,
@@ -872,7 +846,7 @@ export class TransferSuggestionsComponent implements OnInit {
   // ==========================================
   // BƯỚC 1: LẤY DỮ LIỆU CẬN DATE TỪ TỒN KHO (`ton-kho`)
   // ==========================================
-  async runStep1(forceRefresh = false): Promise<void> {
+  async runStep1(): Promise<void> {
     if (this.loadingStep1) return;
     this.loadingStep1 = true;
     this.statusText = "Đang đồng bộ dữ liệu từ phân hệ Tồn Kho (ton-kho)...";
@@ -897,7 +871,7 @@ export class TransferSuggestionsComponent implements OnInit {
 
       // Tải dữ liệu Tồn Kho chuẩn hóa
       const inventoryRes: ResourceResponse = await this.upharma.loadInventoryResource({
-        forceRefresh,
+        forceRefresh: false,
         shopCodes: targetShopCodes,
       });
 
@@ -946,7 +920,7 @@ export class TransferSuggestionsComponent implements OnInit {
   // ==========================================
   // BƯỚC 2: TIÊU THỤ TOÀN QUỐC (ƯU TIÊN LẤY TỪ FIREBASE CACHE SIÊU NHANH)
   // ==========================================
-  async runStep2(forceRefresh = false): Promise<void> {
+  async runStep2(): Promise<void> {
     if (this.loadingStep2 || !this.step1Done) return;
 
     const uniqueProductCodes = Array.from(
@@ -978,7 +952,7 @@ export class TransferSuggestionsComponent implements OnInit {
 
       const responseMap = await this.nationalInventoryService.resolve(uniqueProductCodes, {
         mode: this.selectedApiMode,
-        forceRefresh: forceRefresh,
+        forceRefresh: false,
         onProgress: (p) => {
           this.progressPercent = Math.round((p.done / p.total) * 100);
           this.progressDone = p.done;
@@ -1497,21 +1471,6 @@ export class TransferSuggestionsComponent implements OnInit {
       db.close();
     } catch (err) {
       console.warn("Không lưu được cache luân chuyển:", err);
-    }
-  }
-
-  private async deleteCache(cacheKey: string): Promise<void> {
-    try {
-      const db = await this.openCacheDb();
-      await new Promise<void>((resolve, reject) => {
-        const transaction = db.transaction("transferCache", "readwrite");
-        const request = transaction.objectStore("transferCache").delete(cacheKey);
-        request.onsuccess = () => resolve();
-        request.onerror = () => reject(request.error);
-      });
-      db.close();
-    } catch {
-      // ignore
     }
   }
 
