@@ -96,6 +96,11 @@ export interface GroupedExpiringStock {
               Gợi ý Điều Chuyển Hàng Cận Date
             </h2>
           </div>
+          <div class="col-auto ms-auto d-print-none">
+            <button type="button" class="btn btn-outline-primary" (click)="runFullProcess()" [disabled]="loadingStep1 || loadingStep2" title="Tính lại gợi ý từ dữ liệu mới nhất">
+              <i class="ti ti-refresh me-1" [class.ti-spin]="loadingStep1 || loadingStep2"></i>Tải lại
+            </button>
+          </div>
         </div>
       </div>
     </div>
