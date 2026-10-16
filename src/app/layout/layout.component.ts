@@ -3,21 +3,26 @@ import { Component, OnInit, OnDestroy, HostListener } from "@angular/core";
 import { Subscription } from "rxjs";
 import {
   NavigationEnd,
+  NavigationStart,
   Router,
   RouterLink,
   RouterLinkActive,
   RouterOutlet,
 } from "@angular/router";
 import { UpharmaService } from "../upharma.service";
+import { TabStateService, OpenTab } from "../tab-state.service";
 
 @Component({
   selector: "app-layout",
   standalone: true,
   imports: [CommonModule, RouterLink, RouterLinkActive, RouterOutlet],
   templateUrl: "./layout.component.html",
+  styleUrl: "./layout.component.css",
 })
 export class LayoutComponent implements OnInit, OnDestroy {
   private routerSub?: Subscription;
+  private tabSub?: Subscription;
+  private activePathSub?: Subscription;
   appClasses = {
     "is-sidebar-open": false,
     "layout-top": false,
@@ -42,7 +47,14 @@ export class LayoutComponent implements OnInit, OnDestroy {
   showPromptModal = false;
   promptContent = '';
 
-  constructor(public upharma: UpharmaService, public router: Router) {}
+  constructor(
+    public upharma: UpharmaService,
+    public router: Router,
+    public tabState: TabStateService
+  ) {}
+
+  tabs: OpenTab[] = [];
+  activePath = "";
 
   onActivate(componentRef: any) {
     this.activeComponent = componentRef;
@@ -819,15 +831,43 @@ renderDashboard(); renderInventory(); renderNearExpiryOrders(); renderTabs(); re
     this.applyDarkMode();
     this.checkSession();
     this.syncMenuState(this.router.url);
+    this.tabSub = this.tabState.tabs$.subscribe((tabs) => (this.tabs = tabs));
+    this.activePathSub = this.tabState.activePath$.subscribe((p) => (this.activePath = p));
     this.routerSub = this.router.events.subscribe((event) => {
+      if (event instanceof NavigationStart) {
+        // Remember scroll position of the tab we are leaving
+        this.tabState.saveScroll(this.router.url, window.scrollY);
+      }
       if (event instanceof NavigationEnd) {
-        this.syncMenuState(event.urlAfterRedirects || event.url);
+        const url = event.urlAfterRedirects || event.url;
+        this.syncMenuState(url);
+        this.tabState.openTab(url);
+        // Restore this tab's scroll position after the view renders
+        const y = this.tabState.getScroll(url);
+        if (y > 0) {
+          requestAnimationFrame(() => window.scrollTo(0, y));
+        }
       }
     });
   }
 
   ngOnDestroy(): void {
     this.routerSub?.unsubscribe();
+    this.tabSub?.unsubscribe();
+    this.activePathSub?.unsubscribe();
+  }
+
+  trackTabBy(_index: number, tab: OpenTab): string {
+    return tab.path;
+  }
+
+  onCloseTab(tab: OpenTab, event: MouseEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    const next = this.tabState.closeTab(tab.path);
+    if (next !== this.router.url) {
+      void this.router.navigateByUrl(next);
+    }
   }
 
   get userInitial(): string {

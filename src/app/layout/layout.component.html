@@ -237,6 +237,35 @@
     </div>
   </header>
 
+  <!-- Tab Bar: open pages as tabs (lightweight — no component caching) -->
+  <div class="tab-bar d-print-none" *ngIf="tabs.length > 0">
+    <div class="container-xl">
+      <div class="tab-strip" role="tablist" aria-label="Các trang đang mở">
+        <div
+          class="tab-item"
+          *ngFor="let tab of tabs; trackBy: trackTabBy"
+          role="tab"
+          [class.active]="tab.path === activePath"
+          [attr.aria-selected]="tab.path === activePath"
+        >
+          <a [routerLink]="tab.path" class="tab-link" [attr.aria-current]="tab.path === activePath ? 'page' : null">
+            <i [class]="tab.icon" aria-hidden="true"></i>
+            <span class="tab-title">{{ tab.title }}</span>
+          </a>
+          <button
+            type="button"
+            class="tab-close"
+            (click)="onCloseTab(tab, $event)"
+            [attr.aria-label]="'Đóng tab ' + tab.title"
+            title="Đóng tab"
+          >
+            <i class="ti ti-x" aria-hidden="true"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Page Wrapper -->
   <div class="page-wrapper" style="padding-top: 0px;">
     <!-- Main Content Area -->
