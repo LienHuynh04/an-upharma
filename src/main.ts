@@ -151,7 +151,10 @@ const routes: Routes = [
 bootstrapApplication(RootComponent, {
   providers: [
     provideRouter(routes, withPreloading(SelectivePreloadingStrategy), withHashLocation()),
-    // Keep tab components alive so switching tabs preserves filters/scroll/data
-    { provide: RouteReuseStrategy, useClass: TabReuseStrategy },
+    // Keep tab components alive so switching tabs preserves filters/scroll/data.
+    // useExisting (not useClass): both tokens share ONE singleton, so
+    // LayoutComponent can inject TabReuseStrategy directly to clear cache.
+    TabReuseStrategy,
+    { provide: RouteReuseStrategy, useExisting: TabReuseStrategy },
   ],
 }).catch((error) => console.error(error));
