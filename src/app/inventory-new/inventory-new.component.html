@@ -5,6 +5,13 @@
         <div class="page-pretitle">QUẢN LÝ TỒN KHO</div>
         <h2 class="page-title">Tồn kho chi tiết</h2>
       </div>
+      <div class="col-auto ms-auto d-print-none">
+        <div class="btn-list">
+          <button type="button" class="btn btn-outline-primary" (click)="loadInventory(true)" [disabled]="inventoryRefreshing" title="Tải lại dữ liệu mới từ Firebase">
+            <i class="ti ti-refresh me-1" [class.ti-spin]="inventoryRefreshing"></i>Tải lại
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 </div>

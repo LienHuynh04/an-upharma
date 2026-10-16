@@ -250,7 +250,7 @@ export class FefoComponent implements OnInit {
     return shop.ShopCode;
   }
 
-  async loadData(): Promise<void> {
+  async loadData(forceRefresh = false): Promise<void> {
     this.loading = true;
     this.loadingProgress = 20;
     this.errorText = "";
@@ -261,6 +261,7 @@ export class FefoComponent implements OnInit {
       this.loadingProgress = 40;
       const allShopCodes = this.shops.map((s) => s.ShopCode);
       const inventoryRes = await this.upharmaService.loadInventoryResource({
+        forceRefresh,
         shopCodes: allShopCodes.length > 0 ? allShopCodes : undefined,
       });
 

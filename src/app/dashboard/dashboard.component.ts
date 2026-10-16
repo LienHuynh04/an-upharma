@@ -116,7 +116,7 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
     return this.shops.find((shop) => shop.ShopCode === this.activeShopCode)?.ShopName || this.activeShopCode;
   }
 
-  async loadDashboard(): Promise<void> {
+  async loadDashboard(forceRefresh = false): Promise<void> {
     const session = this.upharmaService.ensureLogin();
 
     if (!this.activeShopCode) {
@@ -148,7 +148,7 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
     this.dashboardErrorText = "";
 
     try {
-      const customerNew = await this.upharmaService.callEndpoint<CustomerNewResponse>(this.customerNewEndpoint, {
+      const customerNew = await this.upharmaService.callEndpoint<CustomerNewResponse>(this.customerNewEndpoint, { forceRefresh: forceRefresh,
         Month: this.getEndMonth(),
         Year: this.getEndYear(),
         Token: session.Token,
@@ -159,7 +159,7 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
 
       this.customerNewLst = customerNew.CustomerNewLst || [];
 
-      const statistics = await this.upharmaService.callEndpoint<StatisticsShopResponse>(this.statisticsEndpoint, {
+      const statistics = await this.upharmaService.callEndpoint<StatisticsShopResponse>(this.statisticsEndpoint, { forceRefresh: forceRefresh,
         ShopCode: this.activeShopCode,
         TimeStart: this.getRangeStart(),
         TimeEnd: this.getRangeEnd(),

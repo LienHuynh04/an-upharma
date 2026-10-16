@@ -355,6 +355,11 @@ export class StableConsumptionComponent implements OnInit {
     await this.router.navigateByUrl("/login");
   }
 
+  /** Manual refresh button: bypass caches, re-fetch fresh data from Firebase. */
+  onRefreshData(): void {
+    void this.loadActiveShop(true);
+  }
+
   private async loadActiveShop(forceReload = false): Promise<void> {
     const session = this.upharmaService.ensureLogin();
     const shop = this.shops.find((item) => item.ShopCode === this.activeShopCode);
