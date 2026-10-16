@@ -458,6 +458,15 @@ interface StockGroup {
         >
           {{ loading ? 'Đang tải…' : 'Xem tồn' }}
         </button>
+        <button
+          class="ns-btn"
+          type="button"
+          (click)="loadProducts(true)"
+          [disabled]="loading || !searched"
+          title="Tải lại dữ liệu mới từ Firebase"
+        >
+          Tải lại
+        </button>
       </form>
 
       <div class="ns-selected" *ngIf="selectedName">

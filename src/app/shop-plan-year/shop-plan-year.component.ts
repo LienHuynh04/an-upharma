@@ -116,6 +116,9 @@ export class ShopPlanIconComponent {
                 <option *ngFor="let year of yearOptions" [ngValue]="year">{{ year }}</option>
               </select>
             </div>
+            <button type="button" class="btn btn-outline-primary" (click)="loadAllShops(true)" [disabled]="hasLoadingTabs()" title="Tải lại dữ liệu mới từ Firebase">
+              <i class="ti ti-refresh me-1"></i>Tải lại
+            </button>
             <button class="btn btn-primary" type="button" (click)="loadAllShops()">Xem</button>
           </div>
         </div>
@@ -280,7 +283,11 @@ export class ShopPlanYearComponent implements OnInit {
     this.tabs = shops.map((shop) => ({ shopCode: shop.ShopCode, shopName: shop.ShopName, loading: false, errorText: "", items: [] }));
   }
 
-  async loadAllShops(): Promise<void> {
+  hasLoadingTabs(): boolean {
+    return this.tabs.some((tab) => tab.loading);
+  }
+
+  async loadAllShops(forceRefresh = false): Promise<void> {
     const session = this.upharmaService.ensureLogin();
     const shops = this.upharmaService.getActiveShops();
     if (shops.length === 0) {
@@ -295,7 +302,7 @@ export class ShopPlanYearComponent implements OnInit {
       const tab = this.tabs.find((entry) => entry.shopCode === shop.ShopCode);
       if (!tab) return;
       try {
-        const response = await this.upharmaService.callEndpoint<ShopPlanResponse>(this.endpoint, { TimeStart: timeStart, TimeEnd: timeEnd, Token: session.Token, uPharmaID: String(session.UserInfo.uPharmaID), ShopCode: shop.ShopCode });
+        const response = await this.upharmaService.callEndpoint<ShopPlanResponse>(this.endpoint, { TimeStart: timeStart, TimeEnd: timeEnd, Token: session.Token, uPharmaID: String(session.UserInfo.uPharmaID), ShopCode: shop.ShopCode }, { forceRefresh });
         tab.items = Array.isArray(response.ShopPlanLst) ? response.ShopPlanLst : [];
       } catch (error) {
         if (!this.isInvalidTokenError(error)) {

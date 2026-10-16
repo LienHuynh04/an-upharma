@@ -104,7 +104,11 @@ export class EmployeePlanComponent implements OnInit {
     }
   }
 
-  async loadAllShops(): Promise<void> {
+  hasLoadingTabs(): boolean {
+    return this.tabs.some((tab) => tab.loading);
+  }
+
+  async loadAllShops(forceRefresh = false): Promise<void> {
     const session = this.upharmaService.ensureLogin();
     const shops = this.upharmaService.getActiveShops();
 
@@ -132,7 +136,7 @@ export class EmployeePlanComponent implements OnInit {
             Token: session.Token,
             uPharmaID: String(session.UserInfo.uPharmaID),
             ShopCode: shop.ShopCode,
-          });
+          }, { forceRefresh });
 
           tab.items = Array.isArray(response.EmployeePlanLst) ? response.EmployeePlanLst : [];
           tab.errorText = "";

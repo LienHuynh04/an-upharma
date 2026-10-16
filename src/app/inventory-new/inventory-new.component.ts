@@ -316,13 +316,13 @@ export class InventoryNewComponent implements OnInit {
     return this.loadingTasks.size > 0;
   }
 
-  async loadInventory(): Promise<void> {
+  async loadInventory(forceRefresh = false): Promise<void> {
     try {
       const sessionData = this.upharmaService.ensureLogin();
       this.shopList = this.upharmaService.getActiveShops();
 
       const cacheKey = this.getInventoryCacheKey(sessionData.UserInfo.uPharmaID);
-      const cachedInventory = await this.readInventoryCache(cacheKey);
+      const cachedInventory = forceRefresh ? null : await this.readInventoryCache(cacheKey);
 
       if (cachedInventory) {
         this.applyInventoryData(cachedInventory.data);

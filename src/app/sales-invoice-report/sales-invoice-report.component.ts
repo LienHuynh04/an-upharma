@@ -48,6 +48,13 @@ interface SalesInvoiceReportCacheEntry {
           <div class="page-pretitle">BÁO CÁO</div>
           <h2 class="page-title">Báo cáo đơn hàng</h2>
         </div>
+        <div class="col-auto ms-auto d-print-none">
+          <div class="btn-list">
+            <button type="button" class="btn btn-outline-primary" (click)="loadData(true)" [disabled]="loading" title="Tải lại dữ liệu mới từ Firebase">
+              <i class="ti ti-refresh me-1" [class.ti-spin]="loading"></i>Tải lại
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   </div>

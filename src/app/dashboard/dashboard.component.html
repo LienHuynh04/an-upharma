@@ -13,6 +13,9 @@
               <option *ngFor="let shop of shops" [ngValue]="shop.ShopCode">{{ shop.ShopCode }} - {{ shop.ShopName }}</option>
             </select>
           </div>
+          <button type="button" class="btn btn-outline-primary btn-sm" (click)="loadDashboard(true)" [disabled]="dashboardLoading" title="Tải lại dữ liệu mới từ Firebase">
+            <i class="ti ti-refresh me-1" [class.ti-spin]="dashboardLoading"></i>Tải lại
+          </button>
         </div>
       </div>
     </div>
