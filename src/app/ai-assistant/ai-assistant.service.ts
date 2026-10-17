@@ -85,11 +85,6 @@ export class AiAssistantService {
     }
   }
 
-  /** True when the key comes from environment (no manual setup needed). */
-  hasBuiltInKey(): boolean {
-    return String((environment as any).geminiApiKey || "").trim().length > 0;
-  }
-
   setApiKey(key: string): void {
     try {
       localStorage.setItem(this.KEY_STORAGE, key.trim());
