@@ -1,0 +1,96 @@
+<!-- Floating bubble -->
+<button
+  type="button"
+  class="ai-bubble d-print-none"
+  (click)="toggle()"
+  [attr.aria-label]="isOpen ? 'Đóng trợ lý AI' : 'Mở trợ lý AI'"
+  [attr.aria-expanded]="isOpen"
+  *ngIf="!isOpen"
+>
+  <i class="ti ti-sparkles" aria-hidden="true"></i>
+</button>
+
+<!-- Chat panel -->
+<div class="ai-panel d-print-none" *ngIf="isOpen" role="dialog" aria-label="Trợ lý AI UPHARMA">
+  <div class="ai-header">
+    <div class="ai-title">
+      <i class="ti ti-sparkles" aria-hidden="true"></i>
+      <span>Trợ lý AI</span>
+    </div>
+    <div class="ai-actions">
+      <button type="button" class="ai-icon-btn" (click)="changeKey()" title="Đổi API key" aria-label="Đổi API key">
+        <i class="ti ti-key" aria-hidden="true"></i>
+      </button>
+      <button type="button" class="ai-icon-btn" (click)="close()" title="Đóng" aria-label="Đóng">
+        <i class="ti ti-x" aria-hidden="true"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- API key setup -->
+  <div class="ai-key-setup" *ngIf="showKeySetup">
+    <p class="mb-2"><strong>Chào bạn!</strong> Để dùng trợ lý AI, bạn cần API key miễn phí của Google Gemini:</p>
+    <ol class="mb-2 ps-3 small text-secondary">
+      <li>Vào <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a></li>
+      <li>Bấm <em>Create API key</em>, copy key</li>
+      <li>Dán vào ô dưới rồi bấm Lưu</li>
+    </ol>
+    <input
+      type="password"
+      class="form-control form-control-sm mb-2"
+      [(ngModel)]="keyInput"
+      placeholder="Dán Gemini API key..."
+      aria-label="Gemini API key"
+      (keyup.enter)="saveKey()"
+    />
+    <div class="text-danger small mb-2" *ngIf="keyError">{{ keyError }}</div>
+    <button type="button" class="btn btn-primary btn-sm w-100" (click)="saveKey()">Lưu key</button>
+    <p class="small text-secondary mt-2 mb-0">Key chỉ lưu trên trình duyệt của bạn, không gửi đi đâu khác ngoài Google.</p>
+  </div>
+
+  <!-- Messages -->
+  <div class="ai-messages" #msgList *ngIf="!showKeySetup">
+    <div
+      class="ai-msg"
+      *ngFor="let m of messages; trackBy: trackByIdx"
+      [class.ai-user]="m.role === 'user'"
+      [class.ai-assistant]="m.role === 'assistant'"
+    >
+      <div class="ai-bubble-msg">{{ m.text }}</div>
+    </div>
+    <div class="ai-msg ai-assistant" *ngIf="sending">
+      <div class="ai-bubble-msg ai-typing"><span></span><span></span><span></span></div>
+    </div>
+    <div class="ai-chips" *ngIf="messages.length <= 1 && !sending">
+      <button
+        type="button"
+        class="btn btn-outline-secondary btn-sm"
+        *ngFor="let chip of quickChips"
+        (click)="sendChip(chip)"
+      >{{ chip }}</button>
+    </div>
+  </div>
+
+  <!-- Input -->
+  <div class="ai-input-bar" *ngIf="!showKeySetup">
+    <input
+      #chatInput
+      type="text"
+      class="form-control"
+      [(ngModel)]="inputText"
+      (keydown)="onInputKey($event)"
+      placeholder="Hỏi về số liệu kho..."
+      aria-label="Nhập câu hỏi"
+      [disabled]="sending"
+    />
+    <button
+      type="button"
+      class="btn btn-primary"
+      (click)="send()"
+      [disabled]="sending || !inputText.trim()"
+      aria-label="Gửi"
+    >
+      <i class="ti ti-send" aria-hidden="true"></i>
+    </button>
+  </div>
+</div>
