@@ -134,8 +134,8 @@ export class AiChatComponent {
     // Bold **...** và __...__
     html = html.replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>");
     html = html.replace(/__([^_\n]+)__/g, "<strong>$1</strong>");
-    // Italic *...* (tránh nhầm với list)
-    html = html.replace(/(?<!\w)\*([^\*\n]+)\*(?!\w)/g, "<em>$1</em>");
+    // Italic *...* (tránh nhầm với list) — không dùng lookbehind để tương thích Safari cũ
+    html = html.replace(/(^|\W)\*([^\*\n]+)\*(?!\w)/g, "$1<em>$2</em>");
     // Headings ### / ## / #
     html = html.replace(/^####\s+(.+)$/gm, "<h5>$1</h5>");
     html = html.replace(/^###\s+(.+)$/gm, "<h4>$1</h4>");

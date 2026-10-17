@@ -261,10 +261,12 @@ export class AiAssistantService {
     }
   }
 
-  /** Snapshot đầy đủ kèm deep data cho system prompt. */
+  /**
+   * Snapshot nhẹ cho mọi câu hỏi: shops_summary + SUMMARY (~6KB).
+   * KHÔNG tải product_catalog (791KB) ở đây — chỉ tải khi user hỏi về tên sản phẩm cụ thể.
+   */
   async getDeepSnapshot(): Promise<DataSnapshot> {
-    const snap = await this.getDataSnapshot();
-    const [transfer, catalog] = await Promise.all([this.getTransferSummary(), this.getCatalog()]);
+    const [snap, transfer] = await Promise.all([this.getDataSnapshot(), this.getTransferSummary()]);
     if (transfer) {
       snap.expiringCount = Number(transfer.totalExpiringCount) || 0;
       snap.suggestionCount = Number(transfer.suggestionCount) || 0;
@@ -275,8 +277,9 @@ export class AiAssistantService {
       snap.topExpiring = Array.isArray(transfer.topExpiring) ? transfer.topExpiring : [];
       snap.topSuggestions = Array.isArray(transfer.topSuggestions) ? transfer.topSuggestions : [];
     }
-    if (catalog.count) {
-      snap.catalogCount = catalog.count;
+    // Dùng cache catalog nếu đã có (không block để tải)
+    if (this.catalogCache?.count) {
+      snap.catalogCount = this.catalogCache.count;
     }
     return snap;
   }
