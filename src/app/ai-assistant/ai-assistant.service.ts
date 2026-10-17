@@ -411,7 +411,7 @@ Khi gợi ý báo cáo, đề xuất cụ thể theo vai trò quản lý nhà th
     const body = JSON.stringify({
       system_instruction: { parts: [{ text: this.buildSystemPrompt(snap) }] },
       contents,
-      generationConfig: { temperature: 0.7, maxOutputTokens: 1024 },
+      generationConfig: { temperature: 0.7, maxOutputTokens: 8192 },
     });
 
     // Retry với backoff cho lỗi tạm thời (429 quota, 503 quá tải)
