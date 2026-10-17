@@ -1,5 +1,6 @@
 import { CommonModule } from "@angular/common";
 import { Component, ElementRef, ViewChild } from "@angular/core";
+import { DomSanitizer, SafeHtml } from "@angular/platform-browser";
 import { FormsModule } from "@angular/forms";
 import { AiAssistantService, ChatMessage } from "./ai-assistant.service";
 
@@ -30,7 +31,10 @@ export class AiChatComponent {
   @ViewChild("msgList") msgList?: ElementRef<HTMLElement>;
   @ViewChild("chatInput") chatInput?: ElementRef<HTMLInputElement>;
 
-  constructor(public ai: AiAssistantService) {}
+  constructor(
+    public ai: AiAssistantService,
+    private sanitizer: DomSanitizer
+  ) {}
 
   toggle(): void {
     this.isOpen = !this.isOpen;
@@ -137,5 +141,42 @@ export class AiChatComponent {
 
   trackByIdx(index: number): number {
     return index;
+  }
+
+  /** Render markdown cơ bản của AI thành HTML (đã escape để chống XSS). */
+  formatMessage(text: string): SafeHtml {
+    let html = text
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+    // Code block ```...```
+    html = html.replace(/```([\s\S]*?)```/g, (_m, code) => `<pre><code>${code.trim()}</code></pre>`);
+    // Inline code `...`
+    html = html.replace(/`([^`\n]+)`/g, "<code>$1</code>");
+    // Bold **...** và __...__
+    html = html.replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>");
+    html = html.replace(/__([^_\n]+)__/g, "<strong>$1</strong>");
+    // Italic *...* (tránh nhầm với list)
+    html = html.replace(/(?<!\w)\*([^\*\n]+)\*(?!\w)/g, "<em>$1</em>");
+    // Headings ### / ## / #
+    html = html.replace(/^####\s+(.+)$/gm, "<h5>$1</h5>");
+    html = html.replace(/^###\s+(.+)$/gm, "<h4>$1</h4>");
+    html = html.replace(/^##\s+(.+)$/gm, "<h4>$1</h4>");
+    // Unordered list
+    html = html.replace(/^(?:[-*]\s+.+\n?)+/gm, (block) => {
+      const items = block.trim().split("\n").map((l) => `<li>${l.replace(/^[-*]\s+/, "")}</li>`).join("");
+      return `<ul>${items}</ul>`;
+    });
+    // Ordered list
+    html = html.replace(/^(?:\d+\.\s+.+\n?)+/gm, (block) => {
+      const items = block.trim().split("\n").map((l) => `<li>${l.replace(/^\d+\.\s+/, "")}</li>`).join("");
+      return `<ol>${items}</ol>`;
+    });
+    // Xuống dòng còn lại
+    html = html.replace(/\n/g, "<br>");
+    // Dọn <br> thừa quanh block elements
+    html = html.replace(/(<\/(?:ul|ol|h4|h5|pre)>|<ul>|<ol>)<br>/g, "$1");
+    html = html.replace(/<br>(<(?:ul|ol|li|h4|h5|pre))/g, "$1");
+    return this.sanitizer.bypassSecurityTrustHtml(html);
   }
 }

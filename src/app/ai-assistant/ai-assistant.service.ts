@@ -376,10 +376,17 @@ export class AiAssistantService {
         return `- ${c}: hết hàng ${s.outOfStockCount}, bán chạy ${s.stableCount}, bán chậm ${s.slowCount}, hàng key ${s.keyCount}`;
       })
       .join("\n");
-    return `Bạn là trợ lý AI cho hệ thống quản lý kho dược phẩm UPHARMA (nhà thuốc tại Việt Nam).
-Trả lời ngắn gọn, rõ ràng bằng tiếng Việt. Khi được hỏi về số liệu, dùng đúng số liệu dưới đây, không bịa thêm.
+    const today = new Date().toLocaleDateString("vi-VN", {
+      weekday: "long",
+      day: "numeric",
+      month: "numeric",
+      year: "numeric",
+    });
+    return `Bạn là trợ lý AI thân thiện cho hệ thống quản lý kho dược phẩm UPHARMA (nhà thuốc tại Việt Nam).
+Hôm nay là ${today}.
+Trả lời ngắn gọn, rõ ràng bằng tiếng Việt. Khi được hỏi về số liệu kho, dùng đúng số liệu dưới đây, không bịa thêm. Với mọi câu hỏi khác (ngày giờ, kiến thức chung, viết văn bản, tư vấn...), trả lời tự nhiên như một chatbot thông thường. Với câu trả lời dài, dùng markdown (tiêu đề, in đậm, gạch đầu dòng) cho dễ đọc.
 
-DỮ LIỆU HIỆN TẠI (đồng bộ ${snap.dataAge}):
+DỮ LIỆU KHO HIỆN TẠI (đồng bộ ${snap.dataAge}):
 - Số nhà thuốc: ${snap.shopCount} (${snap.shopCodes.join(", ")})
 - Tổng hết hàng: ${snap.totals.outOfStock} | Bán chạy: ${snap.totals.stable} | Bán chậm: ${snap.totals.slow} | Hàng key: ${snap.totals.key}
 - Danh mục: ${snap.catalogCount.toLocaleString("vi-VN")} sản phẩm
