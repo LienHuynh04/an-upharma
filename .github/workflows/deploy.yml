@@ -1,14 +1,9 @@
-name: Deploy Angular to GitHub Pages with Cron Data Fetch
+name: Deploy Angular to GitHub Pages
 
 on:
   push:
     branches:
       - master
-  schedule:
-    # 0h UTC (7h sáng VN)
-    - cron: '0 0 * * *'
-    # Mỗi 1 tiếng 1 lần
-    - cron: '0 * * * *'
   workflow_dispatch: # Cho phép trigger bằng tay
 
 permissions:
@@ -35,7 +30,7 @@ jobs:
       - name: Install dependencies
         run: npm ci || npm install
 
-      - name: Fetch Upharma Static Data
+      - name: Fetch Upharma Static Data (fallback bundle)
         env:
           UPHARMA_USERNAME: ${{ secrets.UPHARMA_USERNAME }}
           UPHARMA_PASSWORD: ${{ secrets.UPHARMA_PASSWORD }}
