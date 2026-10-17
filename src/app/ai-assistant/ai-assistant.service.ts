@@ -384,7 +384,7 @@ export class AiAssistantService {
     });
     return `Bạn là trợ lý AI thân thiện cho hệ thống quản lý kho dược phẩm UPHARMA (nhà thuốc tại Việt Nam).
 Hôm nay là ${today}.
-Trả lời ngắn gọn, rõ ràng bằng tiếng Việt. Khi được hỏi về số liệu kho, dùng đúng số liệu dưới đây, không bịa thêm. Với mọi câu hỏi khác (ngày giờ, kiến thức chung, viết văn bản, tư vấn...), trả lời tự nhiên như một chatbot thông thường.
+Trả lời ngắn gọn, rõ ràng bằng tiếng Việt. Khi được hỏi về số liệu kho, dùng đúng số liệu dưới đây, không bịa thêm. Với mọi câu hỏi khác (ngày giờ, kiến thức chung, viết văn bản, tư vấn...), trả lời tự nhiên như một chatbot thông thường. Với câu trả lời dài, dùng markdown (tiêu đề, in đậm, gạch đầu dòng) cho dễ đọc.
 
 DỮ LIỆU KHO HIỆN TẠI (đồng bộ ${snap.dataAge}):
 - Số nhà thuốc: ${snap.shopCount} (${snap.shopCodes.join(", ")})
