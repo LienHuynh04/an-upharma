@@ -32,7 +32,8 @@ export interface DataSnapshot {
 @Injectable({ providedIn: "root" })
 export class AiAssistantService {
   private readonly KEY_STORAGE = "ai_assistant_gemini_key";
-  private readonly MODEL = "gemini-2.0-flash";
+  /** Models to try in order — fallback if the first returns 404. */
+  private readonly MODELS = ["gemini-2.0-flash", "gemini-1.5-flash"];
   private snapshotCache: { at: number; data: DataSnapshot } | null = null;
   private readonly SNAPSHOT_TTL_MS = 5 * 60 * 1000;
 
@@ -202,34 +203,46 @@ Khi gợi ý báo cáo, đề xuất cụ thể theo vai trò quản lý nhà th
       .slice(-10)
       .map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.text }] }));
     contents.push({ role: "user", parts: [{ text: question }] });
+    const body = JSON.stringify({
+      system_instruction: { parts: [{ text: this.buildSystemPrompt(snap) }] },
+      contents,
+      generationConfig: { temperature: 0.7, maxOutputTokens: 1024 },
+    });
 
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${this.MODEL}:generateContent`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-goog-api-key": key },
-        body: JSON.stringify({
-          system_instruction: { parts: [{ text: this.buildSystemPrompt(snap) }] },
-          contents,
-          generationConfig: { temperature: 0.7, maxOutputTokens: 1024 },
-        }),
+    let modelNotFound = false;
+    for (const model of this.MODELS) {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+          body,
+        }
+      );
+
+      if (res.status === 404) {
+        modelNotFound = true;
+        continue; // thử model tiếp theo
       }
-    );
-
-    if (res.status === 400) {
-      throw new Error("API key không hợp lệ. Bạn kiểm tra lại key ở Google AI Studio nhé.");
+      if (res.status === 400) {
+        throw new Error("API key không hợp lệ. Bạn kiểm tra lại key ở Google AI Studio nhé.");
+      }
+      if (res.status === 429) {
+        throw new Error("Đã vượt quota miễn phí của Gemini. Thử lại sau ít phút.");
+      }
+      if (!res.ok) {
+        throw new Error(`Gemini lỗi HTTP ${res.status}. Thử lại sau.`);
+      }
+      const json = await res.json();
+      const text = json?.candidates?.[0]?.content?.parts?.map((p: any) => p.text || "").join("") || "";
+      if (!text.trim()) {
+        throw new Error("AI không trả lời được. Bạn thử hỏi lại theo cách khác nhé.");
+      }
+      return text.trim();
     }
-    if (res.status === 429) {
-      throw new Error("Đã vượt quota miễn phí của Gemini. Thử lại sau ít phút.");
+    if (modelNotFound) {
+      throw new Error("Key này chưa được bật model Gemini. Bạn vào aistudio.google.com → kiểm tra key còn hiệu lực không nhé.");
     }
-    if (!res.ok) {
-      throw new Error(`Gemini lỗi HTTP ${res.status}. Thử lại sau.`);
-    }
-    const json = await res.json();
-    const text = json?.candidates?.[0]?.content?.parts?.map((p: any) => p.text || "").join("") || "";
-    if (!text.trim()) {
-      throw new Error("AI không trả lời được. Bạn thử hỏi lại theo cách khác nhé.");
-    }
-    return text.trim();
+    throw new Error("AI không trả lời được. Bạn thử lại sau nhé.");
   }
 }
