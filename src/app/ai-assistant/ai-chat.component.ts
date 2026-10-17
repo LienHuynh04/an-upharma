@@ -37,6 +37,10 @@ export class AiChatComponent {
       this.greeted = true;
       if (!this.ai.hasApiKey()) {
         this.showKeySetup = true;
+      } else if (this.ai.hasBuiltInKey()) {
+        this.pushAssistant(
+          "Chào bạn! Tôi là trợ lý AI của UPHARMA. Hỏi tôi về số liệu kho, hoặc nhờ gợi ý báo cáo nhé."
+        );
       } else {
         this.pushAssistant(
           "Chào bạn! Tôi là trợ lý AI của UPHARMA. Hỏi tôi về số liệu kho, hoặc nhờ gợi ý báo cáo nhé."

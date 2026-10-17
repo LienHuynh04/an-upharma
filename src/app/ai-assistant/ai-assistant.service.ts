@@ -39,12 +39,20 @@ export class AiAssistantService {
   constructor(private upharma: UpharmaService) {}
 
   // ---------- API key ----------
+  /** Built-in key from environment (auto) → localStorage key (manual) → null. */
   getApiKey(): string | null {
+    const builtIn = String((environment as any).geminiApiKey || "").trim();
+    if (builtIn) return builtIn;
     try {
       return localStorage.getItem(this.KEY_STORAGE);
     } catch {
       return null;
     }
+  }
+
+  /** True when the key comes from environment (no manual setup needed). */
+  hasBuiltInKey(): boolean {
+    return String((environment as any).geminiApiKey || "").trim().length > 0;
   }
 
   setApiKey(key: string): void {
