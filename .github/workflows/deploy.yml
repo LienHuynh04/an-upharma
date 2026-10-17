@@ -43,7 +43,27 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
-          sed -i 's|geminiApiKey: ""|geminiApiKey: "'"$GEMINI_API_KEY"'"|' src/environments/environment.prod.ts
+          if [ -z "$GEMINI_API_KEY" ]; then
+            echo "::error::GEMINI_API_KEY is empty or unavailable. Configure it as a GitHub Actions secret."
+            exit 1
+          fi
+          node <<'NODE'
+          const fs = require("node:fs");
+          const path = "src/environments/environment.prod.ts";
+          const source = fs.readFileSync(path, "utf8");
+          const placeholder = /^(\s*geminiApiKey:\s*)""/m;
+
+          if (!placeholder.test(source)) {
+            throw new Error(`Could not find the empty geminiApiKey in ${path}`);
+          }
+
+          fs.writeFileSync(
+            path,
+            source.replace(placeholder, (_match, prefix) =>
+              `${prefix}${JSON.stringify(process.env.GEMINI_API_KEY)}`
+            )
+          );
+          NODE
 
       - name: Build Angular Project
         run: npm run build -- --configuration production --base-href /an-upharma/
