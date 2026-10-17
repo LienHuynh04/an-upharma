@@ -414,19 +414,31 @@ Khi gợi ý báo cáo, đề xuất cụ thể theo vai trò quản lý nhà th
       generationConfig: { temperature: 0.7, maxOutputTokens: 1024 },
     });
 
-    let modelNotFound = false;
-    for (const model of this.MODELS) {
+    // Retry với backoff cho lỗi tạm thời (429 quota, 503 quá tải)
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    const callOnce = async (model: string): Promise<Response> => {
       // Dùng ?key= thay vì header x-goog-api-key: một số key (tạo qua Cloud Console,
       // bind service account) bị Google từ chối khi gửi qua header (400 API_KEY_INVALID)
       // nhưng chạy bình thường qua query param.
       const url =
         `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent` +
         `?key=${encodeURIComponent(key)}`;
-      const res = await fetch(url, {
+      return fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body,
       });
+    };
+
+    let modelNotFound = false;
+    for (const model of this.MODELS) {
+      let res: Response | null = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        res = await callOnce(model);
+        if (res.status !== 429 && res.status !== 503) break;
+        await sleep(2000 * (attempt + 1)); // 2s, 4s
+      }
+      if (!res) continue;
 
       if (res.status === 404) {
         modelNotFound = true;
@@ -437,6 +449,9 @@ Khi gợi ý báo cáo, đề xuất cụ thể theo vai trò quản lý nhà th
       }
       if (res.status === 429) {
         throw new Error("Đã vượt quota miễn phí của Gemini. Thử lại sau ít phút.");
+      }
+      if (res.status === 503) {
+        throw new Error("Máy chủ Gemini đang quá tải. Bạn đợi 1-2 phút rồi hỏi lại nhé.");
       }
       if (!res.ok) {
         throw new Error(`Gemini lỗi HTTP ${res.status}. Thử lại sau.`);
