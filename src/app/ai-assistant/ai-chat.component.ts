@@ -22,8 +22,8 @@ export class AiChatComponent {
   greeted = false;
 
   quickChips = [
-    "Có bao nhiêu nhà thuốc?",
-    "Hàng cận date bao nhiêu?",
+    "Sản phẩm nào cận date gấp nhất?",
+    "Nên chuyển hàng nào đi đâu?",
     "Tồn kho Panadol",
     "Gợi ý báo cáo tuần này",
   ];

@@ -14,6 +14,12 @@ export interface ShopSummary {
   keyCount: number;
 }
 
+export interface TopExpiring {
+  n: string; d: number; q: number; u: string; s: string;
+}
+export interface TopSuggestion {
+  n: string; f: string; t: string; q: number; u: string; d: number;
+}
 export interface DataSnapshot {
   fetchedAt: string | null;
   dataAge: string;
@@ -29,6 +35,8 @@ export interface DataSnapshot {
   dangerQty: number;
   warningQty: number;
   deepAge: string;
+  topExpiring: TopExpiring[];
+  topSuggestions: TopSuggestion[];
 }
 
 export interface CatalogItem {
@@ -121,6 +129,8 @@ export class AiAssistantService {
       dangerQty: 0,
       warningQty: 0,
       deepAge: "chưa rõ",
+      topExpiring: [],
+      topSuggestions: [],
     };
     try {
       const base = (environment as any).firebaseDbUrl?.replace(/\/$/, "");
@@ -160,6 +170,8 @@ export class AiAssistantService {
         dangerQty: 0,
         warningQty: 0,
         deepAge: "chưa rõ",
+        topExpiring: [],
+        topSuggestions: [],
       };
       this.snapshotCache = { at: Date.now(), data: snap };
       return snap;
@@ -265,6 +277,8 @@ export class AiAssistantService {
       snap.dangerQty = Number(transfer.bucketCounts?.dangerQty) || 0;
       snap.warningQty = Number(transfer.bucketCounts?.warningQty) || 0;
       snap.deepAge = transfer.fetchedAt ? this.formatAge(transfer.fetchedAt) : snap.dataAge;
+      snap.topExpiring = Array.isArray(transfer.topExpiring) ? transfer.topExpiring : [];
+      snap.topSuggestions = Array.isArray(transfer.topSuggestions) ? transfer.topSuggestions : [];
     }
     if (catalog.count) {
       snap.catalogCount = catalog.count;
@@ -347,6 +361,26 @@ export class AiAssistantService {
       return null; // để Gemini trả lời chung chung
     }
 
+    // Sản phẩm nào cận date gấp nhất
+    if (/sản phẩm nào|loại nào|mặt hàng nào/.test(q) && /cận date|can date|hết hạn|het han|sắp hết|gấp|ưu tiên/.test(q)) {
+      if (deep.topExpiring.length) {
+        const lines = deep.topExpiring.slice(0, 10)
+          .map((x, i) => `${i + 1}. ${x.n} — còn ${x.d} ngày, ${x.q} ${x.u} (${x.s})`).join("\n");
+        return `Top 10 lô cần xử lý gấp nhất:\n${lines}\n(Dữ liệu ${deep.deepAge}.)`;
+      }
+      return null;
+    }
+
+    // Nên chuyển hàng nào đi đâu
+    if (/chuyển.*đi đâu|đi đâu|nên chuyển|chuyển hàng nào/.test(q)) {
+      if (deep.topSuggestions.length) {
+        const lines = deep.topSuggestions.slice(0, 10)
+          .map((x, i) => `${i + 1}. ${x.n}: ${x.f} → ${x.t} (${x.q} ${x.u})`).join("\n");
+        return `Top 10 gợi ý điều chuyển:\n${lines}\n(Dữ liệu ${deep.deepAge}.)`;
+      }
+      return null;
+    }
+
     // Gợi ý điều chuyển
     if (/điều chuyển|dieu chuyen|chuyển hàng|chuyen hang|gợi ý|goi y/.test(q) && /bao nhiêu|mấy|thống kê|tổng/.test(q)) {
       if (deep.suggestionCount > 0) {
@@ -394,6 +428,10 @@ DỮ LIỆU KHO HIỆN TẠI (đồng bộ ${snap.dataAge}):
 - Gợi ý điều chuyển: ${snap.suggestionCount.toLocaleString("vi-VN")} gợi ý / ${snap.suggestionGroups} nhóm sản phẩm
 Chi tiết từng shop:
 ${perShopLines || "(chưa có)"}
+${snap.topExpiring.length ? `TOP ${snap.topExpiring.length} LÔ CẬN DATE GẤP NHẤT (tên | còn lại | SL | shop):
+${snap.topExpiring.map((x) => `- ${x.n} | ${x.d} ngày | ${x.q} ${x.u} | ${x.s}`).join("\n")}` : ""}
+${snap.topSuggestions.length ? `TOP ${snap.topSuggestions.length} GỢI Ý ĐIỀU CHUYỂN (sản phẩm | từ → đến | SL):
+${snap.topSuggestions.map((x) => `- ${x.n} | ${x.f} → ${x.t} | ${x.q} ${x.u}`).join("\n")}` : ""}
 
 Khi gợi ý báo cáo, đề xuất cụ thể theo vai trò quản lý nhà thuốc (tồn kho, FEFO/hạn dùng, hàng hết, hiệu suất bán, điều chuyển liên shop).`;
   }
