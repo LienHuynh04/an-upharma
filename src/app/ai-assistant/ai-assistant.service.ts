@@ -409,14 +409,17 @@ Khi gợi ý báo cáo, đề xuất cụ thể theo vai trò quản lý nhà th
 
     let modelNotFound = false;
     for (const model of this.MODELS) {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "x-goog-api-key": key },
-          body,
-        }
-      );
+      // Dùng ?key= thay vì header x-goog-api-key: một số key (tạo qua Cloud Console,
+      // bind service account) bị Google từ chối khi gửi qua header (400 API_KEY_INVALID)
+      // nhưng chạy bình thường qua query param.
+      const url =
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent` +
+        `?key=${encodeURIComponent(key)}`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body,
+      });
 
       if (res.status === 404) {
         modelNotFound = true;
