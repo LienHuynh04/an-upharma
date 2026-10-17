@@ -55,7 +55,7 @@ export interface NationalStock {
 export class AiAssistantService {
   private readonly KEY_STORAGE = "ai_assistant_gemini_key";
   /** Models to try in order — fallback if the first returns 404. */
-  private readonly MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
+  private readonly MODELS = ["gemini-3.8-flash", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
   private snapshotCache: { at: number; data: DataSnapshot } | null = null;
   private readonly SNAPSHOT_TTL_MS = 5 * 60 * 1000;
   private catalogCache: { at: number; items: CatalogItem[]; count: number } | null = null;
@@ -409,14 +409,17 @@ Khi gợi ý báo cáo, đề xuất cụ thể theo vai trò quản lý nhà th
 
     let modelNotFound = false;
     for (const model of this.MODELS) {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "x-goog-api-key": key },
-          body,
-        }
-      );
+      // Dùng ?key= thay vì header x-goog-api-key: một số key (tạo qua Cloud Console,
+      // bind service account) bị Google từ chối khi gửi qua header (400 API_KEY_INVALID)
+      // nhưng chạy bình thường qua query param.
+      const url =
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent` +
+        `?key=${encodeURIComponent(key)}`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body,
+      });
 
       if (res.status === 404) {
         modelNotFound = true;
