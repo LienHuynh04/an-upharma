@@ -55,7 +55,7 @@ export interface NationalStock {
 export class AiAssistantService {
   private readonly KEY_STORAGE = "ai_assistant_gemini_key";
   /** Models to try in order — fallback if the first returns 404. */
-  private readonly MODELS = ["gemini-2.0-flash", "gemini-1.5-flash"];
+  private readonly MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
   private snapshotCache: { at: number; data: DataSnapshot } | null = null;
   private readonly SNAPSHOT_TTL_MS = 5 * 60 * 1000;
   private catalogCache: { at: number; items: CatalogItem[]; count: number } | null = null;
