@@ -32,7 +32,7 @@
       [class.ai-user]="m.role === 'user'"
       [class.ai-assistant]="m.role === 'assistant'"
     >
-      <div class="ai-bubble-msg" [innerHTML]="formatMessage(m.text)"></div>
+      <div class="ai-bubble-msg" [innerHTML]="m.text | formatAiMessage"></div>
     </div>
     <div class="ai-msg ai-assistant" *ngIf="sending">
       <div class="ai-bubble-msg ai-typing"><span></span><span></span><span></span></div>
