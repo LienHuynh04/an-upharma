@@ -21,6 +21,28 @@ export interface DataSnapshot {
   shopCodes: string[];
   perShop: Record<string, ShopSummary>;
   totals: { outOfStock: number; stable: number; slow: number; key: number };
+  // --- Deep data (như bản độc lập) ---
+  catalogCount: number;
+  expiringCount: number;
+  suggestionCount: number;
+  suggestionGroups: number;
+  dangerQty: number;
+  warningQty: number;
+  deepAge: string;
+}
+
+export interface CatalogItem {
+  c: string;
+  n: string;
+  u: string;
+}
+
+export interface NationalStock {
+  productID: string;
+  name: string;
+  unit: string;
+  totalQty: number;
+  perShop: { shop: string; qty: number; avg: number }[];
 }
 
 /**
@@ -36,6 +58,10 @@ export class AiAssistantService {
   private readonly MODELS = ["gemini-2.0-flash", "gemini-1.5-flash"];
   private snapshotCache: { at: number; data: DataSnapshot } | null = null;
   private readonly SNAPSHOT_TTL_MS = 5 * 60 * 1000;
+  private catalogCache: { at: number; items: CatalogItem[]; count: number } | null = null;
+  private readonly CATALOG_TTL_MS = 60 * 60 * 1000;
+  private transferCache: { at: number; data: any } | null = null;
+  private readonly TRANSFER_TTL_MS = 5 * 60 * 1000;
 
   constructor(private upharma: UpharmaService) {}
 
@@ -88,6 +114,13 @@ export class AiAssistantService {
       shopCodes: [],
       perShop: {},
       totals: { outOfStock: 0, stable: 0, slow: 0, key: 0 },
+      catalogCount: 0,
+      expiringCount: 0,
+      suggestionCount: 0,
+      suggestionGroups: 0,
+      dangerQty: 0,
+      warningQty: 0,
+      deepAge: "chưa rõ",
     };
     try {
       const base = (environment as any).firebaseDbUrl?.replace(/\/$/, "");
@@ -120,12 +153,123 @@ export class AiAssistantService {
         shopCodes: codes,
         perShop,
         totals,
+        catalogCount: 0,
+        expiringCount: 0,
+        suggestionCount: 0,
+        suggestionGroups: 0,
+        dangerQty: 0,
+        warningQty: 0,
+        deepAge: "chưa rõ",
       };
       this.snapshotCache = { at: Date.now(), data: snap };
       return snap;
     } catch {
       return this.snapshotCache?.data || empty;
     }
+  }
+
+  // ---------- Deep data ----------
+  /** Node SUMMARY nhẹ (~1KB) thay vì node ALL (~11MB). */
+  async getTransferSummary(): Promise<any | null> {
+    if (this.transferCache && Date.now() - this.transferCache.at < this.TRANSFER_TTL_MS) {
+      return this.transferCache.data;
+    }
+    try {
+      const base = (environment as any).firebaseDbUrl?.replace(/\/$/, "");
+      if (!base) return null;
+      const res = await fetch(`${base}/transfer_suggestions_cache/SUMMARY.json`);
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (!data) return null;
+      this.transferCache = { at: Date.now(), data };
+      return data;
+    } catch {
+      return this.transferCache?.data || null;
+    }
+  }
+
+  /** Danh mục sản phẩm (~790KB) — cache 60 phút. */
+  async getCatalog(): Promise<{ items: CatalogItem[]; count: number }> {
+    if (this.catalogCache && Date.now() - this.catalogCache.at < this.CATALOG_TTL_MS) {
+      return this.catalogCache;
+    }
+    const fallback = this.catalogCache || { at: 0, items: [], count: 0 };
+    try {
+      const base = (environment as any).firebaseDbUrl?.replace(/\/$/, "");
+      if (!base) return fallback;
+      const res = await fetch(`${base}/product_catalog.json`);
+      if (!res.ok) return fallback;
+      const json = await res.json();
+      const items: CatalogItem[] = json?.items || [];
+      const data = { at: Date.now(), items, count: json?.count || items.length };
+      this.catalogCache = data;
+      return data;
+    } catch {
+      return fallback;
+    }
+  }
+
+  /** Tìm sản phẩm theo tên hoặc mã (không dấu, không phân biệt hoa thường). */
+  async lookupProduct(query: string): Promise<CatalogItem | null> {
+    const { items } = await this.getCatalog();
+    if (!items.length) return null;
+    const norm = (s: string) =>
+      (s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const q = norm(query.trim());
+    if (!q) return null;
+    // Ưu tiên: mã chính xác → tên bắt đầu bằng → tên chứa
+    return (
+      items.find((i) => norm(i.c) === q) ||
+      items.find((i) => norm(i.n).startsWith(q)) ||
+      items.find((i) => norm(i.n).includes(q)) ||
+      null
+    );
+  }
+
+  /** Tồn kho toàn quốc của 1 sản phẩm theo mã. */
+  async getNationalStock(productCode: string): Promise<NationalStock | null> {
+    try {
+      const base = (environment as any).firebaseDbUrl?.replace(/\/$/, "");
+      if (!base) return null;
+      const safeCode = productCode.replace(/[.#$[\]]/g, "_");
+      const res = await fetch(`${base}/national_inventory_cache/${safeCode}.json`);
+      if (!res.ok) return null;
+      const json = await res.json();
+      if (!json || !json.shops) return null;
+      const perShop = (json.shops || []).map((s: any) => ({
+        shop: s.StoreCode,
+        qty: Number(s.Quantity) || 0,
+        avg: Number(s.QuantityAVG) || 0,
+      }));
+      const catalog = await this.lookupProduct(productCode);
+      return {
+        productID: productCode,
+        name: catalog?.n || productCode,
+        unit: catalog?.u || "",
+        totalQty: perShop.reduce((sum: number, s: { qty: number }) => sum + s.qty, 0),
+        perShop: perShop.sort((a: { qty: number }, b: { qty: number }) => b.qty - a.qty),
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  /** Snapshot đầy đủ kèm deep data cho system prompt. */
+  async getDeepSnapshot(): Promise<DataSnapshot> {
+    const snap = await this.getDataSnapshot();
+    const [transfer, catalog] = await Promise.all([this.getTransferSummary(), this.getCatalog()]);
+    if (transfer) {
+      snap.expiringCount = Number(transfer.totalExpiringCount) || 0;
+      snap.suggestionCount = Number(transfer.suggestionCount) || 0;
+      snap.suggestionGroups = Number(transfer.groupCount) || 0;
+      snap.dangerQty = Number(transfer.bucketCounts?.dangerQty) || 0;
+      snap.warningQty = Number(transfer.bucketCounts?.warningQty) || 0;
+      snap.deepAge = transfer.fetchedAt ? this.formatAge(transfer.fetchedAt) : snap.dataAge;
+    }
+    if (catalog.count) {
+      snap.catalogCount = catalog.count;
+    }
+    return snap;
   }
 
   private formatAge(iso: string): string {
@@ -170,6 +314,57 @@ export class AiAssistantService {
     if (/đồng bộ|sync|cập nhật/.test(q) && /khi nào|lúc nào|mấy giờ|bao lâu/.test(q)) {
       return `Dữ liệu tổng hợp được đồng bộ ${snap.dataAge}${snap.fetchedAt ? ` (${snap.fetchedAt})` : ""}. Hệ thống tự sync mỗi giờ.`;
     }
+
+    // --- Deep data patterns ---
+    const deep = await this.getDeepSnapshot();
+
+    // Tồn kho 1 sản phẩm cụ thể: "tồn kho paracetamol", "panadol còn bao nhiêu"
+    const stockMatch = q.match(/(?:tồn kho|kho còn|con bao nhieu|còn bao nhiêu)\s+(.+)/) ||
+      q.match(/(.+)\s+(?:tồn kho|còn bao nhiêu|con bao nhieu)\s*\??$/);
+    if (stockMatch) {
+      const name = stockMatch[1].trim();
+      if (name.length >= 2) {
+        const found = await this.lookupProduct(name);
+        if (found) {
+          const stock = await this.getNationalStock(found.c);
+          if (stock) {
+            const lines = stock.perShop.map((s) => `${s.shop}: ${s.qty.toLocaleString("vi-VN")}`).join(", ");
+            return `${stock.name} (${stock.unit}): tổng tồn ${stock.totalQty.toLocaleString("vi-VN")} — ${lines}.`;
+          }
+          return `Tìm thấy ${found.n} nhưng chưa có dữ liệu tồn kho toàn quốc cho sản phẩm này.`;
+        }
+        return `Không tìm thấy sản phẩm "${name}" trong danh mục ${deep.catalogCount.toLocaleString("vi-VN")} sản phẩm. Bạn thử tên khác nhé.`;
+      }
+    }
+
+    // Hàng cận date / hết hạn
+    if (/cận date|can date|hết hạn|het han|sắp hết hạn|expir/.test(q)) {
+      if (deep.expiringCount > 0) {
+        return `Toàn hệ thống có ${deep.expiringCount.toLocaleString("vi-VN")} lô hàng cận date cần xử lý ` +
+          `(nguy hiểm: ${deep.dangerQty.toLocaleString("vi-VN")}, cảnh báo: ${deep.warningQty.toLocaleString("vi-VN")}). ` +
+          `Dữ liệu ${deep.deepAge}. Xem chi tiết ở trang Gợi ý chuyển hàng.`;
+      }
+      return null; // để Gemini trả lời chung chung
+    }
+
+    // Gợi ý điều chuyển
+    if (/điều chuyển|dieu chuyen|chuyển hàng|chuyen hang|gợi ý|goi y/.test(q) && /bao nhiêu|mấy|thống kê|tổng/.test(q)) {
+      if (deep.suggestionCount > 0) {
+        return `Hệ thống có ${deep.suggestionCount.toLocaleString("vi-VN")} gợi ý điều chuyển ` +
+          `(${deep.suggestionGroups} nhóm sản phẩm). Dữ liệu ${deep.deepAge}. Xem chi tiết ở trang Gợi ý chuyển hàng.`;
+      }
+      return null;
+    }
+
+    // Danh mục sản phẩm
+    if (/danh mục|danh muc|bao nhiêu sản phẩm|mấy sản phẩm|catalog/.test(q)) {
+      if (deep.catalogCount > 0) {
+        return `Danh mục toàn hệ thống có ${deep.catalogCount.toLocaleString("vi-VN")} sản phẩm đang kinh doanh. ` +
+          `Bạn hỏi "tồn kho [tên sản phẩm]" để xem tồn kho toàn quốc nhé.`;
+      }
+      return null;
+    }
+
     return null;
   }
 
@@ -187,10 +382,13 @@ Trả lời ngắn gọn, rõ ràng bằng tiếng Việt. Khi được hỏi v�
 DỮ LIỆU HIỆN TẠI (đồng bộ ${snap.dataAge}):
 - Số nhà thuốc: ${snap.shopCount} (${snap.shopCodes.join(", ")})
 - Tổng hết hàng: ${snap.totals.outOfStock} | Bán chạy: ${snap.totals.stable} | Bán chậm: ${snap.totals.slow} | Hàng key: ${snap.totals.key}
+- Danh mục: ${snap.catalogCount.toLocaleString("vi-VN")} sản phẩm
+- Hàng cận date: ${snap.expiringCount.toLocaleString("vi-VN")} lô (nguy hiểm: ${snap.dangerQty.toLocaleString("vi-VN")}, cảnh báo: ${snap.warningQty.toLocaleString("vi-VN")})
+- Gợi ý điều chuyển: ${snap.suggestionCount.toLocaleString("vi-VN")} gợi ý / ${snap.suggestionGroups} nhóm sản phẩm
 Chi tiết từng shop:
 ${perShopLines || "(chưa có)"}
 
-Khi gợi ý báo cáo, đề xuất cụ thể theo vai trò quản lý nhà thuốc (tồn kho, FEFO/hạn dùng, hàng hết, hiệu suất bán).`;
+Khi gợi ý báo cáo, đề xuất cụ thể theo vai trò quản lý nhà thuốc (tồn kho, FEFO/hạn dùng, hàng hết, hiệu suất bán, điều chuyển liên shop).`;
   }
 
   async ask(question: string, history: ChatMessage[]): Promise<string> {
@@ -198,7 +396,7 @@ Khi gợi ý báo cáo, đề xuất cụ thể theo vai trò quản lý nhà th
     if (!key) {
       throw new Error("NO_API_KEY");
     }
-    const snap = await this.getDataSnapshot();
+    const snap = await this.getDeepSnapshot();
     const contents = history
       .slice(-10)
       .map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.text }] }));

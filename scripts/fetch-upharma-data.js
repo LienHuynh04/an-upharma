@@ -1259,6 +1259,26 @@ function computeTransferSuggestionsForList(expiringStockList, nationalCache) {
       expiringStockList: allCombinedExpiringList,
       nationalStoreStockMap: allCombinedNationalMap,
     });
+
+    // SUMMARY nhẹ cho AI assistant (node ALL quá lớn ~11MB, không tải nổi phía client)
+    const _bc = allCalcResult.bucketCounts || {};
+    await db.ref("transfer_suggestions_cache/SUMMARY").set({
+      shopCode: "ALL",
+      updatedAt: Date.now(),
+      fetchedAt: new Date().toISOString(),
+      totalExpiringCount: allCombinedExpiringList.length,
+      suggestionCount: (allCalcResult.suggestions || []).length,
+      groupCount: (allCalcResult.groupedSuggestions || []).length,
+      totalQty: _bc.allQty || 0,
+      bucketCounts: {
+        danger: _bc.danger || 0,
+        dangerQty: _bc.dangerQty || 0,
+        warning: _bc.warning || 0,
+        warningQty: _bc.warningQty || 0,
+        safe: _bc.safe || 0,
+        safeQty: _bc.safeQty || 0,
+      },
+    });
     console.log(`[transfer_suggestions] DONE ALL: ${allCalcResult.groupedSuggestions.length} nhóm SP, ${allCalcResult.suggestions.length} gợi ý`);
 
         console.log("[transfer_suggestions] ✅ Hoàn tất cập nhật pre-computed transfer_suggestions_cache lên Firebase RTDB!");

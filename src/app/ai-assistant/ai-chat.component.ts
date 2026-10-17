@@ -22,7 +22,8 @@ export class AiChatComponent {
 
   quickChips = [
     "Có bao nhiêu nhà thuốc?",
-    "Bao nhiêu sản phẩm hết hàng?",
+    "Hàng cận date bao nhiêu?",
+    "Tồn kho Panadol",
     "Gợi ý báo cáo tuần này",
   ];
 
@@ -39,7 +40,7 @@ export class AiChatComponent {
         this.showKeySetup = true;
       } else if (this.ai.hasBuiltInKey()) {
         this.pushAssistant(
-          "Chào bạn! Tôi là trợ lý AI của UPHARMA. Hỏi tôi về số liệu kho, hoặc nhờ gợi ý báo cáo nhé."
+          "Chào bạn! Tôi là trợ lý AI của UPHARMA. Hỏi tôi về tồn kho sản phẩm, hàng cận date, điều chuyển, hoặc nhờ gợi ý báo cáo nhé."
         );
       } else {
         this.pushAssistant(
