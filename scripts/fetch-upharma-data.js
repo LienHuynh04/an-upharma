@@ -40,6 +40,10 @@ function sanitizeFirebaseKey(key) {
 }
 
 const REQUEST_TIMEOUT_MS = Number(process.env.UPHARMA_REQUEST_TIMEOUT_MS || 120000);
+// RETRY (2026-10-17): GitHub runners intermittently fail to reach icpc1hn.work
+// (ConnectTimeoutError). Retry transient network errors with backoff instead of dying.
+const RETRY_ATTEMPTS = Math.max(1, Number(process.env.UPHARMA_RETRY_ATTEMPTS || 4));
+const RETRY_BASE_DELAY_MS = Number(process.env.UPHARMA_RETRY_BASE_DELAY_MS || 8000);
 const SHOP_CONCURRENCY = Math.max(1, Number(process.env.UPHARMA_SHOP_CONCURRENCY || 3));
 const HEARTBEAT_MS = Number(process.env.UPHARMA_HEARTBEAT_MS || 30000);
 
@@ -50,39 +54,86 @@ const heartbeatTimer = setInterval(() => {
 }, HEARTBEAT_MS);
 heartbeatTimer.unref?.();
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** True for transient network errors worth retrying (timeout, reset, DNS, TLS). */
+function isRetryableNetworkError(error) {
+  const msg = String((error && error.message) || error || "").toLowerCase();
+  const code = String((error && (error.code || (error.cause && error.cause.code))) || "").toUpperCase();
+  return (
+    msg.includes("fetch failed") ||
+    msg.includes("timeout") ||
+    msg.includes("timed out") ||
+    msg.includes("network") ||
+    msg.includes("econnreset") ||
+    msg.includes("socket hang up") ||
+    code.includes("UND_ERR") ||
+    code.includes("ECONNRESET") ||
+    code.includes("ETIMEDOUT") ||
+    code.includes("ENOTFOUND") ||
+    code.includes("EAI_AGAIN") ||
+    code.includes("ECONNREFUSED")
+  );
+}
+
 async function requestUpharma(pathname, payload) {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(new Error(`Timeout sau ${REQUEST_TIMEOUT_MS}ms`)), REQUEST_TIMEOUT_MS);
+  let lastError = null;
+  for (let attempt = 1; attempt <= RETRY_ATTEMPTS; attempt++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(new Error(`Timeout sau ${REQUEST_TIMEOUT_MS}ms`)), REQUEST_TIMEOUT_MS);
 
-  let response;
-  try {
-    response = await fetch(`${UPHARMA_API_BASE_URL}${pathname}`, {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        Origin: "https://upharma.com.vn",
-        Referer: "https://upharma.com.vn/",
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
-      },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    });
-  } finally {
-    clearTimeout(timeoutId);
-  }
+    try {
+      const response = await fetch(`${UPHARMA_API_BASE_URL}${pathname}`, {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Origin: "https://upharma.com.vn",
+          Referer: "https://upharma.com.vn/",
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
 
-  const text = await response.text();
-  let data;
-  try {
-    data = JSON.parse(text);
-  } catch {
-    data = { raw: text };
+      const text = await response.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = { raw: text };
+      }
+      if (!response.ok) {
+        // Retry server errors (5xx); client errors (4xx = auth/bad request) fail fast.
+        if (response.status >= 500 && attempt < RETRY_ATTEMPTS) {
+          console.warn(`[retry] ${pathname} HTTP ${response.status} (lần ${attempt}/${RETRY_ATTEMPTS}), thử lại...`);
+        } else {
+          throw new Error(`UPHARMA ${pathname} trả về HTTP ${response.status}`);
+        }
+      } else {
+        return data;
+      }
+    } catch (error) {
+      clearTimeout(timeoutId);
+      lastError = error;
+      const retryable = isRetryableNetworkError(error);
+      if (attempt >= RETRY_ATTEMPTS || !retryable) {
+        throw error;
+      }
+      console.warn(`[retry] ${pathname} lỗi mạng (lần ${attempt}/${RETRY_ATTEMPTS}): ${error.message}`);
+    }
+
+    // Backoff before next attempt (only when we will retry)
+    if (attempt < RETRY_ATTEMPTS) {
+      const delay = RETRY_BASE_DELAY_MS * attempt + Math.random() * 2000;
+      console.warn(`[retry] ${pathname} chờ ${Math.round(delay / 1000)}s trước lần thử ${attempt + 1}...`);
+      await sleep(delay);
+    }
   }
-  if (!response.ok) {
-    throw new Error(`UPHARMA ${pathname} trả về HTTP ${response.status}`);
-  }
-  return data;
+  throw lastError || new Error(`UPHARMA ${pathname} thất bại sau ${RETRY_ATTEMPTS} lần thử`);
 }
 
 function extractArray(data) {
