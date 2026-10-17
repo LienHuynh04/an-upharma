@@ -36,10 +36,6 @@ export class AiChatComponent {
 
   toggle(): void {
     this.isOpen = !this.isOpen;
-    if (this.isOpen) {
-      // Tải trước danh mục ở background để khi hỏi tên SP thì có ngay
-      this.ai.prefetchCatalog();
-    }
     if (this.isOpen && !this.greeted) {
       this.greeted = true;
       if (!this.ai.hasApiKey()) {

@@ -284,12 +284,6 @@ export class AiAssistantService {
     return snap;
   }
 
-  /** Tải trước catalog ở background (không block UI) khi user bắt đầu chat. */
-  prefetchCatalog(): void {
-    if (this.catalogCache) return;
-    void this.getCatalog().catch(() => {});
-  }
-
   private formatAge(iso: string): string {
     const ms = Date.now() - Date.parse(iso);
     if (isNaN(ms) || ms < 0) return "chưa rõ";
