@@ -11,12 +11,13 @@ import {
 } from "@angular/router";
 import { UpharmaService } from "../upharma.service";
 import { TabStateService, OpenTab } from "../tab-state.service";
+import { AiChatComponent } from "../ai-assistant/ai-chat.component";
 import { TabReuseStrategy } from "../tab-reuse.strategy";
 
 @Component({
   selector: "app-layout",
   standalone: true,
-  imports: [CommonModule, RouterLink, RouterLinkActive, RouterOutlet],
+  imports: [CommonModule, RouterLink, RouterLinkActive, RouterOutlet, AiChatComponent],
   templateUrl: "./layout.component.html",
   styleUrl: "./layout.component.css",
 })
