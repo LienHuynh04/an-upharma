@@ -1262,6 +1262,14 @@ function computeTransferSuggestionsForList(expiringStockList, nationalCache) {
 
     // SUMMARY nhẹ cho AI assistant (node ALL quá lớn ~11MB, không tải nổi phía client)
     const _bc = allCalcResult.bucketCounts || {};
+    const _topExpiring = [...allCombinedExpiringList]
+      .sort((a, b) => (a.daysRemaining ?? 9999) - (b.daysRemaining ?? 9999) || (b.quantity ?? 0) - (a.quantity ?? 0))
+      .slice(0, 30)
+      .map((x) => ({ n: x.productName, d: x.daysRemaining, q: x.quantity, u: x.unit, s: x.shopCode }));
+    const _topSuggestions = [...(allCalcResult.suggestions || [])]
+      .sort((a, b) => (a.rank ?? 9999) - (b.rank ?? 9999))
+      .slice(0, 30)
+      .map((x) => ({ n: x.productName, f: x.fromShopCode, t: x.toShopCode, q: x.suggestedQty, u: x.unit, d: x.daysRemaining }));
     await db.ref("transfer_suggestions_cache/SUMMARY").set({
       shopCode: "ALL",
       updatedAt: Date.now(),
@@ -1278,6 +1286,8 @@ function computeTransferSuggestionsForList(expiringStockList, nationalCache) {
         safe: _bc.safe || 0,
         safeQty: _bc.safeQty || 0,
       },
+      topExpiring: _topExpiring,
+      topSuggestions: _topSuggestions,
     });
     console.log(`[transfer_suggestions] DONE ALL: ${allCalcResult.groupedSuggestions.length} nhóm SP, ${allCalcResult.suggestions.length} gợi ý`);
 

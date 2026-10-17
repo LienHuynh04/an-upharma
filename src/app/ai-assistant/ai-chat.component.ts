@@ -16,14 +16,12 @@ export class AiChatComponent {
   messages: ChatMessage[] = [];
   inputText = "";
   sending = false;
-  showKeySetup = false;
-  keyInput = "";
-  keyError = "";
   greeted = false;
+  keyMissing = false;
 
   quickChips = [
-    "Có bao nhiêu nhà thuốc?",
-    "Hàng cận date bao nhiêu?",
+    "Sản phẩm nào cận date gấp nhất?",
+    "Nên chuyển hàng nào đi đâu?",
     "Tồn kho Panadol",
     "Gợi ý báo cáo tuần này",
   ];
@@ -41,14 +39,13 @@ export class AiChatComponent {
     if (this.isOpen && !this.greeted) {
       this.greeted = true;
       if (!this.ai.hasApiKey()) {
-        this.showKeySetup = true;
-      } else if (this.ai.hasBuiltInKey()) {
+        this.keyMissing = true;
         this.pushAssistant(
-          "Chào bạn! Tôi là trợ lý AI của UPHARMA. Hỏi tôi về tồn kho sản phẩm, hàng cận date, điều chuyển, hoặc nhờ gợi ý báo cáo nhé."
+          "Trợ lý AI chưa được cấu hình API key. Vui lòng liên hệ quản trị viên."
         );
       } else {
         this.pushAssistant(
-          "Chào bạn! Tôi là trợ lý AI của UPHARMA. Hỏi tôi về số liệu kho, hoặc nhờ gợi ý báo cáo nhé."
+          "Chào bạn! Tôi là trợ lý AI của UPHARMA. Hỏi tôi về tồn kho sản phẩm, hàng cận date, điều chuyển, hoặc nhờ gợi ý báo cáo nhé."
         );
       }
     }
@@ -73,27 +70,6 @@ export class AiChatComponent {
     }, 50);
   }
 
-  saveKey(): void {
-    const key = this.keyInput.trim();
-    if (!key) {
-      this.keyError = "Bạn nhập API key nhé.";
-      return;
-    }
-    this.ai.setApiKey(key);
-    this.keyInput = "";
-    this.keyError = "";
-    this.showKeySetup = false;
-    this.pushAssistant(
-      "Đã lưu API key! Giờ bạn hỏi tôi về số liệu kho hoặc nhờ gợi ý báo cáo nhé."
-    );
-  }
-
-  changeKey(): void {
-    this.keyInput = "";
-    this.keyError = "";
-    this.showKeySetup = true;
-  }
-
   sendChip(chip: string): void {
     this.inputText = chip;
     this.send();
@@ -103,7 +79,8 @@ export class AiChatComponent {
     const text = this.inputText.trim();
     if (!text || this.sending) return;
     if (!this.ai.hasApiKey()) {
-      this.showKeySetup = true;
+      this.keyMissing = true;
+      this.pushAssistant("Trợ lý AI chưa được cấu hình API key. Vui lòng liên hệ quản trị viên.");
       return;
     }
     this.inputText = "";
@@ -122,7 +99,8 @@ export class AiChatComponent {
       this.pushAssistant(answer);
     } catch (e: any) {
       if (e?.message === "NO_API_KEY") {
-        this.showKeySetup = true;
+        this.keyMissing = true;
+        this.pushAssistant("Trợ lý AI chưa được cấu hình API key. Vui lòng liên hệ quản trị viên.");
       } else {
         this.pushAssistant(e?.message || "Có lỗi xảy ra, bạn thử lại nhé.");
       }

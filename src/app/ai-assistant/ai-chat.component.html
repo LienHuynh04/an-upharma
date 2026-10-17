@@ -18,38 +18,14 @@
       <span>Trợ lý AI</span>
     </div>
     <div class="ai-actions">
-      <button type="button" class="ai-icon-btn" (click)="changeKey()" title="Đổi API key" aria-label="Đổi API key">
-        <i class="ti ti-key" aria-hidden="true"></i>
-      </button>
       <button type="button" class="ai-icon-btn" (click)="close()" title="Đóng" aria-label="Đóng">
         <i class="ti ti-x" aria-hidden="true"></i>
       </button>
     </div>
   </div>
 
-  <!-- API key setup -->
-  <div class="ai-key-setup" *ngIf="showKeySetup">
-    <p class="mb-2"><strong>Chào bạn!</strong> Để dùng trợ lý AI, bạn cần API key miễn phí của Google Gemini:</p>
-    <ol class="mb-2 ps-3 small text-secondary">
-      <li>Vào <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a></li>
-      <li>Bấm <em>Create API key</em>, copy key</li>
-      <li>Dán vào ô dưới rồi bấm Lưu</li>
-    </ol>
-    <input
-      type="password"
-      class="form-control form-control-sm mb-2"
-      [(ngModel)]="keyInput"
-      placeholder="Dán Gemini API key..."
-      aria-label="Gemini API key"
-      (keyup.enter)="saveKey()"
-    />
-    <div class="text-danger small mb-2" *ngIf="keyError">{{ keyError }}</div>
-    <button type="button" class="btn btn-primary btn-sm w-100" (click)="saveKey()">Lưu key</button>
-    <p class="small text-secondary mt-2 mb-0">Key chỉ lưu trên trình duyệt của bạn, không gửi đi đâu khác ngoài Google.</p>
-  </div>
-
   <!-- Messages -->
-  <div class="ai-messages" #msgList *ngIf="!showKeySetup">
+  <div class="ai-messages" #msgList>
     <div
       class="ai-msg"
       *ngFor="let m of messages; trackBy: trackByIdx"
@@ -72,7 +48,7 @@
   </div>
 
   <!-- Input -->
-  <div class="ai-input-bar" *ngIf="!showKeySetup">
+  <div class="ai-input-bar">
     <input
       #chatInput
       type="text"

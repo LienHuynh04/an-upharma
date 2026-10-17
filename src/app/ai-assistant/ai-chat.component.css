@@ -149,12 +149,6 @@
   border-top: 1px solid var(--tblr-border-color, #e6e7e9);
 }
 
-.ai-key-setup {
-  padding: 16px;
-  overflow-y: auto;
-  font-size: 13.5px;
-}
-
 /* Markdown formatting trong tin nhắn */
 .ai-bubble-msg ul,
 .ai-bubble-msg ol {
