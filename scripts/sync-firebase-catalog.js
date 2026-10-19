@@ -25,6 +25,24 @@ const UPHARMA_USERNAME = process.env.UPHARMA_USERNAME;
 const UPHARMA_PASSWORD = process.env.UPHARMA_PASSWORD;
 const DATA_DIR = path.join(__dirname, '..', 'src', 'assets', 'data');
 const REQUEST_TIMEOUT_MS = Number(process.env.UPHARMA_REQUEST_TIMEOUT_MS || 120000);
+const FIREBASE_WRITE_TIMEOUT_MS = Number(process.env.FIREBASE_WRITE_TIMEOUT_MS || 120000);
+
+async function withTimeout(promise, timeoutMs, operation) {
+  let timeoutId;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timeoutId = setTimeout(
+          () => reject(new Error(`Timeout sau ${timeoutMs}ms khi ${operation}`)),
+          timeoutMs
+        );
+      }),
+    ]);
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
 
 async function requestUpharma(pathname, payload) {
   const controller = new AbortController();
@@ -107,6 +125,10 @@ async function run() {
   console.log("=== CRONJOB: ĐỒNG BỘ PRODUCT_CATALOG VÀO FIREBASE RTDB ===");
   const startTime = Date.now();
 
+  if (!db) {
+    throw new Error("Firebase chưa được khởi tạo; kiểm tra FIREBASE_SERVICE_ACCOUNT_KEY và database URL.");
+  }
+
   const loginData = await upharmaLogin();
   console.log("[sync-catalog] Đăng nhập thành công, uPharmaID:", loginData.UserInfo?.uPharmaID);
 
@@ -161,11 +183,13 @@ async function run() {
     items,
   };
 
-  if (db) {
-    console.log("[sync-catalog] Đang đẩy product_catalog.json lên Firebase Realtime Database...");
-    await db.ref("product_catalog").set(catalogPayload);
-    console.log(`[sync-catalog] ✅ Đã lưu ${items.length} sản phẩm thành công lên Firebase RTDB node /product_catalog!`);
-  }
+  console.log("[sync-catalog] Đang đẩy product_catalog.json lên Firebase Realtime Database...");
+  await withTimeout(
+    db.ref("product_catalog").set(catalogPayload),
+    FIREBASE_WRITE_TIMEOUT_MS,
+    "ghi product_catalog lên Firebase"
+  );
+  console.log(`[sync-catalog] ✅ Đã lưu ${items.length} sản phẩm thành công lên Firebase RTDB node /product_catalog!`);
 
   try {
     if (!fs.existsSync(DATA_DIR)) {
