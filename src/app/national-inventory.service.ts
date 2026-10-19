@@ -2,6 +2,7 @@ import { Injectable } from "@angular/core";
 import { isWarehouseStore, parseNumericValue } from "./inventory-utils";
 import { UpharmaService } from "./upharma.service";
 import { FirebaseInventoryService } from "./firebase-inventory.service";
+import { isExcludedShopCode } from "./excluded-shops.utils";
 import { sanitizeFirebaseKey } from "./firebase-key.utils";
 
 export interface NationalInventoryProgress {
@@ -106,14 +107,16 @@ export class NationalInventoryService {
             );
           }
           if (entry && !isEntryStale && Array.isArray(entry.shops)) {
-            const validShops = entry.shops.map((s: any) => ({
+            const validShops = entry.shops
+              .filter((s: any) => !isExcludedShopCode(s?.StoreCode || s?.ShopCode))
+              .map((s: any) => ({
               StoreCode: String(s.StoreCode || "").trim(),
               StoreName: String(s.StoreName || "").trim(),
               StoreType: String(s.StoreType || ""),
               Quantity: parseNumericValue(s.QuantityExist ?? s.Quantity ?? 0),
               QuantityAVG: parseNumericValue(s.QuantityAVG ?? s.AVGQuantity ?? s.Quantity ?? 0),
               UnitOfMeasure: String(s.UnitOfMeasure || s.Unit || "Hộp"),
-            }));
+              }));
 
             results[code] = validShops;
             done++;
@@ -182,7 +185,7 @@ export class NationalInventoryService {
                 .filter((s: any) => {
                   const storeType = String(s.StoreType || "").toLowerCase();
                   const storeCode = String(s.StoreCode || "").toUpperCase();
-                  return !storeType.includes("kho") && !storeCode.startsWith("KHO") && !storeCode.startsWith("DN") && storeCode !== "";
+                  return !isExcludedShopCode(storeCode) && !storeType.includes("kho") && !storeCode.startsWith("KHO") && !storeCode.startsWith("DN") && storeCode !== "";
                 })
                 .map((s: any) => ({
                   StoreCode: String(s.StoreCode || "").trim(),

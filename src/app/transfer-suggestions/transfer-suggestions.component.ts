@@ -689,7 +689,7 @@ export class TransferSuggestionsComponent implements OnInit {
   async runFullProcess(): Promise<void> {
     const session = this.upharma.getSession();
     const uPharmaID = session?.UserInfo?.uPharmaID || 0;
-    const cacheKey = `transfer|${uPharmaID}|${this.selectedShopCode}|${this.expiryDaysThreshold}`;
+    const cacheKey = `transfer|${uPharmaID}|${this.selectedShopCode}|${this.expiryDaysThreshold}|excluded-shops-v2`;
 
       // 1. TẢI TỨC THÌ TỪ INDEXEDDB CỦA TRÌNH DUYỆT (0ms)
       const cached = await this.readCache(cacheKey);

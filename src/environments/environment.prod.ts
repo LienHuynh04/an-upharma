@@ -8,7 +8,7 @@ export const environment = {
     UserName: "",
     Password: "",
   },
-  excludedShopCodes: ["SHOP0040"],
+  excludedShopCodes: ["SHOP0040", "SHOP0162"],
   firebaseDbUrl: "https://an-upharma-default-rtdb.firebaseio.com",
   // Gemini API key nhúng sẵn (tự động, không cần nhập tay).
   // Cách lấy: aistudio.google.com/apikey → Create API key → dán vào đây.

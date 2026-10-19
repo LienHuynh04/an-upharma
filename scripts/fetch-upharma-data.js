@@ -24,7 +24,7 @@ const UPHARMA_API_BASE_URL = process.env.UPHARMA_API_BASE_URL || "https://icpc1h
 const UPHARMA_USERNAME = process.env.UPHARMA_USERNAME;
 const UPHARMA_PASSWORD = process.env.UPHARMA_PASSWORD;
 const EXCLUDED_SHOP_CODES = new Set(
-  (process.env.UPHARMA_EXCLUDED_SHOPS || "SHOP0040")
+  (process.env.UPHARMA_EXCLUDED_SHOPS || "SHOP0040,SHOP0162")
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean)

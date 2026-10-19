@@ -1,6 +1,7 @@
 import { Injectable } from "@angular/core";
 import { environment } from "../../environments/environment";
 import { UpharmaService } from "../upharma.service";
+import { isExcludedShopCode } from "../excluded-shops.utils";
 
 export interface ChatMessage {
   role: "user" | "assistant";
@@ -134,7 +135,7 @@ export class AiAssistantService {
       if (!res.ok) return empty;
       const json = await res.json();
       const data = json?.data || {};
-      const codes = Object.keys(data);
+      const codes = Object.keys(data).filter((code) => !isExcludedShopCode(code));
       const totals = { outOfStock: 0, stable: 0, slow: 0, key: 0 };
       const perShop: Record<string, ShopSummary> = {};
       for (const code of codes) {
@@ -188,6 +189,14 @@ export class AiAssistantService {
       if (!res.ok) return null;
       const data = await res.json();
       if (!data) return null;
+      if (Array.isArray(data.topExpiring)) {
+        data.topExpiring = data.topExpiring.filter((item: any) => !isExcludedShopCode(item?.s));
+      }
+      if (Array.isArray(data.topSuggestions)) {
+        data.topSuggestions = data.topSuggestions.filter(
+          (item: any) => !isExcludedShopCode(item?.f) && !isExcludedShopCode(item?.t)
+        );
+      }
       this.transferCache = { at: Date.now(), data };
       return data;
     } catch {
@@ -243,11 +252,13 @@ export class AiAssistantService {
       if (!res.ok) return null;
       const json = await res.json();
       if (!json || !json.shops) return null;
-      const perShop = (json.shops || []).map((s: any) => ({
+      const perShop = (json.shops || [])
+        .filter((s: any) => !isExcludedShopCode(s?.StoreCode || s?.ShopCode))
+        .map((s: any) => ({
         shop: s.StoreCode,
         qty: Number(s.Quantity) || 0,
         avg: Number(s.QuantityAVG) || 0,
-      }));
+        }));
       const catalog = await this.lookupProduct(productCode);
       return {
         productID: productCode,

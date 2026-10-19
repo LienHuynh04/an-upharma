@@ -1,6 +1,7 @@
 import { Injectable } from "@angular/core";
 import { Router } from "@angular/router";
 import { environment } from "../environments/environment";
+import { isExcludedShopCode } from "./excluded-shops.utils";
 
 export type RawRecord = Record<string, unknown>;
 
@@ -303,6 +304,11 @@ export class UpharmaService {
           throw new Error(`HTTP ${response.status}`);
         }
         const json = await response.json();
+        if (json?.data && typeof json.data === "object") {
+          json.data = Object.fromEntries(
+            Object.entries(json.data).filter(([shopCode]) => !isExcludedShopCode(shopCode))
+          );
+        }
         return json as unknown as T;
       }
     }

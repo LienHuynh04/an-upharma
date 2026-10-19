@@ -1,5 +1,6 @@
 import { Injectable } from "@angular/core";
 import { environment } from "../environments/environment";
+import { isExcludedShopCode } from "./excluded-shops.utils";
 import { sanitizeFirebaseKey } from "./firebase-key.utils";
 
 export interface CacheEntry {
@@ -33,7 +34,12 @@ export class FirebaseInventoryService {
         throw new Error(`HTTP ${response.status}`);
       }
       const data = await response.json();
-      return data || {};
+      return Object.fromEntries(
+        Object.entries(data || {}).map(([productID, entry]: [string, any]) => [
+          productID,
+          this.filterCacheEntry(entry),
+        ])
+      );
     } catch (error) {
       console.warn("[Firebase Cache] Lỗi khi tải toàn bộ national_inventory_cache:", error);
       return {};
@@ -53,7 +59,7 @@ export class FirebaseInventoryService {
       if (!response.ok) return null;
 
       const data = await response.json();
-      return data as CacheEntry;
+      return this.filterCacheEntry(data);
     } catch (error) {
       return null;
     }
@@ -95,7 +101,7 @@ export class FirebaseInventoryService {
       const url = `${this.dbUrl}/national_inventory_cache/${sanitized}.json`;
       const entry: CacheEntry = {
         productID: sanitized,
-        shops,
+        shops: shops.filter((shop) => !isExcludedShopCode(shop?.StoreCode || shop?.ShopCode)),
         updatedAt: Date.now(),
       };
 
@@ -118,7 +124,7 @@ export class FirebaseInventoryService {
    * Dung lượng siêu nhẹ (~20KB), tải trong 30ms.
    */
   async getShopTransferSuggestions(shopCode: string): Promise<any | null> {
-    if (!this.dbUrl || !shopCode) return null;
+    if (!this.dbUrl || !shopCode || isExcludedShopCode(shopCode)) return null;
 
     try {
       const sanitized = sanitizeFirebaseKey(shopCode);
@@ -128,7 +134,67 @@ export class FirebaseInventoryService {
       if (!response.ok) return null;
 
       const data = await response.json();
-      return data || null;
+      if (!data) return null;
+
+      const filtered = { ...data };
+      if (Array.isArray(filtered.expiringStockList)) {
+        filtered.expiringStockList = filtered.expiringStockList.filter(
+          (item: any) => !isExcludedShopCode(item?.shopCode || item?.ShopCode)
+        );
+      }
+      if (Array.isArray(filtered.suggestions)) {
+        filtered.suggestions = filtered.suggestions.filter(
+          (item: any) =>
+            !isExcludedShopCode(item?.fromShopCode || item?.FromShopCode) &&
+            !isExcludedShopCode(item?.toShopCode || item?.ToShopCode)
+        );
+      }
+      if (Array.isArray(filtered.groupedSuggestions)) {
+        filtered.groupedSuggestions = filtered.groupedSuggestions.flatMap((group: any) => {
+          if (isExcludedShopCode(group?.fromShopCode || group?.FromShopCode)) return [];
+          const items = Array.isArray(group?.items)
+            ? group.items.filter(
+                (item: any) =>
+                  !isExcludedShopCode(item?.fromShopCode || item?.FromShopCode) &&
+                  !isExcludedShopCode(item?.toShopCode || item?.ToShopCode)
+              )
+            : [];
+          if (Array.isArray(group?.items) && items.length === 0) return [];
+          return Array.isArray(group?.items)
+            ? [{
+                ...group,
+                items,
+                suggestionCount: items.length,
+                totalSuggestedQty: items.reduce(
+                  (total: number, item: any) => total + (Number(item?.suggestedQty) || 0),
+                  0
+                ),
+                sameProvinceCount: items.filter((item: any) => item?.isSameProvince).length,
+              }]
+            : [group];
+        });
+      }
+      if (Array.isArray(filtered.expiringStockList)) {
+        filtered.totalExpiringCount = filtered.expiringStockList.length;
+      }
+      if (Array.isArray(filtered.suggestions)) {
+        filtered.suggestionCount = filtered.suggestions.length;
+        filtered.bucketCounts = this.getTransferBucketCounts(filtered.suggestions);
+      }
+      if (Array.isArray(filtered.groupedSuggestions)) {
+        filtered.groupCount = filtered.groupedSuggestions.length;
+      }
+      if (filtered.nationalStoreStockMap && typeof filtered.nationalStoreStockMap === "object") {
+        filtered.nationalStoreStockMap = Object.fromEntries(
+          Object.entries(filtered.nationalStoreStockMap).map(([productCode, stores]: [string, any]) => [
+            productCode,
+            Array.isArray(stores)
+              ? stores.filter((store: any) => !isExcludedShopCode(store?.StoreCode || store?.ShopCode))
+              : stores,
+          ])
+        );
+      }
+      return filtered;
     } catch (error) {
       console.warn(`[Firebase Cache] Không lấy được transfer_suggestions_cache cho ${shopCode}:`, error);
       return null;
@@ -178,5 +244,63 @@ export class FirebaseInventoryService {
       console.warn("[Firebase Cache] Lỗi khi tải product_catalog từ Firebase:", error);
       return null;
     }
+  }
+
+  private filterCacheEntry(entry: any): CacheEntry {
+    if (!entry || !Array.isArray(entry.shops)) return entry;
+    return {
+      ...entry,
+      shops: entry.shops.filter(
+        (shop: any) => !isExcludedShopCode(shop?.StoreCode || shop?.ShopCode)
+      ),
+    };
+  }
+
+  private getTransferBucketCounts(suggestions: any[]): Record<string, number | string> {
+    const allKeys = new Set<string>();
+    const dangerKeys = new Set<string>();
+    const warningKeys = new Set<string>();
+    const safeKeys = new Set<string>();
+    let allQty = 0;
+    let dangerQty = 0;
+    let warningQty = 0;
+    let safeQty = 0;
+
+    for (const item of suggestions) {
+      const key = `${item.fromShopCode}|${item.productCode}`;
+      const daysRemaining = Number(item.daysRemaining);
+      const quantity = Number(item.suggestedQty) || 0;
+      allKeys.add(key);
+      allQty += quantity;
+
+      if (daysRemaining >= 0 && daysRemaining <= 90) {
+        dangerKeys.add(key);
+        dangerQty += quantity;
+      }
+      if (daysRemaining > 90 && daysRemaining <= 180) {
+        warningKeys.add(key);
+        warningQty += quantity;
+      }
+      if (daysRemaining >= 0 && daysRemaining <= 365) {
+        safeKeys.add(key);
+        safeQty += quantity;
+      }
+    }
+
+    const total = allKeys.size || 1;
+    return {
+      all: allKeys.size,
+      allQty,
+      allRate: "100,00",
+      danger: dangerKeys.size,
+      dangerQty,
+      dangerRate: ((dangerKeys.size / total) * 100).toFixed(2).replace(".", ","),
+      warning: warningKeys.size,
+      warningQty,
+      warningRate: ((warningKeys.size / total) * 100).toFixed(2).replace(".", ","),
+      safe: safeKeys.size,
+      safeQty,
+      safeRate: ((safeKeys.size / total) * 100).toFixed(2).replace(".", ","),
+    };
   }
 }
