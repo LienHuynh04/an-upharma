@@ -24,30 +24,45 @@ const UPHARMA_API_BASE_URL = process.env.UPHARMA_API_BASE_URL || "https://icpc1h
 const UPHARMA_USERNAME = process.env.UPHARMA_USERNAME;
 const UPHARMA_PASSWORD = process.env.UPHARMA_PASSWORD;
 const DATA_DIR = path.join(__dirname, '..', 'src', 'assets', 'data');
+const REQUEST_TIMEOUT_MS = Number(process.env.UPHARMA_REQUEST_TIMEOUT_MS || 120000);
 
 async function requestUpharma(pathname, payload) {
-  const response = await fetch(`${UPHARMA_API_BASE_URL}${pathname}`, {
-    method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      Origin: "https://upharma.com.vn",
-      Referer: "https://upharma.com.vn/",
-      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
-    },
-    body: JSON.stringify(payload),
-  });
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status} khi gọi ${pathname}`);
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(`${UPHARMA_API_BASE_URL}${pathname}`, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        Origin: "https://upharma.com.vn",
+        Referer: "https://upharma.com.vn/",
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status} khi gọi ${pathname}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error(`Timeout sau ${REQUEST_TIMEOUT_MS}ms khi gọi ${pathname}`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
   }
-  return await response.json();
 }
 
 async function upharmaLogin() {
   if (!UPHARMA_USERNAME || !UPHARMA_PASSWORD) {
     throw new Error("Thiếu UPHARMA_USERNAME hoặc UPHARMA_PASSWORD");
   }
-  console.log(`[sync-catalog] Đang đăng nhập Upharma tài khoản: ${UPHARMA_USERNAME}...`);
+  console.log("[sync-catalog] Đang đăng nhập Upharma...");
   const res = await requestUpharma("/User/UserLogin", {
     UserName: UPHARMA_USERNAME,
     Password: UPHARMA_PASSWORD,
