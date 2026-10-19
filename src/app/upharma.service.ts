@@ -215,6 +215,7 @@ export function resolveFirebaseResource(pathname: string, payload: RawRecord): s
 
 @Injectable({ providedIn: "root" })
 export class UpharmaService {
+  private readonly API_REQUEST_TIMEOUT_MS = 30_000;
   readonly resourceNames = ["inventory", "invoices", "messages", "employees", "orders"] as const;
 
   private readonly authStorageKey = "upharma_session";
@@ -1143,39 +1144,52 @@ export class UpharmaService {
   }
 
   private async request<T>(pathname: string, payload: RawRecord): Promise<T> {
-    if (this.useBackendProxy) {
-      return this.requestViaBackend<T>(pathname, payload);
-    }
-
-    const response = await fetch(`${this.directApiBaseUrl}${pathname}`, {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
-    const responseText = await response.text();
-    let data: RawRecord;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), this.API_REQUEST_TIMEOUT_MS);
 
     try {
-      data = responseText ? (JSON.parse(responseText) as RawRecord) : {};
-    } catch {
-      throw new Error(`${pathname}: response không phải JSON`);
-    }
-
-    if (!response.ok) {
-      // FIX (2026-10-15): đường direct API trước đây không phát hiện token hết hạn —
-      // user kẹt ở trạng thái "đã login nhưng API lỗi" tới hết ngày. Đồng bộ với parseApiResponse.
-      if (response.status === 401 || response.status === 403 || this.isTokenErrorMessage(data)) {
-        this.handleInvalidToken();
+      if (this.useBackendProxy) {
+        return await this.requestViaBackend<T>(pathname, payload, controller.signal);
       }
-      throw new Error(`${pathname}: HTTP ${response.status}`);
+
+      const response = await fetch(`${this.directApiBaseUrl}${pathname}`, {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+      const responseText = await response.text();
+      let data: RawRecord;
+
+      try {
+        data = responseText ? (JSON.parse(responseText) as RawRecord) : {};
+      } catch {
+        throw new Error(`${pathname}: response không phải JSON`);
+      }
+
+      if (!response.ok) {
+        // FIX (2026-10-15): đường direct API trước đây không phát hiện token hết hạn —
+        // user kẹt ở trạng thái "đã login nhưng API lỗi" tới hết ngày. Đồng bộ với parseApiResponse.
+        if (response.status === 401 || response.status === 403 || this.isTokenErrorMessage(data)) {
+          this.handleInvalidToken();
+        }
+        throw new Error(`${pathname}: HTTP ${response.status}`);
+      }
+
+      this.assertBusinessResponse(pathname, data);
+
+      return data as T;
+    } catch (error) {
+      if (controller.signal.aborted) {
+        throw new Error(`${pathname}: hết thời gian chờ sau ${this.API_REQUEST_TIMEOUT_MS / 1000} giây`);
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeoutId);
     }
-
-    this.assertBusinessResponse(pathname, data);
-
-    return data as T;
   }
 
   private async backendLogin(credentials: { UserName: string; Password: string }): Promise<LoginResponse> {
@@ -1191,13 +1205,18 @@ export class UpharmaService {
     return this.parseApiResponse<LoginResponse>(response, "/api/upharma/login");
   }
 
-  private async requestViaBackend<T>(pathname: string, payload: RawRecord): Promise<T> {
+  private async requestViaBackend<T>(
+    pathname: string,
+    payload: RawRecord,
+    signal: AbortSignal,
+  ): Promise<T> {
     const response = await fetch(`${this.apiBaseUrl}/call`, {
       method: "POST",
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",
       },
+      signal,
       body: JSON.stringify({
         pathname,
         payload,

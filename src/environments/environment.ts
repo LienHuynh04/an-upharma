@@ -9,11 +9,5 @@ export const environment = {
     Password: "",
   },
   excludedShopCodes: ["SHOP0040", "SHOP0162"],
-  firebaseDbUrl: "https://an-upharma-default-rtdb.firebaseio.com",
-  // Gemini API key nhúng sẵn (tự động, không cần nhập tay).
-  // Cách lấy: aistudio.google.com/apikey → Create API key → dán vào đây.
-  // BẢO MẬT: vào Google Cloud Console → APIs & Services → Credentials → key này
-  // → Application restrictions → HTTP referrers → thêm domain GitHub Pages của bạn
-  // (vd: lienhuynh04.github.io/*). Key bị lộ cũng không dùng được ở domain khác.
-  geminiApiKey: ""
+  firebaseDbUrl: "https://an-upharma-default-rtdb.firebaseio.com"
 };

@@ -298,21 +298,41 @@ export class ShopPlanYearComponent implements OnInit {
     this.tabs.forEach((tab) => { tab.loading = true; tab.errorText = ""; tab.items = []; });
     const timeStart = `${this.selectedYear}-10-01 00:00:00`;
     const timeEnd = `${this.selectedYear}-10-31 23:59:59`;
-    await Promise.all(shops.map(async (shop) => {
-      const tab = this.tabs.find((entry) => entry.shopCode === shop.ShopCode);
-      if (!tab) return;
-      try {
-        const response = await this.upharmaService.callEndpoint<ShopPlanResponse>(this.endpoint, { TimeStart: timeStart, TimeEnd: timeEnd, Token: session.Token, uPharmaID: String(session.UserInfo.uPharmaID), ShopCode: shop.ShopCode }, { forceRefresh });
-        tab.items = Array.isArray(response.ShopPlanLst) ? response.ShopPlanLst : [];
-      } catch (error) {
-        if (!this.isInvalidTokenError(error)) {
-          tab.errorText = error instanceof Error ? error.message : String(error);
+    const shopsToLoad = [...shops];
+    const loadNextShop = async (): Promise<void> => {
+      let shop = shopsToLoad.shift();
+      while (shop) {
+        const currentShop = shop;
+        const tab = this.tabs.find((entry) => entry.shopCode === currentShop.ShopCode);
+        if (tab) {
+          try {
+            const response = await this.upharmaService.callEndpoint<ShopPlanResponse>(
+              this.endpoint,
+              {
+                TimeStart: timeStart,
+                TimeEnd: timeEnd,
+                Token: session.Token,
+                uPharmaID: String(session.UserInfo.uPharmaID),
+                ShopCode: currentShop.ShopCode,
+              },
+              { forceRefresh }
+            );
+            tab.items = Array.isArray(response.ShopPlanLst) ? response.ShopPlanLst : [];
+          } catch (error) {
+            if (!this.isInvalidTokenError(error)) {
+              tab.errorText = error instanceof Error ? error.message : String(error);
+            }
+            tab.items = [];
+          } finally {
+            tab.loading = false;
+          }
         }
-        tab.items = [];
-      } finally {
-        tab.loading = false;
+        shop = shopsToLoad.shift();
       }
-    }));
+    };
+
+    const workerCount = Math.min(4, shopsToLoad.length);
+    await Promise.all(Array.from({ length: workerCount }, () => loadNextShop()));
   }
 
   formatNumber(value: number): string {
