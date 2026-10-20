@@ -290,6 +290,26 @@ export class UpharmaService {
     return session;
   }
 
+  private async fetchFirebaseJson<T>(url: string): Promise<T> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), this.API_REQUEST_TIMEOUT_MS);
+
+    try {
+      const response = await fetch(url, { signal: controller.signal });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      return await response.json() as T;
+    } catch (error) {
+      if (controller.signal.aborted) {
+        throw new Error(`Firebase: hết thời gian chờ sau ${this.API_REQUEST_TIMEOUT_MS / 1000} giây`);
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
   async callEndpoint<T>(
     pathname: string,
     payload: RawRecord,
@@ -300,11 +320,7 @@ export class UpharmaService {
       if (firebaseDbUrl) {
         const url = `${firebaseDbUrl.replace(/\/$/, "")}/shops_summary.json`;
         console.log(`[Firebase Fetch] Đang tải shops_summary từ: ${url}`);
-        const response = await fetch(url);
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-        const json = await response.json();
+        const json = await this.fetchFirebaseJson<any>(url);
         if (json?.data && typeof json.data === "object") {
           json.data = Object.fromEntries(
             Object.entries(json.data).filter(([shopCode]) => !isExcludedShopCode(shopCode))
@@ -332,11 +348,7 @@ export class UpharmaService {
         if (resourceName === 'product_catalog') {
           const url = `${normalizedFirebase}/product_catalog.json`;
           console.log(`[Firebase Fetch] Đang tải danh mục sản phẩm từ: ${url}`);
-          const response = await fetch(url);
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-          }
-          const json = await response.json();
+          const json = await this.fetchFirebaseJson<any>(url);
           if (json && Array.isArray(json.items)) {
             return json.items.map((i: any) => ({
               ProductID: i.c,
@@ -354,11 +366,7 @@ export class UpharmaService {
           const shop = shopsToFetch[0];
           const url = `${normalizedFirebase}/shops/${shop.ShopCode}/upharma_data/${resourceName}.json`;
           console.log(`[Firebase Fetch] Đang tải ${resourceName} cho shop ${shop.ShopCode} từ: ${url}`);
-          const response = await fetch(url);
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-          }
-          const json = await response.json();
+          const json = await this.fetchFirebaseJson<any>(url);
           return (json?.data || {}) as T;
         }
 
@@ -380,12 +388,7 @@ export class UpharmaService {
                 request = (async () => {
                   const url = `${normalizedFirebase}/shops/${shop.ShopCode}/upharma_data/${resourceName}.json`;
                   console.log(`[Firebase Fetch] Đang tải ${resourceName} cho shop ${shop.ShopCode} từ: ${url}`);
-                  const response = await fetch(url);
-                  if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}`);
-                  }
-
-                  const json = await response.json();
+                  const json = await this.fetchFirebaseJson<any>(url);
                   if (!json || !json.data) {
                     return [];
                   }
@@ -432,15 +435,9 @@ export class UpharmaService {
       if ((environment as any).useStaticData) {
         const url = this.getStaticDataUrl(`assets/data/${resourceName}.json`);
         console.log(`[Firebase Fetch] Đang đọc fallback tĩnh: ${url}`);
-        const response = await fetch(url);
-        if (!response.ok) {
-          const errText = await response.text();
-          console.error(`[Firebase Lỗi 404?] URL: ${url} - Trạng thái: ${response.status} - Chi tiết:`, errText);
-          throw new Error(`Không thể đọc data tĩnh của ${resourceName}. Mã lỗi: ${response.status}`);
-        }
-        const json = await response.json();
+        const json = await this.fetchFirebaseJson<T>(url);
         console.log(`[Firebase Fetch] ✅ Đã đọc được dữ liệu tĩnh từ URL: ${url}`);
-        return json as T;
+        return json;
       }
 
       throw new Error(`Không có Firebase hoặc dữ liệu shop để đọc ${pathname}`);
@@ -847,12 +844,9 @@ export class UpharmaService {
           console.warn(`[Firebase Fallback] Tất cả shop tải từ Firebase bị lỗi (${failedShops.join(", ")}). Đang fallback sang file tĩnh assets/data/${resourceName}.json`);
           try {
             const staticUrl = this.getStaticDataUrl(`assets/data/${resourceName}.json`);
-            const staticResp = await fetch(staticUrl);
-            if (staticResp.ok) {
-              const staticData = await staticResp.json() as ResourceResponse;
-              if (options.onFresh) options.onFresh(staticData);
-              return staticData;
-            }
+            const staticData = await this.fetchFirebaseJson<ResourceResponse>(staticUrl);
+            if (options.onFresh) options.onFresh(staticData);
+            return staticData;
           } catch (fallbackErr) {
             console.error(`[Firebase Fallback] Lỗi đọc file tĩnh:`, fallbackErr);
           }
@@ -878,13 +872,7 @@ export class UpharmaService {
 
       const url = this.getStaticDataUrl(`assets/data/${resourceName}.json`);
       console.log(`[Firebase Fetch] Đang tải resource ${resourceName} từ: ${url}`);
-      const response = await fetch(url);
-      if (!response.ok) {
-        const errText = await response.text();
-        console.error(`[Firebase Lỗi 404?] URL: ${url} - Trạng thái: ${response.status} - Chi tiết:`, errText);
-        throw new Error(`Không thể đọc data tĩnh của ${resourceName}. Mã lỗi: ${response.status}`);
-      }
-      const data = await response.json() as ResourceResponse;
+      const data = await this.fetchFirebaseJson<ResourceResponse>(url);
       console.log(`[Firebase Fetch] ✅ KẾT NỐI THÀNH CÔNG: Đã lấy được dữ liệu cho ${resourceName} từ: ${url}`);
       if (options.onFresh) options.onFresh(data);
       return data;

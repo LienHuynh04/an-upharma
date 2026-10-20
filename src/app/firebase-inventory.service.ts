@@ -13,12 +13,32 @@ export interface CacheEntry {
   providedIn: "root",
 })
 export class FirebaseInventoryService {
+  private readonly requestTimeoutMs = 30_000;
+
   private get dbUrl(): string {
     const url = (environment as any).firebaseDbUrl || "";
     return url.replace(/\/$/, "");
   }
 
   constructor() {}
+
+  private async withRequestTimeout<T>(
+    request: (signal: AbortSignal) => Promise<T>,
+  ): Promise<T> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), this.requestTimeoutMs);
+
+    try {
+      return await request(controller.signal);
+    } catch (error) {
+      if (controller.signal.aborted) {
+        throw new Error(`Firebase: hết thời gian chờ sau ${this.requestTimeoutMs / 1000} giây`);
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
 
   /**
    * Tải toàn bộ bộ nhớ đệm tồn kho toàn quốc từ Firebase Realtime Database.
@@ -29,11 +49,13 @@ export class FirebaseInventoryService {
     try {
       const url = `${this.dbUrl}/national_inventory_cache.json`;
       console.log(`[Firebase Cache] Đang tải toàn bộ national_inventory_cache: ${url}`);
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-      const data = await response.json();
+      const data = await this.withRequestTimeout(async (signal) => {
+        const response = await fetch(url, { signal });
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        return response.json();
+      });
       return Object.fromEntries(
         Object.entries(data || {}).map(([productID, entry]: [string, any]) => [
           productID,
@@ -55,10 +77,11 @@ export class FirebaseInventoryService {
     try {
       const sanitized = sanitizeFirebaseKey(productID);
       const url = `${this.dbUrl}/national_inventory_cache/${sanitized}.json`;
-      const response = await fetch(url);
-      if (!response.ok) return null;
-
-      const data = await response.json();
+      const data = await this.withRequestTimeout(async (signal) => {
+        const response = await fetch(url, { signal });
+        if (!response.ok) return null;
+        return response.json();
+      });
       return this.filterCacheEntry(data);
     } catch (error) {
       return null;
@@ -105,11 +128,12 @@ export class FirebaseInventoryService {
         updatedAt: Date.now(),
       };
 
-      const response = await fetch(url, {
+      const response = await this.withRequestTimeout((signal) => fetch(url, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(entry),
-      });
+        signal,
+      }));
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
@@ -130,10 +154,11 @@ export class FirebaseInventoryService {
       const sanitized = sanitizeFirebaseKey(shopCode);
       const url = `${this.dbUrl}/transfer_suggestions_cache/${sanitized}.json`;
       console.log(`[Firebase Cache] Đang tải gợi ý tính sẵn cho shop ${shopCode}: ${url}`);
-      const response = await fetch(url);
-      if (!response.ok) return null;
-
-      const data = await response.json();
+      const data = await this.withRequestTimeout(async (signal) => {
+        const response = await fetch(url, { signal });
+        if (!response.ok) return null;
+        return response.json();
+      });
       if (!data) return null;
 
       const filtered = { ...data };
@@ -216,11 +241,12 @@ export class FirebaseInventoryService {
         ...suggestionsData,
       };
 
-      await fetch(url, {
+      await this.withRequestTimeout((signal) => fetch(url, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-      });
+        signal,
+      }));
     } catch (error) {
       console.error(`[Firebase Cache] Lỗi khi lưu transfer_suggestions_cache cho shop ${shopCode}:`, error);
     }
@@ -235,10 +261,11 @@ export class FirebaseInventoryService {
     try {
       const url = `${this.dbUrl}/product_catalog.json`;
       console.log(`[Firebase Cache] Đang tải danh mục sản phẩm từ: ${url}`);
-      const response = await fetch(url);
-      if (!response.ok) return null;
-
-      const data = await response.json();
+      const data = await this.withRequestTimeout(async (signal) => {
+        const response = await fetch(url, { signal });
+        if (!response.ok) return null;
+        return response.json();
+      });
       return data || null;
     } catch (error) {
       console.warn("[Firebase Cache] Lỗi khi tải product_catalog từ Firebase:", error);

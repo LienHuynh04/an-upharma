@@ -63,6 +63,7 @@ export class CronjobComponent implements OnInit {
     this.errorMessage = '';
     try {
       const response = await fetch(`https://api.github.com/repos/${this.repoOwner}/${this.repoName}/actions/workflows/${this.workflowId}/runs?per_page=10`, {
+        signal: AbortSignal.timeout(30_000),
         headers: {
           'Authorization': `Bearer ${this.githubToken}`,
           'Accept': 'application/vnd.github.v3+json'
@@ -96,6 +97,7 @@ export class CronjobComponent implements OnInit {
     try {
       const response = await fetch(`https://api.github.com/repos/${this.repoOwner}/${this.repoName}/actions/workflows/${this.workflowId}/dispatches`, {
         method: 'POST',
+        signal: AbortSignal.timeout(30_000),
         headers: {
           'Authorization': `Bearer ${this.githubToken}`,
           'Accept': 'application/vnd.github.v3+json',

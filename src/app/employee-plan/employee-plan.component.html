@@ -7,7 +7,7 @@
       </div>
       <div class="col-auto ms-auto d-print-none">
         <div class="btn-list">
-          <button type="button" class="btn btn-outline-primary" (click)="loadAllShops(true)" [disabled]="hasLoadingTabs()" title="Tải lại dữ liệu mới từ Firebase">
+          <button type="button" class="btn btn-outline-primary" (click)="loadAllShops(true)" [disabled]="hasLoadingTabs()" title="Tải lại dữ liệu mới từ máy chủ">
             <i class="ti ti-refresh me-1"></i>Tải lại
           </button>
         </div>
@@ -32,10 +32,14 @@
             </div>
           </div>
           <div class="col-md-3 col-sm-6">
-            <button class="btn btn-sm btn-primary w-100" type="button" (click)="loadAllShops()">Xem chỉ tiêu</button>
+            <button class="btn btn-sm btn-primary w-100" type="button" (click)="loadAllShops()" [disabled]="hasLoadingTabs()">Xem chỉ tiêu</button>
           </div>
         </div>
       </div>
+    </div>
+
+    <div class="alert alert-info" *ngIf="hasLoadingTabs()">
+      Đang tải dữ liệu nhà thuốc ({{ completedShopCount }}/{{ tabs.length }})...
     </div>
 
     <!-- Shop Tabs Selection -->

@@ -90,7 +90,7 @@ export class ReportConfigComponent implements OnInit {
     if (this.firebaseDbUrl) {
       try {
         const url = `${this.firebaseDbUrl}/hidden_products/report_config_${uPharmaID}.json`;
-        const response = await fetch(url);
+        const response = await fetch(url, { signal: AbortSignal.timeout(30_000) });
         if (response.ok) {
           const remoteData = (await response.json()) as ReportCustomInputs;
           if (remoteData && Array.isArray(remoteData.shops) && remoteData.shops.length > 0) {
@@ -117,6 +117,7 @@ export class ReportConfigComponent implements OnInit {
         const response = await fetch(url, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
+          signal: AbortSignal.timeout(30_000),
           body: JSON.stringify({
             ...this.reportInputs,
             updatedAt: new Date().toISOString(),
@@ -156,7 +157,7 @@ export class ReportConfigComponent implements OnInit {
     if (this.firebaseDbUrl) {
       try {
         const url = `${this.firebaseDbUrl}/hidden_products/report_config_${uPharmaID}.json`;
-        await fetch(url, { method: "DELETE" });
+        await fetch(url, { method: "DELETE", signal: AbortSignal.timeout(30_000) });
       } catch (e) {
         console.warn("Lỗi xóa cấu hình Firebase:", e);
       }

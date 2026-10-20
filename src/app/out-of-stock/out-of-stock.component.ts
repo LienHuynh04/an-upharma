@@ -643,7 +643,7 @@ export class OutOfStockComponent implements OnInit {
     
     try {
       const url = `${this.dbUrl}/hidden_products/${uPharmaID}/${shopCode}.json`;
-      const response = await fetch(url);
+      const response = await fetch(url, { signal: AbortSignal.timeout(30_000) });
       if (response.ok) {
         const data = await response.json();
         this.hiddenProductCodes = new Set(data ? Object.keys(data) : []);
@@ -680,6 +680,7 @@ export class OutOfStockComponent implements OnInit {
         headers: {
           "Content-Type": "application/json",
         },
+        signal: AbortSignal.timeout(30_000),
         body: JSON.stringify(true),
       });
       
@@ -708,6 +709,7 @@ export class OutOfStockComponent implements OnInit {
       const url = `${this.dbUrl}/hidden_products/${uPharmaID}/${item.shopCode}/${item.productCode}.json`;
       const response = await fetch(url, {
         method: "DELETE",
+        signal: AbortSignal.timeout(30_000),
       });
       
       if (!response.ok) {

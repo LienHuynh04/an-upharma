@@ -116,10 +116,10 @@ export class ShopPlanIconComponent {
                 <option *ngFor="let year of yearOptions" [ngValue]="year">{{ year }}</option>
               </select>
             </div>
-            <button type="button" class="btn btn-outline-primary" (click)="loadAllShops(true)" [disabled]="hasLoadingTabs()" title="Tải lại dữ liệu mới từ Firebase">
+            <button type="button" class="btn btn-outline-primary" (click)="loadAllShops(true)" [disabled]="hasLoadingTabs()" title="Tải lại dữ liệu mới từ máy chủ">
               <i class="ti ti-refresh me-1"></i>Tải lại
             </button>
-            <button class="btn btn-primary" type="button" (click)="loadAllShops()">Xem</button>
+            <button class="btn btn-primary" type="button" (click)="loadAllShops()" [disabled]="hasLoadingTabs()">Xem</button>
           </div>
         </div>
       </div>
@@ -137,11 +137,11 @@ export class ShopPlanIconComponent {
 
       <div class="d-flex align-items-center justify-content-center py-5" *ngIf="isAnyTabLoading">
         <div class="spinner-border text-primary me-2" role="status"></div>
-        <span class="text-secondary">Đang tải dữ liệu nhà thuốc...</span>
+        <span class="text-secondary">Đang tải dữ liệu nhà thuốc ({{ completedShopCount }}/{{ tabs.length }})...</span>
       </div>
 
-      <div class="row row-deck row-cards" *ngIf="!isAnyTabLoading">
-        <div class="col-sm-6 col-lg-4" *ngFor="let card of visibleCards">
+      <div class="row row-deck row-cards" *ngIf="visibleCards.length > 0">
+        <div class="col-sm-6 col-lg-4" *ngFor="let card of visibleCards; trackBy: trackByShopCode">
           <div class="card">
             <ng-container *ngIf="card.item as item; else emptyShopCard">
               <div class="card-header">
@@ -254,6 +254,7 @@ export class ShopPlanYearComponent implements OnInit {
   selectedMonth = 10;
   selectedYear = new Date().getFullYear();
   tabs: ShopTab[] = [];
+  visibleCards: ShopMonthCard[] = [];
 
   constructor(private readonly upharmaService: UpharmaService) {}
 
@@ -266,8 +267,22 @@ export class ShopPlanYearComponent implements OnInit {
     return this.tabs.some((tab) => tab.loading);
   }
 
-  get visibleCards(): ShopMonthCard[] {
-    return this.tabs
+  get completedShopCount(): number {
+    return this.tabs.filter((tab) => !tab.loading).length;
+  }
+
+  trackByShopCode(_index: number, card: ShopMonthCard): string {
+    return card.shopCode;
+  }
+
+  private initTabs(): void {
+    const shops = this.upharmaService.getActiveShops();
+    this.tabs = shops.map((shop) => ({ shopCode: shop.ShopCode, shopName: shop.ShopName, loading: false, errorText: "", items: [] }));
+    this.updateVisibleCards();
+  }
+
+  private updateVisibleCards(): void {
+    this.visibleCards = this.tabs
       .map((tab) => ({
         shopCode: tab.shopCode,
         shopName: tab.shopName,
@@ -278,16 +293,15 @@ export class ShopPlanYearComponent implements OnInit {
       .filter((card) => card.item || card.errorText);
   }
 
-  private initTabs(): void {
-    const shops = this.upharmaService.getActiveShops();
-    this.tabs = shops.map((shop) => ({ shopCode: shop.ShopCode, shopName: shop.ShopName, loading: false, errorText: "", items: [] }));
-  }
-
   hasLoadingTabs(): boolean {
     return this.tabs.some((tab) => tab.loading);
   }
 
   async loadAllShops(forceRefresh = false): Promise<void> {
+    if (this.hasLoadingTabs()) {
+      return;
+    }
+
     const session = this.upharmaService.ensureLogin();
     const shops = this.upharmaService.getActiveShops();
     if (shops.length === 0) {
@@ -325,6 +339,7 @@ export class ShopPlanYearComponent implements OnInit {
             tab.items = [];
           } finally {
             tab.loading = false;
+            this.updateVisibleCards();
           }
         }
         shop = shopsToLoad.shift();

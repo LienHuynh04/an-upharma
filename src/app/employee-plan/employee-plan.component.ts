@@ -108,7 +108,15 @@ export class EmployeePlanComponent implements OnInit {
     return this.tabs.some((tab) => tab.loading);
   }
 
+  get completedShopCount(): number {
+    return this.tabs.filter((tab) => !tab.loading).length;
+  }
+
   async loadAllShops(forceRefresh = false): Promise<void> {
+    if (this.hasLoadingTabs()) {
+      return;
+    }
+
     const session = this.upharmaService.ensureLogin();
     const shops = this.upharmaService.getActiveShops();
 
@@ -124,32 +132,39 @@ export class EmployeePlanComponent implements OnInit {
       tab.items = [];
     });
 
-    await Promise.all(
-      shops.map(async (shop) => {
-        const tab = this.tabs.find((entry) => entry.shopCode === shop.ShopCode);
-        if (!tab) return;
+    const shopsToLoad = [...shops];
+    const loadNextShop = async (): Promise<void> => {
+      let shop = shopsToLoad.shift();
+      while (shop) {
+        const currentShop = shop;
+        const tab = this.tabs.find((entry) => entry.shopCode === currentShop.ShopCode);
+        if (tab) {
+          try {
+            const response = await this.upharmaService.callEndpoint<EmployeePlanResponse>(this.endpoint, {
+              Month: this.selectedMonth,
+              Year: this.selectedYear,
+              Token: session.Token,
+              uPharmaID: String(session.UserInfo.uPharmaID),
+              ShopCode: currentShop.ShopCode,
+            }, { forceRefresh });
 
-        try {
-          const response = await this.upharmaService.callEndpoint<EmployeePlanResponse>(this.endpoint, {
-            Month: this.selectedMonth,
-            Year: this.selectedYear,
-            Token: session.Token,
-            uPharmaID: String(session.UserInfo.uPharmaID),
-            ShopCode: shop.ShopCode,
-          }, { forceRefresh });
-
-          tab.items = Array.isArray(response.EmployeePlanLst) ? response.EmployeePlanLst : [];
-          tab.errorText = "";
-        } catch (error) {
-          if (!this.isInvalidTokenError(error)) {
-            tab.errorText = error instanceof Error ? error.message : String(error);
+            tab.items = Array.isArray(response.EmployeePlanLst) ? response.EmployeePlanLst : [];
+            tab.errorText = "";
+          } catch (error) {
+            if (!this.isInvalidTokenError(error)) {
+              tab.errorText = error instanceof Error ? error.message : String(error);
+            }
+            tab.items = [];
+          } finally {
+            tab.loading = false;
           }
-          tab.items = [];
-        } finally {
-          tab.loading = false;
         }
-      }),
-    );
+        shop = shopsToLoad.shift();
+      }
+    };
+
+    const workerCount = Math.min(4, shopsToLoad.length);
+    await Promise.all(Array.from({ length: workerCount }, () => loadNextShop()));
   }
 
   formatNumber(value: number): string {
