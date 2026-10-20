@@ -1,13 +1,14 @@
 const fs = require('fs');
 const path = require('path');
-const { initializeApp, cert } = require('firebase-admin/app');
+const { initializeApp, cert, deleteApp } = require('firebase-admin/app');
 const { getDatabase } = require('firebase-admin/database');
 
+let app = null;
 let db = null;
 if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
   try {
     const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
-    const app = initializeApp({
+    app = initializeApp({
       credential: cert(serviceAccount),
       databaseURL: process.env.FIREBASE_DATABASE_URL || `https://${serviceAccount.project_id}-default-rtdb.firebaseio.com`
     });
@@ -205,7 +206,16 @@ async function run() {
   console.log(`=== HOÀN THÀNH CRONJOB (Thời gian: ${elapsed}s) ===`);
 }
 
-run().catch((err) => {
-  console.error("[sync-catalog] ❌ Lỗi Cronjob:", err.message || err);
-  process.exit(1);
-});
+run()
+  .then(async () => {
+    if (app) {
+      try {
+        await deleteApp(app);
+      } catch (_) {}
+    }
+    process.exit(0);
+  })
+  .catch((err) => {
+    console.error("[sync-catalog] ❌ Lỗi Cronjob:", err.message || err);
+    process.exit(1);
+  });
