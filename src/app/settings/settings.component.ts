@@ -13,7 +13,7 @@ import {
  * Trang Cài đặt → Ẩn/Hiện nhà thuốc.
  *
  * User chọn shop nào cần hiện, shop nào cần ẩn; cấu hình lưu vào Firebase
- * RTDB `settings/shop_visibility` và áp dụng cho CẢ HAI phía:
+ * RTDB `hidden_products/shop_visibility` và áp dụng cho CẢ HAI phía:
  * - App: UpharmaService.getActiveShops() lọc theo cấu hình này (mọi trang).
  * - Cronjob đồng bộ (scripts/fetch-upharma-data.js): chỉ gọi API lấy dữ liệu
  *   cho các shop đang hiện, từ lần chạy kế tiếp.

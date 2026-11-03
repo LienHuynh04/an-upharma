@@ -268,7 +268,7 @@ export class UpharmaService {
    * Danh sách shop ĐANG HIỆN mà mọi trang được phép dùng.
    * Đây là điểm chạm duy nhất của cấu hình ẩn/hiện: shopList đã loại shop cứng
    * (environment.excludedShopCodes), tại đây loại tiếp các shop user đã ẩn
-   * trong trang Cài đặt (settings/shop_visibility trên Firebase, cache đồng bộ
+   * trong trang Cài đặt (hidden_products/shop_visibility trên Firebase, cache đồng bộ
    * ở localStorage). Mọi trang gọi hàm này nên tự động tôn trọng cấu hình.
    */
   getActiveShops(): ShopInfo[] {

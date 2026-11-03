@@ -4,7 +4,14 @@ import { environment } from "../environments/environment";
 /**
  * Cấu hình ẩn/hiện nhà thuốc — MỘT nguồn sự thật duy nhất cho cả app và cronjob.
  *
- * Firebase RTDB: `settings/shop_visibility`
+ * Firebase RTDB: `hidden_products/shop_visibility`
+ *
+ * LƯU Ý VỀ ĐƯỜNG DẪN: RTDB rules của dự án khóa ghi ở root và chỉ mở ghi
+ * công khai tại `hidden_products` và `transfer_suggestions_cache` (xem
+ * database.rules.json) — node `settings/...` bị từ chối HTTP 401 khi PUT.
+ * Vì vậy cấu hình này nằm dưới `hidden_products` (cùng chỗ với
+ * report_config_<id> của trang Báo cáo vẫn lưu bình thường), KHÔNG chuyển
+ * về `settings/...` trừ khi rules trên Firebase console được mở thêm.
  * ```json
  * { "hiddenShopCodes": ["SHOP0123"], "updatedAt": "<ISO>", "updatedBy": "841" }
  * ```
@@ -26,7 +33,7 @@ export interface ShopVisibilityConfig {
   updatedBy?: string;
 }
 
-export const SHOP_VISIBILITY_PATH = "settings/shop_visibility";
+export const SHOP_VISIBILITY_PATH = "hidden_products/shop_visibility";
 const SHOP_VISIBILITY_CACHE_KEY = "upharma_shop_visibility";
 
 /** Chuẩn hoá dữ liệu thô từ Firebase/localStorage thành danh sách mã shop bị ẩn. */
