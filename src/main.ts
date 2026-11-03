@@ -140,6 +140,11 @@ const routes: Routes = [
         loadComponent: () => import("./app/cronjob/cronjob.component").then((m) => m.CronjobComponent),
         title: "UPHARMA - Đồng bộ dữ liệu",
       },
+      {
+        path: "cai-dat",
+        loadComponent: () => import("./app/settings/settings.component").then((m) => m.SettingsComponent),
+        title: "UPHARMA - Cài đặt",
+      },
     ],
   },
   {
