@@ -251,7 +251,9 @@ export class ShopPlanYearComponent implements OnInit {
     { key: "CusLevel5", label: "H5" },
     { key: "CusLevel6", label: "H6" },
   ] as const;
-  selectedMonth = 10;
+  // Default to the current month (same convention as the report page);
+  // previously hardcoded to October.
+  selectedMonth = new Date().getMonth() + 1;
   selectedYear = new Date().getFullYear();
   tabs: ShopTab[] = [];
   visibleCards: ShopMonthCard[] = [];
@@ -310,8 +312,11 @@ export class ShopPlanYearComponent implements OnInit {
     }
     this.initTabs();
     this.tabs.forEach((tab) => { tab.loading = true; tab.errorText = ""; tab.items = []; });
-    const timeStart = `${this.selectedYear}-10-01 00:00:00`;
-    const timeEnd = `${this.selectedYear}-10-31 23:59:59`;
+    // Fetch window follows the selected month (was hardcoded to October).
+    const monthPadded = String(this.selectedMonth).padStart(2, "0");
+    const lastDay = new Date(this.selectedYear, this.selectedMonth, 0).getDate();
+    const timeStart = `${this.selectedYear}-${monthPadded}-01 00:00:00`;
+    const timeEnd = `${this.selectedYear}-${monthPadded}-${String(lastDay).padStart(2, "0")} 23:59:59`;
     const shopsToLoad = [...shops];
     const loadNextShop = async (): Promise<void> => {
       let shop = shopsToLoad.shift();
