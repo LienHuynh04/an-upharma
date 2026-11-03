@@ -10,6 +10,7 @@ import {
   RouterOutlet,
 } from "@angular/router";
 import { UpharmaService } from "../upharma.service";
+import { ShopVisibilityService } from "../shop-visibility.service";
 import { TabStateService, OpenTab } from "../tab-state.service";
 import { TabReuseStrategy } from "../tab-reuse.strategy";
 
@@ -52,7 +53,8 @@ export class LayoutComponent implements OnInit, OnDestroy {
     public upharma: UpharmaService,
     public router: Router,
     public tabState: TabStateService,
-    private reuseStrategy: TabReuseStrategy
+    private reuseStrategy: TabReuseStrategy,
+    private shopVisibility: ShopVisibilityService
   ) {}
 
   tabs: OpenTab[] = [];
@@ -832,6 +834,10 @@ renderDashboard(); renderInventory(); renderNearExpiryOrders(); renderTabs(); re
     }
     this.applyDarkMode();
     this.checkSession();
+    // Nạp cấu hình ẩn/hiện nhà thuốc mới nhất từ Firebase vào cache đồng bộ.
+    // getActiveShops() đọc cache này, nên từ lần điều hướng tiếp theo mọi trang
+    // đều tôn trọng cấu hình; trang Cài đặt luôn đọc trực tiếp bản mới nhất.
+    void this.shopVisibility.refreshFromFirebase();
     this.syncMenuState(this.router.url);
     this.tabSub = this.tabState.tabs$.subscribe((tabs) => (this.tabs = tabs));
     this.activePathSub = this.tabState.activePath$.subscribe((p) => (this.activePath = p));

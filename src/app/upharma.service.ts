@@ -2,6 +2,7 @@ import { Injectable } from "@angular/core";
 import { Router } from "@angular/router";
 import { environment } from "../environments/environment";
 import { isExcludedShopCode } from "./excluded-shops.utils";
+import { filterVisibleShops, readCachedHiddenShopCodes } from "./shop-visibility.service";
 
 export type RawRecord = Record<string, unknown>;
 
@@ -233,6 +234,8 @@ export class UpharmaService {
   private readonly firebaseSalesSpeedInFlight = new Map<string, Promise<RawRecord[]>>();
   private sessionData: LoginResponse | null = null;
   private shopList: ShopInfo[] = [];
+  /** Toàn bộ shop trong phiên đăng nhập (chưa lọc ẩn/hiện, chưa loại shop cứng) — dùng cho trang Cài đặt. */
+  private allShopList: ShopInfo[] = [];
 
   constructor(private readonly router: Router) {}
 
@@ -261,8 +264,25 @@ export class UpharmaService {
     return loginData;
   }
 
+  /**
+   * Danh sách shop ĐANG HIỆN mà mọi trang được phép dùng.
+   * Đây là điểm chạm duy nhất của cấu hình ẩn/hiện: shopList đã loại shop cứng
+   * (environment.excludedShopCodes), tại đây loại tiếp các shop user đã ẩn
+   * trong trang Cài đặt (settings/shop_visibility trên Firebase, cache đồng bộ
+   * ở localStorage). Mọi trang gọi hàm này nên tự động tôn trọng cấu hình.
+   */
   getActiveShops(): ShopInfo[] {
-    return this.shopList;
+    return filterVisibleShops(this.shopList, readCachedHiddenShopCodes());
+  }
+
+  /** Toàn bộ shop của phiên đăng nhập, gồm cả shop đã ẩn và shop bị loại cứng. */
+  getAllSessionShops(): ShopInfo[] {
+    return [...this.allShopList];
+  }
+
+  /** ShopList nội bộ đã áp cấu hình ẩn/hiện — dùng cho các luồng tự fetch mặc định. */
+  private get visibleShopList(): ShopInfo[] {
+    return filterVisibleShops(this.shopList, readCachedHiddenShopCodes());
   }
 
   getSession(): LoginResponse | null {
@@ -276,6 +296,7 @@ export class UpharmaService {
   clearSession(): void {
     this.sessionData = null;
     this.shopList = [];
+    this.allShopList = [];
     localStorage.removeItem(this.authStorageKey);
     this.clearResourceCache();
   }
@@ -547,7 +568,7 @@ export class UpharmaService {
       return;
     }
 
-    const shops = [...this.shopList];
+    const shops = [...this.visibleShopList];
     const requests = shops.flatMap((shop) =>
       this.getSalesSpeedPrefetchPayloads(session, shop.ShopCode).map((payload) => ({ payload })),
     );
@@ -630,7 +651,7 @@ export class UpharmaService {
     const requestedShopCodes = new Set(options.shopCodes || []);
     const selectedShops = requestedShopCodes.size > 0
       ? this.shopList.filter((shop) => requestedShopCodes.has(shop.ShopCode))
-      : (this.shopList.length > 0 ? [this.shopList[0]] : []);
+      : [...this.visibleShopList].slice(0, 1);
     const shops = [...selectedShops];
 
     const worker = async (): Promise<void> => {
@@ -697,6 +718,9 @@ export class UpharmaService {
 
   private setSession(loginData: LoginResponse): void {
     this.sessionData = loginData;
+    this.allShopList = [...loginData.UserInfo.ShopLst].sort((firstShop, secondShop) =>
+      firstShop.ShopCode.localeCompare(secondShop.ShopCode, "vi"),
+    );
     this.shopList = loginData.UserInfo.ShopLst.filter(
       (shop) => !environment.excludedShopCodes.includes(shop.ShopCode),
     ).sort((firstShop, secondShop) => firstShop.ShopCode.localeCompare(secondShop.ShopCode, "vi"));
@@ -758,7 +782,7 @@ export class UpharmaService {
         const requestedShopCodes = new Set(options.shopCodes || []);
         const shopsToFetch = requestedShopCodes.size > 0
           ? this.shopList.filter((shop) => requestedShopCodes.has(shop.ShopCode))
-          : [...this.shopList];
+          : [...this.visibleShopList];
         const shopsData: any[] = [];
         const failedShops: string[] = [];
         
@@ -931,7 +955,7 @@ export class UpharmaService {
     const config = this.getResourceConfig(resourceName)!;
     const data: RawRecord[] = [];
     const failedShops: string[] = [];
-    const shops = [...this.shopList];
+    const shops = [...this.visibleShopList];
 
     const worker = async (): Promise<void> => {
       for (let shop = shops.shift(); shop; shop = shops.shift()) {
@@ -958,10 +982,10 @@ export class UpharmaService {
     };
 
     await Promise.all(
-      Array.from({ length: Math.min(this.shopConcurrency, this.shopList.length) }, () => worker()),
+      Array.from({ length: Math.min(this.shopConcurrency, shops.length) }, () => worker()),
     );
 
-    if (this.shopList.length > 0 && failedShops.length === this.shopList.length) {
+    if (shops.length > 0 && failedShops.length === shops.length) {
       throw new Error(`${resourceName}: tất cả nhà thuốc đều lỗi (${failedShops.join(", ")})`);
     }
 
@@ -973,7 +997,7 @@ export class UpharmaService {
         FullName: session.UserInfo.FullName,
         Email: session.UserInfo.Email,
       },
-      shops: this.shopList,
+      shops,
       data,
       failedShops,
       fetchedAt: new Date().toISOString(),

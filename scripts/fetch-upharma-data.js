@@ -30,6 +30,78 @@ const EXCLUDED_SHOP_CODES = new Set(
     .filter(Boolean)
 );
 
+/**
+ * Cấu hình ẩn/hiện nhà thuốc do user đặt trong trang Cài đặt của app,
+ * lưu tại Firebase RTDB `settings/shop_visibility`:
+ *   { "hiddenShopCodes": ["SHOP0123"], "updatedAt": "...", "updatedBy": "841" }
+ *
+ * Cronjob chỉ gọi API lấy dữ liệu cho các shop ĐANG HIỆN. Mọi lỗi đọc cấu
+ * hình đều FAIL-OPEN (đồng bộ tất cả shop như trước) — một cấu hình hỏng
+ * không bao giờ được làm gián đoạn việc đồng bộ dữ liệu.
+ */
+const SHOP_VISIBILITY_PATH = "settings/shop_visibility";
+
+/** Chuẩn hoá tài liệu shop_visibility thô thành Set mã shop bị ẩn. */
+function parseHiddenShopCodes(doc) {
+  const codes = new Set();
+  if (!doc || typeof doc !== "object") return codes;
+
+  const collect = (value) => {
+    if (typeof value === "string" && value.trim()) codes.add(value.trim());
+  };
+
+  if (Array.isArray(doc.hiddenShopCodes)) {
+    doc.hiddenShopCodes.forEach(collect);
+  } else if (doc.hiddenShopCodes && typeof doc.hiddenShopCodes === "object") {
+    // RTDB đôi khi trả mảng thành object có key số.
+    Object.values(doc.hiddenShopCodes).forEach(collect);
+  }
+  if (doc.hiddenShops && typeof doc.hiddenShops === "object") {
+    for (const [code, flag] of Object.entries(doc.hiddenShops)) {
+      if (flag === true) collect(code);
+    }
+  }
+  return codes;
+}
+
+/** Đọc danh sách shop bị ẩn từ Firebase. Lỗi/không có db → Set rỗng (fail-open). */
+async function loadHiddenShopCodes(database) {
+  if (!database) {
+    console.log("[shop-visibility] Không có kết nối Firebase Admin — đồng bộ tất cả shop.");
+    return new Set();
+  }
+  try {
+    const snapshot = await database.ref(SHOP_VISIBILITY_PATH).once("value");
+    const hidden = parseHiddenShopCodes(snapshot.val());
+    console.log(
+      hidden.size > 0
+        ? `[shop-visibility] Đang ẩn ${hidden.size} shop theo cấu hình trang Cài đặt: ${[...hidden].join(", ")}`
+        : "[shop-visibility] Không có shop nào bị ẩn trong cấu hình trang Cài đặt."
+    );
+    return hidden;
+  } catch (err) {
+    console.warn("[shop-visibility] Không đọc được cấu hình ẩn/hiện shop (fail-open, đồng bộ tất cả):", err.message);
+    return new Set();
+  }
+}
+
+/**
+ * Quyết định danh sách shop sẽ đồng bộ: loại shop cứng (env) + shop user đã ẩn.
+ * Guard fail-open: nếu áp cấu hình ẩn mà không còn shop nào (trong khi sau khi
+ * loại shop cứng vẫn còn shop) thì BỎ QUA cấu hình ẩn để cron không chết đứng.
+ */
+function resolveShopsToSync(allShops, excludedCodes, hiddenCodes) {
+  const afterExcluded = (allShops || []).filter((shop) => !excludedCodes.has(shop.ShopCode));
+  const visible = afterExcluded.filter((shop) => !hiddenCodes.has(shop.ShopCode));
+  if (afterExcluded.length > 0 && visible.length === 0) {
+    console.error(
+      "[shop-visibility] Cấu hình ẩn làm mất toàn bộ shop — bỏ qua cấu hình ẩn lần chạy này (fail-open)."
+    );
+    return afterExcluded;
+  }
+  return visible;
+}
+
 const DATA_DIR = path.join(__dirname, '..', 'src', 'assets', 'data');
 /**
  * Chuẩn hóa key cho Firebase RTDB (dùng chung logic với src/app/firebase-key.utils.ts).
@@ -460,7 +532,21 @@ async function run() {
   }
 
   const allShops = loginData.UserInfo?.ShopLst || [];
-  const shops = allShops.filter((shop) => !EXCLUDED_SHOP_CODES.has(shop.ShopCode));
+  // Áp cấu hình ẩn/hiện nhà thuốc từ trang Cài đặt (Firebase settings/shop_visibility):
+  // chỉ gọi API cho các shop đang hiện. Lỗi đọc cấu hình → fail-open đồng bộ tất cả.
+  const hiddenShopCodes = await loadHiddenShopCodes(db);
+  const shops = resolveShopsToSync(allShops, EXCLUDED_SHOP_CODES, hiddenShopCodes);
+  const skippedHidden = allShops.filter(
+    (shop) => !EXCLUDED_SHOP_CODES.has(shop.ShopCode) && hiddenShopCodes.has(shop.ShopCode)
+  );
+  if (skippedHidden.length > 0) {
+    console.log(
+      `[shop-visibility] Bỏ qua ${skippedHidden.length} shop đang ẩn (không gọi API): ${skippedHidden
+        .map((s) => s.ShopCode)
+        .join(", ")}`
+    );
+  }
+  console.log(`[shop-visibility] Sẽ đồng bộ ${shops.length}/${allShops.length} shop.`);
   const syncStartedAt = new Date().toISOString();
   
   if (shops.length === 0) {
@@ -1362,11 +1448,18 @@ async function fetchAndUploadProductCatalog(loginData, db, allShopsData) {
   }
 }
 
-run().catch((error) => {
-  console.error("Fetch data failed:", error);
-  clearInterval(heartbeatTimer);
-  process.exit(1);
-});
+// Chỉ tự chạy khi được gọi trực tiếp (node scripts/fetch-upharma-data.js,
+// như GitHub Actions làm). Khi bị require() từ test thì chỉ export các hàm
+// thuần để kiểm thử, không chạy đồng bộ thật.
+if (require.main === module) {
+  run().catch((error) => {
+    console.error("Fetch data failed:", error);
+    clearInterval(heartbeatTimer);
+    process.exit(1);
+  });
+}
+
+module.exports = { parseHiddenShopCodes, resolveShopsToSync };
 
 function pick(obj, keys) {
   if (!obj) return "";

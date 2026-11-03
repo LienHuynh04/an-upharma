@@ -54,6 +54,14 @@
               </a>
             </li>
 
+            <!-- Link Cài đặt -->
+            <li class="nav-item">
+              <a class="nav-link py-2" routerLink="/cai-dat" routerLinkActive="active" (click)="closeSidebar()">
+                <span class="nav-link-icon d-md-none d-lg-inline-block"><i class="ti ti-settings" style="font-size: 1.1rem;"></i></span>
+                <span class="nav-link-title" style="font-size: 13.5px;">Cài đặt</span>
+              </a>
+            </li>
+
             <!-- Nhóm chỉ tiêu -->
             <li class="nav-item dropdown" [class.show]="openMenuId === 'stats'" [class.active]="menuGroups['stats']">
               <a
