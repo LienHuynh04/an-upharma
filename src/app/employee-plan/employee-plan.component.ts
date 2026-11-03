@@ -56,7 +56,6 @@ interface ShopPlanTab {
 export class EmployeePlanComponent implements OnInit {
   readonly endpoint = "/EmployeePlan/GetEmployeePlanLst";
   readonly monthOptions = Array.from({ length: 12 }, (_, index) => index + 1);
-  readonly yearOptions = Array.from({ length: 11 }, (_, index) => new Date().getFullYear() - 5 + index);
   // Default to the current month (same convention as the report page);
   // previously hardcoded to October.
   selectedMonth = new Date().getMonth() + 1;
