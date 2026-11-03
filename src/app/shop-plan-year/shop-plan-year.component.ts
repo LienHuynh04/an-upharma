@@ -108,14 +108,6 @@ export class ShopPlanIconComponent {
           <div class="page-pretitle">KẾ HOẠCH</div>
           <h2 class="page-title">Chỉ tiêu nhà thuốc trong năm</h2>
         </div>
-        <div class="col-12 col-sm-auto ms-sm-auto mt-2 mt-sm-0 d-print-none">
-          <div class="d-flex flex-wrap align-items-center gap-2" style="flex-wrap: wrap;">
-            <button type="button" class="btn btn-outline-primary" (click)="loadAllShops(true)" [disabled]="hasLoadingTabs()" title="Tải lại dữ liệu mới từ máy chủ">
-              <i class="ti ti-refresh me-1"></i>Tải lại
-            </button>
-            <button class="btn btn-primary" type="button" (click)="loadAllShops()" [disabled]="hasLoadingTabs()">Xem</button>
-          </div>
-        </div>
       </div>
     </div>
   </div>
