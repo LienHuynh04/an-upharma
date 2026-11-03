@@ -1,8 +1,11 @@
 import { Injectable } from "@angular/core";
 import { Router } from "@angular/router";
 import { environment } from "../environments/environment";
-import { isExcludedShopCode } from "./excluded-shops.utils";
-import { filterVisibleShops, readCachedHiddenShopCodes } from "./shop-visibility.service";
+import {
+  filterVisibleShops,
+  isShopHiddenByVisibility,
+  readCachedHiddenShopCodes,
+} from "./shop-visibility.service";
 
 export type RawRecord = Record<string, unknown>;
 
@@ -266,16 +269,18 @@ export class UpharmaService {
 
   /**
    * Danh sách shop ĐANG HIỆN mà mọi trang được phép dùng.
-   * Đây là điểm chạm duy nhất của cấu hình ẩn/hiện: shopList đã loại shop cứng
-   * (environment.excludedShopCodes), tại đây loại tiếp các shop user đã ẩn
-   * trong trang Cài đặt (hidden_products/shop_visibility trên Firebase, cache đồng bộ
-   * ở localStorage). Mọi trang gọi hàm này nên tự động tôn trọng cấu hình.
+   * Đây là điểm chạm duy nhất của cấu hình ẩn/hiện: shopList chứa toàn bộ
+   * shop của phiên đăng nhập (không còn loại cứng), tại đây loại các shop
+   * user đã ẩn trong trang Cài đặt (hidden_products/shop_visibility trên
+   * Firebase, cache đồng bộ ở localStorage; chưa có cấu hình đã lưu thì hai
+   * kho SHOP0040/SHOP0162 ẩn theo mặc định). Mọi trang gọi hàm này nên tự
+   * động tôn trọng cấu hình.
    */
   getActiveShops(): ShopInfo[] {
     return filterVisibleShops(this.shopList, readCachedHiddenShopCodes());
   }
 
-  /** Toàn bộ shop của phiên đăng nhập, gồm cả shop đã ẩn và shop bị loại cứng. */
+  /** Toàn bộ shop của phiên đăng nhập, gồm cả shop đang bị ẩn theo cấu hình. */
   getAllSessionShops(): ShopInfo[] {
     return [...this.allShopList];
   }
@@ -344,7 +349,7 @@ export class UpharmaService {
         const json = await this.fetchFirebaseJson<any>(url);
         if (json?.data && typeof json.data === "object") {
           json.data = Object.fromEntries(
-            Object.entries(json.data).filter(([shopCode]) => !isExcludedShopCode(shopCode))
+            Object.entries(json.data).filter(([shopCode]) => !isShopHiddenByVisibility(shopCode))
           );
         }
         return json as unknown as T;
@@ -721,9 +726,11 @@ export class UpharmaService {
     this.allShopList = [...loginData.UserInfo.ShopLst].sort((firstShop, secondShop) =>
       firstShop.ShopCode.localeCompare(secondShop.ShopCode, "vi"),
     );
-    this.shopList = loginData.UserInfo.ShopLst.filter(
-      (shop) => !environment.excludedShopCodes.includes(shop.ShopCode),
-    ).sort((firstShop, secondShop) => firstShop.ShopCode.localeCompare(secondShop.ShopCode, "vi"));
+    // Không còn loại cứng shop nào ở đây (SHOP0040/SHOP0162 trước đây bị lọc
+    // bằng environment.excludedShopCodes): toàn bộ shop của phiên đều vào
+    // shopList, việc ẩn/hiện do cấu hình ở trang Cài đặt quyết định tại
+    // getActiveShops()/visibleShopList.
+    this.shopList = [...this.allShopList];
 
     localStorage.setItem(
       this.authStorageKey,

@@ -1,9 +1,9 @@
 import { CommonModule } from "@angular/common";
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit, inject } from "@angular/core";
 import { FormsModule } from "@angular/forms";
-import { environment } from "../../environments/environment";
 import { ShopInfo, UpharmaService } from "../upharma.service";
 import {
+  DEFAULT_HIDDEN_SHOP_CODES,
   ShopVisibilityConfig,
   ShopVisibilityService,
   normalizeHiddenShopCodes,
@@ -18,9 +18,10 @@ import {
  * - Cronjob đồng bộ (scripts/fetch-upharma-data.js): chỉ gọi API lấy dữ liệu
  *   cho các shop đang hiện, từ lần chạy kế tiếp.
  *
- * Shop bị loại cứng trong code (environment.excludedShopCodes, vd kho tổng)
- * hiển thị ở đây để user hiểu vì sao không thấy, nhưng không bật lại được
- * từ trang này.
+ * Mọi shop trong tài khoản đều gạt được tại đây — kể cả hai kho SHOP0040 /
+ * SHOP0162 (trước đây bị loại cứng trong code). Hai kho này chỉ còn là
+ * "ẩn theo mặc định" khi chưa từng lưu cấu hình; user bật lên lúc nào
+ * cũng được và cronjob sẽ đồng bộ dữ liệu cho chúng từ lần chạy kế tiếp.
  */
 @Component({
   selector: "app-settings",
@@ -56,6 +57,7 @@ import {
               <div>• <strong>Cronjob đồng bộ (mỗi giờ):</strong> chỉ gọi API lấy dữ liệu cho các shop đang hiện — ẩn shop không cần thiết giúp lần đồng bộ chạy nhanh hơn và đỡ tải API.</div>
               <div>• Dữ liệu cũ của shop đã ẩn trên Firebase <strong>vẫn được giữ nguyên</strong>; bật hiện lại là lần đồng bộ kế tiếp lấy dữ liệu tiếp như bình thường.</div>
               <div>• Shop mới trong tài khoản sẽ <strong>tự động hiện</strong> (chỉ các shop bạn tắt ở đây mới bị ẩn).</div>
+              <div>• Hai kho <strong>SHOP0040 / SHOP0162</strong> (nhãn "Kho") trước đây bị hệ thống tự loại bỏ, nay là shop thường: đang ẩn theo mặc định, bạn bật lên lúc nào cũng được — bật lên thì cronjob cũng bắt đầu đồng bộ dữ liệu cho kho từ lần chạy kế tiếp.</div>
             </div>
           </div>
 
@@ -110,13 +112,13 @@ import {
                     <div class="text-secondary small" *ngIf="shop.ShopAddress">{{ shop.ShopAddress }}</div>
                   </td>
                   <td>
-                    <span *ngIf="isHardExcluded(shop.ShopCode)" class="badge bg-dark-lt" title="Shop này bị loại cứng trong cấu hình hệ thống (environment.excludedShopCodes), không bật lại được tại đây">
-                      <i class="ti ti-lock me-1"></i>Loại cứng (hệ thống)
+                    <span *ngIf="isDefaultHiddenWarehouse(shop.ShopCode)" class="badge bg-azure-lt me-1" title="Kho — trước đây bị loại cứng khỏi hệ thống, nay là shop thường nhưng đang ẩn theo mặc định cho tới khi có cấu hình đã lưu">
+                      <i class="ti ti-building-warehouse me-1"></i>Kho
                     </span>
-                    <span *ngIf="!isHardExcluded(shop.ShopCode) && isVisible(shop.ShopCode)" class="badge bg-success-lt">
+                    <span *ngIf="isVisible(shop.ShopCode)" class="badge bg-success-lt">
                       <i class="ti ti-eye me-1"></i>Đang hiện
                     </span>
-                    <span *ngIf="!isHardExcluded(shop.ShopCode) && !isVisible(shop.ShopCode)" class="badge bg-danger-lt">
+                    <span *ngIf="!isVisible(shop.ShopCode)" class="badge bg-danger-lt">
                       <i class="ti ti-eye-off me-1"></i>Đang ẩn
                     </span>
                   </td>
@@ -124,7 +126,6 @@ import {
                     <label class="form-check form-switch m-0 d-inline-block">
                       <input class="form-check-input" type="checkbox"
                         [checked]="isVisible(shop.ShopCode)"
-                        [disabled]="isHardExcluded(shop.ShopCode)"
                         (change)="toggleShop(shop.ShopCode, $event)">
                     </label>
                   </td>
@@ -173,8 +174,6 @@ export class SettingsComponent implements OnInit {
   private upharmaService = inject(UpharmaService);
   private shopVisibility = inject(ShopVisibilityService);
 
-  private readonly hardExcluded = new Set<string>(environment.excludedShopCodes || []);
-
   shops: ShopInfo[] = [];
   hiddenShopCodes = new Set<string>();
   savedConfig: ShopVisibilityConfig | null = null;
@@ -204,8 +203,9 @@ export class SettingsComponent implements OnInit {
     }
   }
 
+  /** Mọi shop đều gạt được — không còn khái niệm shop bị loại cứng. */
   get toggleableShops(): ShopInfo[] {
-    return this.shops.filter((shop) => !this.hardExcluded.has(shop.ShopCode));
+    return this.shops;
   }
 
   get filteredShops(): ShopInfo[] {
@@ -223,12 +223,12 @@ export class SettingsComponent implements OnInit {
     return this.toggleableShops.filter((shop) => !this.hiddenShopCodes.has(shop.ShopCode)).length;
   }
 
-  isHardExcluded(shopCode: string): boolean {
-    return this.hardExcluded.has(shopCode);
+  /** Hai kho từng bị loại cứng — nay chỉ là nhãn thông tin, vẫn gạt được. */
+  isDefaultHiddenWarehouse(shopCode: string): boolean {
+    return DEFAULT_HIDDEN_SHOP_CODES.includes(shopCode);
   }
 
   isVisible(shopCode: string): boolean {
-    if (this.hardExcluded.has(shopCode)) return false;
     return !this.hiddenShopCodes.has(shopCode);
   }
 

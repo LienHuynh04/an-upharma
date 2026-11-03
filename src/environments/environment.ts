@@ -8,6 +8,7 @@ export const environment = {
     UserName: "",
     Password: "",
   },
-  excludedShopCodes: ["SHOP0040", "SHOP0162"],
+  // Không còn excludedShopCodes: SHOP0040/SHOP0162 nay do cấu hình ẩn/hiện
+  // ở trang Cài đặt quản lý (xem src/app/shop-visibility.service.ts).
   firebaseDbUrl: "https://an-upharma-default-rtdb.firebaseio.com"
 };

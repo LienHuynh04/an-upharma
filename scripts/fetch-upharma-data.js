@@ -23,12 +23,6 @@ if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
 const UPHARMA_API_BASE_URL = process.env.UPHARMA_API_BASE_URL || "https://icpc1hn.work/NHATHUOC";
 const UPHARMA_USERNAME = process.env.UPHARMA_USERNAME;
 const UPHARMA_PASSWORD = process.env.UPHARMA_PASSWORD;
-const EXCLUDED_SHOP_CODES = new Set(
-  (process.env.UPHARMA_EXCLUDED_SHOPS || "SHOP0040,SHOP0162")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean)
-);
 
 /**
  * Cấu hình ẩn/hiện nhà thuốc do user đặt trong trang Cài đặt của app,
@@ -37,11 +31,18 @@ const EXCLUDED_SHOP_CODES = new Set(
  * node settings/... bị từ chối HTTP 401 phía app):
  *   { "hiddenShopCodes": ["SHOP0123"], "updatedAt": "...", "updatedBy": "841" }
  *
- * Cronjob chỉ gọi API lấy dữ liệu cho các shop ĐANG HIỆN. Mọi lỗi đọc cấu
- * hình đều FAIL-OPEN (đồng bộ tất cả shop như trước) — một cấu hình hỏng
- * không bao giờ được làm gián đoạn việc đồng bộ dữ liệu.
+ * Cronjob chỉ gọi API lấy dữ liệu cho các shop ĐANG HIỆN.
+ *
+ * Không còn cơ chế loại cứng theo env (UPHARMA_EXCLUDED_SHOPS đã gỡ): hai
+ * kho SHOP0040/SHOP0162 cũng do cấu hình này quản lý như mọi shop khác.
+ * Để hành vi không đổi đột ngột, khi CHƯA có cấu hình nào được lưu (hoặc
+ * đọc cấu hình lỗi) thì áp dụng DEFAULT_HIDDEN_SHOP_CODES — hai kho vẫn
+ * không đồng bộ như trước, các shop còn lại đồng bộ bình thường. Ngay khi
+ * user lưu cấu hình lần đầu, tài liệu trên Firebase là nguồn sự thật duy
+ * nhất (user bật kho lên thì cron đồng bộ kho từ lần chạy kế tiếp).
  */
 const SHOP_VISIBILITY_PATH = "hidden_products/shop_visibility";
+const DEFAULT_HIDDEN_SHOP_CODES = new Set(["SHOP0040", "SHOP0162"]);
 
 /** Chuẩn hoá tài liệu shop_visibility thô thành Set mã shop bị ẩn. */
 function parseHiddenShopCodes(doc) {
@@ -66,40 +67,51 @@ function parseHiddenShopCodes(doc) {
   return codes;
 }
 
-/** Đọc danh sách shop bị ẩn từ Firebase. Lỗi/không có db → Set rỗng (fail-open). */
+/**
+ * Đọc danh sách shop bị ẩn từ Firebase.
+ * @returns {{ hidden: Set<string>, source: "firebase"|"default"|"fallback" }}
+ * - Có tài liệu cấu hình: dùng đúng danh sách trong tài liệu (kể cả rỗng).
+ * - Chưa có tài liệu / không có db / đọc lỗi: dùng DEFAULT_HIDDEN_SHOP_CODES
+ *   (chỉ ẩn hai kho) để hành vi giữ nguyên như trước khi có tính năng này.
+ */
 async function loadHiddenShopCodes(database) {
   if (!database) {
-    console.log("[shop-visibility] Không có kết nối Firebase Admin — đồng bộ tất cả shop.");
-    return new Set();
+    console.log("[shop-visibility] Không có kết nối Firebase Admin — áp dụng ẩn mặc định (hai kho).");
+    return { hidden: new Set(DEFAULT_HIDDEN_SHOP_CODES), source: "fallback" };
   }
   try {
     const snapshot = await database.ref(SHOP_VISIBILITY_PATH).once("value");
-    const hidden = parseHiddenShopCodes(snapshot.val());
+    const doc = snapshot.val();
+    if (doc === null || doc === undefined) {
+      console.log("[shop-visibility] Chưa có cấu hình ẩn/hiện trên Firebase — áp dụng ẩn mặc định (hai kho SHOP0040, SHOP0162).");
+      return { hidden: new Set(DEFAULT_HIDDEN_SHOP_CODES), source: "default" };
+    }
+    const hidden = parseHiddenShopCodes(doc);
     console.log(
       hidden.size > 0
         ? `[shop-visibility] Đang ẩn ${hidden.size} shop theo cấu hình trang Cài đặt: ${[...hidden].join(", ")}`
         : "[shop-visibility] Không có shop nào bị ẩn trong cấu hình trang Cài đặt."
     );
-    return hidden;
+    return { hidden, source: "firebase" };
   } catch (err) {
-    console.warn("[shop-visibility] Không đọc được cấu hình ẩn/hiện shop (fail-open, đồng bộ tất cả):", err.message);
-    return new Set();
+    console.warn("[shop-visibility] Không đọc được cấu hình ẩn/hiện shop — áp dụng ẩn mặc định (hai kho):", err.message);
+    return { hidden: new Set(DEFAULT_HIDDEN_SHOP_CODES), source: "fallback" };
   }
 }
 
 /**
- * Quyết định danh sách shop sẽ đồng bộ: loại shop cứng (env) + shop user đã ẩn.
- * Guard fail-open: nếu áp cấu hình ẩn mà không còn shop nào (trong khi sau khi
- * loại shop cứng vẫn còn shop) thì BỎ QUA cấu hình ẩn để cron không chết đứng.
+ * Quyết định danh sách shop sẽ đồng bộ: toàn bộ shop trừ các shop đang ẩn.
+ * Guard fail-open: nếu áp cấu hình ẩn mà không còn shop nào (trong khi danh
+ * sách gốc vẫn có shop) thì BỎ QUA cấu hình ẩn để cron không chết đứng.
  */
-function resolveShopsToSync(allShops, excludedCodes, hiddenCodes) {
-  const afterExcluded = (allShops || []).filter((shop) => !excludedCodes.has(shop.ShopCode));
-  const visible = afterExcluded.filter((shop) => !hiddenCodes.has(shop.ShopCode));
-  if (afterExcluded.length > 0 && visible.length === 0) {
+function resolveShopsToSync(allShops, hiddenCodes) {
+  const shops = allShops || [];
+  const visible = shops.filter((shop) => !hiddenCodes.has(shop.ShopCode));
+  if (shops.length > 0 && visible.length === 0) {
     console.error(
       "[shop-visibility] Cấu hình ẩn làm mất toàn bộ shop — bỏ qua cấu hình ẩn lần chạy này (fail-open)."
     );
-    return afterExcluded;
+    return shops;
   }
   return visible;
 }
@@ -536,11 +548,9 @@ async function run() {
   const allShops = loginData.UserInfo?.ShopLst || [];
   // Áp cấu hình ẩn/hiện nhà thuốc từ trang Cài đặt (Firebase hidden_products/shop_visibility):
   // chỉ gọi API cho các shop đang hiện. Lỗi đọc cấu hình → fail-open đồng bộ tất cả.
-  const hiddenShopCodes = await loadHiddenShopCodes(db);
-  const shops = resolveShopsToSync(allShops, EXCLUDED_SHOP_CODES, hiddenShopCodes);
-  const skippedHidden = allShops.filter(
-    (shop) => !EXCLUDED_SHOP_CODES.has(shop.ShopCode) && hiddenShopCodes.has(shop.ShopCode)
-  );
+  const { hidden: hiddenShopCodes } = await loadHiddenShopCodes(db);
+  const shops = resolveShopsToSync(allShops, hiddenShopCodes);
+  const skippedHidden = allShops.filter((shop) => hiddenShopCodes.has(shop.ShopCode));
   if (skippedHidden.length > 0) {
     console.log(
       `[shop-visibility] Bỏ qua ${skippedHidden.length} shop đang ẩn (không gọi API): ${skippedHidden
@@ -1461,7 +1471,7 @@ if (require.main === module) {
   });
 }
 
-module.exports = { parseHiddenShopCodes, resolveShopsToSync };
+module.exports = { parseHiddenShopCodes, resolveShopsToSync, DEFAULT_HIDDEN_SHOP_CODES };
 
 function pick(obj, keys) {
   if (!obj) return "";
