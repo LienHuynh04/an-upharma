@@ -17,6 +17,7 @@ import {
   UNDER_6_MONTHS_DAYS,
 } from "../inventory-utils";
 import { STATIC_DATA } from "../static-data";
+import { isShopHiddenByVisibility } from "../shop-visibility.service";
 import { RemoteDatasets, ResourceResponse, ShopInfo, UpharmaService } from "../upharma.service";
 
 type LayoutMode = "left" | "top";
@@ -433,7 +434,7 @@ export class InventoryNewComponent implements OnInit {
 
   private loadStaticInventory(): void {
     this.shopList = STATIC_DATA.shops
-      .filter((shop) => !environment.excludedShopCodes.includes(shop.ShopCode))
+      .filter((shop) => !isShopHiddenByVisibility(shop.ShopCode))
       .sort((firstShop, secondShop) => PRODUCT_NAME_COLLATOR.compare(firstShop.ShopCode, secondShop.ShopCode));
     this.activeShopCode = this.getDefaultShopCode();
     const shopMap = new Map(this.shopList.map((shop) => [shop.ShopCode, shop]));

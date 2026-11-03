@@ -1,6 +1,6 @@
 import { Injectable } from "@angular/core";
 import { environment } from "../environments/environment";
-import { isExcludedShopCode } from "./excluded-shops.utils";
+import { isShopHiddenByVisibility } from "./shop-visibility.service";
 import { sanitizeFirebaseKey } from "./firebase-key.utils";
 
 export interface CacheEntry {
@@ -124,7 +124,7 @@ export class FirebaseInventoryService {
       const url = `${this.dbUrl}/national_inventory_cache/${sanitized}.json`;
       const entry: CacheEntry = {
         productID: sanitized,
-        shops: shops.filter((shop) => !isExcludedShopCode(shop?.StoreCode || shop?.ShopCode)),
+        shops: shops.filter((shop) => !isShopHiddenByVisibility(shop?.StoreCode || shop?.ShopCode)),
         updatedAt: Date.now(),
       };
 
@@ -148,7 +148,7 @@ export class FirebaseInventoryService {
    * Dung lượng siêu nhẹ (~20KB), tải trong 30ms.
    */
   async getShopTransferSuggestions(shopCode: string): Promise<any | null> {
-    if (!this.dbUrl || !shopCode || isExcludedShopCode(shopCode)) return null;
+    if (!this.dbUrl || !shopCode || isShopHiddenByVisibility(shopCode)) return null;
 
     try {
       const sanitized = sanitizeFirebaseKey(shopCode);
@@ -164,24 +164,24 @@ export class FirebaseInventoryService {
       const filtered = { ...data };
       if (Array.isArray(filtered.expiringStockList)) {
         filtered.expiringStockList = filtered.expiringStockList.filter(
-          (item: any) => !isExcludedShopCode(item?.shopCode || item?.ShopCode)
+          (item: any) => !isShopHiddenByVisibility(item?.shopCode || item?.ShopCode)
         );
       }
       if (Array.isArray(filtered.suggestions)) {
         filtered.suggestions = filtered.suggestions.filter(
           (item: any) =>
-            !isExcludedShopCode(item?.fromShopCode || item?.FromShopCode) &&
-            !isExcludedShopCode(item?.toShopCode || item?.ToShopCode)
+            !isShopHiddenByVisibility(item?.fromShopCode || item?.FromShopCode) &&
+            !isShopHiddenByVisibility(item?.toShopCode || item?.ToShopCode)
         );
       }
       if (Array.isArray(filtered.groupedSuggestions)) {
         filtered.groupedSuggestions = filtered.groupedSuggestions.flatMap((group: any) => {
-          if (isExcludedShopCode(group?.fromShopCode || group?.FromShopCode)) return [];
+          if (isShopHiddenByVisibility(group?.fromShopCode || group?.FromShopCode)) return [];
           const items = Array.isArray(group?.items)
             ? group.items.filter(
                 (item: any) =>
-                  !isExcludedShopCode(item?.fromShopCode || item?.FromShopCode) &&
-                  !isExcludedShopCode(item?.toShopCode || item?.ToShopCode)
+                  !isShopHiddenByVisibility(item?.fromShopCode || item?.FromShopCode) &&
+                  !isShopHiddenByVisibility(item?.toShopCode || item?.ToShopCode)
               )
             : [];
           if (Array.isArray(group?.items) && items.length === 0) return [];
@@ -214,7 +214,7 @@ export class FirebaseInventoryService {
           Object.entries(filtered.nationalStoreStockMap).map(([productCode, stores]: [string, any]) => [
             productCode,
             Array.isArray(stores)
-              ? stores.filter((store: any) => !isExcludedShopCode(store?.StoreCode || store?.ShopCode))
+              ? stores.filter((store: any) => !isShopHiddenByVisibility(store?.StoreCode || store?.ShopCode))
               : stores,
           ])
         );
@@ -278,7 +278,7 @@ export class FirebaseInventoryService {
     return {
       ...entry,
       shops: entry.shops.filter(
-        (shop: any) => !isExcludedShopCode(shop?.StoreCode || shop?.ShopCode)
+        (shop: any) => !isShopHiddenByVisibility(shop?.StoreCode || shop?.ShopCode)
       ),
     };
   }

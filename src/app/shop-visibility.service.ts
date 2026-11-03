@@ -25,16 +25,37 @@ import { environment } from "../environments/environment";
  *   chỉ gọi API cho shop đang hiện.
  * - Mọi lỗi đọc cấu hình đều FAIL-OPEN (coi như hiện tất cả): một lỗi Firebase
  *   không bao giờ được làm app mất shop hoặc làm cron ngừng đồng bộ.
+ *
+ * Hai kho SHOP0040 / SHOP0162 (trước đây bị loại cứng bằng
+ * environment.excludedShopCodes + UPHARMA_EXCLUDED_SHOPS) nay cũng do cấu
+ * hình này quản lý như mọi shop khác. Để hành vi không đổi đột ngột,
+ * chúng nằm trong DEFAULT_HIDDEN_SHOP_CODES: khi CHƯA có cấu hình nào được
+ * lưu trên Firebase thì chúng vẫn ẩn như cũ; ngay khi user lưu cấu hình lần
+ * đầu (trang Cài đặt luôn khởi tạo trạng thái gạt từ danh sách hiệu lực,
+ * gồm cả mặc định), tài liệu đã lưu là nguồn sự thật duy nhất và user bật
+ * lại kho lúc nào cũng được.
  */
 
 export interface ShopVisibilityConfig {
   hiddenShopCodes: string[];
   updatedAt?: string;
   updatedBy?: string;
+  /** true khi đây là cấu hình mặc định suy ra vì Firebase chưa có tài liệu nào. */
+  isDefault?: boolean;
 }
 
 export const SHOP_VISIBILITY_PATH = "hidden_products/shop_visibility";
 const SHOP_VISIBILITY_CACHE_KEY = "upharma_shop_visibility";
+/** Cờ "đã có cấu hình thật trên Firebase" — phân biệt với trạng thái chưa từng lưu. */
+const SHOP_VISIBILITY_SAVED_KEY = "upharma_shop_visibility_saved";
+
+/**
+ * Các shop ẩn theo mặc định CHỈ KHI chưa có cấu hình nào được lưu: hai kho
+ * từng bị loại cứng (SHOP0040, SHOP0162). User bật lại được trong trang
+ * Cài đặt; ngay lần lưu đầu tiên, tài liệu trên Firebase là nguồn sự thật
+ * duy nhất và danh sách mặc định này không còn tác dụng.
+ */
+export const DEFAULT_HIDDEN_SHOP_CODES: readonly string[] = ["SHOP0040", "SHOP0162"];
 
 /** Chuẩn hoá dữ liệu thô từ Firebase/localStorage thành danh sách mã shop bị ẩn. */
 export function normalizeHiddenShopCodes(raw: unknown): string[] {
@@ -87,20 +108,39 @@ export function filterVisibleShops<T extends { ShopCode: string }>(
   return shops.filter((shop) => !hidden.has(shop.ShopCode));
 }
 
-/** Đọc cache đồng bộ từ localStorage (không có cache → không ẩn shop nào). */
+/**
+ * Đọc danh sách shop đang ẩn theo trạng thái đồng bộ hiện tại:
+ * - Đã có cấu hình thật (đã đọc được từ Firebase hoặc đã lưu): dùng danh
+ *   sách trong cache — kể cả khi rỗng (user đã chủ động hiện tất cả).
+ * - Chưa từng có cấu hình: dùng DEFAULT_HIDDEN_SHOP_CODES (hai kho vẫn ẩn
+ *   như thời còn loại cứng, phần còn lại hiện hết).
+ */
 export function readCachedHiddenShopCodes(): string[] {
   try {
-    const raw = localStorage.getItem(SHOP_VISIBILITY_CACHE_KEY);
-    if (!raw) return [];
-    return normalizeHiddenShopCodes(JSON.parse(raw));
+    if (localStorage.getItem(SHOP_VISIBILITY_SAVED_KEY) === "1") {
+      const raw = localStorage.getItem(SHOP_VISIBILITY_CACHE_KEY);
+      if (!raw) return [];
+      return normalizeHiddenShopCodes(JSON.parse(raw));
+    }
+    return [...DEFAULT_HIDDEN_SHOP_CODES];
   } catch {
-    return [];
+    return [...DEFAULT_HIDDEN_SHOP_CODES];
   }
 }
 
-function writeCachedConfig(config: ShopVisibilityConfig): void {
+/** Shop này có đang bị ẩn theo cấu hình hiển thị hiện hành không (đọc đồng bộ). */
+export function isShopHiddenByVisibility(shopCode: unknown): boolean {
+  const code = String(shopCode ?? "").trim().toUpperCase();
+  if (!code) return false;
+  return readCachedHiddenShopCodes().some((hidden) => hidden.toUpperCase() === code);
+}
+
+function writeCachedConfig(config: ShopVisibilityConfig, markSaved: boolean): void {
   try {
     localStorage.setItem(SHOP_VISIBILITY_CACHE_KEY, JSON.stringify(config));
+    if (markSaved) {
+      localStorage.setItem(SHOP_VISIBILITY_SAVED_KEY, "1");
+    }
   } catch {
     // localStorage đầy/không khả dụng: bỏ qua, lần tải sau sẽ đọc lại Firebase.
   }
@@ -124,7 +164,10 @@ export class ShopVisibilityService {
 
   /**
    * Đọc cấu hình mới nhất từ Firebase và cập nhật cache đồng bộ.
-   * Trả về null nếu đọc lỗi — caller giữ nguyên cache cũ (fail-open theo cache).
+   * - Có tài liệu: cache lại + đánh dấu đã có cấu hình thật, trả về tài liệu.
+   * - Chưa có tài liệu (null): trả về cấu hình MẶC ĐỊNH (ẩn hai kho) với
+   *   isDefault=true, không đánh dấu đã lưu.
+   * - Đọc lỗi: trả về null — caller giữ nguyên trạng thái đồng bộ hiện tại.
    */
   async refreshFromFirebase(): Promise<ShopVisibilityConfig | null> {
     if (!this.firebaseDbUrl) return null;
@@ -133,8 +176,17 @@ export class ShopVisibilityService {
         signal: AbortSignal.timeout(15_000),
       });
       if (!response.ok) return null;
-      const config = normalizeShopVisibilityConfig(await response.json());
-      writeCachedConfig(config);
+      const raw = await response.json();
+      if (raw === null || raw === undefined) {
+        const fallback: ShopVisibilityConfig = {
+          hiddenShopCodes: [...DEFAULT_HIDDEN_SHOP_CODES],
+          isDefault: true,
+        };
+        writeCachedConfig(fallback, false);
+        return fallback;
+      }
+      const config = normalizeShopVisibilityConfig(raw);
+      writeCachedConfig(config, true);
       return config;
     } catch (error) {
       console.warn("Không đọc được cấu hình ẩn/hiện nhà thuốc từ Firebase:", error);
@@ -161,7 +213,7 @@ export class ShopVisibilityService {
     if (!response.ok) {
       throw new Error(`Firebase RTDB trả về HTTP ${response.status}`);
     }
-    writeCachedConfig(config);
+    writeCachedConfig(config, true);
     return config;
   }
 

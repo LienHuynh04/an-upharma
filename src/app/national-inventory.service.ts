@@ -2,7 +2,7 @@ import { Injectable } from "@angular/core";
 import { isWarehouseStore, parseNumericValue } from "./inventory-utils";
 import { UpharmaService } from "./upharma.service";
 import { FirebaseInventoryService } from "./firebase-inventory.service";
-import { isExcludedShopCode } from "./excluded-shops.utils";
+import { isShopHiddenByVisibility } from "./shop-visibility.service";
 import { sanitizeFirebaseKey } from "./firebase-key.utils";
 
 export interface NationalInventoryProgress {
@@ -108,7 +108,7 @@ export class NationalInventoryService {
           }
           if (entry && !isEntryStale && Array.isArray(entry.shops)) {
             const validShops = entry.shops
-              .filter((s: any) => !isExcludedShopCode(s?.StoreCode || s?.ShopCode))
+              .filter((s: any) => !isShopHiddenByVisibility(s?.StoreCode || s?.ShopCode))
               .map((s: any) => ({
               StoreCode: String(s.StoreCode || "").trim(),
               StoreName: String(s.StoreName || "").trim(),
@@ -185,7 +185,7 @@ export class NationalInventoryService {
                 .filter((s: any) => {
                   const storeType = String(s.StoreType || "").toLowerCase();
                   const storeCode = String(s.StoreCode || "").toUpperCase();
-                  return !isExcludedShopCode(storeCode) && !storeType.includes("kho") && !storeCode.startsWith("KHO") && !storeCode.startsWith("DN") && storeCode !== "";
+                  return !isShopHiddenByVisibility(storeCode) && !storeType.includes("kho") && !storeCode.startsWith("KHO") && !storeCode.startsWith("DN") && storeCode !== "";
                 })
                 .map((s: any) => ({
                   StoreCode: String(s.StoreCode || "").trim(),

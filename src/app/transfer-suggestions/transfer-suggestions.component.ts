@@ -689,7 +689,9 @@ export class TransferSuggestionsComponent implements OnInit {
   async runFullProcess(): Promise<void> {
     const session = this.upharma.getSession();
     const uPharmaID = session?.UserInfo?.uPharmaID || 0;
-    const cacheKey = `transfer|${uPharmaID}|${this.selectedShopCode}|${this.expiryDaysThreshold}|excluded-shops-v2`;
+    // v3: phạm vi shop nay theo cấu hình ẩn/hiện (trang Cài đặt) thay cho
+    // loại cứng excluded-shops-v2 — đổi key để không dùng lại cache cũ.
+    const cacheKey = `transfer|${uPharmaID}|${this.selectedShopCode}|${this.expiryDaysThreshold}|shop-visibility-v3`;
 
       // 1. TẢI TỨC THÌ TỪ INDEXEDDB CỦA TRÌNH DUYỆT (0ms)
       const cached = await this.readCache(cacheKey);
