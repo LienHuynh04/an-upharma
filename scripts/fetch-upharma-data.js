@@ -32,14 +32,16 @@ const EXCLUDED_SHOP_CODES = new Set(
 
 /**
  * Cấu hình ẩn/hiện nhà thuốc do user đặt trong trang Cài đặt của app,
- * lưu tại Firebase RTDB `settings/shop_visibility`:
+ * lưu tại Firebase RTDB `hidden_products/shop_visibility`
+ * (nằm dưới hidden_products vì RTDB rules chỉ mở ghi công khai ở đó —
+ * node settings/... bị từ chối HTTP 401 phía app):
  *   { "hiddenShopCodes": ["SHOP0123"], "updatedAt": "...", "updatedBy": "841" }
  *
  * Cronjob chỉ gọi API lấy dữ liệu cho các shop ĐANG HIỆN. Mọi lỗi đọc cấu
  * hình đều FAIL-OPEN (đồng bộ tất cả shop như trước) — một cấu hình hỏng
  * không bao giờ được làm gián đoạn việc đồng bộ dữ liệu.
  */
-const SHOP_VISIBILITY_PATH = "settings/shop_visibility";
+const SHOP_VISIBILITY_PATH = "hidden_products/shop_visibility";
 
 /** Chuẩn hoá tài liệu shop_visibility thô thành Set mã shop bị ẩn. */
 function parseHiddenShopCodes(doc) {
@@ -532,7 +534,7 @@ async function run() {
   }
 
   const allShops = loginData.UserInfo?.ShopLst || [];
-  // Áp cấu hình ẩn/hiện nhà thuốc từ trang Cài đặt (Firebase settings/shop_visibility):
+  // Áp cấu hình ẩn/hiện nhà thuốc từ trang Cài đặt (Firebase hidden_products/shop_visibility):
   // chỉ gọi API cho các shop đang hiện. Lỗi đọc cấu hình → fail-open đồng bộ tất cả.
   const hiddenShopCodes = await loadHiddenShopCodes(db);
   const shops = resolveShopsToSync(allShops, EXCLUDED_SHOP_CODES, hiddenShopCodes);
