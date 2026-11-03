@@ -12,6 +12,7 @@ import {
   ShopKpiItem,
 } from "../report-generator.service";
 import { UpharmaService } from "../upharma.service";
+import { normalizeLiveMetrics, normalizeMetricsHistory } from "../report-metrics.utils";
 import { environment } from "../../environments/environment";
 
 @Component({
@@ -30,6 +31,10 @@ export class ReportConfigComponent implements OnInit {
 
   trackByIndex(index: number): number {
     return index;
+  }
+
+  trackByCollectedAt(_: number, metrics: ReportLiveMetrics): string {
+    return metrics?.collectedAt ?? _;
   }
 
   private upharmaService = inject(UpharmaService);
@@ -94,7 +99,7 @@ export class ReportConfigComponent implements OnInit {
         if (response.ok) {
           const remoteData = (await response.json()) as ReportCustomInputs;
           if (remoteData && Array.isArray(remoteData.shops) && remoteData.shops.length > 0) {
-            this.reportInputs = remoteData;
+            this.reportInputs = this.normalizeLoadedInputs(remoteData);
             return;
           }
         }
@@ -104,6 +109,28 @@ export class ReportConfigComponent implements OnInit {
     }
 
     this.reportInputs = this.createDefaultReportInputs();
+  }
+
+  /**
+   * Chuẩn hoá cấu hình vừa đọc từ Firebase trước khi đưa vào UI:
+   * - RTDB cắt bỏ mọi mảng rỗng lúc lưu (employees/empSummaries = [] biến mất),
+   *   không chuẩn hoá thì form kiểm tra và bước xuất báo cáo sẽ lỗi undefined.
+   * - Cấu hình cũ chưa có lịch sử thu thập: tự dựng history từ liveMetrics hiện có.
+   * - liveMetrics đang chọn luôn là MỘT phần tử trong history (cùng tham chiếu)
+   *   để sửa trong form là sửa luôn bản ghi lịch sử tương ứng.
+   */
+  private normalizeLoadedInputs(raw: ReportCustomInputs): ReportCustomInputs {
+    const history = normalizeMetricsHistory(raw.liveMetricsHistory, raw.liveMetrics);
+    let active = normalizeLiveMetrics(raw.liveMetrics);
+    if (history.length > 0) {
+      active =
+        history.find((entry) => entry.collectedAt === active?.collectedAt) ?? history[0];
+    }
+    return {
+      ...raw,
+      liveMetricsHistory: history,
+      liveMetrics: active ?? undefined,
+    };
   }
 
   async saveReportInputs(): Promise<void> {
@@ -234,7 +261,16 @@ export class ReportConfigComponent implements OnInit {
       const metrics = await this.reportGenerator.collectReportLiveMetrics((msg, pct) => {
         this.fetchDataStatusText = `${msg} (${pct}%)`;
       });
-      this.reportInputs.liveMetrics = metrics;
+      // Lịch sử thu thập: mỗi lần lấy dữ liệu tạo MỘT BẢN GHI MỚI ở đầu danh sách,
+      // KHÔNG đè lên bản ghi trước. Bản mới nhất tự thành bản đang chọn để xuất
+      // báo cáo; các bản cũ vẫn sửa/xoá/chọn lại được trong mục Lịch sử.
+      const history = normalizeMetricsHistory(
+        [metrics, ...(this.reportInputs.liveMetricsHistory ?? [])],
+        metrics,
+      );
+      this.reportInputs.liveMetricsHistory = history;
+      this.reportInputs.liveMetrics =
+        history.find((entry) => entry.collectedAt === metrics.collectedAt) ?? metrics;
       this.showDataForm = true;
       setTimeout(() => {
         const dataFormElem = document.getElementById("data-override-section");
@@ -252,10 +288,57 @@ export class ReportConfigComponent implements OnInit {
     }
   }
 
+  /** Danh sách lịch sử thu thập (mới nhất trước) để hiển thị trong Bảng Kiểm Tra. */
+  get metricsHistory(): ReportLiveMetrics[] {
+    return this.reportInputs.liveMetricsHistory ?? [];
+  }
+
+  isActiveMetrics(metrics: ReportLiveMetrics): boolean {
+    return (
+      !!this.reportInputs.liveMetrics &&
+      this.reportInputs.liveMetrics.collectedAt === metrics.collectedAt
+    );
+  }
+
+  /** Chọn một bản ghi trong lịch sử làm số liệu đang dùng để kiểm tra & xuất báo cáo. */
+  selectHistoryMetrics(metrics: ReportLiveMetrics): void {
+    this.reportInputs.liveMetrics = metrics;
+    this.showDataForm = true;
+    this.cdr.markForCheck();
+  }
+
+  /** Xoá một bản ghi khỏi lịch sử. Xoá đúng bản đang chọn thì chọn bản mới nhất còn lại. */
+  deleteHistoryMetrics(metrics: ReportLiveMetrics): void {
+    if (!confirm("Xoá bản ghi thu thập này khỏi lịch sử?")) {
+      return;
+    }
+    const wasActive = this.isActiveMetrics(metrics);
+    this.reportInputs.liveMetricsHistory = this.metricsHistory.filter(
+      (entry) => entry.collectedAt !== metrics.collectedAt,
+    );
+    if (wasActive) {
+      this.reportInputs.liveMetrics = this.reportInputs.liveMetricsHistory[0];
+      this.showDataForm = !!this.reportInputs.liveMetrics;
+    }
+    this.cdr.markForCheck();
+  }
+
   clearLiveMetrics(): void {
     if (confirm("Bạn có chắc muốn xóa dữ liệu đã lấy này? Hệ thống sẽ thu thập lại từ đầu khi xuất báo cáo.")) {
-      this.reportInputs.liveMetrics = undefined;
-      this.showDataForm = false;
+      const active = this.reportInputs.liveMetrics;
+      if (active) {
+        // Xoá số liệu đang chọn = xoá luôn bản ghi đó khỏi lịch sử, rồi chọn
+        // bản mới nhất còn lại (nếu còn) thay vì mất trắng như trước.
+        this.reportInputs.liveMetricsHistory = this.metricsHistory.filter(
+          (entry) => entry.collectedAt !== active.collectedAt,
+        );
+        this.reportInputs.liveMetrics = this.reportInputs.liveMetricsHistory[0];
+        this.showDataForm = !!this.reportInputs.liveMetrics;
+      } else {
+        this.reportInputs.liveMetrics = undefined;
+        this.showDataForm = false;
+      }
+      this.cdr.markForCheck();
     }
   }
 
@@ -323,6 +406,11 @@ export class ReportConfigComponent implements OnInit {
         totalWrongQty: 0,
         empSummaries: [],
       };
+    }
+    // Dữ liệu đọc từ Firebase có thể thiếu empSummaries (RTDB cắt mảng rỗng) —
+    // lấp lại mảng rỗng để bảng nhân viên FEFO không lỗi undefined.
+    if (!Array.isArray(this.reportInputs.liveMetrics!.fefoStats[shopCode].empSummaries)) {
+      this.reportInputs.liveMetrics!.fefoStats[shopCode].empSummaries = [];
     }
     return this.reportInputs.liveMetrics!.fefoStats[shopCode];
   }

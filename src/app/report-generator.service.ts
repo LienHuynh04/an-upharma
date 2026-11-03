@@ -2,6 +2,7 @@ import { Injectable, inject } from "@angular/core";
 import { UpharmaService, ShopInfo, isExcludedProduct } from "./upharma.service";
 import { calculateDaysProgress } from "./sales-period-utils";
 import { normalizeFilterText, normalizeInventoryRow, parseNumericValue, getExpiryDaysRemaining } from "./inventory-utils";
+import { normalizeLiveMetrics } from "./report-metrics.utils";
 
 export interface ReportProgressCallback {
   (message: string, progressPercent: number): void;
@@ -89,6 +90,8 @@ export interface ReportLiveMetrics {
 export interface ReportCustomInputs {
   shops?: OperationShopInput[];
   liveMetrics?: ReportLiveMetrics;
+  /** Lịch sử các lần thu thập số liệu (mới nhất trước). liveMetrics là bản ghi đang chọn trong lịch sử. */
+  liveMetricsHistory?: ReportLiveMetrics[];
 }
 
 @Injectable({ providedIn: "root" })
@@ -351,88 +354,143 @@ export class ReportGeneratorService {
         };
         salesRowsByShop[shop.ShopCode] = [];
 
+        // FIX (2026-11-03): trước đây CHỈ gọi API trực tiếp với cửa sổ 12 tháng
+        // (_bypassFirebase) — request nặng nhất hệ thống, API thường trả lời
+        // 22–35s+ trong khi timeout client là 30s → cả 3 shop cùng timeout,
+        // salesRows rỗng → FEFO = 0 và đơn cận date = 0, dù trang FEFO và trang
+        // Báo cáo đơn hàng (vốn đọc bản đồng bộ Firebase "sales_report") vẫn có
+        // số liệu bình thường. Bằng chứng production 02/11/2026: bản thu thập
+        // lưu trên Firebase có dataLoadError=true cho cả 3 shop.
+        //
+        // Cách mới — 2 tầng, giống hệt nguồn trang FEFO đang dùng:
+        //  1) Đọc "sales_report" đã đồng bộ sẵn trên Firebase (nhanh, ổn định).
+        //     Dữ liệu này là doanh số từ đầu tháng — đúng ngữ nghĩa trang Báo cáo
+        //     đơn hàng: khoảng 3/6/12 tháng là HSD còn lại TẠI THỜI ĐIỂM BÁN.
+        //  2) Chỉ khi Firebase trống mới gọi API trực tiếp cửa sổ 12 tháng,
+        //     và chỉ đánh dấu lỗi khi CẢ hai nguồn đều không có dòng nào.
+        let rawRows: any[] = [];
         try {
-          const res = await this.upharmaService.callEndpoint<any>(
+          const firebaseRes = await this.upharmaService.callEndpoint<any>(
             "/SalesInvoice/GetReportSalesByShop",
             {
               uPharmaID: session.UserInfo.uPharmaID,
               Token: session.Token,
-              TimeStart: timeStart12M,
-              TimeEnd: timeEndNow,
               ShopCode: shop.ShopCode,
-              _bypassFirebase: true,
+              _useFirebaseCache: true,
             },
-            { cache: true, forceRefresh: true }
+            { cache: true }
           );
-
-          const rawRows = extractSalesRows(res);
-          salesRowsByShop[shop.ShopCode] = rawRows.filter((row) => {
-            const rowShopCode = String(pickField(row, ["ShopCode", "__shopCode", "BranchCode", "StoreCode"]) || "").trim();
-            return !rowShopCode || rowShopCode === shop.ShopCode;
-          });
-          const r3EmpMap = new Map<string, number>();
-          const r6EmpMap = new Map<string, number>();
-          const r12EmpMap = new Map<string, number>();
-
-          rawRows.forEach((row) => {
-            const empName = String(row["SalesName"] || row["EmployeeName"] || row["StaffName"] || row["FullName"] || row["SellerName"] || "").trim();
-            if (!empName) return;
-
-            const amount = parseFloat(String(row["AmountIncludingVAT"] || row["Amount"] || row["TotalAmount"] || row["ThanhTien"] || "0").replace(/[^0-9.-]/g, "")) || 0;
-            const saleStr = String(row["OrderDate"] || row["SaleDate"] || row["InvoiceDate"] || row["DateCreate"] || row["TimeCreate"] || "").trim();
-            const expStr = String(row["ExpirationDate"] || row["ExpDate"] || row["ExpiryDate"] || row["HanDung"] || row["HSD"] || "").trim();
-
-            if (!saleStr || !expStr) return;
-
-            const parseDate = (str: string): Date | null => {
-              if (str.includes("/Date(")) {
-                const m = str.match(/\/Date\((\d+)\)\//);
-                return m ? new Date(Number(m[1])) : null;
-              }
-              const d = new Date(str.replace(" ", "T"));
-              if (!isNaN(d.getTime())) return d;
-              const m = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
-              return m ? new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1])) : null;
-            };
-
-            const sDate = parseDate(saleStr);
-            const eDate = parseDate(expStr);
-
-            if (sDate && eDate) {
-              const sDay = Date.UTC(sDate.getFullYear(), sDate.getMonth(), sDate.getDate());
-              const eDay = Date.UTC(eDate.getFullYear(), eDate.getMonth(), eDate.getDate());
-              const diffDays = Math.abs(Math.round((sDay - eDay) / 86400000)) + 1;
-
-              if (diffDays >= 1 && diffDays <= 90) {
-                r3EmpMap.set(empName, (r3EmpMap.get(empName) || 0) + amount);
-              }
-              if (diffDays >= 1 && diffDays <= 180) {
-                r6EmpMap.set(empName, (r6EmpMap.get(empName) || 0) + amount);
-              }
-              if (diffDays >= 1 && diffDays <= 365) {
-                r12EmpMap.set(empName, (r12EmpMap.get(empName) || 0) + amount);
-              }
-            }
-          });
-
-          const toEmpList = (map: Map<string, number>) => {
-            let total = 0;
-            const emps = [...map.entries()].map(([name, amount]) => {
-              total += amount;
-              return { name, amount };
-            });
-            return { totalAmount: total, employees: emps };
-          };
-
-          nearExpiryOrdersMap[shop.ShopCode] = {
-            r3: toEmpList(r3EmpMap),
-            r6: toEmpList(r6EmpMap),
-            r12: toEmpList(r12EmpMap),
-          };
+          rawRows = extractSalesRows(firebaseRes);
         } catch (e) {
-          console.warn("Lỗi tải báo cáo đơn hàng cho shop", shop.ShopCode, e);
-          salesLoadErrorsByShop.add(shop.ShopCode);
+          console.warn("Không đọc được sales_report trên Firebase cho shop", shop.ShopCode, e);
         }
+
+        if (rawRows.length === 0) {
+          try {
+            const directRes = await this.upharmaService.callEndpoint<any>(
+              "/SalesInvoice/GetReportSalesByShop",
+              {
+                uPharmaID: session.UserInfo.uPharmaID,
+                Token: session.Token,
+                TimeStart: timeStart12M,
+                TimeEnd: timeEndNow,
+                ShopCode: shop.ShopCode,
+                _bypassFirebase: true,
+              },
+              { cache: true, forceRefresh: true }
+            );
+            rawRows = extractSalesRows(directRes);
+          } catch (e) {
+            console.warn("Lỗi tải báo cáo đơn hàng trực tiếp cho shop", shop.ShopCode, e);
+          }
+        }
+
+        if (rawRows.length === 0) {
+          salesLoadErrorsByShop.add(shop.ShopCode);
+          return;
+        }
+
+        const shopRows = rawRows.filter((row) => {
+          const rowShopCode = String(pickField(row, ["ShopCode", "__shopCode", "BranchCode", "StoreCode"]) || "").trim();
+          return !rowShopCode || rowShopCode === shop.ShopCode;
+        });
+        salesRowsByShop[shop.ShopCode] = shopRows;
+
+        const r3EmpMap = new Map<string, number>();
+        const r6EmpMap = new Map<string, number>();
+        const r12EmpMap = new Map<string, number>();
+
+        // FIX (2026-11-03): trước đây đọc field bằng tên cứng (row["SalesName"],
+        // row["OrderDate"], row["ExpirationDate"]...) — API đổi casing/tên field
+        // là mọi dòng bị bỏ qua và tổng cận date về 0 mà không có dấu vết.
+        // Giờ dùng pickField + danh sách alias đầy đủ như trang Báo cáo đơn hàng.
+        shopRows.forEach((row) => {
+          const empName = String(pickField(row, [
+            "SalesName", "EmployeeName", "StaffName", "SalesStaffName", "UserName",
+            "FullName", "Employee", "EmpName", "SellerName", "NhanVien",
+          ]) || "").trim();
+          if (!empName) return;
+
+          const amount = parseNumericValue(pickField(row, [
+            "AmountIncludingVAT", "AmountIncludingAdjust", "Amount", "TotalAmount", "ThanhTien",
+          ]));
+          const saleStr = String(pickField(row, [
+            "OrderDate", "SaleDate", "InvoiceDate", "PostingDate", "DateCreate",
+            "TimeCreate", "CreatedDate", "TimeInvoice", "NgayBan",
+          ]) || "").trim();
+          const expStr = String(pickField(row, [
+            "ExpirationDate", "ExpDate", "ExpiryDate", "ExpiredDate", "ExpireDate",
+            "ExpDateTxt", "ExpDateText", "ExpiryDateText", "DateExpire", "DateExpired",
+            "DateExp", "HSD", "HanDung", "LotExpireDate", "BatchExpDate",
+          ]) || "").trim();
+
+          if (!saleStr || !expStr) return;
+
+          const parseDate = (str: string): Date | null => {
+            if (str.includes("/Date(")) {
+              const m = str.match(/\/Date\((\d+)\)\//);
+              return m ? new Date(Number(m[1])) : null;
+            }
+            const d = new Date(str.replace(" ", "T"));
+            if (!isNaN(d.getTime())) return d;
+            const m = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+            return m ? new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1])) : null;
+          };
+
+          const sDate = parseDate(saleStr);
+          const eDate = parseDate(expStr);
+
+          if (sDate && eDate) {
+            const sDay = Date.UTC(sDate.getFullYear(), sDate.getMonth(), sDate.getDate());
+            const eDay = Date.UTC(eDate.getFullYear(), eDate.getMonth(), eDate.getDate());
+            const diffDays = Math.abs(Math.round((sDay - eDay) / 86400000)) + 1;
+
+            if (diffDays >= 1 && diffDays <= 90) {
+              r3EmpMap.set(empName, (r3EmpMap.get(empName) || 0) + amount);
+            }
+            if (diffDays >= 1 && diffDays <= 180) {
+              r6EmpMap.set(empName, (r6EmpMap.get(empName) || 0) + amount);
+            }
+            if (diffDays >= 1 && diffDays <= 365) {
+              r12EmpMap.set(empName, (r12EmpMap.get(empName) || 0) + amount);
+            }
+          }
+        });
+
+        const toEmpList = (map: Map<string, number>) => {
+          let total = 0;
+          const emps = [...map.entries()].map(([name, amount]) => {
+            total += amount;
+            return { name, amount };
+          });
+          return { totalAmount: total, employees: emps };
+        };
+
+        nearExpiryOrdersMap[shop.ShopCode] = {
+          r3: toEmpList(r3EmpMap),
+          r6: toEmpList(r6EmpMap),
+          r12: toEmpList(r12EmpMap),
+        };
       })
     );
 
@@ -526,7 +584,13 @@ export class ReportGeneratorService {
         ]) || "").trim().toUpperCase();
         const currentEmployee = (rowEmployeeCode && currentEmployeesByCode.get(rowEmployeeCode))
           || currentEmployeesByName.get(normalizeFilterText(rowEmployeeName));
-        if (!currentEmployee) return;
+        // FIX (2026-11-03): trước đây dòng bán nào không khớp nhân viên trong
+        // EmployeePlan THÁNG HIỆN TẠI thì bị loại thẳng (`if (!currentEmployee) return`).
+        // Người bán đã nghỉ/chuyển shop, hoặc nhân viên bán ở 2 shop (vd ĐẶNG THỊ
+        // HỒNG NHUNG bán ở cả SHOP0025 và SHOP0097 nhưng plan tháng của SHOP0097
+        // không có tên) → toàn bộ dòng của họ biến mất khỏi FEFO, lệch hẳn so với
+        // trang FEFO (trang đó đếm MỌI dòng bán). Giờ: khớp được plan thì dùng tên
+        // chuẩn của plan, không khớp thì vẫn đếm theo tên người bán trên đơn.
         const empName = currentEmployee?.EmployeeName || rowEmployeeName;
         const saleQty = parseNumericValue(pickField(row, ["Quantity", "Qty", "SL", "SoLuong", "AmountQty"]) || 1);
         const expStr = String(pickField(row, [
@@ -639,7 +703,7 @@ export class ReportGeneratorService {
 
     onProgress?.("Hoàn tất thu thập dữ liệu báo cáo!", 100);
 
-    return {
+    const collected: ReportLiveMetrics = {
       collectedAt: new Date().toISOString(),
       month: currentMonth,
       year: currentYear,
@@ -649,6 +713,9 @@ export class ReportGeneratorService {
       employeePlans: employeePlansClean,
       nearExpiryOrders: nearExpiryOrdersMap,
     };
+    // Đi qua cùng một lớp chuẩn hoá với dữ liệu đọc từ Firebase để cấu trúc
+    // bản thu thập luôn đầy đủ (đặc biệt là các mảng employees/empSummaries).
+    return normalizeLiveMetrics(collected) ?? collected;
   }
 
   /**
@@ -681,6 +748,10 @@ export class ReportGeneratorService {
       liveMetrics = await this.collectReportLiveMetrics(onProgress);
     } else {
       onProgress?.("Đang áp dụng dữ liệu đã kiểm tra & chỉnh sửa...", 80);
+      // FIX (2026-11-03): số liệu lấy lại từ Firebase RTDB bị mất các mảng rỗng
+      // (RTDB không lưu []) → employees/empSummaries thành undefined và
+      // buildFullHtml gục ở `.length`. Chuẩn hoá trước khi dùng, ở mọi đường vào.
+      liveMetrics = normalizeLiveMetrics(liveMetrics) ?? liveMetrics;
     }
 
     const shopPlansMap: Record<string, any> = {};
@@ -891,7 +962,7 @@ export class ReportGeneratorService {
         const active = i === 0 ? "active" : "";
         const shopNum = shop.ShopCode.replace(/\D/g, "") || String(i + 1);
         const orderData = nearExpiryOrdersMap[shop.ShopCode] || { r3: { totalAmount: 0, employees: [] }, r6: { totalAmount: 0, employees: [] }, r12: { totalAmount: 0, employees: [] } };
-        const empCount = Math.max(orderData["r12"].employees.length, (employeePlansMap[shop.ShopCode] || []).length);
+        const empCount = Math.max((orderData["r12"]?.employees ?? []).length, (employeePlansMap[shop.ShopCode] || []).length);
         return `
       <button class="shop-tab ${active}" onclick="switchTab('order','s${shopNum}',this)"><strong>${shop.ShopCode}</strong><span>${shop.ShopName}</span><small>${empCount} nhân viên</small></button>`;
       })
@@ -905,14 +976,15 @@ export class ReportGeneratorService {
 
         const renderEmpGrid = (rangeKey: "r3" | "r6" | "r12") => {
           const info = orderData[rangeKey];
-          if (!info || info.employees.length === 0) {
+          const employees = info?.employees ?? [];
+          if (!info || employees.length === 0) {
             return `<div class="employee-order-panel"><div class="employee-order-head"><div><h3>Tổng: 0 đ</h3><p>0 nhân viên</p></div></div><div class="order-employee-grid"><div class="order-empty">Không có dữ liệu</div></div></div>`;
           }
-          const cards = info.employees
+          const cards = employees
             .map((e) => `<div class="order-employee-card"><span>${e.name}</span><strong>${fmtMoney(e.amount)}</strong></div>`)
             .join("");
 
-          return `<div class="employee-order-panel"><div class="employee-order-head"><div><h3>Tổng: ${fmtMoney(info.totalAmount)}</h3><p>${info.employees.length} nhân viên</p></div></div><div class="order-employee-grid">${cards}</div></div>`;
+          return `<div class="employee-order-panel"><div class="employee-order-head"><div><h3>Tổng: ${fmtMoney(info.totalAmount)}</h3><p>${employees.length} nhân viên</p></div></div><div class="order-employee-grid">${cards}</div></div>`;
         };
 
         return `
@@ -1027,7 +1099,7 @@ export class ReportGeneratorService {
           empSummaries: [],
         };
 
-        const empRowsHtml = stats.empSummaries
+        const empRowsHtml = (stats.empSummaries ?? [])
           .map((e) => `
               <tr>
                 <td><div class="fefo-identity"><strong>${e.employeeName}</strong></div></td>
