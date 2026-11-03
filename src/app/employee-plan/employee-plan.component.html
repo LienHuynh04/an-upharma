@@ -24,14 +24,6 @@
         <div class="row g-3 align-items-center">
 
           <div class="col-md-3 col-sm-6">
-            <div class="d-flex align-items-center gap-2">
-              <span class="text-label-caps" style="min-width: 50px;">Năm</span>
-              <select class="form-select form-select-sm" [(ngModel)]="selectedYear" name="selectedYear">
-                <option *ngFor="let year of yearOptions" [ngValue]="year">{{ year }}</option>
-              </select>
-            </div>
-          </div>
-          <div class="col-md-3 col-sm-6">
             <button class="btn btn-sm btn-primary w-100" type="button" (click)="loadAllShops()" [disabled]="hasLoadingTabs()">Xem chỉ tiêu</button>
           </div>
         </div>

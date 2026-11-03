@@ -110,12 +110,6 @@ export class ShopPlanIconComponent {
         </div>
         <div class="col-12 col-sm-auto ms-sm-auto mt-2 mt-sm-0 d-print-none">
           <div class="d-flex flex-wrap align-items-center gap-2" style="flex-wrap: wrap;">
-            <div class="d-flex align-items-center gap-2">
-              <label class="form-label mb-0">Năm</label>
-              <select class="form-select" [(ngModel)]="selectedYear" name="selectedYear">
-                <option *ngFor="let year of yearOptions" [ngValue]="year">{{ year }}</option>
-              </select>
-            </div>
             <button type="button" class="btn btn-outline-primary" (click)="loadAllShops(true)" [disabled]="hasLoadingTabs()" title="Tải lại dữ liệu mới từ máy chủ">
               <i class="ti ti-refresh me-1"></i>Tải lại
             </button>
@@ -242,7 +236,6 @@ export class ShopPlanIconComponent {
 export class ShopPlanYearComponent implements OnInit {
   readonly endpoint = "/ShopPlan/GetShopPlanByTime";
   readonly monthOptions = Array.from({ length: 12 }, (_, index) => index + 1);
-  readonly yearOptions = Array.from({ length: 11 }, (_, index) => new Date().getFullYear() - 5 + index);
   readonly customerLevels = [
     { key: "CusLevel1", label: "H1" },
     { key: "CusLevel2", label: "H2" },
