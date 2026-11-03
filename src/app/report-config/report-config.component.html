@@ -143,7 +143,7 @@
               <div class="row align-items-center g-2">
                 <div class="col-lg-3">
                   <label class="fw-bold text-body small mb-0 d-flex align-items-center gap-1.5">
-                    <i class="ti ti-circle-filled text-primary fs-7"></i>
+                    <i class="ti ti-circle-dot text-primary fs-7"></i>
                     Trạng thái vận hành CTKM:
                   </label>
                 </div>
@@ -295,7 +295,7 @@
       <!-- Card Footer: Sticky Action Bar -->
       <div class="card-footer p-3.5 d-flex flex-wrap align-items-center justify-content-between gap-3 border-top">
         <div class="d-flex align-items-center gap-2 text-secondary small">
-          <i class="ti ti-bulb-filled text-warning fs-6"></i>
+          <i class="ti ti-bulb text-warning fs-6"></i>
           <span>Mẹo: Chọn từng nhà thuốc phía trên để tùy chỉnh nội dung báo cáo. Cấu hình sẽ tự động đồng bộ qua Firebase RTDB.</span>
         </div>
 
@@ -380,7 +380,7 @@
               [disabled]="fetchDataLoading || saveLoading || exportLoading">
               <span *ngIf="fetchDataLoading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
               <i *ngIf="!fetchDataLoading" class="ti ti-rotate-clockwise fs-6"></i>
-              <span>{{ fetchDataLoading ? 'Đang lấy...' : (reportInputs.liveMetrics ? 'Thu Thập Mới' : 'Lấy Dữ Liệu Tự Động') }}</span>
+              <span>{{ fetchDataLoading ? 'Đang lấy...' : (reportInputs.liveMetrics ? 'Thu Thập Lại' : 'Lấy Dữ Liệu Tự Động') }}</span>
             </button>
             <button 
               *ngIf="reportInputs.liveMetrics"
@@ -399,49 +399,6 @@
               <i class="ti fs-6" [ngClass]="showDataForm ? 'ti-chevron-up' : 'ti-chevron-down'"></i>
               <span>{{ showDataForm ? 'Thu gọn' : 'Mở rộng' }}</span>
             </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Lịch sử thu thập: mỗi lần lấy dữ liệu là 1 bản ghi riêng, không đè bản cũ -->
-      <div *ngIf="metricsHistory.length > 0" class="border-bottom px-3 px-md-4 py-3 bg-body-tertiary">
-        <div class="d-flex align-items-center gap-2 mb-2">
-          <i class="ti ti-history text-info fs-5"></i>
-          <span class="fw-bold text-body small text-uppercase">Lịch sử thu thập ({{ metricsHistory.length }} bản ghi)</span>
-          <span class="text-secondary small">— Mỗi lần bấm lấy dữ liệu sẽ tạo thêm 1 bản ghi mới. Chọn 1 bản ghi để sửa số liệu trong bảng dưới và dùng bản ghi đó để xuất báo cáo.</span>
-        </div>
-        <div class="d-flex flex-column gap-2">
-          <div
-            *ngFor="let entry of metricsHistory; trackBy: trackByCollectedAt"
-            class="d-flex flex-wrap align-items-center gap-2 rounded-3 border px-3 py-2"
-            [class.border-success]="isActiveMetrics(entry)"
-            [class.bg-success-subtle]="isActiveMetrics(entry)">
-            <span class="badge bg-info-subtle text-info border border-info-subtle px-2.5 py-1 rounded-pill small">
-              <i class="ti ti-clock me-1"></i>{{ entry.collectedAt | date:'HH:mm:ss dd/MM/yyyy' }}
-            </span>
-            <span class="small text-secondary">Tháng {{ entry.month }}/{{ entry.year }}</span>
-            <span *ngIf="isActiveMetrics(entry)" class="badge bg-success text-white px-2 py-1 rounded-pill small">
-              <i class="ti ti-circle-check me-1"></i>Đang dùng để xuất báo cáo
-            </span>
-            <span class="ms-auto d-inline-flex gap-2">
-              <button
-                *ngIf="!isActiveMetrics(entry)"
-                type="button"
-                class="btn btn-sm btn-outline-primary rounded-3 fw-bold px-2.5 py-1 d-inline-flex align-items-center gap-1"
-                (click)="selectHistoryMetrics(entry)"
-                title="Dùng bản ghi này: mở bảng số liệu để sửa và xuất báo cáo theo bản ghi này">
-                <i class="ti ti-pointer fs-6"></i>
-                <span>Chọn &amp; Sửa</span>
-              </button>
-              <button
-                type="button"
-                class="btn btn-sm btn-outline-danger border-2 rounded-3 fw-bold px-2.5 py-1 d-inline-flex align-items-center gap-1"
-                (click)="deleteHistoryMetrics(entry)"
-                title="Xoá bản ghi này khỏi lịch sử">
-                <i class="ti ti-trash fs-6"></i>
-                <span>Xoá</span>
-              </button>
-            </span>
           </div>
         </div>
       </div>

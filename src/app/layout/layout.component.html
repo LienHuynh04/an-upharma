@@ -38,6 +38,14 @@
       <div class="collapse navbar-collapse" [class.show]="appClasses['is-sidebar-open']" id="navbar-menu">
         <div class="d-flex flex-column flex-md-row flex-fill align-items-stretch align-items-md-center justify-content-between">
           <ul class="navbar-nav align-items-md-center">
+            <!-- Link Cài đặt -->
+            <li class="nav-item">
+              <a class="nav-link py-2" routerLink="/cai-dat" routerLinkActive="active" (click)="closeSidebar()">
+                <span class="nav-link-icon d-md-none d-lg-inline-block"><i class="ti ti-settings" style="font-size: 1.1rem;"></i></span>
+                <span class="nav-link-title" style="font-size: 13.5px;">Cài đặt</span>
+              </a>
+            </li>
+
             <!-- Dashboard link -->
             <li class="nav-item">
               <a class="nav-link py-2" routerLink="/dashboard" routerLinkActive="active" (click)="closeSidebar()">
@@ -51,14 +59,6 @@
               <a class="nav-link py-2" routerLink="/xuat-bao-cao" routerLinkActive="active" (click)="closeSidebar()">
                 <span class="nav-link-icon d-md-none d-lg-inline-block"><i class="ti ti-file-export" style="font-size: 1.1rem;"></i></span>
                 <span class="nav-link-title" style="font-size: 13.5px;">Xuất Báo Cáo HTML</span>
-              </a>
-            </li>
-
-            <!-- Link Cài đặt -->
-            <li class="nav-item">
-              <a class="nav-link py-2" routerLink="/cai-dat" routerLinkActive="active" (click)="closeSidebar()">
-                <span class="nav-link-icon d-md-none d-lg-inline-block"><i class="ti ti-settings" style="font-size: 1.1rem;"></i></span>
-                <span class="nav-link-title" style="font-size: 13.5px;">Cài đặt</span>
               </a>
             </li>
 

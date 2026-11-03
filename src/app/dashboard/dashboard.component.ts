@@ -1,7 +1,7 @@
 import { CommonModule } from "@angular/common";
 import { AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, OnDestroy, ViewChild, inject } from "@angular/core";
 import { FormsModule } from "@angular/forms";
-import Chart from "chart.js/auto";
+import type { Chart as ChartInstance } from "chart.js";
 import { UpharmaService } from "../upharma.service";
 import { OperationShopInput, ReportCustomInputs, ReportGeneratorService } from "../report-generator.service";
 
@@ -96,7 +96,11 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
   customerInfoLst: Array<{ title: string; percent: number; value: number }> = [];
   exportLoading = false;
   exportStatusText = "";
-  private salesChart: Chart | null = null;
+  private salesChart: ChartInstance | null = null;
+  // PERF (2026-11-04): chart.js (~180KB) is loaded lazily on first chart render
+  // instead of being statically bundled into the (preloaded) dashboard chunk.
+  private chartModulePromise: Promise<typeof import("chart.js/auto")> | null = null;
+  private chartRenderSeq = 0;
   private cdr = inject(ChangeDetectorRef);
 
   constructor(private readonly upharmaService: UpharmaService) {}
@@ -289,9 +293,19 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
     return `${year}-${month}-${day}`;
   }
 
-  private renderSalesChart(): void {
+  private async renderSalesChart(): Promise<void> {
     const canvas = this.salesChartCanvas?.nativeElement;
     if (!canvas) {
+      return;
+    }
+
+    // Lazy-load chart.js once; ignore stale renders if data changed meanwhile.
+    const seq = ++this.chartRenderSeq;
+    if (!this.chartModulePromise) {
+      this.chartModulePromise = import("chart.js/auto");
+    }
+    const { default: Chart } = await this.chartModulePromise;
+    if (seq !== this.chartRenderSeq || this.salesChartCanvas?.nativeElement !== canvas) {
       return;
     }
 

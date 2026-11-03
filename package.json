@@ -7,9 +7,10 @@
     "start": "ng serve --host 127.0.0.1 --port 4200",
     "fetch-data": "node scripts/fetch-upharma-data.js",
     "claude:sonnet": "scripts/claude-sonnet.sh",
-    "build": "ng build",
+    "build": "node scripts/purge-css.mjs && ng build",
     "watch": "ng build --watch --configuration development",
-    "deploy": "npm run build && npx firebase deploy"
+    "deploy": "npm run build && npx firebase deploy",
+    "purge-css": "node scripts/purge-css.mjs"
   },
   "dependencies": {
     "@angular/common": "20.3.26",
@@ -19,6 +20,7 @@
     "@angular/platform-browser": "20.3.26",
     "@angular/router": "20.3.26",
     "@tabler/core": "^1.4.0",
+    "@tabler/icons-webfont": "3.50.0",
     "chart.js": "^4.5.1",
     "firebase-admin": "^14.2.0",
     "nodemailer": "^9.0.5",
@@ -31,6 +33,7 @@
     "@angular-devkit/build-angular": "20.3.32",
     "@angular/cli": "20.3.32",
     "@angular/compiler-cli": "20.3.26",
+    "purgecss": "7.0.2",
     "typescript": "~5.8.0"
   }
 }
