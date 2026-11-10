@@ -252,6 +252,38 @@ export class FirebaseInventoryService {
     }
   }
 
+  async getShopReplenishmentSuggestions(shopCode: string): Promise<Record<string, any> | null> {
+    if (!this.dbUrl || !shopCode || isShopHiddenByVisibility(shopCode)) return null;
+
+    try {
+      const sanitized = sanitizeFirebaseKey(shopCode);
+      const url = `${this.dbUrl}/shops/${sanitized}/upharma_data/replenishment_suggestions_calculated.json`;
+      const data = await this.withRequestTimeout(async (signal) => {
+        const response = await fetch(url, { signal });
+        if (response.status === 404) return null;
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json();
+      });
+      if (!data || typeof data !== "object") return null;
+
+      const result = data as Record<string, any>;
+      if (Array.isArray(result["plans"])) {
+        result["plans"] = result["plans"].map((plan: any) => ({
+          ...plan,
+          sources: Array.isArray(plan?.sources)
+            ? plan.sources.filter((source: any) =>
+                !isShopHiddenByVisibility(source?.shopCode || source?.StoreCode)
+              )
+            : [],
+        }));
+      }
+      return result;
+    } catch (error) {
+      console.error(`[Firebase Cache] Không tải được gợi ý dự trù cho shop ${shopCode}:`, error);
+      throw error;
+    }
+  }
+
   /**
    * Tải danh mục sản phẩm toàn hệ thống /product_catalog.json từ Firebase Realtime Database.
    */

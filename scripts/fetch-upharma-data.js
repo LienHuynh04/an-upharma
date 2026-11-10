@@ -609,7 +609,8 @@ async function run() {
     statistics_shop: {},
     dashboard_statistics: {},
     dashboard_customers: {},
-    key_products: {}
+    key_products: {},
+    out_of_stock: {}
   };
 
   const resources = [
@@ -811,7 +812,7 @@ async function run() {
     console.log(`[resource] DONE ${resourceName}. Đã lưu ${resourceName}.json (đã ẩn danh PII)`);
   }
 
-  await calculateAndUploadSummaries(shops, allShopsData, db);
+  await calculateAndUploadSummaries(shops, allShopsData, db, loginData);
 
   // Danh mục sản phẩm toàn hệ thống (GetItemLstWithFollower) → /product_catalog (lọc bỏ KM và Hàng Bỏ)
   await fetchAndUploadProductCatalog(loginData, db, allShopsData);
@@ -1826,7 +1827,7 @@ function precalculateOutOfStock(salesSpeedRows, inventoryRows, transferProcessRo
   return outOfStockRows;
 }
 
-async function calculateAndUploadSummaries(shops, allShopsData, db) {
+async function calculateAndUploadSummaries(shops, allShopsData, db, loginData) {
   console.log("\n[precalculation] Bắt đầu tính toán Hàng đã hết, Hàng lặp tốt, Hàng lặp chậm và Shops Summary...");
   
   const summaryMap = {};
@@ -1856,7 +1857,6 @@ async function calculateAndUploadSummaries(shops, allShopsData, db) {
       productFollowerRows,
       shop
     );
-
     const statisticsShopRows = allShopsData.statistics_shop[sc] || [];
     const statisticsShopRaw = (allShopsData.statistics_shop_raw && allShopsData.statistics_shop_raw[sc]) || null;
     const keyProductRows = precalculateKeyProducts(statisticsShopRows, shop, statisticsShopRaw);
@@ -1871,6 +1871,7 @@ async function calculateAndUploadSummaries(shops, allShopsData, db) {
     const hasSourceData =
       (allShopsData.sales_speed[sc] !== undefined && allShopsData.sales_speed[sc] !== null) ||
       (allShopsData.inventory[sc] !== undefined && allShopsData.inventory[sc] !== null);
+    if (hasSourceData) allShopsData.out_of_stock[sc] = outStockRows;
     if (!hasSourceData) {
       console.warn(`[precalculation] SKIP shop ${sc}: missing source data (sync failed) — keeping previous Firebase data.`);
     }
@@ -1915,6 +1916,234 @@ async function calculateAndUploadSummaries(shops, allShopsData, db) {
       }
     }
   }
+
+  async function generateReplenishmentSuggestionsForShops(shops, allShopsData, db, loginData) {
+      if (!db) {
+        console.log("[replenishment_suggestions] Không có Firebase Admin — bỏ qua tạo cache dự trù.");
+        return;
+      }
+
+      console.log("\n[replenishment_suggestions] Đang tính gợi ý từ các shop lân cận và kho tổng...");
+      const productsByShop = new Map();
+      const allProductCodes = new Set();
+
+      for (const shop of shops) {
+        if (!Object.prototype.hasOwnProperty.call(allShopsData.out_of_stock, shop.ShopCode)) continue;
+        const rows = allShopsData.out_of_stock?.[shop.ShopCode] || [];
+        const products = new Map();
+        for (const row of rows) {
+          const productCode = String(row.productCode || row.ProductCode || row.ProductID || "").trim();
+          if (!productCode) continue;
+          products.set(productCode, {
+            productCode,
+            productName: String(row.productName || row.ProductName || "").trim(),
+            unit: String(row.unit || row.Unit || "Hộp").trim() || "Hộp",
+          });
+          allProductCodes.add(productCode);
+        }
+        productsByShop.set(shop.ShopCode, products);
+      }
+
+      const uniqueCodes = [...allProductCodes];
+      if (uniqueCodes.length === 0) {
+        console.log("[replenishment_suggestions] Không có sản phẩm tồn bằng 0.");
+      }
+
+      const stockByProduct = new Map();
+      let failedCount = 0;
+      const stockResults = await mapWithConcurrency(uniqueCodes, 6, async (productCode) => {
+        try {
+          const response = await requestUpharma("/Report/GetExistProductLst", {
+            Token: loginData.Token,
+            uPharmaID: String(loginData.UserInfo.uPharmaID),
+            ProductID: productCode,
+          });
+          if (
+            (response?.RespCode !== undefined && response.RespCode !== 0) ||
+            (response?.data?.RespCode !== undefined && response.data.RespCode !== 0)
+          ) {
+            throw new Error(response?.RespText || response?.data?.RespText || "Upharma trả về lỗi khi lấy tồn kho.");
+          }
+          const stores = extractArray(response)
+            .map((row) => ({
+              StoreCode: String(row.StoreCode || row.ShopCode || "").trim(),
+              StoreName: String(row.StoreName || row.ShopName || "").trim(),
+              StoreType: String(row.StoreType || "").trim(),
+              Quantity: toNumber(row.QuantityExist ?? row.Quantity ?? 0),
+              QuantityAVG: toNumber(row.QuantityAVG ?? row.AVGQuantity ?? 0),
+              UnitOfMeasure: String(row.UnitOfMeasure || row.Unit || "Hộp").trim() || "Hộp",
+            }))
+            .filter((row) => row.StoreCode && (row.Quantity > 0 || row.QuantityAVG > 0));
+          return { productCode, stores };
+        } catch (error) {
+          failedCount++;
+          console.warn(`[replenishment_suggestions] Không tải được tồn kho ${productCode}: ${error.message}`);
+          return { productCode, stores: null };
+        }
+      });
+
+      for (const result of stockResults) {
+        stockByProduct.set(result.productCode, result.stores);
+      }
+
+      if (failedCount > 0) {
+        console.warn(
+          `[replenishment_suggestions] ${failedCount}/${uniqueCodes.length} mã lỗi; không ghi đè cache Firebase để giữ dữ liệu tốt gần nhất.`
+        );
+        return;
+      }
+
+      const shopByCode = new Map(shops.map((shop) => [shop.ShopCode, shop]));
+      const updatedAt = Date.now();
+      let uploadedCount = 0;
+      const currentVietnamMonth = getVietnamTimeComponents();
+      const completedMonths = new Set([2, 1].map((offset) => {
+        const date = new Date(currentVietnamMonth.year, currentVietnamMonth.month - offset, 1);
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      }));
+      const recentSalesTotals = new Map();
+      for (const [shopCode, rows] of Object.entries(allShopsData.sales_speed || {})) {
+        for (const row of rows || []) {
+          const productCode = String(row.ProductID || row.ProductCode || row.Product_ID || row.ItemCode || row.Code || "").trim().toUpperCase();
+          if (!productCode) continue;
+
+          const dateValue = pick(row, ["TimeBegin", "TimeStart", "BeginTime", "StartTime", "Date", "Ngay"]);
+          const timestamp = parseDateTimeValue(dateValue);
+          let monthKey = "";
+          if (timestamp !== null) {
+            const date = new Date(timestamp);
+            monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+          } else {
+            const session = String(pick(row, ["Session", "Ky", "Thang"]));
+            const match = session.match(/(\d{1,2})\D+(\d{4})/);
+            if (match) monthKey = `${match[2]}-${String(match[1]).padStart(2, "0")}`;
+          }
+          if (!completedMonths.has(monthKey)) continue;
+
+          const key = `${shopCode}|${productCode}`;
+          const quantity = toNumber(pick(row, [
+            "Quantity", "Qty", "SL", "SoLuong", "QuantitySale", "TotalQuantity", "QtySale",
+          ]));
+          recentSalesTotals.set(key, (recentSalesTotals.get(key) || 0) + quantity);
+        }
+      }
+      const getRecentMonthlySales = (shopCode, productCode) =>
+        (recentSalesTotals.get(`${shopCode}|${productCode.toUpperCase()}`) || 0) / 2;
+
+      for (const destination of shops) {
+        if (!Object.prototype.hasOwnProperty.call(allShopsData.out_of_stock, destination.ShopCode)) continue;
+        const plans = [];
+        const destinationProvince = getShopProvince(destination.ShopName);
+        const products = productsByShop.get(destination.ShopCode) || new Map();
+
+        for (const product of products.values()) {
+          const stores = stockByProduct.get(product.productCode) || [];
+          const destinationStock = stores.find((store) => store.StoreCode === destination.ShopCode);
+          const monthlySales = toNumber(destinationStock?.QuantityAVG) ||
+            getRecentMonthlySales(destination.ShopCode, product.productCode);
+          const targetQuantity = Math.ceil(monthlySales);
+          const candidates = stores
+            .filter((store) => {
+              const sourceShop = shopByCode.get(store.StoreCode);
+              const sourceProvince = getShopProvince(sourceShop?.ShopName || store.StoreName);
+              const sourceMonthlySales = toNumber(store.QuantityAVG) ||
+                getRecentMonthlySales(store.StoreCode, product.productCode);
+              return (
+                !isWarehouseStore(store) &&
+                store.StoreCode !== destination.ShopCode &&
+                destinationProvince !== "" &&
+                sourceProvince === destinationProvince &&
+                sourceMonthlySales > 0 &&
+                store.Quantity > sourceMonthlySales * 2 &&
+                Math.floor(store.Quantity - sourceMonthlySales * 2) >= 1
+              );
+            })
+            .sort((first, second) =>
+              second.Quantity - first.Quantity ||
+              first.StoreCode.localeCompare(second.StoreCode)
+            )
+            .slice(0, 3);
+
+          let sources = [];
+          let remainingNeed = targetQuantity;
+          if (monthlySales > 0 && candidates.length > 0) {
+            for (const [index, store] of candidates.entries()) {
+              if (remainingNeed <= 0) break;
+              const sourceMonthlySales = toNumber(store.QuantityAVG) ||
+                getRecentMonthlySales(store.StoreCode, product.productCode);
+              const availableQuantity = Math.floor(store.Quantity - sourceMonthlySales * 2);
+              const suggestedQuantity = Math.min(remainingNeed, availableQuantity);
+              remainingNeed -= suggestedQuantity;
+              sources.push({
+                shopCode: store.StoreCode,
+                shopName: shopByCode.get(store.StoreCode)?.ShopName || store.StoreName,
+                stockQuantity: store.Quantity,
+                monthlySales: sourceMonthlySales,
+                reserveQuantity: sourceMonthlySales * 2,
+                availableQuantity,
+                suggestedQuantity,
+                isWarehouse: false,
+                rank: index + 1,
+              });
+            }
+          } else if (monthlySales > 0) {
+            const warehouse = stores
+              .filter((store) => isWarehouseStore(store) && store.Quantity > 0)
+              .sort((first, second) => second.Quantity - first.Quantity)[0];
+            if (warehouse) {
+              const availableQuantity = Math.floor(warehouse.Quantity);
+              sources = [{
+                shopCode: warehouse.StoreCode,
+                shopName: warehouse.StoreName || "Kho tổng",
+                stockQuantity: warehouse.Quantity,
+                monthlySales: toNumber(warehouse.QuantityAVG),
+                reserveQuantity: 0,
+                availableQuantity,
+                suggestedQuantity: Math.min(targetQuantity, availableQuantity),
+                isWarehouse: true,
+                rank: 1,
+              }];
+            }
+          }
+
+          plans.push({
+            productCode: product.productCode,
+            productName: product.productName || destinationStock?.ProductName || "",
+            unit: product.unit || destinationStock?.UnitOfMeasure || "Hộp",
+            destinationQuantity: toNumber(destinationStock?.Quantity),
+            monthlySales,
+            targetQuantity,
+            sources,
+          });
+        }
+
+        plans.sort((first, second) =>
+          Number(second.sources.length > 0) - Number(first.sources.length > 0) ||
+          second.monthlySales - first.monthlySales ||
+          first.productName.localeCompare(second.productName, "vi")
+        );
+
+        try {
+          await db.ref(`shops/${sanitizeFirebaseKey(destination.ShopCode)}/upharma_data/replenishment_suggestions_calculated`).set({
+            success: true,
+            resource: "replenishment_suggestions",
+            shopCode: destination.ShopCode,
+            shopName: destination.ShopName,
+            productCount: plans.length,
+            plans,
+            updatedAt,
+          });
+          uploadedCount++;
+          console.log(`[replenishment_suggestions] DONE ${destination.ShopCode}: ${plans.length} mã`);
+        } catch (error) {
+          console.warn(`[replenishment_suggestions] Không lưu được cache ${destination.ShopCode}: ${error.message}`);
+        }
+      }
+
+      console.log(`[replenishment_suggestions] Đã cập nhật ${uploadedCount}/${shops.length} shop lên Firebase.`);
+  }
+
+  await generateReplenishmentSuggestionsForShops(shops, allShopsData, db, loginData);
 
   if (db) {
     try {

@@ -865,7 +865,7 @@ export class TransferSuggestionsComponent implements OnInit {
 
   reloadCurrentView(): void {
     if (this.activeTransferView === "replenishment") {
-      void this.loadReplenishmentSuggestions(true);
+      void this.loadReplenishmentSuggestions();
     } else {
       void this.runFullProcess();
     }
@@ -894,7 +894,7 @@ export class TransferSuggestionsComponent implements OnInit {
     this.runFullProcess();
   }
 
-  async loadReplenishmentSuggestions(forceRefresh = false): Promise<void> {
+  async loadReplenishmentSuggestions(): Promise<void> {
     if (this.replenishmentLoading || !this.selectedShopCode || this.selectedShopCode === "ALL") return;
     const destination = this.userShops.find((shop) => shop.ShopCode === this.selectedShopCode);
     if (!destination) {
@@ -912,189 +912,43 @@ export class TransferSuggestionsComponent implements OnInit {
     this.cdr.markForCheck();
 
     try {
-      const session = this.upharma.ensureLogin();
-      const response = await this.upharma.callEndpoint<unknown>(
-        "/SalesInvoice/GetOutOfStockCalculated",
-        {
-          uPharmaID: session.UserInfo.uPharmaID,
-          Token: session.Token,
-          ShopLst: destination.ShopCode,
-        },
-        { cache: true, forceRefresh },
-      );
-      const productMap = new Map<string, {
-        productCode: string;
-        productName: string;
-        unit: string;
-        monthlySales: number;
-      }>();
+      this.replenishmentStatus = "Đang tải gợi ý dự trù đã tạo từ cronjob...";
+      this.replenishmentProgressPercent = 35;
+      this.cdr.markForCheck();
 
-      for (const row of this.extractResponseRows(response)) {
-        const code = String(this.pickRawValue(row, [
-          "ProductID", "ProductCode", "Product_ID", "MaSP", "MaSanPham", "ItemCode", "Code",
-        ]) ?? "").trim();
-        const rawQuantity = this.pickRawValue(row, [
-          "QuantityExist", "ExistQuantity", "Quantity", "Qty", "SL", "SoLuong", "TonKho", "InventoryQuantity", "RemainQty",
-        ]);
-        if (!code || rawQuantity === undefined || parseNumericValue(rawQuantity) > 0) continue;
-
-        const monthlySales = parseNumericValue(this.pickRawValue(row, [
-          "QuantityAVG", "AVGQuantity", "MonthlySales", "AverageMonthlySales", "SalesAVG", "AvgQuantity",
-        ]));
-        if (!productMap.has(code)) {
-          productMap.set(code, {
-            productCode: code,
-            productName: String(this.pickRawValue(row, [
-              "ProductName", "Product_Name", "ProductFullName", "TenSP", "TenSanPham", "Name", "ItemName",
-            ]) ?? "").trim(),
-            unit: String(this.pickRawValue(row, [
-              "UnitOfMeasure", "UnitName", "Unit", "DonVi", "DonViTinh", "DVT",
-            ]) ?? "Hộp").trim() || "Hộp",
-            monthlySales,
-          });
-        }
-      }
-
-      const products = Array.from(productMap.values());
-      if (products.length === 0) {
-        this.replenishmentStatus = "Không tìm thấy sản phẩm tồn bằng 0 tại shop này.";
+      const cache = await this.firebaseCache.getShopReplenishmentSuggestions(destination.ShopCode);
+      if (!cache || cache["success"] !== true || !Array.isArray(cache["plans"])) {
+        this.replenishmentStatus = "";
+        this.replenishmentError = "Chưa có JSON gợi ý dự trù trên Firebase. Cronjob cần chạy thành công ít nhất một lần để tạo dữ liệu cho shop này.";
         return;
       }
 
-      this.replenishmentStatus = `Đang đối chiếu tồn kho và tiêu thụ của ${products.length} mã hàng...`;
-      this.replenishmentProgressPercent = 10;
-      this.cdr.markForCheck();
-
-      const stockMap = await this.nationalInventoryService.resolve(
-        products.map((product) => product.productCode),
-        {
-          mode: this.selectedApiMode,
-          forceRefresh,
-          includeWarehouses: true,
-          onProgress: (progress) => {
-            this.replenishmentProgressPercent = 10 + Math.round((progress.done / progress.total) * 80);
-            this.replenishmentStatus = `Đang đối chiếu ${progress.done}/${progress.total} mã · ${progress.currentProduct}`;
-            this.cdr.markForCheck();
-          },
-        },
-      );
-
-      const destinationProvince = this.getProvince(destination.ShopName);
-      const needsWarehouseRefresh = products
-        .filter((product) => {
-          const stores = stockMap[product.productCode] || [];
-          const destStock = stores.find((stock) => stock.StoreCode === destination.ShopCode);
-          const monthlySales = destStock?.QuantityAVG || product.monthlySales;
-          if (monthlySales <= 0) return false;
-          const hasEligibleLocalSource = destinationProvince !== "" && stores.some((stock) => {
-            const monthly = parseNumericValue(stock.QuantityAVG);
-            return (
-              !isWarehouseStore(stock) &&
-              stock.StoreCode !== destination.ShopCode &&
-              this.getProvince(stock.StoreName) === destinationProvince &&
-              monthly > 0 &&
-              stock.Quantity > monthly * 2 &&
-              Math.floor(stock.Quantity - monthly * 2) >= 1
-            );
-          });
-          const hasWarehouseData = stores.some((stock) => isWarehouseStore(stock));
-          return !hasEligibleLocalSource && !hasWarehouseData;
-        })
-        .map((product) => product.productCode);
-
-      if (needsWarehouseRefresh.length > 0 && !forceRefresh) {
-        this.replenishmentStatus = "Không có shop cùng tỉnh đủ tồn an toàn; đang kiểm tra tồn kho tổng...";
-        this.replenishmentProgressPercent = 92;
-        this.cdr.markForCheck();
-        const refreshedMap = await this.nationalInventoryService.resolve(needsWarehouseRefresh, {
-          mode: this.selectedApiMode,
-          forceRefresh: true,
-          includeWarehouses: true,
-        });
-        Object.assign(stockMap, refreshedMap);
-      }
-
-      this.replenishmentPlans = products.map((product) => {
-        const stores = stockMap[product.productCode] || [];
-        const destinationStock = stores.find((stock) => stock.StoreCode === destination.ShopCode);
-        const monthlySales = destinationStock?.QuantityAVG || product.monthlySales;
-        const localSources: ReplenishmentSource[] = stores
-          .filter((stock) => {
-            const sourceMonthlySales = parseNumericValue(stock.QuantityAVG);
-            return (
-              monthlySales > 0 &&
-              !isWarehouseStore(stock) &&
-              stock.StoreCode !== destination.ShopCode &&
-              destinationProvince !== "" &&
-              this.getProvince(stock.StoreName) === destinationProvince &&
-              sourceMonthlySales > 0 &&
-              stock.Quantity > sourceMonthlySales * 2 &&
-              Math.floor(stock.Quantity - sourceMonthlySales * 2) >= 1
-            );
-          })
-          .map((stock) => {
-            const sourceMonthlySales = parseNumericValue(stock.QuantityAVG);
-            const availableQuantity = Math.floor(stock.Quantity - sourceMonthlySales * 2);
-            return {
-              shopCode: stock.StoreCode,
-              shopName: stock.StoreName,
-              stockQuantity: stock.Quantity,
-              monthlySales: sourceMonthlySales,
-              reserveQuantity: sourceMonthlySales * 2,
-              availableQuantity,
-              suggestedQuantity: monthlySales > 0 ? Math.min(Math.ceil(monthlySales), availableQuantity) : 0,
-              isWarehouse: false,
-            };
-          })
-          .sort((first, second) =>
-            second.stockQuantity - first.stockQuantity ||
-            second.availableQuantity - first.availableQuantity ||
-            first.shopCode.localeCompare(second.shopCode),
-          )
-          .slice(0, 3);
-
-        let sources = localSources;
-        if (sources.length === 0) {
-          const warehouse = stores
-            .filter((stock) => monthlySales > 0 && isWarehouseStore(stock) && Math.floor(stock.Quantity) > 0)
-            .sort((first, second) => second.Quantity - first.Quantity)[0];
-          if (warehouse) {
-            const availableQuantity = Math.floor(warehouse.Quantity);
-            sources = [{
-              shopCode: warehouse.StoreCode,
-              shopName: warehouse.StoreName || "Kho tổng",
-              stockQuantity: warehouse.Quantity,
-              monthlySales: parseNumericValue(warehouse.QuantityAVG),
-              reserveQuantity: 0,
-              availableQuantity,
-              suggestedQuantity: monthlySales > 0 ? Math.min(Math.ceil(monthlySales), availableQuantity) : 0,
-              isWarehouse: true,
-            }];
-          }
-        }
-
-        return {
-          key: `${destination.ShopCode}|${product.productCode}`,
-          ...product,
-          monthlySales,
-          sources,
-        };
-      });
-
-      this.replenishmentPlans.sort((first, second) =>
-        Number(second.sources.length > 0) - Number(first.sources.length > 0) ||
-        second.monthlySales - first.monthlySales ||
-        first.productName.localeCompare(second.productName, "vi"),
-      );
-      const shopSourceCount = this.replenishmentShopSourceCount;
-      const warehouseSourceCount = this.replenishmentWarehouseSourceCount;
+      this.replenishmentPlans = cache["plans"].map((plan: any) => ({
+        key: `${destination.ShopCode}|${String(plan.productCode || "")}`,
+        productCode: String(plan.productCode || ""),
+        productName: String(plan.productName || ""),
+        unit: String(plan.unit || "Hộp"),
+        monthlySales: Number(plan.monthlySales) || 0,
+        sources: Array.isArray(plan.sources)
+          ? plan.sources.map((source: any) => ({
+              shopCode: String(source.shopCode || ""),
+              shopName: String(source.shopName || ""),
+              stockQuantity: Number(source.stockQuantity) || 0,
+              monthlySales: Number(source.monthlySales) || 0,
+              reserveQuantity: Number(source.reserveQuantity) || 0,
+              availableQuantity: Number(source.availableQuantity) || 0,
+              suggestedQuantity: Number(source.suggestedQuantity) || 0,
+              isWarehouse: source.isWarehouse === true,
+            }))
+          : [],
+      }));
       this.replenishmentProgressPercent = 100;
-      this.replenishmentStatus =
-        `Đã kiểm tra ${products.length} mã: ${shopSourceCount} mã có nguồn cùng tỉnh, ` +
-        `${warehouseSourceCount} mã cần lấy từ kho tổng.`;
+      const updatedAt = Number(cache["updatedAt"]);
+      const updatedText = updatedAt > 0 ? ` lúc ${this.formatCacheTime(updatedAt)}` : "";
+      this.replenishmentStatus = `Đã tải ${this.replenishmentPlans.length} mã từ JSON Firebase${updatedText}.`;
     } catch (error) {
       this.replenishmentError = error instanceof Error ? error.message : String(error);
-      this.replenishmentStatus = "Không tải được gợi ý dự trù.";
+      this.replenishmentStatus = "Không tải được JSON gợi ý dự trù từ Firebase.";
     } finally {
       this.replenishmentLoading = false;
       this.cdr.markForCheck();
@@ -1846,36 +1700,6 @@ export class TransferSuggestionsComponent implements OnInit {
   formatNumber(val: number | undefined): string {
     if (val === undefined || val === null) return "0";
     return new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 2 }).format(val);
-  }
-
-  private extractResponseRows(data: unknown): RawRecord[] {
-    if (Array.isArray(data)) {
-      return data.filter((item): item is RawRecord => Boolean(item) && typeof item === "object");
-    }
-    if (!data || typeof data !== "object") return [];
-
-    const record = data as RawRecord;
-    for (const key of ["Data", "data", "OutOfStockLst", "ItemLst", "ListData", "Rows", "Table"]) {
-      if (Array.isArray(record[key])) {
-        return (record[key] as unknown[]).filter(
-          (item): item is RawRecord => Boolean(item) && typeof item === "object",
-        );
-      }
-    }
-
-    const nestedRows = Object.values(record).find((value) => Array.isArray(value));
-    return Array.isArray(nestedRows)
-      ? nestedRows.filter((item): item is RawRecord => Boolean(item) && typeof item === "object")
-      : [];
-  }
-
-  private pickRawValue(row: RawRecord, keys: string[]): unknown {
-    for (const key of keys) {
-      if (row[key] !== undefined && row[key] !== null) return row[key];
-    }
-    const normalizedKeys = new Set(keys.map((key) => key.toLowerCase()));
-    const matchedKey = Object.keys(row).find((key) => normalizedKeys.has(key.toLowerCase()));
-    return matchedKey ? row[matchedKey] : undefined;
   }
 
   private getProvince(name: string): string {
