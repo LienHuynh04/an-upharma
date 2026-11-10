@@ -1092,37 +1092,6 @@ async function generateTransferSuggestionsForShops(shops, allShopsData, db, logi
 
         console.log(`[transfer_suggestions] Đã lấy thành công ${Object.keys(nationalCache).length} mã từ cache toàn quốc.`);
 
-function getShopProvince(name) {
-  if (!name) return "";
-  const n = name.toLowerCase();
-  if (n.includes("đà nẵng") || n.includes("da nang") || n.includes("đn")) return "Đà Nẵng";
-  if (n.includes("khánh hòa") || n.includes("khanh hoa") || n.includes("nha trang")) return "Khánh Hòa";
-  if (n.includes("gia lai") || n.includes("pleiku")) return "Gia Lai";
-  if (n.includes("hồ chí minh") || n.includes("hcm") || n.includes("tphcm") || n.includes("sài gòn")) return "Hồ Chí Minh";
-  if (n.includes("hà nội") || n.includes("ha noi")) return "Hà Nội";
-  if (n.includes("bình định") || n.includes("binh dinh") || n.includes("quy nhơn")) return "Bình Định";
-  if (n.includes("quảng nam") || n.includes("quang nam")) return "Quảng Nam";
-  if (n.includes("quảng ngãi") || n.includes("quang ngai")) return "Quảng Ngãi";
-  if (n.includes("thừa thiên huế") || n.includes("thua thien hue") || n.includes("huế")) return "Thừa Thiên Huế";
-  if (n.includes("đắk lắk") || n.includes("dak lak") || n.includes("buôn ma thuột")) return "Đắk Lắk";
-  if (n.includes("lâm đồng") || n.includes("lam dong") || n.includes("đà lạt")) return "Lâm Đồng";
-  if (n.includes("cần thơ") || n.includes("can tho")) return "Cần Thơ";
-
-  const parts = name.trim().split(/[-,-]/);
-  return parts[parts.length - 1]?.trim() || name;
-}
-
-function isWarehouseStore(store) {
-  if (!store) return false;
-  const code = String(store.StoreCode || store.ShopCode || "").toUpperCase().trim();
-  const name = String(store.StoreName || store.ShopName || "").toLowerCase().trim();
-  const type = String(store.StoreType || "").toLowerCase().trim();
-  if (type.includes("kho")) return true;
-  if (code === "DN" || code.startsWith("KHO") || code.startsWith("K_")) return true;
-  if (name.includes("kho tổng") || name.includes("kho tong") || /\bkho\b/i.test(name)) return true;
-  return false;
-}
-
 function computeTransferSuggestionsForList(expiringStockList, nationalCache) {
   const suggestions = [];
 
@@ -1825,6 +1794,37 @@ function precalculateOutOfStock(salesSpeedRows, inventoryRows, transferProcessRo
   }
 
   return outOfStockRows;
+}
+
+function getShopProvince(name) {
+  if (!name) return "";
+  const n = name.toLowerCase();
+  if (n.includes("đà nẵng") || n.includes("da nang") || n.includes("đn")) return "Đà Nẵng";
+  if (n.includes("khánh hòa") || n.includes("khanh hoa") || n.includes("nha trang")) return "Khánh Hòa";
+  if (n.includes("gia lai") || n.includes("pleiku")) return "Gia Lai";
+  if (n.includes("hồ chí minh") || n.includes("hcm") || n.includes("tphcm") || n.includes("sài gòn")) return "Hồ Chí Minh";
+  if (n.includes("hà nội") || n.includes("ha noi")) return "Hà Nội";
+  if (n.includes("bình định") || n.includes("binh dinh") || n.includes("quy nhơn")) return "Bình Định";
+  if (n.includes("quảng nam") || n.includes("quang nam")) return "Quảng Nam";
+  if (n.includes("quảng ngãi") || n.includes("quang ngai")) return "Quảng Ngãi";
+  if (n.includes("thừa thiên huế") || n.includes("thua thien hue") || n.includes("huế")) return "Thừa Thiên Huế";
+  if (n.includes("đắk lắk") || n.includes("dak lak") || n.includes("buôn ma thuột")) return "Đắk Lắk";
+  if (n.includes("lâm đồng") || n.includes("lam dong") || n.includes("đà lạt")) return "Lâm Đồng";
+  if (n.includes("cần thơ") || n.includes("can tho")) return "Cần Thơ";
+
+  const parts = name.trim().split(/[-,-]/);
+  return parts[parts.length - 1]?.trim() || name;
+}
+
+function isWarehouseStore(store) {
+  if (!store) return false;
+  const code = String(store.StoreCode || store.ShopCode || "").toUpperCase().trim();
+  const name = String(store.StoreName || store.ShopName || "").toLowerCase().trim();
+  const type = String(store.StoreType || "").toLowerCase().trim();
+  if (type.includes("kho")) return true;
+  if (code === "DN" || code.startsWith("KHO") || code.startsWith("K_")) return true;
+  if (name.includes("kho tổng") || name.includes("kho tong") || /\bkho\b/i.test(name)) return true;
+  return false;
 }
 
 async function calculateAndUploadSummaries(shops, allShopsData, db, loginData) {
