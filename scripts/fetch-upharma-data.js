@@ -2115,7 +2115,7 @@ async function calculateAndUploadSummaries(shops, allShopsData, db, loginData, h
               second.Quantity - first.Quantity ||
               first.StoreCode.localeCompare(second.StoreCode)
             )
-            .slice(0, 3);
+            .slice(0, 5);
 
           let sources = [];
           let remainingNeed = targetQuantity;

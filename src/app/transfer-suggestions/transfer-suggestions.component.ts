@@ -179,7 +179,7 @@ interface ReplenishmentPlan {
         </div>
 
         <section *ngIf="activeTransferView === 'replenishment'">
-          <div class="card mb-3" *ngIf="replenishmentLoading || replenishmentError || replenishmentStatus">
+          <div class="card mb-3" *ngIf="replenishmentLoading || replenishmentError">
             <div class="card-body py-3">
               <div *ngIf="replenishmentLoading">
                 <div class="progress progress-sm rounded-pill overflow-hidden">
@@ -191,9 +191,6 @@ interface ReplenishmentPlan {
                 </div>
               </div>
               <div class="alert alert-danger py-2 mb-0" *ngIf="replenishmentError">{{ replenishmentError }}</div>
-              <div class="text-secondary small" *ngIf="!replenishmentLoading && !replenishmentError && replenishmentStatus">
-                {{ replenishmentStatus }}
-              </div>
             </div>
           </div>
 
@@ -250,13 +247,23 @@ interface ReplenishmentPlan {
                     <th style="width: 10%;">Mã SP</th>
                     <th style="width: 9%;">Bán/tháng</th>
                     <th style="width: 27%;">Xin shop nào (date gần trước)</th>
-                    <th class="text-end" style="width: 9%;">Tồn nguồn</th>
+                    <th class="text-end" style="width: 9%;">Tồn từng shop</th>
                     <th class="text-end" style="width: 11%;">Tổng SL đề xuất</th>
                     <th class="text-center" style="width: 7%;">Số tuyến</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let plan of replenishmentPlans; let i = index; trackBy: trackByReplenishmentKey">
+                  <tr
+                    *ngFor="let plan of replenishmentPlans; let i = index; trackBy: trackByReplenishmentKey"
+                    (click)="openReplenishmentDetailModal(plan)"
+                    (keydown.enter)="openReplenishmentDetailModal(plan)"
+                    (keydown.space)="$event.preventDefault(); openReplenishmentDetailModal(plan)"
+                    tabindex="0"
+                    role="button"
+                    class="replenishment-plan-row"
+                    title="Bấm để xem chi tiết gợi ý điều chuyển"
+                    style="cursor: pointer;"
+                  >
                     <td data-label="STT" class="text-center font-monospace fw-bold" style="white-space: nowrap;">{{ i + 1 }}</td>
                     <td data-label="Tên SP" class="font-weight-medium text-break" style="font-size: 0.92rem; line-height: 1.35;">
                       {{ plan.productName || "Chưa có tên sản phẩm" }}
@@ -280,8 +287,11 @@ interface ReplenishmentPlan {
                         <span class="text-secondary" *ngIf="plan.sources.length === 0">Chưa có tuyến phù hợp</span>
                       </div>
                     </td>
-                    <td data-label="Tồn nguồn" class="text-end">
-                      {{ formatNumber(getPlanSourceStockQuantity(plan)) }} {{ plan.unit }}
+                    <td data-label="Tồn từng shop" class="text-end">
+                      <div *ngFor="let source of plan.sources" class="d-flex flex-column gap-1">
+                        <span>{{ formatNumber(source.stockQuantity) }} {{ plan.unit }}</span>
+                      </div>
+                      <span class="text-secondary" *ngIf="plan.sources.length === 0">—</span>
                     </td>
                     <td data-label="Tổng SL đề xuất" class="text-end fw-bold text-primary">
                       {{ formatNumber(getPlanSuggestedQuantity(plan)) }} {{ plan.unit }}
@@ -299,6 +309,101 @@ interface ReplenishmentPlan {
               <i class="ti ti-circle-check text-success fs-1" aria-hidden="true"></i>
               <h3 class="mt-2">Shop này chưa có sản phẩm tồn bằng 0</h3>
               <p class="text-secondary mb-0">Tải lại để kiểm tra dữ liệu mới nhất.</p>
+            </div>
+          </div>
+
+          <div
+            class="modal modal-blur fade show d-block"
+            *ngIf="selectedReplenishmentPlan"
+            tabindex="-1"
+            role="dialog"
+            aria-modal="true"
+            [attr.aria-label]="'Chi tiết gợi ý điều chuyển ' + selectedReplenishmentPlan.productName"
+            style="background-color: rgba(0, 0, 0, 0.5); z-index: 1050;"
+            (click)="closeReplenishmentDetailModal()"
+          >
+            <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable" role="document" (click)="$event.stopPropagation()">
+              <div class="modal-content shadow-lg border">
+                <div class="modal-header py-3">
+                  <div class="w-100 me-2">
+                    <h3 class="modal-title fw-bold text-primary mb-0 d-flex align-items-center gap-2">
+                      <i class="ti ti-package-import" aria-hidden="true"></i>Chi Tiết Gợi Ý Điều Chuyển
+                    </h3>
+                    <div class="d-flex align-items-center gap-2 flex-wrap mt-2">
+                      <span class="fs-3 fw-bold">{{ selectedReplenishmentPlan.productName || "Chưa có tên sản phẩm" }}</span>
+                      <span class="badge bg-primary-lt font-monospace fs-4">Mã: {{ selectedReplenishmentPlan.productCode }}</span>
+                    </div>
+                  </div>
+                  <button type="button" class="btn-close ms-auto align-self-start" aria-label="Đóng" (click)="closeReplenishmentDetailModal()"></button>
+                </div>
+
+                <div class="modal-body p-3">
+                  <div class="row g-2 mb-3 bg-body-tertiary p-3 rounded align-items-center border">
+                    <div class="col-md-4">
+                      <small class="text-secondary d-block">Bán trung bình/tháng</small>
+                      <strong class="fs-4 font-monospace">{{ formatNumber(selectedReplenishmentPlan.monthlySales) }} {{ selectedReplenishmentPlan.unit }}</strong>
+                    </div>
+                    <div class="col-md-4">
+                      <small class="text-secondary d-block">Số lượng cần bù</small>
+                      <strong class="badge bg-primary text-white fs-3 font-monospace">{{ formatNumber(getPlanTargetQuantity(selectedReplenishmentPlan)) }} {{ selectedReplenishmentPlan.unit }}</strong>
+                    </div>
+                    <div class="col-md-4 text-md-end">
+                      <small class="text-secondary d-block">Tổng lượng có thể điều chuyển</small>
+                      <strong class="badge bg-success text-white fs-3 font-monospace">{{ formatNumber(getPlanSuggestedQuantity(selectedReplenishmentPlan)) }} {{ selectedReplenishmentPlan.unit }}</strong>
+                    </div>
+                  </div>
+
+                  <div class="table-responsive rounded border shadow-sm" *ngIf="selectedReplenishmentPlan.sources.length > 0">
+                    <table class="table table-vcenter table-striped table-hover align-middle mb-0 w-100">
+                      <thead class="bg-body-tertiary">
+                        <tr>
+                          <th class="text-center">#</th>
+                          <th>Shop nguồn</th>
+                          <th class="text-end">Tồn hiện tại</th>
+                          <th class="text-end">Bán TB/tháng</th>
+                          <th class="text-end">Giữ lại 2 tháng</th>
+                          <th class="text-end">Có thể chuyển</th>
+                          <th class="text-end">SL đề xuất</th>
+                          <th class="text-center">Khu vực</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr *ngFor="let source of selectedReplenishmentPlan.sources; let index = index">
+                          <td class="text-center font-monospace">{{ index + 1 }}</td>
+                          <td>
+                            <span
+                              class="badge font-monospace fs-5"
+                              [ngClass]="source.isWarehouse ? 'bg-purple-lt text-purple' : (source.isSameProvince ? 'bg-success text-white' : 'bg-blue-lt text-blue')"
+                              [title]="source.shopName"
+                            >{{ source.isWarehouse ? "Kho tổng" : source.shopCode }}</span>
+                            <span class="text-secondary ms-1" *ngIf="source.shopName && !source.isWarehouse">{{ source.shopName }}</span>
+                          </td>
+                          <td class="text-end font-monospace">{{ formatNumber(source.stockQuantity) }} {{ selectedReplenishmentPlan.unit }}</td>
+                          <td class="text-end font-monospace">{{ formatNumber(source.monthlySales) }}</td>
+                          <td class="text-end font-monospace">{{ formatNumber(source.reserveQuantity) }}</td>
+                          <td class="text-end font-monospace">{{ formatNumber(source.availableQuantity) }}</td>
+                          <td class="text-end">
+                            <span class="badge bg-primary text-white font-monospace fs-5">{{ formatNumber(source.suggestedQuantity) }} {{ selectedReplenishmentPlan.unit }}</span>
+                          </td>
+                          <td class="text-center">
+                            <span *ngIf="source.isWarehouse" class="badge bg-purple-lt text-purple">Kho tổng</span>
+                            <span *ngIf="!source.isWarehouse" [class]="source.isSameProvince ? 'badge bg-green-lt text-success' : 'badge bg-orange-lt text-warning'">
+                              {{ source.isSameProvince ? "Nội tỉnh" : "Ngoại tỉnh" }}
+                            </span>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div class="alert alert-secondary mb-0" *ngIf="selectedReplenishmentPlan.sources.length === 0">
+                    Chưa có shop hoặc kho tổng đủ điều kiện để đề xuất nguồn hàng.
+                  </div>
+                </div>
+
+                <div class="modal-footer py-2">
+                  <button type="button" class="btn btn-secondary font-weight-bold px-4" (click)="closeReplenishmentDetailModal()">✕ Đóng lại</button>
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -455,7 +560,7 @@ interface ReplenishmentPlan {
                         <span class="text-secondary small">➔</span>
                         <span class="badge font-monospace fs-5" [ngClass]="item.isSameProvince ? 'bg-success text-white' : 'bg-blue-lt text-blue'" [title]="item.toShopName">{{ item.toShopCode }}</span>
                         <span class="badge bg-green-lt text-green fs-6 py-0 px-1" *ngIf="item.isSameProvince">Nội tỉnh</span>
-                        <span class="badge bg-primary-lt text-primary font-monospace fs-6 px-1">{{ formatNumber(item.suggestedQty) }} {{ item.unit }}</span>
+                        <span class="badge bg-primary text-white font-monospace fs-6 px-1">{{ formatNumber(item.suggestedQty) }} {{ item.unit }}</span>
                       </div>
                       <div *ngIf="group.items.length > 5">
                         <span class="badge bg-secondary-lt text-secondary fs-6">+{{ group.items.length - 5 }} tuyến khác</span>
@@ -463,7 +568,9 @@ interface ReplenishmentPlan {
                     </div>
                   </td>
                   <td data-label="Tồn Nguồn" class="text-end">{{ formatNumber(group.totalSourceQuantity) }} {{ group.unit }}</td>
-                  <td data-label="Tổng SL Đề xuất" class="text-end fw-bold text-primary">{{ formatNumber(group.totalSuggestedQty) }} {{ group.unit }}</td>
+                  <td data-label="Tổng SL Đề xuất" class="text-end fw-bold">
+                    <span class="badge bg-primary text-white font-monospace">{{ formatNumber(group.totalSuggestedQty) }} {{ group.unit }}</span>
+                  </td>
                   <td data-label="Số tuyến" class="text-center">
                     <span class="badge bg-info-lt text-info">{{ group.suggestionCount }} tuyến</span>
                   </td>
@@ -507,7 +614,7 @@ interface ReplenishmentPlan {
                   </div>
                   <div class="col-md-3">
                     <small class="text-secondary d-block font-weight-medium">Tổng SL Đề Xuất:</small>
-                    <strong class="text-primary fs-3 font-monospace">{{ formatNumber(selectedGroupForModal.totalSuggestedQty) }} {{ selectedGroupForModal.unit }}</strong>
+                    <span class="badge bg-primary text-white fs-3 font-monospace">{{ formatNumber(selectedGroupForModal.totalSuggestedQty) }} {{ selectedGroupForModal.unit }}</span>
                   </div>
                   <div class="col-md-3 text-end">
                     <small class="text-secondary d-block font-weight-medium">Phương án đề xuất:</small>
@@ -551,7 +658,7 @@ interface ReplenishmentPlan {
                           <span class="badge bg-success-lt px-2 py-1 fs-4">{{ formatNumber(item.destAvgSales) }}</span>
                         </td>
                         <td class="text-end">
-                          <span class="badge bg-primary px-3 py-1 font-monospace fw-bold fs-4">
+                          <span class="badge bg-primary text-white px-3 py-1 font-monospace fw-bold fs-4">
                             {{ formatNumber(item.suggestedQty) }} {{ item.unit }}
                           </span>
                         </td>
@@ -656,6 +763,10 @@ interface ReplenishmentPlan {
       font-weight: 750;
       white-space: nowrap;
     }
+    .replenishment-plan-row:focus-visible {
+      outline: 2px solid var(--tblr-primary);
+      outline-offset: -2px;
+    }
     @media (max-width: 767.98px) {
       .replenishment-summary-card .h1 {
         font-size: 1.4rem;
@@ -740,6 +851,21 @@ export class TransferSuggestionsComponent implements OnInit {
   replenishmentActionStatus = "";
   replenishmentActionError = "";
   replenishmentPlans: ReplenishmentPlan[] = [];
+  selectedReplenishmentPlan: ReplenishmentPlan | null = null;
+
+  openReplenishmentDetailModal(plan: ReplenishmentPlan): void {
+    this.selectedReplenishmentPlan = plan;
+    document.body.classList.add("modal-open");
+    document.body.style.overflow = "hidden";
+  }
+
+  closeReplenishmentDetailModal(): void {
+    this.selectedReplenishmentPlan = null;
+    if (!this.selectedGroupForModal && !this.selectedAuditGroupForModal) {
+      document.body.classList.remove("modal-open");
+      document.body.style.overflow = "";
+    }
+  }
 
   get replenishmentShopSourceCount(): number {
     return this.replenishmentPlans.filter((plan) => plan.sources.some((source) => !source.isWarehouse)).length;
@@ -763,7 +889,7 @@ export class TransferSuggestionsComponent implements OnInit {
     ).length;
   }
 
-  private getPlanTargetQuantity(plan: ReplenishmentPlan): number {
+  getPlanTargetQuantity(plan: ReplenishmentPlan): number {
     return plan.targetQuantity || Math.ceil(plan.monthlySales);
   }
 
@@ -787,10 +913,6 @@ export class TransferSuggestionsComponent implements OnInit {
 
   getPlanShopSources(plan: ReplenishmentPlan): ReplenishmentSource[] {
     return plan.sources.filter((source) => !source.isWarehouse);
-  }
-
-  getPlanSourceStockQuantity(plan: ReplenishmentPlan): number {
-    return plan.sources.reduce((total, source) => total + source.stockQuantity, 0);
   }
 
   getPlanSuggestedQuantity(plan: ReplenishmentPlan): number {
