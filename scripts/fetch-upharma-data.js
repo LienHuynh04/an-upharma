@@ -2051,6 +2051,7 @@ async function calculateAndUploadSummaries(shops, allShopsData, db, loginData) {
               return (
                 !isWarehouseStore(store) &&
                 store.StoreCode !== destination.ShopCode &&
+                shopByCode.has(store.StoreCode) &&
                 destinationProvince !== "" &&
                 sourceProvince === destinationProvince &&
                 sourceMonthlySales > 0 &&

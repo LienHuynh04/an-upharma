@@ -98,6 +98,7 @@ interface ReplenishmentPlan {
   productName: string;
   unit: string;
   monthlySales: number;
+  targetQuantity: number;
   sources: ReplenishmentSource[];
 }
 
@@ -201,28 +202,75 @@ interface ReplenishmentPlan {
             </div>
           </div>
 
+          <div class="card mb-3" *ngIf="!replenishmentLoading && replenishmentPlans.length">
+            <div class="card-body d-flex flex-wrap align-items-center gap-3">
+              <div class="d-flex flex-wrap align-items-center gap-2 me-auto">
+                <span class="avatar avatar-sm rounded-circle bg-success text-white fw-bold">1</span>
+                <strong class="text-uppercase">Xin shop khác trước</strong>
+                <span class="text-secondary">→</span>
+                <button
+                  type="button"
+                  class="btn btn-success"
+                  (click)="copyReplenishmentRequestsForZalo()"
+                  [disabled]="replenishmentShopRequestCount === 0"
+                >
+                  <i class="ti ti-copy me-1" aria-hidden="true"></i>Sao chép cho Zalo
+                </button>
+              </div>
+              <div class="d-flex flex-wrap align-items-center gap-2">
+                <span class="avatar avatar-sm rounded-circle bg-success text-white fw-bold">2</span>
+                <strong class="text-uppercase">Phần còn thiếu đặt công ty</strong>
+                <span class="text-secondary">→</span>
+                <button
+                  type="button"
+                  class="btn btn-outline-secondary"
+                  (click)="exportCompanyOrderExcel()"
+                  [disabled]="replenishmentCompanyOrderCount === 0"
+                >
+                  <i class="ti ti-download me-1" aria-hidden="true"></i>Xuất phiếu đặt
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="alert alert-success py-2" role="status" *ngIf="replenishmentActionStatus">
+            {{ replenishmentActionStatus }}
+          </div>
+          <div class="alert alert-danger py-2" role="alert" *ngIf="replenishmentActionError">
+            {{ replenishmentActionError }}
+          </div>
+
           <div class="row row-deck row-cards mb-3" *ngIf="!replenishmentLoading">
             <div class="col-sm-6 col-lg-4">
-              <div class="card">
-                <div class="card-body">
-                  <div class="text-secondary">Mã đang hết hàng</div>
-                  <div class="h2 mb-0">{{ replenishmentPlans.length | number }}</div>
+              <div class="card h-100">
+                <div class="card-body py-3">
+                  <div class="text-secondary fw-bold text-uppercase">Cần dự trù</div>
+                  <div class="d-flex align-items-baseline gap-2 mt-1">
+                    <strong class="h1 mb-0">{{ replenishmentNeedCount | number }}</strong>
+                    <span class="text-secondary">mã sắp hết hàng</span>
+                  </div>
                 </div>
               </div>
             </div>
             <div class="col-sm-6 col-lg-4">
-              <div class="card">
-                <div class="card-body">
-                  <div class="text-secondary">Có shop cùng tỉnh hỗ trợ</div>
-                  <div class="h2 mb-0">{{ replenishmentShopSourceCount | number }}</div>
+              <div class="card h-100">
+                <div class="card-body py-3">
+                  <div class="text-secondary fw-bold text-uppercase">Xin shop khác</div>
+                  <div class="d-flex align-items-baseline gap-2 mt-1">
+                    <strong class="h1 text-success mb-0">{{ replenishmentShopRequestCount | number }}</strong>
+                    <span class="text-secondary">mã khỏi đặt công ty</span>
+                  </div>
                 </div>
               </div>
             </div>
             <div class="col-sm-6 col-lg-4">
-              <div class="card">
-                <div class="card-body">
-                  <div class="text-secondary">Cần dự trù từ kho tổng</div>
-                  <div class="h2 mb-0">{{ replenishmentWarehouseSourceCount | number }}</div>
+              <div class="card h-100">
+                <div class="card-body py-3">
+                  <div class="text-secondary fw-bold text-uppercase">Đặt công ty</div>
+                  <div class="d-flex align-items-baseline gap-2 mt-1">
+                    <strong class="h1 text-orange mb-0">{{ replenishmentCompanyOrderCount | number }}</strong>
+                    <span class="text-secondary">mã shop khác không đủ</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -705,14 +753,119 @@ export class TransferSuggestionsComponent implements OnInit {
   replenishmentProgressPercent = 0;
   replenishmentStatus = "";
   replenishmentError = "";
+  replenishmentActionStatus = "";
+  replenishmentActionError = "";
   replenishmentPlans: ReplenishmentPlan[] = [];
 
   get replenishmentShopSourceCount(): number {
     return this.replenishmentPlans.filter((plan) => plan.sources.some((source) => !source.isWarehouse)).length;
   }
 
-  get replenishmentWarehouseSourceCount(): number {
-    return this.replenishmentPlans.filter((plan) => plan.sources.some((source) => source.isWarehouse)).length;
+  get replenishmentNeedCount(): number {
+    return this.replenishmentPlans.length;
+  }
+
+  get replenishmentShopRequestCount(): number {
+    return this.replenishmentPlans.filter((plan) => {
+      const need = this.getPlanTargetQuantity(plan);
+      const shopAvailable = this.getShopSuggestedQuantity(plan);
+      return need > 0 && shopAvailable >= need;
+    }).length;
+  }
+
+  get replenishmentCompanyOrderCount(): number {
+    return this.replenishmentPlans.filter((plan) =>
+      this.getPlanTargetQuantity(plan) > this.getShopSuggestedQuantity(plan)
+    ).length;
+  }
+
+  private getPlanTargetQuantity(plan: ReplenishmentPlan): number {
+    return plan.targetQuantity || Math.ceil(plan.monthlySales);
+  }
+
+  private getShopSuggestedQuantity(plan: ReplenishmentPlan): number {
+    return plan.sources
+      .filter((source) => !source.isWarehouse)
+      .reduce((total, source) => total + source.suggestedQuantity, 0);
+  }
+
+  private getCompanyOrderQuantity(plan: ReplenishmentPlan): number {
+    const warehouseQuantity = plan.sources
+      .filter((source) => source.isWarehouse)
+      .reduce((total, source) => total + source.suggestedQuantity, 0);
+    if (warehouseQuantity > 0) return warehouseQuantity;
+    return Math.max(0, this.getPlanTargetQuantity(plan) - this.getShopSuggestedQuantity(plan));
+  }
+
+  private getCompanyOrderPlans(): ReplenishmentPlan[] {
+    return this.replenishmentPlans.filter((plan) => this.getCompanyOrderQuantity(plan) > 0);
+  }
+
+  async copyReplenishmentRequestsForZalo(): Promise<void> {
+    const destination = this.userShops.find((shop) => shop.ShopCode === this.selectedShopCode);
+    const lines = this.replenishmentPlans.flatMap((plan) =>
+      plan.sources
+        .filter((source) => !source.isWarehouse && source.suggestedQuantity > 0)
+        .map((source) =>
+          `• ${source.shopCode} hỗ trợ ${this.formatNumber(source.suggestedQuantity)} ${plan.unit} ` +
+          `${plan.productName} (${plan.productCode}) cho ${destination?.ShopCode || this.selectedShopCode}`
+        )
+    );
+    if (!lines.length) return;
+
+    this.replenishmentActionStatus = "";
+    this.replenishmentActionError = "";
+    try {
+      if (!navigator.clipboard?.writeText) {
+        throw new Error("Trình duyệt không hỗ trợ sao chép tự động. Hãy mở trang bằng HTTPS hoặc localhost.");
+      }
+      const text = [
+        `NHỜ HỖ TRỢ ĐIỀU CHUYỂN HÀNG · ${destination?.ShopName || this.selectedShopCode}`,
+        ...lines,
+      ].join("\n");
+      await navigator.clipboard.writeText(text);
+      this.replenishmentActionStatus = `Đã sao chép ${lines.length} đề nghị điều chuyển. Bạn có thể dán nội dung vào Zalo.`;
+    } catch (error) {
+      this.replenishmentActionError = error instanceof Error ? error.message : String(error);
+    }
+  }
+
+  async exportCompanyOrderExcel(): Promise<void> {
+    const destination = this.userShops.find((shop) => shop.ShopCode === this.selectedShopCode);
+    const plans = this.getCompanyOrderPlans();
+    if (!plans.length) return;
+
+    const rows = plans.map((plan, index) => ({
+      "STT": index + 1,
+      "Shop đặt hàng": `${destination?.ShopCode || this.selectedShopCode} - ${destination?.ShopName || ""}`,
+      "Mã sản phẩm": plan.productCode,
+      "Tên sản phẩm": plan.productName,
+      "Đơn vị": plan.unit,
+      "Tồn hiện tại": 0,
+      "Tiêu thụ trung bình/tháng": plan.monthlySales,
+      "Shop khác hỗ trợ": plan.sources
+        .filter((source) => !source.isWarehouse && source.suggestedQuantity > 0)
+        .map((source) => `${source.shopCode}: ${this.formatNumber(source.suggestedQuantity)}`)
+        .join("; "),
+      "Kho tổng đề xuất": plan.sources
+        .filter((source) => source.isWarehouse)
+        .map((source) => `${source.shopCode}: ${this.formatNumber(source.suggestedQuantity)}`)
+        .join("; "),
+      "Số lượng đặt công ty": this.getCompanyOrderQuantity(plan),
+    }));
+
+    this.replenishmentActionStatus = "";
+    this.replenishmentActionError = "";
+    try {
+      await this.excelExportService.exportJsonToExcel(
+        rows,
+        `phieu-dat-cong-ty-${destination?.ShopCode || this.selectedShopCode}.xlsx`,
+        "Phieu dat cong ty",
+      );
+      this.replenishmentActionStatus = `Đã xuất phiếu đặt công ty gồm ${rows.length} mã hàng.`;
+    } catch (error) {
+      this.replenishmentActionError = error instanceof Error ? error.message : String(error);
+    }
   }
 
   // Dữ liệu Tồn kho chi tiết (chuẩn hóa từ Tồn Kho / inventoryResource)
@@ -929,6 +1082,7 @@ export class TransferSuggestionsComponent implements OnInit {
         productName: String(plan.productName || ""),
         unit: String(plan.unit || "Hộp"),
         monthlySales: Number(plan.monthlySales) || 0,
+        targetQuantity: Number(plan.targetQuantity) || Math.ceil(Number(plan.monthlySales) || 0),
         sources: Array.isArray(plan.sources)
           ? plan.sources.map((source: any) => ({
               shopCode: String(source.shopCode || ""),
