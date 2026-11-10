@@ -184,7 +184,7 @@ interface ReplenishmentPlan {
             </div>
           </div>
 
-          <div class="card mb-3" *ngIf="replenishmentLoading || replenishmentError || replenishmentStatus">
+          <div class="card mb-3" *ngIf="replenishmentLoading || replenishmentError || replenishmentStatus || replenishmentDataWarning">
             <div class="card-body py-3">
               <div *ngIf="replenishmentLoading">
                 <div class="progress progress-sm rounded-pill overflow-hidden">
@@ -196,6 +196,9 @@ interface ReplenishmentPlan {
                 </div>
               </div>
               <div class="alert alert-danger py-2 mb-0" *ngIf="replenishmentError">{{ replenishmentError }}</div>
+              <div class="alert alert-warning py-2 mb-0" *ngIf="!replenishmentLoading && replenishmentDataWarning">
+                {{ replenishmentDataWarning }}
+              </div>
               <div class="text-secondary small" *ngIf="!replenishmentLoading && !replenishmentError && replenishmentStatus">
                 {{ replenishmentStatus }}
               </div>
@@ -753,6 +756,7 @@ export class TransferSuggestionsComponent implements OnInit {
   replenishmentProgressPercent = 0;
   replenishmentStatus = "";
   replenishmentError = "";
+  replenishmentDataWarning = "";
   replenishmentActionStatus = "";
   replenishmentActionError = "";
   replenishmentPlans: ReplenishmentPlan[] = [];
@@ -1061,6 +1065,7 @@ export class TransferSuggestionsComponent implements OnInit {
     this.replenishmentProgressPercent = 5;
     this.replenishmentStatus = "Đang lấy danh sách sản phẩm tồn bằng 0...";
     this.replenishmentError = "";
+    this.replenishmentDataWarning = "";
     this.replenishmentPlans = [];
     this.cdr.markForCheck();
 
@@ -1096,6 +1101,21 @@ export class TransferSuggestionsComponent implements OnInit {
             }))
           : [],
       }));
+      const stockDataSummary = cache["stockDataSummary"];
+      const fallbackCount = Number(stockDataSummary?.fallbackCount) || 0;
+      const unavailableCount = Number(stockDataSummary?.unavailableCount) || 0;
+      if (fallbackCount > 0 || unavailableCount > 0) {
+        const warnings: string[] = [];
+        if (fallbackCount > 0) {
+          warnings.push(
+            `${fallbackCount} mã dùng cache tồn kho dự phòng, có thể chưa phản ánh số lượng mới nhất. Hãy kiểm tra tồn thực tế trước khi điều chuyển.`
+          );
+        }
+        if (unavailableCount > 0) {
+          warnings.push(`${unavailableCount} mã chưa có dữ liệu tồn kho nên không có nguồn đề xuất.`);
+        }
+        this.replenishmentDataWarning = warnings.join(" ");
+      }
       this.replenishmentProgressPercent = 100;
       const updatedAt = Number(cache["updatedAt"]);
       const updatedText = updatedAt > 0 ? ` lúc ${this.formatCacheTime(updatedAt)}` : "";

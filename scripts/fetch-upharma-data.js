@@ -1950,7 +1950,9 @@ async function calculateAndUploadSummaries(shops, allShopsData, db, loginData) {
       }
 
       const stockByProduct = new Map();
-      let failedCount = 0;
+      let apiFailureCount = 0;
+      let fallbackCount = 0;
+      let unavailableCount = 0;
       const stockResults = await mapWithConcurrency(uniqueCodes, 6, async (productCode) => {
         try {
           const response = await requestUpharma("/Report/GetExistProductLst", {
@@ -1974,23 +1976,51 @@ async function calculateAndUploadSummaries(shops, allShopsData, db, loginData) {
               UnitOfMeasure: String(row.UnitOfMeasure || row.Unit || "Hộp").trim() || "Hộp",
             }))
             .filter((row) => row.StoreCode && (row.Quantity > 0 || row.QuantityAVG > 0));
-          return { productCode, stores };
+          return { productCode, stores, source: "api", cacheUpdatedAt: null };
         } catch (error) {
-          failedCount++;
-          console.warn(`[replenishment_suggestions] Không tải được tồn kho ${productCode}: ${error.message}`);
-          return { productCode, stores: null };
+          apiFailureCount++;
+          try {
+            const cachedSnapshot = await db
+              .ref(`national_inventory_cache/${sanitizeFirebaseKey(productCode)}`)
+              .once("value");
+            const cached = cachedSnapshot.val();
+            if (cached && Array.isArray(cached.shops)) {
+              fallbackCount++;
+              console.warn(
+                `[replenishment_suggestions] Dùng cache tồn kho cho ${productCode} do API lỗi (${error.message}); cache cập nhật ${cached.updatedAt || "không rõ thời điểm"}.`
+              );
+              return {
+                productCode,
+                stores: cached.shops
+                  .map((row) => ({
+                    StoreCode: String(row.StoreCode || row.ShopCode || "").trim(),
+                    StoreName: String(row.StoreName || row.ShopName || "").trim(),
+                    StoreType: String(row.StoreType || "").trim(),
+                    Quantity: toNumber(row.QuantityExist ?? row.Quantity ?? 0),
+                    QuantityAVG: toNumber(row.QuantityAVG ?? row.AVGQuantity ?? 0),
+                    UnitOfMeasure: String(row.UnitOfMeasure || row.Unit || "Hộp").trim() || "Hộp",
+                  }))
+                  .filter((row) => row.StoreCode && (row.Quantity > 0 || row.QuantityAVG > 0)),
+                source: "firebase_cache",
+                cacheUpdatedAt: Number(cached.updatedAt) || null,
+              };
+            }
+          } catch (cacheError) {
+            console.warn(
+              `[replenishment_suggestions] Không đọc được cache tồn kho ${productCode}: ${cacheError.message}`
+            );
+          }
+
+          unavailableCount++;
+          console.warn(
+            `[replenishment_suggestions] Không có dữ liệu tồn kho cho ${productCode}; giữ mã trong báo cáo nhưng không đề xuất nguồn.`
+          );
+          return { productCode, stores: [], source: "unavailable", cacheUpdatedAt: null };
         }
       });
 
       for (const result of stockResults) {
-        stockByProduct.set(result.productCode, result.stores);
-      }
-
-      if (failedCount > 0) {
-        console.warn(
-          `[replenishment_suggestions] ${failedCount}/${uniqueCodes.length} mã lỗi; không ghi đè cache Firebase để giữ dữ liệu tốt gần nhất.`
-        );
-        return;
+        stockByProduct.set(result.productCode, result);
       }
 
       const shopByCode = new Map(shops.map((shop) => [shop.ShopCode, shop]));
@@ -2037,7 +2067,12 @@ async function calculateAndUploadSummaries(shops, allShopsData, db, loginData) {
         const products = productsByShop.get(destination.ShopCode) || new Map();
 
         for (const product of products.values()) {
-          const stores = stockByProduct.get(product.productCode) || [];
+          const stockResult = stockByProduct.get(product.productCode) || {
+            stores: [],
+            source: "unavailable",
+            cacheUpdatedAt: null,
+          };
+          const stores = stockResult.stores;
           const destinationStock = stores.find((store) => store.StoreCode === destination.ShopCode);
           const monthlySales = toNumber(destinationStock?.QuantityAVG) ||
             getRecentMonthlySales(destination.ShopCode, product.productCode);
@@ -2114,6 +2149,8 @@ async function calculateAndUploadSummaries(shops, allShopsData, db, loginData) {
             destinationQuantity: toNumber(destinationStock?.Quantity),
             monthlySales,
             targetQuantity,
+            stockDataSource: stockResult.source,
+            stockCacheUpdatedAt: stockResult.cacheUpdatedAt,
             sources,
           });
         }
@@ -2131,17 +2168,27 @@ async function calculateAndUploadSummaries(shops, allShopsData, db, loginData) {
             shopCode: destination.ShopCode,
             shopName: destination.ShopName,
             productCount: plans.length,
+            stockDataSummary: {
+              apiFailureCount,
+              fallbackCount,
+              unavailableCount,
+              dataComplete: unavailableCount === 0,
+            },
             plans,
             updatedAt,
           });
           uploadedCount++;
-          console.log(`[replenishment_suggestions] DONE ${destination.ShopCode}: ${plans.length} mã`);
+          console.log(
+            `[replenishment_suggestions] DONE ${destination.ShopCode}: ${plans.length} mã (${fallbackCount} cache dự phòng, ${unavailableCount} thiếu dữ liệu).`
+          );
         } catch (error) {
           console.warn(`[replenishment_suggestions] Không lưu được cache ${destination.ShopCode}: ${error.message}`);
         }
       }
 
-      console.log(`[replenishment_suggestions] Đã cập nhật ${uploadedCount}/${shops.length} shop lên Firebase.`);
+      console.log(
+        `[replenishment_suggestions] Đã cập nhật ${uploadedCount}/${shops.length} shop lên Firebase (${apiFailureCount} lỗi API, ${fallbackCount} dùng cache, ${unavailableCount} không có dữ liệu).`
+      );
   }
 
   await generateReplenishmentSuggestionsForShops(shops, allShopsData, db, loginData);
