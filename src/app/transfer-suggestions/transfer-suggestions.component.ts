@@ -81,6 +81,26 @@ export interface GroupedExpiringStock {
   items: ExpiringStockItem[];
 }
 
+interface ReplenishmentSource {
+  shopCode: string;
+  shopName: string;
+  stockQuantity: number;
+  monthlySales: number;
+  reserveQuantity: number;
+  availableQuantity: number;
+  suggestedQuantity: number;
+  isWarehouse: boolean;
+}
+
+interface ReplenishmentPlan {
+  key: string;
+  productCode: string;
+  productName: string;
+  unit: string;
+  monthlySales: number;
+  sources: ReplenishmentSource[];
+}
+
 @Component({
   selector: "app-transfer-suggestions",
   standalone: true,
@@ -97,8 +117,8 @@ export interface GroupedExpiringStock {
             </h2>
           </div>
           <div class="col-auto ms-auto d-print-none">
-            <button type="button" class="btn btn-outline-primary" (click)="runFullProcess()" [disabled]="loadingStep1 || loadingStep2" title="Tính lại gợi ý từ dữ liệu mới nhất">
-              <i class="ti ti-refresh me-1" [class.ti-spin]="loadingStep1 || loadingStep2"></i>Tải lại
+            <button type="button" class="btn btn-outline-primary" (click)="reloadCurrentView()" [disabled]="loadingStep1 || loadingStep2 || replenishmentLoading" title="Tính lại gợi ý từ dữ liệu mới nhất">
+              <i class="ti ti-refresh me-1" [class.ti-spin]="loadingStep1 || loadingStep2 || replenishmentLoading"></i>Tải lại
             </button>
           </div>
         </div>
@@ -127,6 +147,152 @@ export interface GroupedExpiringStock {
           </div>
         </div>
 
+        <div class="card mb-3">
+          <div class="card-body py-2">
+            <div class="nav nav-pills gap-2" role="tablist" aria-label="Loại gợi ý điều chuyển">
+              <button
+                type="button"
+                class="nav-link"
+                [class.active]="activeTransferView === 'expiry'"
+                [attr.aria-selected]="activeTransferView === 'expiry'"
+                role="tab"
+                (click)="setTransferView('expiry')"
+              >
+                <i class="ti ti-calendar-time me-1" aria-hidden="true"></i>Hàng cận date
+              </button>
+              <button
+                type="button"
+                class="nav-link"
+                [class.active]="activeTransferView === 'replenishment'"
+                [attr.aria-selected]="activeTransferView === 'replenishment'"
+                role="tab"
+                (click)="setTransferView('replenishment')"
+              >
+                <i class="ti ti-package-import me-1" aria-hidden="true"></i>Shop hết hàng
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <section *ngIf="activeTransferView === 'replenishment'">
+          <div class="alert alert-info d-flex align-items-start gap-2" role="note">
+            <i class="ti ti-info-circle mt-1" aria-hidden="true"></i>
+            <div>
+              Chỉ hiện sản phẩm tồn bằng 0. Ưu tiên shop cùng tỉnh có tồn vượt mức giữ lại 2 tháng; tối đa 3 shop theo tồn cao nhất.
+              Nếu không có shop phù hợp, hệ thống mới đề xuất từ kho tổng. Số lượng đề xuất bù tối đa 1 tháng tiêu thụ.
+            </div>
+          </div>
+
+          <div class="card mb-3" *ngIf="replenishmentLoading || replenishmentError || replenishmentStatus">
+            <div class="card-body py-3">
+              <div *ngIf="replenishmentLoading">
+                <div class="progress progress-sm rounded-pill overflow-hidden">
+                  <div class="progress-bar bg-primary progress-bar-striped progress-bar-animated" [style.width.%]="replenishmentProgressPercent"></div>
+                </div>
+                <div class="d-flex justify-content-between mt-2 text-secondary small">
+                  <span>{{ replenishmentStatus }}</span>
+                  <span>{{ replenishmentProgressPercent }}%</span>
+                </div>
+              </div>
+              <div class="alert alert-danger py-2 mb-0" *ngIf="replenishmentError">{{ replenishmentError }}</div>
+              <div class="text-secondary small" *ngIf="!replenishmentLoading && !replenishmentError && replenishmentStatus">
+                {{ replenishmentStatus }}
+              </div>
+            </div>
+          </div>
+
+          <div class="row row-deck row-cards mb-3" *ngIf="!replenishmentLoading">
+            <div class="col-sm-6 col-lg-4">
+              <div class="card">
+                <div class="card-body">
+                  <div class="text-secondary">Mã đang hết hàng</div>
+                  <div class="h2 mb-0">{{ replenishmentPlans.length | number }}</div>
+                </div>
+              </div>
+            </div>
+            <div class="col-sm-6 col-lg-4">
+              <div class="card">
+                <div class="card-body">
+                  <div class="text-secondary">Có shop cùng tỉnh hỗ trợ</div>
+                  <div class="h2 mb-0">{{ replenishmentShopSourceCount | number }}</div>
+                </div>
+              </div>
+            </div>
+            <div class="col-sm-6 col-lg-4">
+              <div class="card">
+                <div class="card-body">
+                  <div class="text-secondary">Cần dự trù từ kho tổng</div>
+                  <div class="h2 mb-0">{{ replenishmentWarehouseSourceCount | number }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card" *ngIf="replenishmentPlans.length">
+            <div class="list-group list-group-flush">
+              <article class="list-group-item p-3" *ngFor="let plan of replenishmentPlans; trackBy: trackByReplenishmentKey">
+                <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+                  <div>
+                    <h3 class="h3 mb-1">{{ plan.productName || "Chưa có tên sản phẩm" }}</h3>
+                    <code>{{ plan.productCode }}</code>
+                  </div>
+                  <div class="text-end">
+                    <span class="badge bg-secondary-lt text-secondary">Tồn shop nhận: 0</span>
+                    <div class="small text-secondary mt-1">
+                      Tiêu thụ: {{ plan.monthlySales > 0 ? (formatNumber(plan.monthlySales) + " " + plan.unit + "/tháng") : "Chưa có dữ liệu" }}
+                    </div>
+                  </div>
+                </div>
+
+                <div *ngIf="plan.sources.length; else noReplenishmentSource" class="table-responsive">
+                  <table class="table table-sm table-vcenter table-striped mb-0">
+                    <thead>
+                      <tr>
+                        <th>Nguồn ưu tiên</th>
+                        <th class="text-end">Tồn hiện tại</th>
+                        <th class="text-end">Giữ lại</th>
+                        <th class="text-end">Có thể chuyển</th>
+                        <th class="text-end">Đề xuất</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr *ngFor="let source of plan.sources; let i = index">
+                        <td>
+                          <span class="badge me-1" [ngClass]="source.isWarehouse ? 'bg-purple text-white' : (i === 0 ? 'bg-primary text-white' : 'bg-secondary-lt text-secondary')">
+                            {{ source.isWarehouse ? "Kho tổng" : "Ưu tiên " + (i + 1) }}
+                          </span>
+                          <strong>{{ source.shopCode }}</strong>
+                          <span class="text-secondary ms-1">{{ source.shopName }}</span>
+                        </td>
+                        <td class="text-end">{{ formatNumber(source.stockQuantity) }} {{ plan.unit }}</td>
+                        <td class="text-end">{{ formatNumber(source.reserveQuantity) }} {{ plan.unit }}</td>
+                        <td class="text-end">{{ formatNumber(source.availableQuantity) }} {{ plan.unit }}</td>
+                        <td class="text-end fw-bold text-primary">{{ formatNumber(source.suggestedQuantity) }} {{ plan.unit }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <ng-template #noReplenishmentSource>
+                  <div class="alert alert-warning py-2 mb-0" *ngIf="plan.monthlySales > 0">
+                    Không có shop cùng tỉnh đủ tồn an toàn và kho tổng hiện không có hàng khả dụng.
+                  </div>
+                  <div class="alert alert-warning py-2 mb-0" *ngIf="plan.monthlySales <= 0">
+                    Chưa có tốc độ tiêu thụ để tính số lượng dự trù. Kiểm tra dữ liệu bán hàng của shop này.
+                  </div>
+                </ng-template>
+              </article>
+            </div>
+          </div>
+          <div class="card" *ngIf="!replenishmentLoading && !replenishmentError && replenishmentPlans.length === 0">
+            <div class="card-body text-center py-5">
+              <i class="ti ti-circle-check text-success fs-1" aria-hidden="true"></i>
+              <h3 class="mt-2">Shop này chưa có sản phẩm tồn bằng 0</h3>
+              <p class="text-secondary mb-0">Tải lại để kiểm tra dữ liệu mới nhất.</p>
+            </div>
+          </div>
+        </section>
+
+        <ng-container *ngIf="activeTransferView === 'expiry'">
         <!-- THANH TIẾN TRÌNH & THÔNG BÁO XỬ LÝ -->
         <div *ngIf="loadingStep1 || loadingStep2 || progressPercent > 0 || statusText || errorText" class="card shadow-sm border-0 mb-3">
           <div class="card-body py-2 px-3">
@@ -452,6 +618,7 @@ export interface GroupedExpiringStock {
             </div>
           </div>
         </div>
+        </ng-container>
       </div>
     </div>
   `,
@@ -488,6 +655,7 @@ export class TransferSuggestionsComponent implements OnInit {
   private readonly SERVER_CACHE_MAX_AGE_MS = 6 * 60 * 60 * 1000;
   userShops: ShopInfo[] = [];
   selectedShopCode = "ALL";
+  activeTransferView: "expiry" | "replenishment" = "expiry";
   expiryDaysThreshold = 3650;
   selectedApiMode: InventoryApiMode = "GetExistProductLst";
   filtersCollapsed = true;
@@ -533,6 +701,19 @@ export class TransferSuggestionsComponent implements OnInit {
 
   statusText = "";
   errorText = "";
+  replenishmentLoading = false;
+  replenishmentProgressPercent = 0;
+  replenishmentStatus = "";
+  replenishmentError = "";
+  replenishmentPlans: ReplenishmentPlan[] = [];
+
+  get replenishmentShopSourceCount(): number {
+    return this.replenishmentPlans.filter((plan) => plan.sources.some((source) => !source.isWarehouse)).length;
+  }
+
+  get replenishmentWarehouseSourceCount(): number {
+    return this.replenishmentPlans.filter((plan) => plan.sources.some((source) => source.isWarehouse)).length;
+  }
 
   // Dữ liệu Tồn kho chi tiết (chuẩn hóa từ Tồn Kho / inventoryResource)
   expiringStockList: ExpiringStockItem[] = [];
@@ -672,10 +853,37 @@ export class TransferSuggestionsComponent implements OnInit {
     }
   }
 
+  setTransferView(view: "expiry" | "replenishment"): void {
+    if (this.activeTransferView === view) return;
+    this.activeTransferView = view;
+    if (view === "replenishment") {
+      void this.loadReplenishmentSuggestions();
+    } else {
+      void this.runFullProcess();
+    }
+  }
+
+  reloadCurrentView(): void {
+    if (this.activeTransferView === "replenishment") {
+      void this.loadReplenishmentSuggestions(true);
+    } else {
+      void this.runFullProcess();
+    }
+  }
+
   selectShopTab(shopCode: string): void {
-    if (this.selectedShopCode === shopCode || this.loadingStep1 || this.loadingStep2) return;
+    if (
+      this.selectedShopCode === shopCode ||
+      this.loadingStep1 ||
+      this.loadingStep2 ||
+      this.replenishmentLoading
+    ) return;
     this.selectedShopCode = shopCode;
-    void this.runFullProcess();
+    if (this.activeTransferView === "replenishment") {
+      void this.loadReplenishmentSuggestions();
+    } else {
+      void this.runFullProcess();
+    }
   }
 
   onShopChange(): void {
@@ -684,6 +892,217 @@ export class TransferSuggestionsComponent implements OnInit {
 
   onThresholdChange(): void {
     this.runFullProcess();
+  }
+
+  async loadReplenishmentSuggestions(forceRefresh = false): Promise<void> {
+    if (this.replenishmentLoading || !this.selectedShopCode || this.selectedShopCode === "ALL") return;
+    const destination = this.userShops.find((shop) => shop.ShopCode === this.selectedShopCode);
+    if (!destination) {
+      this.replenishmentError = "Không xác định được nhà thuốc nhận hàng.";
+      this.replenishmentPlans = [];
+      this.cdr.markForCheck();
+      return;
+    }
+
+    this.replenishmentLoading = true;
+    this.replenishmentProgressPercent = 5;
+    this.replenishmentStatus = "Đang lấy danh sách sản phẩm tồn bằng 0...";
+    this.replenishmentError = "";
+    this.replenishmentPlans = [];
+    this.cdr.markForCheck();
+
+    try {
+      const session = this.upharma.ensureLogin();
+      const response = await this.upharma.callEndpoint<unknown>(
+        "/SalesInvoice/GetOutOfStockCalculated",
+        {
+          uPharmaID: session.UserInfo.uPharmaID,
+          Token: session.Token,
+          ShopLst: destination.ShopCode,
+        },
+        { cache: true, forceRefresh },
+      );
+      const productMap = new Map<string, {
+        productCode: string;
+        productName: string;
+        unit: string;
+        monthlySales: number;
+      }>();
+
+      for (const row of this.extractResponseRows(response)) {
+        const code = String(this.pickRawValue(row, [
+          "ProductID", "ProductCode", "Product_ID", "MaSP", "MaSanPham", "ItemCode", "Code",
+        ]) ?? "").trim();
+        const rawQuantity = this.pickRawValue(row, [
+          "QuantityExist", "ExistQuantity", "Quantity", "Qty", "SL", "SoLuong", "TonKho", "InventoryQuantity", "RemainQty",
+        ]);
+        if (!code || rawQuantity === undefined || parseNumericValue(rawQuantity) > 0) continue;
+
+        const monthlySales = parseNumericValue(this.pickRawValue(row, [
+          "QuantityAVG", "AVGQuantity", "MonthlySales", "AverageMonthlySales", "SalesAVG", "AvgQuantity",
+        ]));
+        if (!productMap.has(code)) {
+          productMap.set(code, {
+            productCode: code,
+            productName: String(this.pickRawValue(row, [
+              "ProductName", "Product_Name", "ProductFullName", "TenSP", "TenSanPham", "Name", "ItemName",
+            ]) ?? "").trim(),
+            unit: String(this.pickRawValue(row, [
+              "UnitOfMeasure", "UnitName", "Unit", "DonVi", "DonViTinh", "DVT",
+            ]) ?? "Hộp").trim() || "Hộp",
+            monthlySales,
+          });
+        }
+      }
+
+      const products = Array.from(productMap.values());
+      if (products.length === 0) {
+        this.replenishmentStatus = "Không tìm thấy sản phẩm tồn bằng 0 tại shop này.";
+        return;
+      }
+
+      this.replenishmentStatus = `Đang đối chiếu tồn kho và tiêu thụ của ${products.length} mã hàng...`;
+      this.replenishmentProgressPercent = 10;
+      this.cdr.markForCheck();
+
+      const stockMap = await this.nationalInventoryService.resolve(
+        products.map((product) => product.productCode),
+        {
+          mode: this.selectedApiMode,
+          forceRefresh,
+          includeWarehouses: true,
+          onProgress: (progress) => {
+            this.replenishmentProgressPercent = 10 + Math.round((progress.done / progress.total) * 80);
+            this.replenishmentStatus = `Đang đối chiếu ${progress.done}/${progress.total} mã · ${progress.currentProduct}`;
+            this.cdr.markForCheck();
+          },
+        },
+      );
+
+      const destinationProvince = this.getProvince(destination.ShopName);
+      const needsWarehouseRefresh = products
+        .filter((product) => {
+          const stores = stockMap[product.productCode] || [];
+          const destStock = stores.find((stock) => stock.StoreCode === destination.ShopCode);
+          const monthlySales = destStock?.QuantityAVG || product.monthlySales;
+          if (monthlySales <= 0) return false;
+          const hasEligibleLocalSource = destinationProvince !== "" && stores.some((stock) => {
+            const monthly = parseNumericValue(stock.QuantityAVG);
+            return (
+              !isWarehouseStore(stock) &&
+              stock.StoreCode !== destination.ShopCode &&
+              this.getProvince(stock.StoreName) === destinationProvince &&
+              monthly > 0 &&
+              stock.Quantity > monthly * 2 &&
+              Math.floor(stock.Quantity - monthly * 2) >= 1
+            );
+          });
+          const hasWarehouseData = stores.some((stock) => isWarehouseStore(stock));
+          return !hasEligibleLocalSource && !hasWarehouseData;
+        })
+        .map((product) => product.productCode);
+
+      if (needsWarehouseRefresh.length > 0 && !forceRefresh) {
+        this.replenishmentStatus = "Không có shop cùng tỉnh đủ tồn an toàn; đang kiểm tra tồn kho tổng...";
+        this.replenishmentProgressPercent = 92;
+        this.cdr.markForCheck();
+        const refreshedMap = await this.nationalInventoryService.resolve(needsWarehouseRefresh, {
+          mode: this.selectedApiMode,
+          forceRefresh: true,
+          includeWarehouses: true,
+        });
+        Object.assign(stockMap, refreshedMap);
+      }
+
+      this.replenishmentPlans = products.map((product) => {
+        const stores = stockMap[product.productCode] || [];
+        const destinationStock = stores.find((stock) => stock.StoreCode === destination.ShopCode);
+        const monthlySales = destinationStock?.QuantityAVG || product.monthlySales;
+        const localSources: ReplenishmentSource[] = stores
+          .filter((stock) => {
+            const sourceMonthlySales = parseNumericValue(stock.QuantityAVG);
+            return (
+              monthlySales > 0 &&
+              !isWarehouseStore(stock) &&
+              stock.StoreCode !== destination.ShopCode &&
+              destinationProvince !== "" &&
+              this.getProvince(stock.StoreName) === destinationProvince &&
+              sourceMonthlySales > 0 &&
+              stock.Quantity > sourceMonthlySales * 2 &&
+              Math.floor(stock.Quantity - sourceMonthlySales * 2) >= 1
+            );
+          })
+          .map((stock) => {
+            const sourceMonthlySales = parseNumericValue(stock.QuantityAVG);
+            const availableQuantity = Math.floor(stock.Quantity - sourceMonthlySales * 2);
+            return {
+              shopCode: stock.StoreCode,
+              shopName: stock.StoreName,
+              stockQuantity: stock.Quantity,
+              monthlySales: sourceMonthlySales,
+              reserveQuantity: sourceMonthlySales * 2,
+              availableQuantity,
+              suggestedQuantity: monthlySales > 0 ? Math.min(Math.ceil(monthlySales), availableQuantity) : 0,
+              isWarehouse: false,
+            };
+          })
+          .sort((first, second) =>
+            second.stockQuantity - first.stockQuantity ||
+            second.availableQuantity - first.availableQuantity ||
+            first.shopCode.localeCompare(second.shopCode),
+          )
+          .slice(0, 3);
+
+        let sources = localSources;
+        if (sources.length === 0) {
+          const warehouse = stores
+            .filter((stock) => monthlySales > 0 && isWarehouseStore(stock) && Math.floor(stock.Quantity) > 0)
+            .sort((first, second) => second.Quantity - first.Quantity)[0];
+          if (warehouse) {
+            const availableQuantity = Math.floor(warehouse.Quantity);
+            sources = [{
+              shopCode: warehouse.StoreCode,
+              shopName: warehouse.StoreName || "Kho tổng",
+              stockQuantity: warehouse.Quantity,
+              monthlySales: parseNumericValue(warehouse.QuantityAVG),
+              reserveQuantity: 0,
+              availableQuantity,
+              suggestedQuantity: monthlySales > 0 ? Math.min(Math.ceil(monthlySales), availableQuantity) : 0,
+              isWarehouse: true,
+            }];
+          }
+        }
+
+        return {
+          key: `${destination.ShopCode}|${product.productCode}`,
+          ...product,
+          monthlySales,
+          sources,
+        };
+      });
+
+      this.replenishmentPlans.sort((first, second) =>
+        Number(second.sources.length > 0) - Number(first.sources.length > 0) ||
+        second.monthlySales - first.monthlySales ||
+        first.productName.localeCompare(second.productName, "vi"),
+      );
+      const shopSourceCount = this.replenishmentShopSourceCount;
+      const warehouseSourceCount = this.replenishmentWarehouseSourceCount;
+      this.replenishmentProgressPercent = 100;
+      this.replenishmentStatus =
+        `Đã kiểm tra ${products.length} mã: ${shopSourceCount} mã có nguồn cùng tỉnh, ` +
+        `${warehouseSourceCount} mã cần lấy từ kho tổng.`;
+    } catch (error) {
+      this.replenishmentError = error instanceof Error ? error.message : String(error);
+      this.replenishmentStatus = "Không tải được gợi ý dự trù.";
+    } finally {
+      this.replenishmentLoading = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  trackByReplenishmentKey(_: number, plan: ReplenishmentPlan): string {
+    return plan.key;
   }
 
   async runFullProcess(): Promise<void> {
@@ -1427,6 +1846,36 @@ export class TransferSuggestionsComponent implements OnInit {
   formatNumber(val: number | undefined): string {
     if (val === undefined || val === null) return "0";
     return new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 2 }).format(val);
+  }
+
+  private extractResponseRows(data: unknown): RawRecord[] {
+    if (Array.isArray(data)) {
+      return data.filter((item): item is RawRecord => Boolean(item) && typeof item === "object");
+    }
+    if (!data || typeof data !== "object") return [];
+
+    const record = data as RawRecord;
+    for (const key of ["Data", "data", "OutOfStockLst", "ItemLst", "ListData", "Rows", "Table"]) {
+      if (Array.isArray(record[key])) {
+        return (record[key] as unknown[]).filter(
+          (item): item is RawRecord => Boolean(item) && typeof item === "object",
+        );
+      }
+    }
+
+    const nestedRows = Object.values(record).find((value) => Array.isArray(value));
+    return Array.isArray(nestedRows)
+      ? nestedRows.filter((item): item is RawRecord => Boolean(item) && typeof item === "object")
+      : [];
+  }
+
+  private pickRawValue(row: RawRecord, keys: string[]): unknown {
+    for (const key of keys) {
+      if (row[key] !== undefined && row[key] !== null) return row[key];
+    }
+    const normalizedKeys = new Set(keys.map((key) => key.toLowerCase()));
+    const matchedKey = Object.keys(row).find((key) => normalizedKeys.has(key.toLowerCase()));
+    return matchedKey ? row[matchedKey] : undefined;
   }
 
   private getProvince(name: string): string {

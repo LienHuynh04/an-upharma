@@ -1,0 +1,154 @@
+:host {
+  display: block;
+}
+
+.stocktake-shop-select {
+  width: auto;
+  min-width: 220px;
+  max-width: min(460px, 70vw);
+}
+
+.stocktake-content .progress {
+  min-width: 100px;
+  background-color: var(--tblr-border-color);
+}
+
+.stocktake-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.stocktake-search > i {
+  flex: 0 0 auto;
+  font-size: 1.15rem;
+}
+
+.stocktake-search .form-control {
+  min-width: 0;
+  height: 44px;
+  font-size: 1rem;
+}
+
+.stocktake-counted-list {
+  max-height: 38vh;
+  overflow: auto;
+}
+
+.stocktake-counted-list .list-group-item {
+  min-height: 56px;
+}
+
+.stocktake-counted-list .list-group-item > .flex-fill {
+  min-width: 180px;
+}
+
+.stocktake-content .table-responsive {
+  max-height: 68vh;
+}
+
+.stocktake-content .card-status-start.bg-success {
+  width: 4px;
+}
+
+.stocktake-entry-card {
+  border-color: var(--tblr-border-color);
+  background: var(--tblr-bg-surface);
+}
+
+.stocktake-added-badge {
+  border: 1px solid rgba(47, 179, 68, 0.24);
+  background: rgba(47, 179, 68, 0.1);
+  color: #218739;
+}
+
+.stocktake-stock-level {
+  border-color: var(--tblr-border-color) !important;
+  background: var(--tblr-bg-surface);
+}
+
+.stocktake-stock-level strong {
+  color: var(--tblr-body-color);
+}
+
+.stocktake-counted-list .btn-list {
+  gap: 0.375rem;
+}
+
+:host-context([data-bs-theme="dark"]) .stocktake-added-badge {
+  border-color: rgba(71, 199, 101, 0.3);
+  background: rgba(71, 199, 101, 0.12);
+  color: #72dc8b;
+}
+
+:host-context([data-bs-theme="dark"]) .stocktake-entry-card {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: #182743;
+}
+
+:host-context([data-bs-theme="dark"]) .stocktake-stock-level {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  background: #0f182e;
+}
+
+:host-context([data-bs-theme="dark"]) .stocktake-stock-level .text-secondary {
+  color: #a7b3c5 !important;
+}
+
+:host-context([data-bs-theme="dark"]) .stocktake-stock-level strong {
+  color: #f4f6fa;
+}
+
+:host-context([data-bs-theme="dark"]) .stocktake-counted-list .bg-success-lt,
+:host-context([data-bs-theme="dark"]) .stocktake-counted-list .text-success {
+  color: #72dc8b !important;
+}
+
+:host-context([data-bs-theme="dark"]) .stocktake-counted-list .bg-success-lt {
+  background: rgba(71, 199, 101, 0.12) !important;
+}
+
+@media (max-width: 767.98px) {
+  .stocktake-shop-select {
+    width: 100%;
+    max-width: none;
+  }
+
+  .stocktake-content .progress {
+    flex-basis: 100%;
+    order: 2;
+  }
+
+  .stocktake-content .btn-group {
+    width: 100%;
+  }
+
+  .stocktake-content .btn-group .btn {
+    flex: 1;
+  }
+
+  .stocktake-counted-list {
+    max-height: 44vh;
+  }
+
+  .stocktake-content .card-body {
+    padding: 0.75rem;
+  }
+
+  .stocktake-counted-list .btn-list .btn {
+    padding-inline: 0.45rem;
+  }
+
+  .stocktake-content .card-header {
+    align-items: flex-start !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stocktake-content *,
+  .stocktake-content *::before,
+  .stocktake-content *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

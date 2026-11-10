@@ -112,6 +112,13 @@
                 >
                 <a
                   class="dropdown-item"
+                  routerLink="/kiem-ke"
+                  routerLinkActive="active"
+                  (click)="closeSidebar(); openMenuId = null"
+                  >Kiểm kê hàng hoá</a
+                >
+                <a
+                  class="dropdown-item"
                   routerLink="/fefo"
                   routerLinkActive="active"
                   (click)="closeSidebar(); openMenuId = null"

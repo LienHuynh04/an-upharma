@@ -963,6 +963,7 @@ renderDashboard(); renderInventory(); renderNearExpiryOrders(); renderTabs(); re
       url.includes("/chi-tieu-nhan-vien") || url.includes("/chi-tieu-nha-thuoc-trong-nam");
     const isGoodsRoute =
       url.includes("/ton-kho") ||
+      url.includes("/kiem-ke") ||
       url.includes("/ton-kho-new") ||
       url.includes("/hang-da-het") ||
       url.includes("/hang-lap-tot") ||

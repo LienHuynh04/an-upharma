@@ -60,6 +60,11 @@ const routes: Routes = [
         title: "UPHARMA - Tồn kho",
       },
       {
+        path: "kiem-ke",
+        loadComponent: () => import("./app/inventory-count/inventory-count.component").then((m) => m.InventoryCountComponent),
+        title: "UPHARMA - Kiểm kê hàng hoá",
+      },
+      {
         path: "fefo",
         loadComponent: () => import("./app/fefo/fefo.component").then((m) => m.FefoComponent),
         title: "UPHARMA - Kiểm tra FEFO",

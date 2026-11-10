@@ -49,6 +49,7 @@ export class NationalInventoryService {
     options: {
       mode?: InventoryApiMode;
       forceRefresh?: boolean;
+      includeWarehouses?: boolean;
       onProgress?: (p: NationalInventoryProgress) => void;
       onItemResolved?: (productCode: string, stores: NationalStoreStock[]) => void;
     } = {}
@@ -174,7 +175,7 @@ export class NationalInventoryService {
                   uPharmaID: String(session.UserInfo?.uPharmaID ?? ""),
                   _bypassFirebase: true,
                 },
-                { cache: true }
+                { cache: true, forceRefresh: options.forceRefresh }
               );
 
               const rawStores: any[] = Array.isArray(res)
@@ -183,9 +184,12 @@ export class NationalInventoryService {
 
               const validStores: NationalStoreStock[] = rawStores
                 .filter((s: any) => {
-                  const storeType = String(s.StoreType || "").toLowerCase();
-                  const storeCode = String(s.StoreCode || "").toUpperCase();
-                  return !isShopHiddenByVisibility(storeCode) && !storeType.includes("kho") && !storeCode.startsWith("KHO") && !storeCode.startsWith("DN") && storeCode !== "";
+                  const storeCode = String(s.StoreCode || "").trim();
+                  return (
+                    storeCode !== "" &&
+                    !isShopHiddenByVisibility(storeCode) &&
+                    (options.includeWarehouses === true || !isWarehouseStore(s))
+                  );
                 })
                 .map((s: any) => ({
                   StoreCode: String(s.StoreCode || "").trim(),

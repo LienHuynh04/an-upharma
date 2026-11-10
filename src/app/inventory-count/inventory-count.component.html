@@ -1,0 +1,404 @@
+<div class="page-header d-print-none">
+  <div class="container-xl">
+    <div class="row g-2 align-items-center">
+      <div class="col">
+        <div class="page-pretitle">QUẢN LÝ HÀNG HÓA</div>
+        <h2 class="page-title">Kiểm kê hàng hoá</h2>
+      </div>
+      <div class="col-12 col-md-auto ms-md-auto">
+        <div class="d-flex flex-wrap align-items-center gap-2">
+          <label for="stocktake-shop" class="form-label mb-0 small text-secondary">Nhà thuốc</label>
+          <select
+            id="stocktake-shop"
+            class="form-select form-select-sm stocktake-shop-select"
+            [(ngModel)]="selectedShopCode"
+            (ngModelChange)="onShopChange()"
+            [disabled]="loading || !!currentSession"
+          >
+            <option *ngFor="let shop of shops" [value]="shop.ShopCode">
+              {{ shop.ShopCode }} · {{ shop.ShopName }}
+            </option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="page-body">
+  <div class="container-xl stocktake-content">
+    <div class="alert alert-danger d-flex align-items-center justify-content-between gap-2" role="alert" *ngIf="errorMessage">
+      <span>{{ errorMessage }}</span>
+      <button type="button" class="btn-close" aria-label="Đóng thông báo" (click)="errorMessage = ''"></button>
+    </div>
+    <div class="alert alert-success d-flex align-items-center justify-content-between gap-2" role="status" *ngIf="noticeMessage">
+      <span>{{ noticeMessage }}</span>
+      <button type="button" class="btn-close" aria-label="Đóng thông báo" (click)="noticeMessage = ''"></button>
+    </div>
+
+    <ng-container *ngIf="!currentSession; else sessionWorkspace">
+      <div class="alert d-flex align-items-start justify-content-between gap-2" [class.alert-warning]="!catalogProducts.length" [class.alert-info]="catalogProducts.length" *ngIf="catalogStatus">
+        <span>{{ catalogStatus }}</span>
+        <button type="button" class="btn btn-sm btn-outline-primary flex-shrink-0" *ngIf="!catalogProducts.length" (click)="goToInventory()">
+          Mở Tồn kho
+        </button>
+      </div>
+
+      <div class="card mb-3" *ngIf="activeSession">
+        <div class="card-status-start bg-success"></div>
+        <div class="card-body d-flex flex-wrap align-items-center justify-content-between gap-3">
+          <div>
+            <div class="text-secondary small mb-1">PHIÊN ĐANG KIỂM KÊ · {{ activeSession.createdAt | date: "dd/MM/yyyy" }}</div>
+            <h3 class="card-title mb-1">{{ activeSession.shopCode }}</h3>
+            <div class="text-secondary small">{{ activeSession.products.length | number }} mã đã thêm vào phiên · Lưu trên thiết bị này</div>
+          </div>
+          <button class="btn btn-primary" type="button" (click)="openSession(activeSession)" [disabled]="loading">
+            <i class="ti ti-play me-1" aria-hidden="true"></i>Vào đếm
+          </button>
+        </div>
+      </div>
+
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+        <div>
+          <div class="page-pretitle">LỊCH SỬ TRÊN THIẾT BỊ</div>
+          <h3 class="mb-0">Các phiên kiểm kê</h3>
+        </div>
+        <button class="btn btn-outline-primary" type="button" (click)="startSession()" [disabled]="loading || !catalogProducts.length">
+          <i class="ti ti-plus me-1" aria-hidden="true"></i>Mở phiên mới
+        </button>
+      </div>
+
+      <section class="card" *ngIf="latestSessions.length; else emptySessions">
+        <div class="list-group list-group-flush">
+          <div class="list-group-item d-flex flex-wrap align-items-center gap-3" *ngFor="let session of latestSessions">
+            <span class="avatar bg-primary-lt text-primary">
+              <i class="ti ti-clipboard-check" aria-hidden="true"></i>
+            </span>
+            <div class="flex-fill min-w-0">
+              <div class="fw-semibold">{{ session.shopCode }} · {{ session.createdAt | date: "dd/MM/yyyy" }}</div>
+              <div class="text-secondary small">
+                {{ session.products.length | number }} mã hàng ·
+                {{ session.status === "completed" ? "hoàn thành lúc " + (session.completedAt | date: "HH:mm") : "đang đếm" }}
+              </div>
+            </div>
+            <span class="badge" [class.bg-orange-lt]="session.status === 'counting'" [class.text-orange]="session.status === 'counting'" [class.bg-success-lt]="session.status === 'completed'" [class.text-success]="session.status === 'completed'">
+              {{ session.status === "completed" ? "Hoàn thành" : "Đang đếm" }}
+            </span>
+            <div class="btn-list flex-nowrap">
+              <button class="btn btn-sm btn-outline-primary" type="button" (click)="openSession(session)">
+                {{ session.status === "completed" ? "Kết quả" : "Mở" }}
+              </button>
+              <button class="btn btn-sm btn-outline-primary" type="button" (click)="editSession(session)" [attr.aria-label]="'Sửa phiên ' + session.shopCode">
+                <i class="ti ti-edit me-sm-1" aria-hidden="true"></i><span class="d-none d-sm-inline">Sửa</span>
+              </button>
+              <button class="btn btn-sm btn-outline-danger" type="button" (click)="deleteSession(session)" [attr.aria-label]="'Xóa phiên ' + session.shopCode">
+                <i class="ti ti-trash me-sm-1" aria-hidden="true"></i><span class="d-none d-sm-inline">Xóa</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+      <ng-template #emptySessions>
+        <section class="card">
+          <div class="card-body py-5 text-center">
+            <span class="avatar avatar-lg bg-primary-lt text-primary mb-3">
+              <i class="ti ti-clipboard-list" aria-hidden="true"></i>
+            </span>
+            <h3>{{ loading ? "Đang đọc dữ liệu đã lưu…" : "Chưa có phiên kiểm kê" }}</h3>
+            <p class="text-secondary mb-3" *ngIf="catalogProducts.length">
+              Mở phiên mới, sau đó chọn từng mã cần kiểm kê để thêm vào phiên.
+            </p>
+            <p class="text-secondary mb-3" *ngIf="!catalogProducts.length && !loading">
+              Cần có dữ liệu tồn kho đã lưu trên thiết bị để gợi ý sản phẩm và tính chênh lệch.
+            </p>
+            <button class="btn btn-primary" type="button" *ngIf="catalogProducts.length" (click)="startSession()">
+              <i class="ti ti-plus me-1" aria-hidden="true"></i>Mở phiên kiểm kê
+            </button>
+            <button class="btn btn-outline-primary" type="button" *ngIf="!catalogProducts.length && !loading" (click)="goToInventory()">
+              Mở trang Tồn kho
+            </button>
+          </div>
+        </section>
+      </ng-template>
+    </ng-container>
+
+    <ng-template #sessionWorkspace>
+      <section class="card mb-3">
+        <div class="card-body">
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+            <div class="d-flex align-items-center gap-2">
+              <button class="btn btn-icon btn-ghost-secondary" type="button" aria-label="Quay lại danh sách phiên" (click)="backToSessions()">
+                <i class="ti ti-arrow-left" aria-hidden="true"></i>
+              </button>
+              <div>
+                <div class="page-pretitle">{{ currentSession?.shopName }}</div>
+                <h3 class="mb-0">{{ currentSession?.shopCode }} · {{ currentSession?.createdAt | date: "dd/MM" }}</h3>
+              </div>
+            </div>
+            <span class="badge" [class.bg-orange-lt]="currentSession?.status === 'counting'" [class.text-orange]="currentSession?.status === 'counting'" [class.bg-success-lt]="currentSession?.status === 'completed'" [class.text-success]="currentSession?.status === 'completed'">
+              {{ currentSession?.status === "completed" ? "Hoàn thành" : "Đang đếm" }}
+            </span>
+          </div>
+
+          <div class="d-flex flex-wrap align-items-center gap-3 mt-3">
+            <div class="text-secondary text-nowrap">
+              <strong class="text-body">{{ completedCount | number }}/{{ products.length | number }}</strong> mã đã đếm
+            </div>
+            <div class="progress flex-fill" role="progressbar" [attr.aria-valuenow]="progressPercent" aria-valuemin="0" aria-valuemax="100">
+              <div class="progress-bar bg-success" [style.width.%]="progressPercent"></div>
+            </div>
+            <strong class="text-success">{{ progressPercent }}%</strong>
+            <div class="btn-group" role="group" aria-label="Chế độ kiểm kê">
+              <button
+                type="button"
+                class="btn btn-sm"
+                [class.btn-primary]="currentTab === 'count'"
+                [class.btn-outline-primary]="currentTab !== 'count'"
+                [disabled]="currentSession?.status === 'completed' && !editingCompletedSession"
+                (click)="currentTab = 'count'"
+              >Đếm hàng</button>
+              <button
+                type="button"
+                class="btn btn-sm"
+                [class.btn-primary]="currentTab === 'results'"
+                [class.btn-outline-primary]="currentTab !== 'results'"
+                (click)="currentTab = 'results'"
+              >Kết quả kiểm kê</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <ng-container *ngIf="currentTab === 'count' && canEditSession">
+        <section class="card">
+          <div class="card-body">
+            <div class="alert alert-info py-2" *ngIf="editingCompletedSession">
+              Đang sửa phiên đã hoàn thành. Thay đổi sẽ được lưu vào phiên hiện tại.
+            </div>
+            <div class="stocktake-search">
+              <i class="ti ti-search text-secondary" aria-hidden="true"></i>
+              <input
+                #searchInput
+                [(ngModel)]="searchText"
+                (keydown.enter)="selectSearchResult()"
+                type="search"
+                class="form-control"
+                placeholder="Quét mã vạch hoặc nhập mã / tên sản phẩm"
+                aria-label="Tìm sản phẩm trong danh mục tồn kho đã lưu"
+              />
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center mt-2">
+              <small class="text-secondary">Quét mã xong nhấn Enter · Lưu số đếm xong tự chuyển về ô này</small>
+              <span class="badge bg-secondary-lt" *ngIf="products.length">{{ products.length | number }} mã trong phiên</span>
+            </div>
+
+            <div class="list-group mt-2" *ngIf="searchText && matchingProducts.length">
+              <button
+                type="button"
+                class="list-group-item list-group-item-action d-flex flex-wrap align-items-center justify-content-between gap-2"
+                *ngFor="let product of matchingProducts"
+                (click)="selectProduct(product)"
+              >
+                <span class="min-w-0">
+                  <strong class="d-block text-truncate">{{ product.name }}</strong>
+                  <small class="text-secondary">{{ product.code }} · {{ product.unit || "Chưa có đơn vị" }}</small>
+                </span>
+                <span class="text-secondary small text-nowrap">
+                  Tồn {{ product.expectedQuantity | number }} · {{ formatMoney(product.unitPrice) }} đ
+                </span>
+              </button>
+            </div>
+
+            <p class="text-secondary small mt-3 mb-0" *ngIf="!activeProduct">
+              Nhập mã / tên sản phẩm <span class="text-primary mx-1">→</span>
+              nhập số lượng thực tế <span class="text-primary mx-1">→</span> bấm <strong>Kiểm kê</strong> để xem chênh lệch.
+            </p>
+
+            <form class="card card-body stocktake-entry-card mt-3" *ngIf="activeProduct" (ngSubmit)="saveCount()">
+              <div class="d-flex align-items-start justify-content-between gap-2">
+                <div>
+                  <span class="badge stocktake-added-badge mb-2">Đã thêm vào phiên</span>
+                  <h3 class="card-title mb-1">{{ activeProduct.name }}</h3>
+                  <div class="text-secondary small">{{ activeProduct.code }} · {{ activeProduct.unit || "Chưa có đơn vị" }}</div>
+                </div>
+                <button type="button" class="btn btn-icon btn-ghost-secondary" aria-label="Đóng" (click)="closeCountForm()">
+                  <i class="ti ti-x" aria-hidden="true"></i>
+                </button>
+              </div>
+              <div class="stocktake-stock-level d-flex justify-content-between align-items-center border rounded p-2 mt-3">
+                <span class="text-secondary small">Tồn kho trên sổ</span>
+                <strong>{{ activeProduct.expectedQuantity | number }} {{ activeProduct.unit }}</strong>
+              </div>
+              <label class="form-label mt-3 mb-1" for="counted-quantity">Số lượng thực tế ({{ activeProduct.unit || "đơn vị" }})</label>
+              <input
+                #quantityInput
+                id="counted-quantity"
+                name="countedQuantity"
+                class="form-control form-control-lg text-center"
+                type="number"
+                min="0"
+                step="any"
+                inputmode="decimal"
+                [(ngModel)]="countedQuantityInput"
+                placeholder="Nhập số lượng thực tế"
+                required
+              />
+              <div class="d-flex gap-2 mt-3">
+                <button class="btn btn-primary" type="submit" [disabled]="saving">
+                  <i class="ti ti-clipboard-check me-1" aria-hidden="true"></i>Kiểm kê
+                </button>
+                <button class="btn btn-ghost-secondary" type="button" (click)="closeCountForm()">Đóng</button>
+              </div>
+            </form>
+
+            <section class="mt-3" *ngIf="countedProducts.length">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <h3 class="card-title mb-0">Đã kiểm kê</h3>
+                <span class="badge bg-secondary-lt">{{ countedProducts.length | number }} mã</span>
+              </div>
+              <div class="list-group stocktake-counted-list">
+                <div class="list-group-item d-flex flex-wrap align-items-center gap-2" *ngFor="let product of countedProducts">
+                  <span class="avatar avatar-sm bg-success-lt text-success">
+                    <i class="ti ti-check" aria-hidden="true"></i>
+                  </span>
+                  <div class="flex-fill min-w-0">
+                    <strong class="d-block text-truncate">{{ product.name }}</strong>
+                    <small class="text-secondary">{{ product.code }} · Đếm {{ product.countedQuantity | number }} · Sổ {{ product.expectedQuantity | number }}</small>
+                  </div>
+                  <span
+                    class="badge"
+                    [class.bg-success-lt]="difference(product) > 0"
+                    [class.text-success]="difference(product) > 0"
+                    [class.bg-danger-lt]="difference(product) < 0"
+                    [class.text-danger]="difference(product) < 0"
+                    [class.bg-secondary-lt]="difference(product) === 0"
+                  >{{ formatSigned(difference(product)) }} {{ product.unit }}</span>
+                  <div class="btn-list flex-nowrap">
+                    <button class="btn btn-sm btn-outline-primary" type="button" (click)="selectProduct(product)" title="Sửa số lượng">
+                      <i class="ti ti-edit me-1" aria-hidden="true"></i>Sửa
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" type="button" (click)="deleteCountedProduct(product)" title="Xóa khỏi phiên">
+                      <i class="ti ti-trash me-1" aria-hidden="true"></i>Xóa
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="mt-3" *ngIf="pendingProducts.length">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <h3 class="card-title mb-0">Đã thêm, chưa kiểm kê</h3>
+                <span class="badge bg-orange-lt text-orange">{{ pendingProducts.length | number }} mã</span>
+              </div>
+              <div class="list-group stocktake-counted-list">
+                <div class="list-group-item d-flex flex-wrap align-items-center gap-2" *ngFor="let product of pendingProducts">
+                  <button class="btn btn-sm btn-outline-primary" type="button" (click)="selectProduct(product)">Đếm</button>
+                  <div class="flex-fill min-w-0">
+                    <strong class="d-block text-truncate">{{ product.name }}</strong>
+                    <small class="text-secondary">{{ product.code }} · Tồn {{ product.expectedQuantity | number }} {{ product.unit }}</small>
+                  </div>
+                  <button class="btn btn-sm btn-outline-danger" type="button" (click)="removePendingProduct(product)" aria-label="Xóa mã chưa kiểm kê">
+                    <i class="ti ti-trash" aria-hidden="true"></i>
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 border-top mt-3 pt-3">
+              <span class="text-secondary small">{{ completedCount | number }} / {{ products.length | number }} mã đã kiểm kê</span>
+              <button class="btn btn-primary" type="button" (click)="completeSession()" [disabled]="!completedCount">
+                {{ editingCompletedSession ? "Lưu thay đổi" : "Hoàn thành kiểm kê" }}<i class="ti ti-arrow-right ms-2" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
+        </section>
+      </ng-container>
+
+      <ng-container *ngIf="currentTab === 'results'">
+        <div class="row row-cards mb-3">
+          <div class="col-6 col-md-3">
+            <div class="card card-sm h-100"><div class="card-body">
+              <div class="text-secondary small">Sản phẩm đã đếm</div>
+              <div class="h2 mb-0">{{ countedProducts.length | number }}</div>
+            </div></div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="card card-sm h-100"><div class="card-body">
+              <div class="text-secondary small">Mã lệch tồn</div>
+              <div class="h2 mb-0" [class.text-danger]="discrepancyProducts.length">{{ discrepancyProducts.length | number }}</div>
+            </div></div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="card card-sm h-100"><div class="card-body">
+              <div class="text-secondary small">Giá trị tồn thực đếm</div>
+              <div class="h2 mb-0">{{ formatMoney(countedTotalValue) }} <small>đ</small></div>
+            </div></div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="card card-sm h-100"><div class="card-body">
+              <div class="text-secondary small">Thành tiền chênh lệch</div>
+              <div class="h2 mb-0" [class.text-danger]="differenceTotalValue < 0" [class.text-success]="differenceTotalValue > 0">
+                {{ formatMoney(differenceTotalValue) }} <small>đ</small>
+              </div>
+            </div></div>
+          </div>
+        </div>
+
+        <section class="card">
+          <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <div>
+              <div class="page-pretitle">ĐỐI CHIẾU TỒN KHO</div>
+              <h3 class="card-title">Kết quả kiểm kê ({{ countedProducts.length | number }} mã)</h3>
+            </div>
+            <button class="btn btn-primary" type="button" (click)="exportReport()" [disabled]="exporting || !countedProducts.length">
+              <i class="ti ti-file-export me-1" aria-hidden="true"></i>{{ exporting ? "Đang tạo Excel…" : "Xuất Excel" }}
+            </button>
+          </div>
+          <div class="table-responsive" *ngIf="countedProducts.length; else noResults">
+            <table class="table table-vcenter card-table table-striped table-hover">
+              <thead>
+                <tr>
+                  <th>Mã SP</th>
+                  <th>Tên sản phẩm</th>
+                  <th class="text-end">SL đếm</th>
+                  <th class="text-end">SL tồn kho</th>
+                  <th class="text-end">SL chênh lệch</th>
+                  <th class="text-end">Đơn giá</th>
+                  <th class="text-end">Thành tiền</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let product of countedProducts">
+                  <td class="text-primary fw-semibold">{{ product.code }}</td>
+                  <td>{{ product.name }}<small class="d-block text-secondary">{{ product.unit }}</small></td>
+                  <td class="text-end">{{ product.countedQuantity | number }}</td>
+                  <td class="text-end">{{ product.expectedQuantity | number }}</td>
+                  <td class="text-end" [class.text-success]="difference(product) > 0" [class.text-danger]="difference(product) < 0">
+                    {{ formatSigned(difference(product)) }}
+                  </td>
+                  <td class="text-end">{{ formatMoney(product.unitPrice) }}</td>
+                  <td class="text-end fw-semibold" [class.text-success]="differenceAmount(product) > 0" [class.text-danger]="differenceAmount(product) < 0">
+                    {{ formatMoney(differenceAmount(product)) }} đ
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <ng-template #noResults>
+            <div class="card-body text-center text-secondary">Chưa có sản phẩm được kiểm kê.</div>
+          </ng-template>
+          <div class="card-footer d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <span class="text-secondary small">Thành tiền = (SL đếm − SL tồn kho) × đơn giá</span>
+            <button class="btn btn-outline-primary btn-sm" type="button" *ngIf="currentSession?.status !== 'completed' || editingCompletedSession" (click)="currentTab = 'count'">
+              {{ editingCompletedSession ? "Tiếp tục sửa" : "Tiếp tục kiểm kê" }}
+            </button>
+            <button class="btn btn-outline-primary btn-sm" type="button" *ngIf="currentSession?.status === 'completed' && !editingCompletedSession" (click)="editCurrentSession()">
+              Sửa phiên
+            </button>
+          </div>
+        </section>
+      </ng-container>
+    </ng-template>
+  </div>
+</div>
