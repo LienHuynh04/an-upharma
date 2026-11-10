@@ -812,7 +812,7 @@ async function run() {
     console.log(`[resource] DONE ${resourceName}. Đã lưu ${resourceName}.json (đã ẩn danh PII)`);
   }
 
-  await calculateAndUploadSummaries(shops, allShopsData, db, loginData);
+  await calculateAndUploadSummaries(shops, allShopsData, db, loginData, hiddenShopCodes);
 
   // Danh mục sản phẩm toàn hệ thống (GetItemLstWithFollower) → /product_catalog (lọc bỏ KM và Hàng Bỏ)
   await fetchAndUploadProductCatalog(loginData, db, allShopsData);
@@ -1827,7 +1827,7 @@ function isWarehouseStore(store) {
   return false;
 }
 
-async function calculateAndUploadSummaries(shops, allShopsData, db, loginData) {
+async function calculateAndUploadSummaries(shops, allShopsData, db, loginData, hiddenShopCodes = new Set()) {
   console.log("\n[precalculation] Bắt đầu tính toán Hàng đã hết, Hàng lặp tốt, Hàng lặp chậm và Shops Summary...");
   
   const summaryMap = {};
@@ -1953,6 +1953,16 @@ async function calculateAndUploadSummaries(shops, allShopsData, db, loginData) {
       let apiFailureCount = 0;
       let fallbackCount = 0;
       let unavailableCount = 0;
+      const mapStockRows = (rows) => rows
+        .map((row) => ({
+          StoreCode: String(row.StoreCode || row.ShopCode || "").trim(),
+          StoreName: String(row.StoreName || row.ShopName || "").trim(),
+          StoreType: String(row.StoreType || "").trim(),
+          Quantity: toNumber(row.QuantityExist ?? row.Quantity ?? 0),
+          QuantityAVG: toNumber(row.QuantityAVG ?? row.AVGQuantity ?? 0),
+          UnitOfMeasure: String(row.UnitOfMeasure || row.Unit || "Hộp").trim() || "Hộp",
+        }))
+        .filter((row) => row.StoreCode && (row.Quantity > 0 || row.QuantityAVG > 0));
       const stockResults = await mapWithConcurrency(uniqueCodes, 6, async (productCode) => {
         try {
           const response = await requestUpharma("/Report/GetExistProductLst", {
@@ -1966,24 +1976,32 @@ async function calculateAndUploadSummaries(shops, allShopsData, db, loginData) {
           ) {
             throw new Error(response?.RespText || response?.data?.RespText || "Upharma trả về lỗi khi lấy tồn kho.");
           }
-          const stores = extractArray(response)
-            .map((row) => ({
-              StoreCode: String(row.StoreCode || row.ShopCode || "").trim(),
-              StoreName: String(row.StoreName || row.ShopName || "").trim(),
-              StoreType: String(row.StoreType || "").trim(),
-              Quantity: toNumber(row.QuantityExist ?? row.Quantity ?? 0),
-              QuantityAVG: toNumber(row.QuantityAVG ?? row.AVGQuantity ?? 0),
-              UnitOfMeasure: String(row.UnitOfMeasure || row.Unit || "Hộp").trim() || "Hộp",
-            }))
-            .filter((row) => row.StoreCode && (row.Quantity > 0 || row.QuantityAVG > 0));
+          const stores = mapStockRows(extractArray(response));
+          try {
+            await db.ref(`replenishment_stock_cache/${sanitizeFirebaseKey(productCode)}`).set({
+              productID: sanitizeFirebaseKey(productCode),
+              shops: stores,
+              updatedAt: Date.now(),
+            });
+          } catch (cacheError) {
+            console.warn(
+              `[replenishment_suggestions] Không lưu được cache tồn kho mới ${productCode}: ${cacheError.message}`
+            );
+          }
           return { productCode, stores, source: "api", cacheUpdatedAt: null };
         } catch (error) {
           apiFailureCount++;
           try {
-            const cachedSnapshot = await db
-              .ref(`national_inventory_cache/${sanitizeFirebaseKey(productCode)}`)
+            let cachedSnapshot = await db
+              .ref(`replenishment_stock_cache/${sanitizeFirebaseKey(productCode)}`)
               .once("value");
-            const cached = cachedSnapshot.val();
+            let cached = cachedSnapshot.val();
+            if (!cached || !Array.isArray(cached.shops)) {
+              cachedSnapshot = await db
+                .ref(`national_inventory_cache/${sanitizeFirebaseKey(productCode)}`)
+                .once("value");
+              cached = cachedSnapshot.val();
+            }
             if (cached && Array.isArray(cached.shops)) {
               fallbackCount++;
               console.warn(
@@ -1991,16 +2009,7 @@ async function calculateAndUploadSummaries(shops, allShopsData, db, loginData) {
               );
               return {
                 productCode,
-                stores: cached.shops
-                  .map((row) => ({
-                    StoreCode: String(row.StoreCode || row.ShopCode || "").trim(),
-                    StoreName: String(row.StoreName || row.ShopName || "").trim(),
-                    StoreType: String(row.StoreType || "").trim(),
-                    Quantity: toNumber(row.QuantityExist ?? row.Quantity ?? 0),
-                    QuantityAVG: toNumber(row.QuantityAVG ?? row.AVGQuantity ?? 0),
-                    UnitOfMeasure: String(row.UnitOfMeasure || row.Unit || "Hộp").trim() || "Hộp",
-                  }))
-                  .filter((row) => row.StoreCode && (row.Quantity > 0 || row.QuantityAVG > 0)),
+                stores: mapStockRows(cached.shops),
                 source: "firebase_cache",
                 cacheUpdatedAt: Number(cached.updatedAt) || null,
               };
@@ -2023,7 +2032,6 @@ async function calculateAndUploadSummaries(shops, allShopsData, db, loginData) {
         stockByProduct.set(result.productCode, result);
       }
 
-      const shopByCode = new Map(shops.map((shop) => [shop.ShopCode, shop]));
       const updatedAt = Date.now();
       let uploadedCount = 0;
       const currentVietnamMonth = getVietnamTimeComponents();
@@ -2079,22 +2087,31 @@ async function calculateAndUploadSummaries(shops, allShopsData, db, loginData) {
           const targetQuantity = Math.ceil(monthlySales);
           const candidates = stores
             .filter((store) => {
-              const sourceShop = shopByCode.get(store.StoreCode);
-              const sourceProvince = getShopProvince(sourceShop?.ShopName || store.StoreName);
+              const sourceProvince = getShopProvince(store.StoreName);
               const sourceMonthlySales = toNumber(store.QuantityAVG) ||
                 getRecentMonthlySales(store.StoreCode, product.productCode);
               return (
                 !isWarehouseStore(store) &&
                 store.StoreCode !== destination.ShopCode &&
-                shopByCode.has(store.StoreCode) &&
+                !hiddenShopCodes.has(store.StoreCode) &&
                 destinationProvince !== "" &&
-                sourceProvince === destinationProvince &&
                 sourceMonthlySales > 0 &&
                 store.Quantity > sourceMonthlySales * 2 &&
                 Math.floor(store.Quantity - sourceMonthlySales * 2) >= 1
               );
             })
+            .map((store) => {
+              const sourceMonthlySales = toNumber(store.QuantityAVG) ||
+                getRecentMonthlySales(store.StoreCode, product.productCode);
+              return {
+                ...store,
+                sourceMonthlySales,
+                availableQuantity: Math.floor(store.Quantity - sourceMonthlySales * 2),
+                isSameProvince: getShopProvince(store.StoreName) === destinationProvince,
+              };
+            })
             .sort((first, second) =>
+              Number(second.isSameProvince) - Number(first.isSameProvince) ||
               second.Quantity - first.Quantity ||
               first.StoreCode.localeCompare(second.StoreCode)
             )
@@ -2105,20 +2122,18 @@ async function calculateAndUploadSummaries(shops, allShopsData, db, loginData) {
           if (monthlySales > 0 && candidates.length > 0) {
             for (const [index, store] of candidates.entries()) {
               if (remainingNeed <= 0) break;
-              const sourceMonthlySales = toNumber(store.QuantityAVG) ||
-                getRecentMonthlySales(store.StoreCode, product.productCode);
-              const availableQuantity = Math.floor(store.Quantity - sourceMonthlySales * 2);
-              const suggestedQuantity = Math.min(remainingNeed, availableQuantity);
+              const suggestedQuantity = Math.min(remainingNeed, store.availableQuantity);
               remainingNeed -= suggestedQuantity;
               sources.push({
                 shopCode: store.StoreCode,
-                shopName: shopByCode.get(store.StoreCode)?.ShopName || store.StoreName,
+                shopName: store.StoreName,
                 stockQuantity: store.Quantity,
-                monthlySales: sourceMonthlySales,
-                reserveQuantity: sourceMonthlySales * 2,
-                availableQuantity,
+                monthlySales: store.sourceMonthlySales,
+                reserveQuantity: store.sourceMonthlySales * 2,
+                availableQuantity: store.availableQuantity,
                 suggestedQuantity,
                 isWarehouse: false,
+                isSameProvince: store.isSameProvince,
                 rank: index + 1,
               });
             }
@@ -2137,6 +2152,7 @@ async function calculateAndUploadSummaries(shops, allShopsData, db, loginData) {
                 availableQuantity,
                 suggestedQuantity: Math.min(targetQuantity, availableQuantity),
                 isWarehouse: true,
+                isSameProvince: false,
                 rank: 1,
               }];
             }

@@ -90,6 +90,7 @@ interface ReplenishmentSource {
   availableQuantity: number;
   suggestedQuantity: number;
   isWarehouse: boolean;
+  isSameProvince: boolean;
 }
 
 interface ReplenishmentPlan {
@@ -99,6 +100,8 @@ interface ReplenishmentPlan {
   unit: string;
   monthlySales: number;
   targetQuantity: number;
+  stockDataSource: "api" | "firebase_cache" | "unavailable";
+  stockCacheUpdatedAt: number | null;
   sources: ReplenishmentSource[];
 }
 
@@ -176,15 +179,7 @@ interface ReplenishmentPlan {
         </div>
 
         <section *ngIf="activeTransferView === 'replenishment'">
-          <div class="alert alert-info d-flex align-items-start gap-2" role="note">
-            <i class="ti ti-info-circle mt-1" aria-hidden="true"></i>
-            <div>
-              Chỉ hiện sản phẩm tồn bằng 0. Ưu tiên shop cùng tỉnh có tồn vượt mức giữ lại 2 tháng; tối đa 3 shop theo tồn cao nhất.
-              Nếu không có shop phù hợp, hệ thống mới đề xuất từ kho tổng. Số lượng đề xuất bù tối đa 1 tháng tiêu thụ.
-            </div>
-          </div>
-
-          <div class="card mb-3" *ngIf="replenishmentLoading || replenishmentError || replenishmentStatus || replenishmentDataWarning">
+          <div class="card mb-3" *ngIf="replenishmentLoading || replenishmentError || replenishmentStatus">
             <div class="card-body py-3">
               <div *ngIf="replenishmentLoading">
                 <div class="progress progress-sm rounded-pill overflow-hidden">
@@ -196,42 +191,8 @@ interface ReplenishmentPlan {
                 </div>
               </div>
               <div class="alert alert-danger py-2 mb-0" *ngIf="replenishmentError">{{ replenishmentError }}</div>
-              <div class="alert alert-warning py-2 mb-0" *ngIf="!replenishmentLoading && replenishmentDataWarning">
-                {{ replenishmentDataWarning }}
-              </div>
               <div class="text-secondary small" *ngIf="!replenishmentLoading && !replenishmentError && replenishmentStatus">
                 {{ replenishmentStatus }}
-              </div>
-            </div>
-          </div>
-
-          <div class="card mb-3" *ngIf="!replenishmentLoading && replenishmentPlans.length">
-            <div class="card-body d-flex flex-wrap align-items-center gap-3">
-              <div class="d-flex flex-wrap align-items-center gap-2 me-auto">
-                <span class="avatar avatar-sm rounded-circle bg-success text-white fw-bold">1</span>
-                <strong class="text-uppercase">Xin shop khác trước</strong>
-                <span class="text-secondary">→</span>
-                <button
-                  type="button"
-                  class="btn btn-success"
-                  (click)="copyReplenishmentRequestsForZalo()"
-                  [disabled]="replenishmentShopRequestCount === 0"
-                >
-                  <i class="ti ti-copy me-1" aria-hidden="true"></i>Sao chép cho Zalo
-                </button>
-              </div>
-              <div class="d-flex flex-wrap align-items-center gap-2">
-                <span class="avatar avatar-sm rounded-circle bg-success text-white fw-bold">2</span>
-                <strong class="text-uppercase">Phần còn thiếu đặt công ty</strong>
-                <span class="text-secondary">→</span>
-                <button
-                  type="button"
-                  class="btn btn-outline-secondary"
-                  (click)="exportCompanyOrderExcel()"
-                  [disabled]="replenishmentCompanyOrderCount === 0"
-                >
-                  <i class="ti ti-download me-1" aria-hidden="true"></i>Xuất phiếu đặt
-                </button>
               </div>
             </div>
           </div>
@@ -243,36 +204,36 @@ interface ReplenishmentPlan {
             {{ replenishmentActionError }}
           </div>
 
-          <div class="row row-deck row-cards mb-3" *ngIf="!replenishmentLoading">
+          <div class="row row-deck row-cards mb-3 replenishment-summary" *ngIf="!replenishmentLoading">
             <div class="col-sm-6 col-lg-4">
-              <div class="card h-100">
+              <div class="card h-100 replenishment-summary-card">
                 <div class="card-body py-3">
                   <div class="text-secondary fw-bold text-uppercase">Cần dự trù</div>
                   <div class="d-flex align-items-baseline gap-2 mt-1">
-                    <strong class="h1 mb-0">{{ replenishmentNeedCount | number }}</strong>
-                    <span class="text-secondary">mã sắp hết hàng</span>
+                    <strong class="h1 mb-0">{{ replenishmentNeedCount | number }} mã</strong>
+                    <span class="text-secondary">sắp hết hàng</span>
                   </div>
                 </div>
               </div>
             </div>
             <div class="col-sm-6 col-lg-4">
-              <div class="card h-100">
+              <div class="card h-100 replenishment-summary-card">
                 <div class="card-body py-3">
                   <div class="text-secondary fw-bold text-uppercase">Xin shop khác</div>
                   <div class="d-flex align-items-baseline gap-2 mt-1">
-                    <strong class="h1 text-success mb-0">{{ replenishmentShopRequestCount | number }}</strong>
-                    <span class="text-secondary">mã khỏi đặt công ty</span>
+                    <strong class="h1 text-success mb-0">{{ replenishmentShopRequestCount | number }} mã</strong>
+                    <span class="text-secondary">khỏi đặt công ty</span>
                   </div>
                 </div>
               </div>
             </div>
             <div class="col-sm-6 col-lg-4">
-              <div class="card h-100">
+              <div class="card h-100 replenishment-summary-card">
                 <div class="card-body py-3">
                   <div class="text-secondary fw-bold text-uppercase">Đặt công ty</div>
                   <div class="d-flex align-items-baseline gap-2 mt-1">
-                    <strong class="h1 text-orange mb-0">{{ replenishmentCompanyOrderCount | number }}</strong>
-                    <span class="text-secondary">mã shop khác không đủ</span>
+                    <strong class="h1 text-orange mb-0">{{ replenishmentCompanyOrderCount | number }} mã</strong>
+                    <span class="text-secondary">shop khác không đủ</span>
                   </div>
                 </div>
               </div>
@@ -280,58 +241,57 @@ interface ReplenishmentPlan {
           </div>
 
           <div class="card" *ngIf="replenishmentPlans.length">
-            <div class="list-group list-group-flush">
-              <article class="list-group-item p-3" *ngFor="let plan of replenishmentPlans; trackBy: trackByReplenishmentKey">
-                <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
-                  <div>
-                    <h3 class="h3 mb-1">{{ plan.productName || "Chưa có tên sản phẩm" }}</h3>
-                    <code>{{ plan.productCode }}</code>
-                  </div>
-                  <div class="text-end">
-                    <span class="badge bg-secondary-lt text-secondary">Tồn shop nhận: 0</span>
-                    <div class="small text-secondary mt-1">
-                      Tiêu thụ: {{ plan.monthlySales > 0 ? (formatNumber(plan.monthlySales) + " " + plan.unit + "/tháng") : "Chưa có dữ liệu" }}
-                    </div>
-                  </div>
-                </div>
-
-                <div *ngIf="plan.sources.length; else noReplenishmentSource" class="table-responsive">
-                  <table class="table table-sm table-vcenter table-striped mb-0">
-                    <thead>
-                      <tr>
-                        <th>Nguồn ưu tiên</th>
-                        <th class="text-end">Tồn hiện tại</th>
-                        <th class="text-end">Giữ lại</th>
-                        <th class="text-end">Có thể chuyển</th>
-                        <th class="text-end">Đề xuất</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr *ngFor="let source of plan.sources; let i = index">
-                        <td>
-                          <span class="badge me-1" [ngClass]="source.isWarehouse ? 'bg-purple text-white' : (i === 0 ? 'bg-primary text-white' : 'bg-secondary-lt text-secondary')">
-                            {{ source.isWarehouse ? "Kho tổng" : "Ưu tiên " + (i + 1) }}
-                          </span>
-                          <strong>{{ source.shopCode }}</strong>
-                          <span class="text-secondary ms-1">{{ source.shopName }}</span>
-                        </td>
-                        <td class="text-end">{{ formatNumber(source.stockQuantity) }} {{ plan.unit }}</td>
-                        <td class="text-end">{{ formatNumber(source.reserveQuantity) }} {{ plan.unit }}</td>
-                        <td class="text-end">{{ formatNumber(source.availableQuantity) }} {{ plan.unit }}</td>
-                        <td class="text-end fw-bold text-primary">{{ formatNumber(source.suggestedQuantity) }} {{ plan.unit }}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-                <ng-template #noReplenishmentSource>
-                  <div class="alert alert-warning py-2 mb-0" *ngIf="plan.monthlySales > 0">
-                    Không có shop cùng tỉnh đủ tồn an toàn và kho tổng hiện không có hàng khả dụng.
-                  </div>
-                  <div class="alert alert-warning py-2 mb-0" *ngIf="plan.monthlySales <= 0">
-                    Chưa có tốc độ tiêu thụ để tính số lượng dự trù. Kiểm tra dữ liệu bán hàng của shop này.
-                  </div>
-                </ng-template>
-              </article>
+            <div class="table-responsive" style="max-height: 75vh; overflow-y: auto;">
+              <table class="table table-vcenter card-table table-striped table-hover" style="table-layout: fixed; width: 100%;">
+                <thead>
+                  <tr>
+                    <th class="text-center" style="width: 70px; min-width: 70px;">STT</th>
+                    <th style="width: 25%;">Tên SP</th>
+                    <th style="width: 10%;">Mã SP</th>
+                    <th style="width: 9%;">Bán/tháng</th>
+                    <th style="width: 27%;">Xin shop nào (date gần trước)</th>
+                    <th class="text-end" style="width: 9%;">Tồn nguồn</th>
+                    <th class="text-end" style="width: 11%;">Tổng SL đề xuất</th>
+                    <th class="text-center" style="width: 7%;">Số tuyến</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let plan of replenishmentPlans; let i = index; trackBy: trackByReplenishmentKey">
+                    <td data-label="STT" class="text-center font-monospace fw-bold" style="white-space: nowrap;">{{ i + 1 }}</td>
+                    <td data-label="Tên SP" class="font-weight-medium text-break" style="font-size: 0.92rem; line-height: 1.35;">
+                      {{ plan.productName || "Chưa có tên sản phẩm" }}
+                    </td>
+                    <td data-label="Mã SP"><code>{{ plan.productCode }}</code></td>
+                    <td data-label="Bán/tháng">
+                      <span class="badge bg-secondary-lt text-secondary" *ngIf="plan.monthlySales > 0">
+                        {{ formatNumber(plan.monthlySales) }} {{ plan.unit }}
+                      </span>
+                      <span class="text-secondary" *ngIf="plan.monthlySales <= 0">—</span>
+                    </td>
+                    <td data-label="Xin shop nào (date gần trước)">
+                      <div class="d-flex flex-column gap-1">
+                        <div *ngFor="let source of plan.sources" class="d-flex align-items-center gap-1 flex-wrap">
+                          <span
+                            class="badge font-monospace fs-5"
+                            [ngClass]="source.isWarehouse ? 'bg-purple-lt text-purple' : (source.isSameProvince ? 'bg-success text-white' : 'bg-blue-lt text-blue')"
+                            [title]="source.shopName"
+                          >{{ source.isWarehouse ? "Kho tổng" : source.shopCode }}</span>
+                        </div>
+                        <span class="text-secondary" *ngIf="plan.sources.length === 0">Chưa có tuyến phù hợp</span>
+                      </div>
+                    </td>
+                    <td data-label="Tồn nguồn" class="text-end">
+                      {{ formatNumber(getPlanSourceStockQuantity(plan)) }} {{ plan.unit }}
+                    </td>
+                    <td data-label="Tổng SL đề xuất" class="text-end fw-bold text-primary">
+                      {{ formatNumber(getPlanSuggestedQuantity(plan)) }} {{ plan.unit }}
+                    </td>
+                    <td data-label="Số tuyến" class="text-center">
+                      <span class="badge bg-info-lt text-info">{{ plan.sources.length }} tuyến</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
           <div class="card" *ngIf="!replenishmentLoading && !replenishmentError && replenishmentPlans.length === 0">
@@ -684,6 +644,26 @@ interface ReplenishmentPlan {
     .bg-purple {
       background-color: #6e42c1 !important;
     }
+    .replenishment-summary-card {
+      border: 0;
+      border-radius: 0.75rem;
+      background: #f0f4f8;
+      box-shadow: none;
+    }
+    .replenishment-summary-card .h1 {
+      color: var(--tblr-body-color);
+      font-size: 1.65rem;
+      font-weight: 750;
+      white-space: nowrap;
+    }
+    @media (max-width: 767.98px) {
+      .replenishment-summary-card .h1 {
+        font-size: 1.4rem;
+      }
+      .replenishment-summary-card .card-body {
+        padding: 0.8rem;
+      }
+    }
   `],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -799,6 +779,22 @@ export class TransferSuggestionsComponent implements OnInit {
       .reduce((total, source) => total + source.suggestedQuantity, 0);
     if (warehouseQuantity > 0) return warehouseQuantity;
     return Math.max(0, this.getPlanTargetQuantity(plan) - this.getShopSuggestedQuantity(plan));
+  }
+
+  getPlanCompanyOrderQuantity(plan: ReplenishmentPlan): number {
+    return this.getCompanyOrderQuantity(plan);
+  }
+
+  getPlanShopSources(plan: ReplenishmentPlan): ReplenishmentSource[] {
+    return plan.sources.filter((source) => !source.isWarehouse);
+  }
+
+  getPlanSourceStockQuantity(plan: ReplenishmentPlan): number {
+    return plan.sources.reduce((total, source) => total + source.stockQuantity, 0);
+  }
+
+  getPlanSuggestedQuantity(plan: ReplenishmentPlan): number {
+    return plan.sources.reduce((total, source) => total + source.suggestedQuantity, 0);
   }
 
   private getCompanyOrderPlans(): ReplenishmentPlan[] {
@@ -1088,6 +1084,12 @@ export class TransferSuggestionsComponent implements OnInit {
         unit: String(plan.unit || "Hộp"),
         monthlySales: Number(plan.monthlySales) || 0,
         targetQuantity: Number(plan.targetQuantity) || Math.ceil(Number(plan.monthlySales) || 0),
+        stockDataSource: plan.stockDataSource === "firebase_cache"
+          ? "firebase_cache"
+          : plan.stockDataSource === "unavailable"
+            ? "unavailable"
+            : "api",
+        stockCacheUpdatedAt: Number(plan.stockCacheUpdatedAt) || null,
         sources: Array.isArray(plan.sources)
           ? plan.sources.map((source: any) => ({
               shopCode: String(source.shopCode || ""),
@@ -1098,6 +1100,7 @@ export class TransferSuggestionsComponent implements OnInit {
               availableQuantity: Number(source.availableQuantity) || 0,
               suggestedQuantity: Number(source.suggestedQuantity) || 0,
               isWarehouse: source.isWarehouse === true,
+              isSameProvince: source.isSameProvince === true,
             }))
           : [],
       }));
@@ -1942,7 +1945,7 @@ export class TransferSuggestionsComponent implements OnInit {
     });
   }
 
-  private formatCacheTime(value: number): string {
+  formatCacheTime(value: number): string {
     const date = new Date(value);
     const pad = (part: number) => String(part).padStart(2, "0");
     return `${pad(date.getHours())}:${pad(date.getMinutes())} ${pad(date.getDate())}-${pad(date.getMonth() + 1)}`;
