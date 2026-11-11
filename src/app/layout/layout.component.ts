@@ -32,7 +32,9 @@ export class LayoutComponent implements OnInit, OnDestroy {
   layoutMode: "left" | "top" = "left";
   menuGroups: Record<string, boolean> = {
     profile: false,
-    goods: false,
+    inventory: false,
+    operations: false,
+    reports: false,
     stats: false,
     test: false,
     n8n: false,
@@ -961,18 +963,23 @@ renderDashboard(); renderInventory(); renderNearExpiryOrders(); renderTabs(); re
   private syncMenuState(url: string): void {
     const isStatsRoute =
       url.includes("/chi-tieu-nhan-vien") || url.includes("/chi-tieu-nha-thuoc-trong-nam");
-    const isGoodsRoute =
+    const isInventoryRoute =
       url.includes("/ton-kho") ||
       url.includes("/kiem-ke") ||
       url.includes("/ton-kho-new") ||
+      url.includes("/fefo") ||
+      url.includes("/in-tem");
+    const isOperationsRoute =
       url.includes("/hang-da-het") ||
       url.includes("/hang-lap-tot") ||
       url.includes("/hang-key") ||
-      // url.includes("/hang-ban-cham") ||
-      url.includes("/in-tem") ||
-      url.includes("/lay-bao-cao-don-hang");
+      url.includes("/goi-y-chuyen-hang");
+    const isReportsRoute =
+      url.includes("/xuat-bao-cao") || url.includes("/lay-bao-cao-don-hang");
+    this.menuGroups["inventory"] = isInventoryRoute;
+    this.menuGroups["operations"] = isOperationsRoute;
+    this.menuGroups["reports"] = isReportsRoute;
     this.menuGroups["stats"] = isStatsRoute;
-    this.menuGroups["goods"] = isGoodsRoute;
   }
 
   openLogoutConfirm(e: Event) {

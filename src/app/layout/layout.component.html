@@ -54,14 +54,6 @@
               </a>
             </li>
 
-            <!-- Link Xuất Báo Cáo HTML -->
-            <li class="nav-item">
-              <a class="nav-link py-2" routerLink="/xuat-bao-cao" routerLinkActive="active" (click)="closeSidebar()">
-                <span class="nav-link-icon d-md-none d-lg-inline-block"><i class="ti ti-file-export" style="font-size: 1.1rem;"></i></span>
-                <span class="nav-link-title" style="font-size: 13.5px;">Xuất Báo Cáo HTML</span>
-              </a>
-            </li>
-
             <!-- Nhóm chỉ tiêu -->
             <li class="nav-item dropdown" [class.show]="openMenuId === 'stats'" [class.active]="menuGroups['stats']">
               <a
@@ -91,18 +83,18 @@
               </div>
             </li>
 
-            <!-- Nhóm hàng hóa -->
-            <li class="nav-item dropdown" [class.show]="openMenuId === 'goods'" [class.active]="menuGroups['goods']">
+            <!-- Kho và kiểm kê -->
+            <li class="nav-item dropdown" [class.show]="openMenuId === 'inventory'" [class.active]="menuGroups['inventory']">
               <a
                 class="nav-link dropdown-toggle py-2"
                 href="javascript:void(0)"
-                (click)="toggleMenuGroup('goods', $event)"
-                [attr.aria-expanded]="openMenuId === 'goods'"
+                (click)="toggleMenuGroup('inventory', $event)"
+                [attr.aria-expanded]="openMenuId === 'inventory'"
               >
-                <span class="nav-link-icon d-md-none d-lg-inline-block"><i class="ti ti-packages" style="font-size: 1.1rem;"></i></span>
-                <span class="nav-link-title" style="font-size: 13.5px;">Hàng hóa</span>
+                <span class="nav-link-icon d-md-none d-lg-inline-block"><i class="ti ti-box-seam" style="font-size: 1.1rem;"></i></span>
+                <span class="nav-link-title" style="font-size: 13.5px;">Kho & kiểm kê</span>
               </a>
-              <div class="dropdown-menu" [class.show]="openMenuId === 'goods'" (click)="$event.stopPropagation()">
+              <div class="dropdown-menu" [class.show]="openMenuId === 'inventory'" (click)="$event.stopPropagation()">
                 <a
                   class="dropdown-item"
                   routerLink="/ton-kho"
@@ -126,11 +118,26 @@
                 >
                 <a
                   class="dropdown-item"
-                  routerLink="/lay-bao-cao-don-hang"
+                  routerLink="/ton-kho-toan-quoc"
                   routerLinkActive="active"
                   (click)="closeSidebar(); openMenuId = null"
-                  >Lấy báo cáo đơn hàng</a
+                  >Tồn kho toàn quốc</a
                 >
+              </div>
+            </li>
+
+            <!-- Điều phối hàng -->
+            <li class="nav-item dropdown" [class.show]="openMenuId === 'operations'" [class.active]="menuGroups['operations']">
+              <a
+                class="nav-link dropdown-toggle py-2"
+                href="javascript:void(0)"
+                (click)="toggleMenuGroup('operations', $event)"
+                [attr.aria-expanded]="openMenuId === 'operations'"
+              >
+                <span class="nav-link-icon d-md-none d-lg-inline-block"><i class="ti ti-arrows-exchange" style="font-size: 1.1rem;"></i></span>
+                <span class="nav-link-title" style="font-size: 13.5px;">Điều phối hàng</span>
+              </a>
+              <div class="dropdown-menu" [class.show]="openMenuId === 'operations'" (click)="$event.stopPropagation()">
                 <a
                   class="dropdown-item"
                   routerLink="/hang-da-het"
@@ -159,12 +166,34 @@
                   (click)="closeSidebar(); openMenuId = null"
                   >Gợi ý chuyển hàng cận date</a
                 >
+              </div>
+            </li>
+
+            <!-- Báo cáo -->
+            <li class="nav-item dropdown" [class.show]="openMenuId === 'reports'" [class.active]="menuGroups['reports']">
+              <a
+                class="nav-link dropdown-toggle py-2"
+                href="javascript:void(0)"
+                (click)="toggleMenuGroup('reports', $event)"
+                [attr.aria-expanded]="openMenuId === 'reports'"
+              >
+                <span class="nav-link-icon d-md-none d-lg-inline-block"><i class="ti ti-report-analytics" style="font-size: 1.1rem;"></i></span>
+                <span class="nav-link-title" style="font-size: 13.5px;">Báo cáo</span>
+              </a>
+              <div class="dropdown-menu" [class.show]="openMenuId === 'reports'" (click)="$event.stopPropagation()">
                 <a
                   class="dropdown-item"
-                  routerLink="/ton-kho-toan-quoc"
+                  routerLink="/xuat-bao-cao"
                   routerLinkActive="active"
                   (click)="closeSidebar(); openMenuId = null"
-                  >Tồn kho toàn quốc</a
+                  >Xuất báo cáo HTML</a
+                >
+                <a
+                  class="dropdown-item"
+                  routerLink="/lay-bao-cao-don-hang"
+                  routerLinkActive="active"
+                  (click)="closeSidebar(); openMenuId = null"
+                  >Lấy báo cáo đơn hàng</a
                 >
               </div>
             </li>
