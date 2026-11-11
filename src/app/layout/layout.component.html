@@ -37,7 +37,16 @@
       <!-- Navigation Menu (inline on desktop, collapsible on mobile) -->
       <div class="collapse navbar-collapse" [class.show]="appClasses['is-sidebar-open']" id="navbar-menu">
         <div class="d-flex flex-column flex-md-row flex-fill align-items-stretch align-items-md-center justify-content-between">
-          <ul class="navbar-nav align-items-md-center">
+          <!-- Staff (inventory counter) sessions see only the count page -->
+          <ul class="navbar-nav align-items-md-center" *ngIf="staffOnly">
+            <li class="nav-item">
+              <a class="nav-link py-2" routerLink="/kiem-ke" routerLinkActive="active" (click)="closeSidebar()">
+                <span class="nav-link-icon d-md-none d-lg-inline-block"><i class="ti ti-clipboard-check" style="font-size: 1.1rem;"></i></span>
+                <span class="nav-link-title" style="font-size: 13.5px;">Kiểm kê</span>
+              </a>
+            </li>
+          </ul>
+          <ul class="navbar-nav align-items-md-center" *ngIf="!staffOnly">
             <!-- Link Cài đặt -->
             <li class="nav-item">
               <a class="nav-link py-2" routerLink="/cai-dat" routerLinkActive="active" (click)="closeSidebar()">
@@ -282,7 +291,7 @@
   </header>
 
   <!-- Tab Bar: open pages as tabs (lightweight — no component caching) -->
-  <div class="tab-bar d-print-none" *ngIf="tabs.length > 0">
+  <div class="tab-bar d-print-none" *ngIf="tabs.length > 0 && !staffOnly">
     <div class="container-xl">
       <div class="tab-strip" role="tablist" aria-label="Các trang đang mở">
         <div

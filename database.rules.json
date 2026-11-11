@@ -36,6 +36,37 @@
           ".write": "auth != null"
         }
       }
+    },
+
+    "staff_users": {
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid",
+        ".write": false
+      }
+    },
+    "shop_catalog_index": {
+      ".read": "auth != null",
+      ".write": false
+    },
+    "shop_catalog": {
+      "$shopCode": {
+        ".read": "auth != null && (root.child('staff_users').child(auth.uid).child('role').val() == 'admin' || root.child('staff_users').child(auth.uid).child('shops').child($shopCode).val() == true)",
+        ".write": false
+      }
+    },
+    "count_submissions": {
+      "$shopCode": {
+        ".read": "auth != null && root.child('staff_users').child(auth.uid).child('role').val() == 'admin'",
+        "$sessionId": {
+          ".write": "auth != null && (root.child('staff_users').child(auth.uid).child('role').val() == 'admin' || newData.child('staffUid').val() == auth.uid || data.child('staffUid').val() == auth.uid)"
+        }
+      }
+    },
+    "count_final_reviews": {
+      "$shopCode": {
+        ".read": "auth != null && root.child('staff_users').child(auth.uid).child('role').val() == 'admin'",
+        ".write": "auth != null && root.child('staff_users').child(auth.uid).child('role').val() == 'admin'"
+      }
     }
   }
 }

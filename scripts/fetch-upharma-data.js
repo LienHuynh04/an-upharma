@@ -817,6 +817,10 @@ async function run() {
   // Danh mục sản phẩm toàn hệ thống (GetItemLstWithFollower) → /product_catalog (lọc bỏ KM và Hàng Bỏ)
   await fetchAndUploadProductCatalog(loginData, db, allShopsData);
 
+  // Slim per-shop catalogs for staff inventory counting → /shop_catalog/<shopCode>
+  // (product code + name + unit only; never quantities or prices)
+  await uploadShopCatalogs(db, shops, allShopsData);
+
   // Tự động tính toán và lưu cache gợi ý điều chuyển hàng cận date → /transfer_suggestions_cache/<shopCode>
   // (Đọc từ national_inventory_cache có sẵn trên Firebase, chỉ mất vài giây thay vì 2 giờ)
   await generateTransferSuggestionsForShops(shops, allShopsData, db, loginData);
@@ -1441,7 +1445,94 @@ if (require.main === module) {
   });
 }
 
-module.exports = { parseHiddenShopCodes, resolveShopsToSync, DEFAULT_HIDDEN_SHOP_CODES };
+module.exports = { parseHiddenShopCodes, resolveShopsToSync, DEFAULT_HIDDEN_SHOP_CODES, buildShopCatalogItems };
+
+/** Mirrors parseNumericValue in src/app/inventory-utils.ts (incl. vi formats). */
+function parseShopCatalogNumber(value) {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : 0;
+  }
+  if (value === null || value === undefined) return 0;
+  const text = String(value).trim();
+  if (!text) return 0;
+  const normalized = text
+    .replace(/\s+/g, "")
+    .replace(/\.(?=\d{3}(\D|$))/g, "")
+    .replace(",", ".");
+  const parsed = Number(normalized);
+  if (Number.isFinite(parsed)) return parsed;
+  const fallback = Number(text.replace(/[^\d-]/g, ""));
+  return Number.isFinite(fallback) ? fallback : 0;
+}
+
+const SHOP_CATALOG_CODE_KEYS = ["ProductCode", "ProductID", "Product_ID", "MaSP", "MaSanPham", "ItemCode", "Code"];
+const SHOP_CATALOG_NAME_KEYS = ["ProductName", "Product_Name", "ProductFullName", "Product_Name_Full", "TenSP", "TenSanPham", "Name", "ItemName"];
+const SHOP_CATALOG_UNIT_KEYS = ["UnitName", "Unit_Name", "Unit", "UnitCode", "BaseUnit", "BaseUnitName", "ProductUnit", "UOM", "DonVi", "DonViTinh", "DVT"];
+const SHOP_CATALOG_QTY_KEYS = ["Quantity", "Qty", "SL", "SoLuong", "InventoryQuantity", "StockQty", "TonKho", "RemainQty"];
+
+/**
+ * Aggregates one shop's raw inventory rows into the slim staff catalog:
+ * one { c, n, u } item per product whose TOTAL stock at the shop is > 0.
+ * Quantities are only used for the > 0 test and are never written out.
+ */
+function buildShopCatalogItems(rows) {
+  const byCode = new Map();
+  for (const row of rows || []) {
+    const code = String(pick(row, SHOP_CATALOG_CODE_KEYS) || "").trim();
+    if (!code) continue;
+    const quantity = parseShopCatalogNumber(pick(row, SHOP_CATALOG_QTY_KEYS));
+    const existing = byCode.get(code);
+    if (existing) {
+      existing.totalQuantity += quantity;
+      if (!existing.u) existing.u = String(pick(row, SHOP_CATALOG_UNIT_KEYS) || "").trim();
+    } else {
+      byCode.set(code, {
+        c: code,
+        n: String(pick(row, SHOP_CATALOG_NAME_KEYS) || "").trim() || code,
+        u: String(pick(row, SHOP_CATALOG_UNIT_KEYS) || "").trim(),
+        totalQuantity: quantity,
+      });
+    }
+  }
+  return Array.from(byCode.values())
+    .filter((item) => item.totalQuantity > 0)
+    .map(({ c, n, u }) => ({ c, n, u }))
+    .sort((a, b) => a.n.localeCompare(b.n, "vi", { sensitivity: "base" }));
+}
+
+/**
+ * Writes /shop_catalog/<shopCode> for every synced shop plus the
+ * /shop_catalog_index lookup the app uses to label staff shops.
+ * A shop whose inventory fetch failed keeps its previous catalog.
+ */
+async function uploadShopCatalogs(db, shops, allShopsData) {
+  if (!db) return;
+  const index = {};
+  for (const shop of shops || []) {
+    const rows = allShopsData?.inventory?.[shop.ShopCode] || [];
+    if (!rows.length) {
+      console.warn(`[shop_catalog] Bỏ qua ${shop.ShopCode}: không có dữ liệu tồn kho trong lần đồng bộ này, giữ danh mục cũ.`);
+      continue;
+    }
+    try {
+      const items = buildShopCatalogItems(rows);
+      const updatedAt = Date.now();
+      await db.ref(`shop_catalog/${shop.ShopCode}`).set({
+        shopName: shop.ShopName,
+        updatedAt,
+        count: items.length,
+        items,
+      });
+      index[shop.ShopCode] = { name: shop.ShopName, count: items.length, updatedAt };
+      console.log(`[shop_catalog] ${shop.ShopCode}: ${items.length} sản phẩm có tồn > 0.`);
+    } catch (error) {
+      console.warn(`[shop_catalog] Lỗi khi ghi danh mục ${shop.ShopCode}:`, error.message || error);
+    }
+  }
+  if (Object.keys(index).length) {
+    await db.ref("shop_catalog_index").set(index);
+  }
+}
 
 function pick(obj, keys) {
   if (!obj) return "";

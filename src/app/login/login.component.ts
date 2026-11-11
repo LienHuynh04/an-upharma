@@ -2,6 +2,7 @@ import { CommonModule } from "@angular/common";
 import { Component, OnInit } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { ActivatedRoute, Router } from "@angular/router";
+import { StaffAuthService } from "../staff-auth.service";
 import { UpharmaService } from "../upharma.service";
 
 type LoginFocus = "username" | "password" | "";
@@ -21,16 +22,46 @@ export class LoginComponent implements OnInit {
   loading = false;
   loadingProgress = 0;
   errorText = "";
+  loginMode: "manager" | "staff" = "manager";
 
   constructor(
     private readonly route: ActivatedRoute,
     private readonly router: Router,
     private readonly upharmaService: UpharmaService,
+    private readonly staffAuthService: StaffAuthService,
   ) {}
 
   ngOnInit(): void {
     if (this.upharmaService.isAuthenticated()) {
       void this.router.navigateByUrl("/dashboard");
+      return;
+    }
+    if (this.staffAuthService.hasSession()) {
+      void this.router.navigateByUrl("/kiem-ke");
+    }
+  }
+
+  onSubmit(): void {
+    if (this.loginMode === "staff") {
+      void this.submitStaffLogin();
+    } else {
+      void this.submitLogin();
+    }
+  }
+
+  async submitStaffLogin(): Promise<void> {
+    this.loading = true;
+    this.loadingProgress = 40;
+    this.errorText = "";
+    try {
+      await this.staffAuthService.signIn(this.username.trim(), this.password);
+      this.loadingProgress = 100;
+      await this.router.navigateByUrl("/kiem-ke");
+    } catch (error) {
+      this.errorText = error instanceof Error ? error.message : String(error);
+      this.loadingProgress = 100;
+    } finally {
+      this.loading = false;
     }
   }
 
@@ -97,6 +128,10 @@ export class LoginComponent implements OnInit {
         Password: this.password,
       });
       this.loadingProgress = 85;
+
+      // Best effort: link the manager's Firebase account (same credentials)
+      // so submitted staff counts can be reviewed. Never blocks this login.
+      await this.staffAuthService.trySignInSilently(this.username.trim(), this.password);
 
       const returnUrl = this.route.snapshot.queryParamMap.get("returnUrl") || "/dashboard";
       this.loadingProgress = 100;
