@@ -1463,6 +1463,7 @@ const STAFF_RULES_NODES = {
   shop_catalog: { "$shopCode": { ".read": true, ".write": false } },
   count_submissions: { ".read": true, ".write": true },
   count_final_reviews: { ".read": true, ".write": true },
+  count_evaluations: { ".read": true, ".write": true },
 };
 
 /**
@@ -1526,7 +1527,7 @@ async function ensureStaffRules() {
       console.warn(`[staff-rules] Rules update rejected (HTTP ${putResponse.status}). Paste database.rules.json in the Firebase Console if the accounts page reports a rules error.`);
       return;
     }
-    console.log("[staff-rules] Deployed staff rules nodes (staff_accounts, shop_catalog, count_submissions, count_final_reviews).");
+    console.log("[staff-rules] Deployed staff rules nodes (staff_accounts, shop_catalog, count_submissions, count_final_reviews, count_evaluations).");
   } catch (err) {
     console.warn("[staff-rules] Rules check failed (sync continues):", err && err.message ? err.message : err);
   }

@@ -24,6 +24,10 @@
       ".read": true,
       ".write": true
     },
+    "count_evaluations": {
+      ".read": true,
+      ".write": true
+    },
     "hidden_products": {
       ".read": "true",
       ".write": "auth != null"
