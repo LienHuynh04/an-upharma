@@ -12,13 +12,15 @@ import { environment } from "../environments/environment";
  *   { displayName: string, role: "counter" | "admin",
  *     shops: { SHOP0025: true, ... }, active: true }
  *
- * - role "counter": the account may only open the inventory-count page, only
- *   for the shops listed in its record, and only sees the slim shop catalog
- *   (product code + name + unit, never quantities or prices).
- * - role "admin": the manager's own Firebase account. The manager still signs
- *   in with the Upharma account as before; the app then silently tries the
- *   same credentials against Firebase so the manager can read the count
- *   results staff submit. A failed Firebase sign-in never blocks the manager.
+ * - role "counter": a staff account. It may open only the pages the manager
+ *   granted it in its record (`pages`, e.g. just the inventory-count page),
+ *   only for the shops listed in its record, and the inventory-count page in
+ *   this mode only ever receives the slim shop catalog (product code + name +
+ *   unit, never quantities or prices).
+ * - role "admin": the shared management account (`quantri@an-upharma.local`)
+ *   the accounts page uses to create/manage staff accounts and read submitted
+ *   counts. The manager unlocks it with a management password from the
+ *   accounts page — see {@link StaffAuthService.unlockManagement}.
  *
  * Setup steps: docs/staff-inventory-count.md.
  */
@@ -31,6 +33,8 @@ export interface StaffSession {
   displayName: string;
   role: StaffRole;
   shops: string[];
+  /** Route paths this account may open (empty for the management account). */
+  pages: string[];
   idToken: string;
   refreshToken: string;
   expiresAt: number;
@@ -43,8 +47,40 @@ export interface StaffUserRecord {
   displayName: string;
   role: StaffRole;
   shops: string[];
+  /** Route paths this account may open, assigned by the manager. */
+  pages: string[];
   active: boolean;
 }
+
+/** A page the manager may grant to a staff account. */
+export interface StaffPageOption {
+  path: string;
+  label: string;
+  icon: string;
+}
+
+/**
+ * Pages a staff account can be granted. Deliberately excludes the management
+ * pages (settings, account management, reports, targets) — those stay with
+ * the main account. Page grants are enforced by the route guard and the menu;
+ * the inventory-count data itself is additionally enforced by database rules.
+ */
+export const STAFF_PAGE_OPTIONS: StaffPageOption[] = [
+  { path: "kiem-ke", label: "Kiểm kê", icon: "ti-clipboard-check" },
+  { path: "dashboard", label: "Dashboard", icon: "ti-home" },
+  { path: "ton-kho", label: "Tồn kho", icon: "ti-package" },
+  { path: "ton-kho-toan-quoc", label: "Tồn kho toàn quốc", icon: "ti-world" },
+  { path: "fefo", label: "FEFO", icon: "ti-calendar" },
+  { path: "hang-da-het", label: "Hàng đã hết", icon: "ti-package-off" },
+  { path: "hang-lap-tot", label: "Hàng lặp tốt", icon: "ti-repeat" },
+  { path: "hang-key", label: "Hàng key", icon: "ti-key" },
+  { path: "goi-y-chuyen-hang", label: "Gợi ý chuyển hàng", icon: "ti-arrows-exchange" },
+];
+
+export const DEFAULT_STAFF_PAGES = ["kiem-ke"];
+
+/** Username of the shared management account used by the accounts page. */
+export const MANAGEMENT_USERNAME = "quantri";
 
 const SESSION_STORAGE_KEY = "upharma_staff_session";
 export const STAFF_EMAIL_DOMAIN = "an-upharma.local";
@@ -112,6 +148,7 @@ export class StaffAuthService {
       displayName: profile.displayName,
       role: profile.role,
       shops: profile.shops,
+      pages: profile.pages,
       idToken: data.idToken,
       refreshToken: data.refreshToken,
       expiresAt: Date.now() + Number(data.expiresIn || 3600) * 1000,
@@ -125,25 +162,25 @@ export class StaffAuthService {
   }
 
   /**
-   * One-time bootstrap that lets the main (manager) account create its own
-   * Firebase admin link from inside the app, without the Firebase Console:
+   * Unlocks staff-account management with the shared management account
+   * (`quantri@an-upharma.local`) — no per-manager Firebase account and no
+   * Console step:
    *
-   * 1. Creates the Firebase user `<upharma-username>@an-upharma.local` with
-   *    the manager's Upharma password (or signs in if it already exists).
-   * 2. Claims the create-once `system_admin` node — database rules accept the
-   *    claim only while the node does not exist, so exactly one account can
-   *    ever bootstrap itself this way; afterwards only the Console can reset
-   *    the claim.
-   * 3. Writes the manager's own `staff_users` record with role "admin" (the
-   *    rules treat the claim holder as admin) and stores the session, so the
-   *    account-management page unlocks immediately.
+   * - First time (account does not exist yet): creates the management account
+   *   with the password the manager sets, claims the create-once
+   *   `system_admin` node (database rules accept the claim only while the
+   *   node does not exist, so exactly one management account can ever be
+   *   created this way), and writes its admin role record.
+   * - Later: simply signs in with that management password. The session is
+   *   persisted in the browser, so the password is only needed again when
+   *   the session is gone (new browser, cleared data).
    *
-   * The caller must verify the password against the Upharma API first, so
-   * the password stored in Firebase is provably the manager's real one and
-   * the silent re-link on later logins keeps working.
+   * Only a signed-in main (Upharma) account can open the accounts page, so
+   * in practice the management password is set by the manager; recovering a
+   * forgotten one means deleting `system_admin` and the `quantri` user in
+   * the Firebase Console and setting it up again.
    */
-  async linkAdminAccount(input: {
-    username: string;
+  async unlockManagement(input: {
     password: string;
     displayName: string;
     shops: string[];
@@ -153,15 +190,18 @@ export class StaffAuthService {
         "Chưa cấu hình Firebase API key (environment.firebaseApiKey). Xem docs/staff-inventory-count.md.",
       );
     }
-    const username = input.username.trim().toLowerCase();
-    const auth = await this.signUpOrSignIn(username, input.password);
+    if (input.password.length < 6) {
+      throw new Error("Mật khẩu quản trị phải có ít nhất 6 ký tự.");
+    }
+    const auth = await this.signUpOrSignIn(MANAGEMENT_USERNAME, input.password);
 
     const session: StaffSession = {
       uid: auth.localId,
-      username,
-      displayName: input.displayName.trim(),
+      username: MANAGEMENT_USERNAME,
+      displayName: input.displayName.trim() || "Quản trị",
       role: "admin",
       shops: [...input.shops],
+      pages: [],
       idToken: auth.idToken,
       refreshToken: auth.refreshToken,
       expiresAt: Date.now() + Number(auth.expiresIn || 3600) * 1000,
@@ -171,10 +211,11 @@ export class StaffAuthService {
     await this.writeStaffUser(
       {
         uid: session.uid,
-        username,
+        username: MANAGEMENT_USERNAME,
         displayName: session.displayName,
         role: "admin",
         shops: session.shops,
+        pages: [],
         active: true,
       },
       session.idToken,
@@ -259,20 +300,6 @@ export class StaffAuthService {
     }
   }
 
-  /**
-   * Best-effort Firebase sign-in with the manager's Upharma credentials, so a
-   * manager whose Firebase account uses the same password gets an admin token
-   * transparently. Never throws and never blocks the normal login flow.
-   */
-  async trySignInSilently(username: string, password: string): Promise<boolean> {
-    try {
-      await this.signIn(username, password);
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
   getSession(): StaffSession | null {
     try {
       const raw = localStorage.getItem(SESSION_STORAGE_KEY);
@@ -347,6 +374,7 @@ export class StaffAuthService {
     password: string;
     displayName: string;
     shops: string[];
+    pages: string[];
   }): Promise<StaffUserRecord> {
     if (!this.isConfigured) {
       throw new Error(
@@ -384,6 +412,7 @@ export class StaffAuthService {
       displayName: input.displayName.trim(),
       role: "counter",
       shops: [...input.shops],
+      pages: this.parsePages(input.pages),
       active: true,
     };
     await this.writeStaffUser(record);
@@ -427,6 +456,7 @@ export class StaffAuthService {
           displayName: record.displayName,
           role: record.role,
           shops,
+          pages: record.pages || [],
           active: record.active,
         }),
       },
@@ -454,6 +484,7 @@ export class StaffAuthService {
       displayName: String(raw["displayName"] || raw["name"] || ""),
       role: raw["role"] === "admin" ? "admin" : "counter",
       shops,
+      pages: this.parsePages(raw["pages"]),
       active: raw["active"] !== false,
     };
   }
@@ -472,10 +503,17 @@ export class StaffAuthService {
     }
   }
 
+  private parsePages(raw: unknown): string[] {
+    if (!Array.isArray(raw)) return [...DEFAULT_STAFF_PAGES];
+    const known = new Set(STAFF_PAGE_OPTIONS.map((option) => option.path));
+    const pages = raw.map((page) => String(page)).filter((page) => known.has(page));
+    return pages.length ? pages : [...DEFAULT_STAFF_PAGES];
+  }
+
   private async fetchProfile(
     uid: string,
     idToken: string,
-  ): Promise<{ displayName: string; role: StaffRole; shops: string[] } | null> {
+  ): Promise<{ displayName: string; role: StaffRole; shops: string[]; pages: string[] } | null> {
     const response = await fetch(
       `${this.dbUrl}/staff_users/${encodeURIComponent(uid)}.json?auth=${encodeURIComponent(idToken)}`,
     );
@@ -497,6 +535,7 @@ export class StaffAuthService {
       displayName: String(raw["displayName"] || raw["name"] || ""),
       role: raw["role"] === "admin" ? "admin" : "counter",
       shops,
+      pages: this.parsePages(raw["pages"]),
     };
   }
 

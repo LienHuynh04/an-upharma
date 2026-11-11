@@ -37,12 +37,12 @@
       <!-- Navigation Menu (inline on desktop, collapsible on mobile) -->
       <div class="collapse navbar-collapse" [class.show]="appClasses['is-sidebar-open']" id="navbar-menu">
         <div class="d-flex flex-column flex-md-row flex-fill align-items-stretch align-items-md-center justify-content-between">
-          <!-- Staff (inventory counter) sessions see only the count page -->
+          <!-- Staff sessions see only the pages the manager granted them -->
           <ul class="navbar-nav align-items-md-center" *ngIf="staffOnly">
-            <li class="nav-item">
-              <a class="nav-link py-2" routerLink="/kiem-ke" routerLinkActive="active" (click)="closeSidebar()">
-                <span class="nav-link-icon d-md-none d-lg-inline-block"><i class="ti ti-clipboard-check" style="font-size: 1.1rem;"></i></span>
-                <span class="nav-link-title" style="font-size: 13.5px;">Kiểm kê</span>
+            <li class="nav-item" *ngFor="let item of staffMenuItems">
+              <a class="nav-link py-2" [routerLink]="'/' + item.path" routerLinkActive="active" (click)="closeSidebar()">
+                <span class="nav-link-icon d-md-none d-lg-inline-block"><i [class]="'ti ' + item.icon" style="font-size: 1.1rem;"></i></span>
+                <span class="nav-link-title" style="font-size: 13.5px;">{{ item.label }}</span>
               </a>
             </li>
           </ul>

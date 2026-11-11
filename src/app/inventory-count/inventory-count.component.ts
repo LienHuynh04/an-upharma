@@ -509,7 +509,7 @@ export class InventoryCountComponent implements OnInit {
     try {
       if (!this.hasFirebaseAdmin) {
         throw new Error(
-          "Chưa liên kết được tài khoản Firebase quyền quản lý. Đăng nhập lại bằng tài khoản quản lý (mật khẩu Firebase trùng mật khẩu đăng nhập) rồi thử lại.",
+          "Chưa mở khóa quản lý tài khoản Firebase. Mở trang Tài khoản kiểm kê, nhập mật khẩu quản trị để mở khóa, rồi quay lại đây thử lại.",
         );
       }
       const idToken = await this.staffAuthService.getValidIdToken();

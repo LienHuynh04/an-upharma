@@ -129,10 +129,6 @@ export class LoginComponent implements OnInit {
       });
       this.loadingProgress = 85;
 
-      // Best effort: link the manager's Firebase account (same credentials)
-      // so submitted staff counts can be reviewed. Never blocks this login.
-      await this.staffAuthService.trySignInSilently(this.username.trim(), this.password);
-
       const returnUrl = this.route.snapshot.queryParamMap.get("returnUrl") || "/dashboard";
       this.loadingProgress = 100;
       await this.router.navigateByUrl(returnUrl);

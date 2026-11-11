@@ -10,7 +10,7 @@ import {
   RouterOutlet,
 } from "@angular/router";
 import { UpharmaService } from "../upharma.service";
-import { StaffAuthService } from "../staff-auth.service";
+import { STAFF_PAGE_OPTIONS, StaffAuthService, StaffPageOption } from "../staff-auth.service";
 import { ShopVisibilityService } from "../shop-visibility.service";
 import { TabStateService, OpenTab } from "../tab-state.service";
 import { TabReuseStrategy } from "../tab-reuse.strategy";
@@ -64,6 +64,20 @@ export class LayoutComponent implements OnInit, OnDestroy {
   /** True when only a staff (inventory counter) session is present. */
   get staffOnly(): boolean {
     return this.staffAuth.hasSession() && !this.upharma.isAuthenticated();
+  }
+
+  /** Menu entries a staff-only session may see: exactly its granted pages. */
+  get staffMenuItems(): StaffPageOption[] {
+    const session = this.staffAuth.getSession();
+    if (!session) return [];
+    if (session.role === "admin") {
+      return [
+        { path: "tai-khoan-kiem-ke", label: "Tài khoản kiểm kê", icon: "ti-users" },
+        ...STAFF_PAGE_OPTIONS.filter((option) => option.path === "kiem-ke"),
+      ];
+    }
+    const pages = session.pages?.length ? session.pages : ["kiem-ke"];
+    return STAFF_PAGE_OPTIONS.filter((option) => pages.includes(option.path));
   }
 
   tabs: OpenTab[] = [];
