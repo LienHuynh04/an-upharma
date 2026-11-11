@@ -201,6 +201,19 @@ export class StaffAuthService {
 
   // --------------------------------------------------------------- sign-in
 
+  /**
+   * Whether a staff account with this username exists. Lookup failures
+   * (network, rules not deployed yet) count as "no" so the main login flow
+   * can safely fall back to the upstream Upharma API.
+   */
+  async hasStaffAccount(username: string): Promise<boolean> {
+    try {
+      return (await this.readAccount(username.trim().toLowerCase())) !== null;
+    } catch {
+      return false;
+    }
+  }
+
   async signIn(username: string, password: string): Promise<StaffSession> {
     const normalized = username.trim().toLowerCase();
     const account = await this.readAccount(normalized);
