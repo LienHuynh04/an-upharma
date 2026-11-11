@@ -353,6 +353,46 @@ export class InventoryCountComponent implements OnInit {
     this.searchInput?.nativeElement.focus();
   }
 
+  /** POS-style keypad of the staff app sheet: edits the quantity input as text. */
+  keypadPress(key: string): void {
+    const current = this.countedQuantityInput || "";
+    if (key === "clear") {
+      this.countedQuantityInput = "";
+      return;
+    }
+    if (key === "back") {
+      this.countedQuantityInput = current.slice(0, -1);
+      return;
+    }
+    if (key === ".") {
+      if (!current.includes(".")) this.countedQuantityInput = `${current || "0"}.`;
+      return;
+    }
+    if (/^\d$/.test(key)) {
+      this.countedQuantityInput = current === "0" ? key : current + key;
+    }
+  }
+
+  /** Staff app sheet: removes the active product from the session entirely. */
+  removeActiveProduct(): void {
+    const product = this.activeProduct;
+    if (!product) return;
+    if (product.countedQuantity !== null) {
+      this.deleteCountedProduct(product);
+    } else {
+      this.removePendingProduct(product);
+    }
+    this.closeCountForm();
+  }
+
+  /** Stepper chips of the staff app sheet: quick +/- amounts on the quantity. */
+  adjustQuantity(delta: number): void {
+    const current = Number(this.countedQuantityInput);
+    const base = Number.isFinite(current) ? current : 0;
+    const next = Math.max(0, Math.round((base + delta) * 1000) / 1000);
+    this.countedQuantityInput = String(next);
+  }
+
   closeCountForm(): void {
     this.activeProduct = null;
     this.countedQuantityInput = "";
