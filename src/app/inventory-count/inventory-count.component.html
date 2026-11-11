@@ -37,37 +37,31 @@
     </div>
 
     <ng-container *ngIf="!currentSession; else sessionWorkspace">
-      <div class="alert d-flex align-items-start gap-2" [class.alert-warning]="!catalogProducts.length && !loading" [class.alert-info]="loading || catalogProducts.length" *ngIf="catalogStatus">
-        <span>{{ catalogStatus }}</span>
+      <div class="small mb-2 d-flex align-items-center gap-2" [class.text-warning]="!catalogProducts.length && !loading" [class.text-secondary]="loading || catalogProducts.length" *ngIf="catalogStatus">
+        <i class="ti ti-info-circle" aria-hidden="true"></i><span>{{ catalogStatus }}</span>
       </div>
 
-      <div class="card mb-3" *ngIf="activeSession">
+      <div class="card mb-2" *ngIf="activeSession">
         <div class="card-status-start bg-success"></div>
-        <div class="card-body d-flex flex-wrap align-items-center justify-content-between gap-3">
-          <div>
-            <div class="text-secondary small mb-1">PHIÊN ĐANG KIỂM KÊ · {{ activeSession.createdAt | date: "dd/MM/yyyy" }}</div>
-            <h3 class="card-title mb-1">{{ activeSession.shopCode }}</h3>
-            <div class="text-secondary small">{{ activeSession.products.length | number }} mã đã thêm vào phiên · Lưu trên thiết bị này</div>
-          </div>
-          <button class="btn btn-primary" type="button" (click)="openSession(activeSession)" [disabled]="loading">
+        <div class="card-body py-2 d-flex flex-wrap align-items-center gap-2">
+          <span class="fw-semibold">Phiên đang kiểm kê · {{ activeSession.shopCode }}</span>
+          <span class="text-secondary small">{{ activeSession.createdAt | date: "dd/MM/yyyy" }} · {{ activeSession.products.length | number }} mã đã thêm · lưu trên thiết bị này</span>
+          <button class="btn btn-primary btn-sm ms-auto" type="button" (click)="openSession(activeSession)" [disabled]="loading">
             <i class="ti ti-play me-1" aria-hidden="true"></i>Vào đếm
           </button>
         </div>
       </div>
 
-      <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
-        <div>
-          <div class="page-pretitle">LỊCH SỬ TRÊN THIẾT BỊ</div>
-          <h3 class="mb-0">Các phiên kiểm kê</h3>
-        </div>
-        <button class="btn btn-outline-primary" type="button" (click)="startSession()" [disabled]="loading || !catalogProducts.length">
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+        <div class="fw-semibold">Các phiên kiểm kê <span class="text-secondary small fw-normal">· lịch sử trên thiết bị này</span></div>
+        <button class="btn btn-outline-primary btn-sm" type="button" (click)="startSession()" [disabled]="loading || !catalogProducts.length">
           <i class="ti ti-plus me-1" aria-hidden="true"></i>Mở phiên mới
         </button>
       </div>
 
       <section class="card" *ngIf="latestSessions.length; else emptySessions">
         <div class="list-group list-group-flush">
-          <div class="list-group-item d-flex flex-wrap align-items-center gap-3" *ngFor="let session of latestSessions">
+          <div class="list-group-item py-2 d-flex flex-wrap align-items-center gap-3" *ngFor="let session of latestSessions">
             <span class="avatar bg-primary-lt text-primary">
               <i class="ti ti-clipboard-check" aria-hidden="true"></i>
             </span>
@@ -115,7 +109,7 @@
         </section>
       </ng-template>
       <section class="card mt-3" *ngIf="!staffMode">
-        <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <div class="card-header py-2 d-flex flex-wrap align-items-center justify-content-between gap-2">
           <div>
             <div class="page-pretitle">KẾT QUẢ NHÂN VIÊN ĐÃ NỘP</div>
             <h3 class="card-title">Đối chiếu kiểm kê · {{ selectedShopCode }}</h3>
@@ -183,22 +177,22 @@
             </div>
           </ng-container>
           <ng-container *ngIf="selectedSubmission">
-            <div class="card-body pb-0">
-              <div class="d-flex flex-wrap align-items-center gap-3 mb-3">
+            <div class="card-body py-2">
+              <div class="d-flex flex-wrap align-items-center gap-2">
                 <button class="btn btn-outline-secondary btn-sm" type="button" (click)="backToSheetList()">
                   <i class="ti ti-arrow-left me-1" aria-hidden="true"></i>Danh sách phiếu
                 </button>
-                <div class="flex-fill min-w-0">
-                  <div class="fw-semibold">Chi tiết phiếu của {{ selectedSubmission.staffName }}</div>
-                  <div class="text-secondary small">{{ selectedShopCode }} · nộp lúc {{ selectedSubmission.completedAt | date: "HH:mm dd/MM/yyyy" }} · {{ sheetRows.length }} mã — chấm Đúng/Sai cho từng mã.</div>
-                </div>
+                <span class="fw-semibold">Chi tiết phiếu của {{ selectedSubmission.staffName }}</span>
+                <span class="text-secondary small">{{ selectedShopCode }} · nộp {{ selectedSubmission.completedAt | date: "HH:mm dd/MM/yyyy" }} · {{ sheetRows.length }} mã</span>
+                <span class="ms-auto d-flex gap-2">
                 <span class="badge bg-success-lt text-success">Đúng {{ verdictSummary.correct }}</span>
                 <span class="badge bg-danger-lt text-danger">Sai {{ verdictSummary.wrong }}</span>
                 <span class="badge bg-secondary-lt text-secondary" *ngIf="verdictSummary.pending">Chưa chấm {{ verdictSummary.pending }}</span>
+                </span>
               </div>
             </div>
-            <div class="table-responsive" *ngIf="sheetRows.length">
-              <table class="table table-vcenter card-table table-hover">
+            <div class="table-responsive review-table-scroll" *ngIf="sheetRows.length">
+              <table class="table table-sm table-vcenter card-table table-hover">
                 <thead>
                   <tr>
                     <th>Mã SP</th>
