@@ -45,10 +45,30 @@
       </div>
     </div>
 
-    <form class="login-form" (ngSubmit)="submitLogin()">
+    <form class="login-form" (ngSubmit)="onSubmit()">
       <span class="login-kicker">UPHARMA LOGIN</span>
       <h1>Xin chào, đăng nhập rồi mình mới xem được nha.</h1>
       <p>Thông tin đăng nhập chỉ được giữ trong ngày hôm nay. Qua ngày mới hoặc đăng xuất thì mình đăng nhập lại giúp hệ thống an toàn hơn.</p>
+
+      <div class="btn-group w-100 mb-3" role="group" aria-label="Loại tài khoản">
+        <button
+          type="button"
+          class="btn"
+          [class.btn-primary]="loginMode === 'manager'"
+          [class.btn-outline-primary]="loginMode !== 'manager'"
+          (click)="loginMode = 'manager'; errorText = ''"
+        >Quản lý</button>
+        <button
+          type="button"
+          class="btn"
+          [class.btn-primary]="loginMode === 'staff'"
+          [class.btn-outline-primary]="loginMode !== 'staff'"
+          (click)="loginMode = 'staff'; errorText = ''"
+        >Nhân viên kiểm kê</button>
+      </div>
+      <p class="small text-secondary" *ngIf="loginMode === 'staff'">
+        Tài khoản nhân viên do quản lý cấp, chỉ vào được trang kiểm kê của shop được phân.
+      </p>
 
       <label>
         <span>Tài khoản</span>
@@ -57,7 +77,7 @@
           name="username"
           type="text"
           autocomplete="username"
-          placeholder="Nhập số điện thoại"
+          [placeholder]="loginMode === 'staff' ? 'Nhập tên tài khoản nhân viên' : 'Nhập số điện thoại'"
           (focus)="focusedField = 'username'"
           (blur)="focusedField = ''"
         />

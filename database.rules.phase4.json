@@ -1,0 +1,62 @@
+{
+  "rules": {
+    ".read": "false",
+    ".write": "false",
+    "staff_accounts": {
+      ".read": true,
+      ".write": true
+    },
+    "shop_catalog_index": {
+      ".read": true,
+      ".write": false
+    },
+    "shop_catalog": {
+      "$shopCode": {
+        ".read": true,
+        ".write": false
+      }
+    },
+    "count_submissions": {
+      ".read": true,
+      ".write": true
+    },
+    "count_final_reviews": {
+      ".read": true,
+      ".write": true
+    },
+    "hidden_products": {
+      ".read": "true",
+      ".write": "auth != null"
+    },
+    "national_inventory_cache": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "product_catalog": {
+      ".read": "true",
+      ".write": "auth != null"
+    },
+    "shops": {
+      "$shopCode": {
+        "upharma_data": {
+          ".read": "auth != null",
+          ".write": "auth != null"
+        }
+      }
+    },
+    "shops_summary": {
+      ".read": "true",
+      ".write": "auth != null"
+    },
+    "transfer_suggestions_cache": {
+      ".read": "true",
+      ".write": "auth != null"
+    },
+    "users_by_username": {
+      "$username": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    }
+  }
+}

@@ -81,6 +81,8 @@
             <span class="badge" [class.bg-orange-lt]="session.status === 'counting'" [class.text-orange]="session.status === 'counting'" [class.bg-success-lt]="session.status === 'completed'" [class.text-success]="session.status === 'completed'">
               {{ session.status === "completed" ? "Hoàn thành" : "Đang đếm" }}
             </span>
+            <span class="badge bg-success-lt text-success" *ngIf="staffMode && session.status === 'completed' && session.submittedAt">Đã nộp</span>
+            <span class="badge bg-orange-lt text-orange" *ngIf="staffMode && session.status === 'completed' && !session.submittedAt">Chưa nộp</span>
             <div class="btn-list flex-nowrap">
               <button class="btn btn-sm btn-outline-primary" type="button" (click)="openSession(session)">
                 {{ session.status === "completed" ? "Kết quả" : "Mở" }}
@@ -112,6 +114,94 @@
           </div>
         </section>
       </ng-template>
+      <section class="card mt-3" *ngIf="!staffMode">
+        <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
+          <div>
+            <div class="page-pretitle">KẾT QUẢ NHÂN VIÊN ĐÃ NỘP</div>
+            <h3 class="card-title">Đối chiếu kiểm kê · {{ selectedShopCode }}</h3>
+          </div>
+          <button class="btn btn-outline-primary" type="button" (click)="loadSubmissions()" [disabled]="submissionsLoading">
+            <i class="ti ti-refresh me-1" aria-hidden="true"></i>{{ submissionsLoading ? "Đang tải…" : "Tải kết quả nhân viên nộp" }}
+          </button>
+        </div>
+        <div class="card-body" *ngIf="!reviewLoaded && !submissionsError">
+          <p class="text-secondary mb-0">
+            Bấm "Tải kết quả nhân viên nộp" để xem các phiếu kiểm kê nhân viên đã gửi cho shop đang chọn.
+            Nhiều nhân viên đếm cùng một mã là đối chứng độc lập — các số được xếp cạnh nhau để bạn chốt,
+            hệ thống không tự cộng hay tự chọn.
+          </p>
+        </div>
+        <div class="alert alert-danger mx-3 mt-3 mb-0" *ngIf="submissionsError">{{ submissionsError }}</div>
+        <ng-container *ngIf="reviewLoaded">
+          <div class="card-body pb-0" *ngIf="submissions.length">
+            <div class="text-secondary small mb-2">{{ submissions.length }} phiếu đã nộp:</div>
+            <div class="d-flex flex-wrap gap-2">
+              <span class="badge bg-primary-lt text-primary" *ngFor="let submission of submissions">
+                {{ submission.staffName }} · {{ submission.completedAt | date: "HH:mm dd/MM" }} · {{ submission.items.length }} mã
+              </span>
+            </div>
+          </div>
+          <div class="card-body" *ngIf="!submissions.length">
+            <p class="text-secondary mb-0">Chưa có nhân viên nào nộp kết quả cho shop này.</p>
+          </div>
+          <div class="table-responsive" *ngIf="reviewRows.length">
+            <table class="table table-vcenter card-table table-striped table-hover">
+              <thead>
+                <tr>
+                  <th>Mã SP</th>
+                  <th>Tên sản phẩm</th>
+                  <th class="text-end">SL tồn kho</th>
+                  <th>SL nhân viên đếm</th>
+                  <th class="text-end" style="min-width: 130px;">SL chốt</th>
+                  <th class="text-end">Lệch sau chốt</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let row of reviewRows" [class.table-warning]="countsDisagree(row)">
+                  <td class="text-primary fw-semibold">{{ row.code }}</td>
+                  <td>{{ row.name }}<small class="d-block text-secondary">{{ row.unit }}</small></td>
+                  <td class="text-end">{{ row.expectedQuantity !== null ? (row.expectedQuantity | number) : "—" }}</td>
+                  <td>
+                    <span
+                      class="badge me-1"
+                      *ngFor="let count of row.counts"
+                      [class.bg-success-lt]="!countsDisagree(row)"
+                      [class.text-success]="!countsDisagree(row)"
+                      [class.bg-orange-lt]="countsDisagree(row)"
+                      [class.text-orange]="countsDisagree(row)"
+                    >{{ count.staffName }}: {{ count.quantity | number }}</span>
+                    <span class="badge bg-danger-lt text-danger" *ngIf="countsDisagree(row)">Lệch số đếm</span>
+                  </td>
+                  <td class="text-end">
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      class="form-control form-control-sm text-end"
+                      [(ngModel)]="finalQuantities[row.code]"
+                      [ngModelOptions]="{ standalone: true }"
+                      placeholder="Chốt"
+                    />
+                  </td>
+                  <td class="text-end">{{ finalDifferenceText(row) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="card-footer d-flex flex-wrap align-items-center justify-content-between gap-2" *ngIf="reviewRows.length">
+            <span class="text-success small" *ngIf="reviewNotice">{{ reviewNotice }}</span>
+            <span class="text-secondary small" *ngIf="!reviewNotice">Mã tô vàng = các nhân viên đếm lệch nhau, cần chốt tay.</span>
+            <div class="btn-list">
+              <button class="btn btn-outline-primary btn-sm" type="button" (click)="exportReview()" [disabled]="exporting">
+                <i class="ti ti-file-export me-1" aria-hidden="true"></i>Xuất Excel đối chiếu
+              </button>
+              <button class="btn btn-primary btn-sm" type="button" (click)="saveFinalReview()" [disabled]="savingReview">
+                {{ savingReview ? "Đang lưu…" : "Lưu số chốt" }}
+              </button>
+            </div>
+          </div>
+        </ng-container>
+      </section>
     </ng-container>
 
     <ng-template #sessionWorkspace>
@@ -196,6 +286,7 @@
                 <span class="min-w-0">
                   <strong class="d-block text-truncate">{{ product.name }}</strong>
                   <small class="text-secondary">{{ product.code }} · {{ product.unit || "Chưa có đơn vị" }}</small>
+                  <span class="badge bg-orange-lt text-orange ms-1" *ngIf="product.outsideCatalog">Ngoài danh mục shop</span>
                 </span>
               </button>
             </div>
@@ -203,13 +294,15 @@
             <p class="text-secondary small mt-3 mb-0" *ngIf="!activeProduct">
               Nhập mã / tên sản phẩm <span class="text-primary mx-1">→</span>
               nhập số lượng thực tế <span class="text-primary mx-1">→</span> nhấn <strong>Enter</strong> hoặc bấm <strong>Kiểm kê</strong> để lưu.
-              Kết quả đối chiếu chỉ hiện sau khi hoàn thành phiên.
+              <span *ngIf="!staffMode">Kết quả đối chiếu chỉ hiện sau khi hoàn thành phiên.</span>
+              <span *ngIf="staffMode">Hoàn thành phiên để nộp kết quả cho quản lý.</span>
             </p>
 
             <form class="card card-body stocktake-entry-card mt-3" *ngIf="activeProduct" (ngSubmit)="saveCount()">
               <div class="d-flex align-items-start justify-content-between gap-2">
                 <div>
                   <span class="badge stocktake-added-badge mb-2">Đã thêm vào phiên</span>
+                  <span class="badge bg-orange-lt text-orange mb-2 ms-1" *ngIf="activeProduct.outsideCatalog">Ngoài danh mục shop</span>
                   <h3 class="card-title mb-1">{{ activeProduct.name }}</h3>
                   <div class="text-secondary small">{{ activeProduct.code }} · {{ activeProduct.unit || "Chưa có đơn vị" }}</div>
                 </div>
@@ -295,7 +388,64 @@
       </ng-container>
 
       <ng-container *ngIf="currentTab === 'results' && currentSession?.status === 'completed' && !editingCompletedSession">
-        <div class="row row-cards mb-3">
+        <div class="row row-cards mb-3" *ngIf="staffMode">
+          <div class="col-6">
+            <div class="card card-sm h-100"><div class="card-body">
+              <div class="text-secondary small">Sản phẩm đã đếm</div>
+              <div class="h2 mb-0">{{ countedProducts.length | number }}</div>
+            </div></div>
+          </div>
+          <div class="col-6">
+            <div class="card card-sm h-100"><div class="card-body">
+              <div class="text-secondary small">Trạng thái nộp kết quả</div>
+              <div class="h2 mb-0" [class.text-success]="currentSession?.submittedAt" [class.text-orange]="!currentSession?.submittedAt">
+                {{ currentSession?.submittedAt ? "Đã nộp" : "Chưa nộp" }}
+              </div>
+              <div class="text-secondary small" *ngIf="currentSession?.submittedAt">
+                lúc {{ currentSession?.submittedAt | date: "HH:mm dd/MM" }}
+              </div>
+            </div></div>
+          </div>
+        </div>
+
+        <section class="card mb-3" *ngIf="staffMode">
+          <div class="card-header">
+            <div>
+              <div class="page-pretitle">PHIẾU KIỂM KÊ CỦA BẠN</div>
+              <h3 class="card-title">Số đã đếm ({{ countedProducts.length | number }} mã)</h3>
+            </div>
+          </div>
+          <div class="table-responsive" *ngIf="countedProducts.length; else noStaffResults">
+            <table class="table table-vcenter card-table table-striped table-hover">
+              <thead>
+                <tr>
+                  <th>Mã SP</th>
+                  <th>Tên sản phẩm</th>
+                  <th class="text-end">SL đếm</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let product of countedProducts">
+                  <td class="text-primary fw-semibold">{{ product.code }}</td>
+                  <td>
+                    {{ product.name }}<small class="d-block text-secondary">{{ product.unit }}</small>
+                    <span class="badge bg-orange-lt text-orange" *ngIf="product.outsideCatalog">Ngoài danh mục shop</span>
+                  </td>
+                  <td class="text-end">{{ product.countedQuantity | number }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <ng-template #noStaffResults>
+            <div class="card-body text-center text-secondary">Chưa có sản phẩm được kiểm kê.</div>
+          </ng-template>
+          <div class="card-footer d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <span class="text-secondary small">Kết quả đối chiếu do quản lý xem. Số đếm của đồng nghiệp không hiển thị ở đây.</span>
+            <button class="btn btn-outline-primary btn-sm" type="button" (click)="editCurrentSession()">Sửa phiên</button>
+          </div>
+        </section>
+
+        <div class="row row-cards mb-3" *ngIf="!staffMode">
           <div class="col-6 col-md-3">
             <div class="card card-sm h-100"><div class="card-body">
               <div class="text-secondary small">Sản phẩm đã đếm</div>
@@ -324,7 +474,7 @@
           </div>
         </div>
 
-        <section class="card">
+        <section class="card" *ngIf="!staffMode">
           <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
             <div>
               <div class="page-pretitle">ĐỐI CHIẾU TỒN KHO</div>

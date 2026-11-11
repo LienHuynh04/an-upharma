@@ -3,6 +3,13 @@ import { Component, ElementRef, OnInit, ViewChild } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { normalizeFilterText, normalizeInventoryRow, parseNumericValue } from "../inventory-utils";
 import { ExcelExportService } from "../shared/services/excel-export.service";
+import { StaffAuthService } from "../staff-auth.service";
+import {
+  CountSubmission,
+  FinalReview,
+  ShopCatalogIndexEntry,
+  StaffCountService,
+} from "../staff-count.service";
 import { LoginResponse, RawRecord, ResourceResponse, ShopInfo, UpharmaService } from "../upharma.service";
 
 interface CountProduct {
@@ -12,6 +19,17 @@ interface CountProduct {
   expectedQuantity: number;
   unitPrice: number;
   countedQuantity: number | null;
+  /** Staff mode only: product found on the shelf but absent from the shop catalog. */
+  outsideCatalog?: boolean;
+}
+
+/** One row of the manager's cross-check table (manager mode only). */
+interface ReviewRow {
+  code: string;
+  name: string;
+  unit: string;
+  expectedQuantity: number | null;
+  counts: { staffName: string; quantity: number }[];
 }
 
 interface CountSession {
@@ -23,6 +41,10 @@ interface CountSession {
   createdAt: number;
   completedAt?: number;
   products: CountProduct[];
+  /** Staff mode: when the finished sheet was submitted to the manager. */
+  submittedAt?: number;
+  /** Staff mode: finished but the submission has not reached the server yet. */
+  submitPending?: boolean;
 }
 
 interface InventoryCacheRecord {
@@ -63,9 +85,26 @@ export class InventoryCountComponent implements OnInit {
   noticeMessage = "";
   catalogStatus = "";
 
+  // Staff (inventory counter) mode: slim catalog, blind counting, submission.
+  staffMode = false;
+  private staffUid = "";
+  private extraCatalogProducts: CountProduct[] = [];
+
+  // Manager review of submitted staff counts (manager mode only).
+  submissions: CountSubmission[] = [];
+  submissionsLoading = false;
+  submissionsError = "";
+  reviewLoaded = false;
+  reviewRows: ReviewRow[] = [];
+  finalQuantities: Record<string, number | null> = {};
+  savingReview = false;
+  reviewNotice = "";
+
   constructor(
     private readonly upharmaService: UpharmaService,
     private readonly excelExportService: ExcelExportService,
+    private readonly staffAuthService: StaffAuthService,
+    private readonly staffCountService: StaffCountService,
   ) {}
 
   ngOnInit(): void {
@@ -115,7 +154,12 @@ export class InventoryCountComponent implements OnInit {
   get matchingProducts(): CountProduct[] {
     const query = normalizeFilterText(this.searchText);
     if (!query) return [];
-    return this.catalogProducts
+    // Staff may also add a product found on the shelf that the shop catalog
+    // does not list (system stock zero) — those come from the global catalog.
+    const searchable = this.staffMode
+      ? [...this.catalogProducts, ...this.extraCatalogProducts]
+      : this.catalogProducts;
+    return searchable
       .filter((product) => normalizeFilterText(`${product.code} ${product.name}`).includes(query))
       .slice(0, 8);
   }
@@ -137,6 +181,11 @@ export class InventoryCountComponent implements OnInit {
   async onShopChange(): Promise<void> {
     this.errorMessage = "";
     this.noticeMessage = "";
+    this.reviewLoaded = false;
+    this.submissions = [];
+    this.reviewRows = [];
+    this.submissionsError = "";
+    this.reviewNotice = "";
     this.loadSavedSessions();
     await this.loadProductCatalog();
   }
@@ -236,7 +285,9 @@ export class InventoryCountComponent implements OnInit {
     if (product) {
       this.selectProduct(product);
     } else if (this.matchingProducts.length === 0) {
-      this.errorMessage = "Không tìm thấy mã hàng trong danh mục tồn kho đã lưu.";
+      this.errorMessage = this.staffMode
+        ? "Không tìm thấy mã hàng trong danh mục sản phẩm."
+        : "Không tìm thấy mã hàng trong danh mục tồn kho đã lưu.";
     } else {
       this.noticeMessage = "Có nhiều sản phẩm phù hợp. Chọn đúng sản phẩm trong danh sách.";
     }
@@ -347,6 +398,68 @@ export class InventoryCountComponent implements OnInit {
     this.currentTab = "results";
     this.errorMessage = "";
     this.noticeMessage = "Đã hoàn thành kiểm kê. Có thể xuất báo cáo Excel.";
+    if (this.staffMode) {
+      void this.submitSessionToServer(completedSession);
+    }
+  }
+
+  /** Builds the server payload for one finished staff count sheet. */
+  private buildSubmission(session: CountSession): CountSubmission {
+    return {
+      id: session.id,
+      staffUid: this.staffUid,
+      staffName: this.userName,
+      shopCode: session.shopCode,
+      shopName: session.shopName,
+      createdAt: session.createdAt,
+      completedAt: session.completedAt || Date.now(),
+      items: session.products
+        .filter((product) => product.countedQuantity !== null)
+        .map((product) => ({
+          code: product.code,
+          name: product.name,
+          unit: product.unit,
+          countedQuantity: product.countedQuantity as number,
+          ...(product.outsideCatalog ? { outsideCatalog: true } : {}),
+        })),
+    };
+  }
+
+  /**
+   * Staff mode: pushes a finished sheet to the manager. The sheet counts are
+   * blind — staff can write their own sheet but can never read anyone's.
+   * Failures (e.g. no signal in the warehouse) keep the sheet on the device
+   * flagged as pending and it is retried on the next visit.
+   */
+  private async submitSessionToServer(session: CountSession): Promise<void> {
+    try {
+      await this.staffCountService.submitCount(this.buildSubmission(session));
+      session.submittedAt = Date.now();
+      session.submitPending = false;
+      this.sessions = this.sessions.map((item) => (item.id === session.id ? session : item));
+      this.saveSessions();
+      if (this.currentSession?.id === session.id) {
+        this.noticeMessage = "Đã hoàn thành và nộp kết quả kiểm kê cho quản lý.";
+      }
+    } catch (error) {
+      console.warn("Chưa nộp được kết quả kiểm kê, sẽ thử lại sau:", error);
+      session.submitPending = true;
+      this.sessions = this.sessions.map((item) => (item.id === session.id ? session : item));
+      this.saveSessions();
+      if (this.currentSession?.id === session.id) {
+        this.noticeMessage =
+          "Đã hoàn thành kiểm kê trên thiết bị này. Chưa nộp được kết quả (mất mạng?) — hệ thống sẽ tự nộp lại khi có mạng.";
+      }
+    }
+  }
+
+  private async retryPendingSubmissions(): Promise<void> {
+    const pending = this.sessions.filter(
+      (session) => session.status === "completed" && session.submitPending,
+    );
+    for (const session of pending) {
+      await this.submitSessionToServer(session);
+    }
   }
 
   async exportReport(): Promise<void> {
@@ -376,6 +489,145 @@ export class InventoryCountComponent implements OnInit {
     }
   }
 
+  /**
+   * Manager review: loads every count sheet staff submitted for the selected
+   * shop and lines the counts up per product — several staff counting the same
+   * product at the same time is intentional cross-checking, so the numbers are
+   * shown side by side and never summed or auto-picked.
+   */
+  async loadSubmissions(): Promise<void> {
+    if (this.staffMode || this.submissionsLoading) return;
+    this.submissionsLoading = true;
+    this.submissionsError = "";
+    this.reviewNotice = "";
+    try {
+      this.submissions = await this.staffCountService.listSubmissions(this.selectedShopCode);
+      this.buildReviewRows();
+      this.reviewLoaded = true;
+    } catch (error) {
+      this.submissionsError = this.errorText(error);
+    } finally {
+      this.submissionsLoading = false;
+    }
+  }
+
+  private buildReviewRows(): void {
+    const expectedByCode = new Map(this.catalogProducts.map((product) => [product.code, product]));
+    const rowsByCode = new Map<string, ReviewRow>();
+    // Submissions arrive newest first: the first count seen per staff member
+    // and product is that member's latest count for the product.
+    const seenStaffProduct = new Set<string>();
+    for (const submission of this.submissions) {
+      for (const item of submission.items) {
+        const seenKey = `${submission.staffUid}:${item.code}`;
+        if (seenStaffProduct.has(seenKey)) continue;
+        seenStaffProduct.add(seenKey);
+        let row = rowsByCode.get(item.code);
+        if (!row) {
+          const expected = expectedByCode.get(item.code);
+          row = {
+            code: item.code,
+            name: expected?.name || item.name,
+            unit: expected?.unit || item.unit || "",
+            expectedQuantity: expected ? expected.expectedQuantity : null,
+            counts: [],
+          };
+          rowsByCode.set(item.code, row);
+        }
+        row.counts.push({ staffName: submission.staffName, quantity: item.countedQuantity });
+      }
+    }
+    this.reviewRows = Array.from(rowsByCode.values()).sort((first, second) =>
+      first.name.localeCompare(second.name, "vi", { sensitivity: "base" }),
+    );
+    this.finalQuantities = {};
+    for (const row of this.reviewRows) {
+      const quantities = row.counts.map((count) => count.quantity);
+      this.finalQuantities[row.code] =
+        quantities.length > 0 && quantities.every((quantity) => quantity === quantities[0])
+          ? quantities[0]
+          : null;
+    }
+  }
+
+  /** True when at least two staff counts for the row disagree. */
+  countsDisagree(row: ReviewRow): boolean {
+    return row.counts.some((count) => count.quantity !== row.counts[0].quantity);
+  }
+
+  finalDifferenceText(row: ReviewRow): string {
+    const finalQuantity = this.finalQuantities[row.code];
+    if (finalQuantity === null || finalQuantity === undefined || row.expectedQuantity === null) {
+      return "—";
+    }
+    return this.formatSigned(finalQuantity - row.expectedQuantity);
+  }
+
+  async saveFinalReview(): Promise<void> {
+    if (this.staffMode || this.savingReview || this.reviewRows.length === 0) return;
+    this.savingReview = true;
+    this.reviewNotice = "";
+    this.submissionsError = "";
+    try {
+      const review: FinalReview = {
+        id: `review-${Date.now().toString(36)}`,
+        shopCode: this.selectedShopCode,
+        reviewedBy: this.userName,
+        reviewedAt: Date.now(),
+        items: this.reviewRows.map((row) => ({
+          code: row.code,
+          finalQuantity: this.finalQuantities[row.code] ?? null,
+        })),
+      };
+      await this.staffCountService.saveFinalReview(review);
+      this.reviewNotice = "Đã lưu số chốt cho đợt kiểm kê này.";
+    } catch (error) {
+      this.submissionsError = this.errorText(error);
+    } finally {
+      this.savingReview = false;
+    }
+  }
+
+  async exportReview(): Promise<void> {
+    if (this.staffMode || this.exporting || this.reviewRows.length === 0) return;
+    this.exporting = true;
+    this.errorMessage = "";
+    try {
+      const staffNames = Array.from(
+        new Set(this.reviewRows.flatMap((row) => row.counts.map((count) => count.staffName))),
+      );
+      const rows = this.reviewRows.map((row) => {
+        const record: Record<string, unknown> = {
+          "Mã SP": row.code,
+          "Tên SP": row.name,
+          "Đơn vị": row.unit,
+          "SL tồn kho": row.expectedQuantity,
+        };
+        for (const staffName of staffNames) {
+          record[`SL đếm - ${staffName}`] =
+            row.counts.find((count) => count.staffName === staffName)?.quantity ?? "";
+        }
+        const finalQuantity = this.finalQuantities[row.code];
+        record["SL chốt"] = finalQuantity ?? "";
+        record["SL chênh lệch (chốt - tồn)"] =
+          finalQuantity !== null && finalQuantity !== undefined && row.expectedQuantity !== null
+            ? finalQuantity - row.expectedQuantity
+            : "";
+        return record;
+      });
+      const date = new Date().toISOString().slice(0, 10);
+      await this.excelExportService.exportJsonToExcel(
+        rows,
+        `Doi-chieu-kiem-ke-${this.selectedShopCode}-${date}.xlsx`,
+        "Đối chiếu kiểm kê",
+      );
+    } catch (error) {
+      this.errorMessage = `Không xuất được báo cáo Excel: ${this.errorText(error)}`;
+    } finally {
+      this.exporting = false;
+    }
+  }
+
   formatSigned(value: number): string {
     return `${value > 0 ? "+" : ""}${new Intl.NumberFormat("vi-VN", {
       maximumFractionDigits: 3,
@@ -389,6 +641,11 @@ export class InventoryCountComponent implements OnInit {
   private async initialize(): Promise<void> {
     this.loading = true;
     try {
+      const staffSession = this.staffAuthService.getSession();
+      if (staffSession && !this.upharmaService.isAuthenticated()) {
+        await this.initializeStaffMode(staffSession.uid, staffSession.displayName, staffSession.shops);
+        return;
+      }
       const login: LoginResponse = this.upharmaService.ensureLogin();
       this.userId = login.UserInfo.uPharmaID;
       this.userName = login.UserInfo.FullName || "";
@@ -407,7 +664,86 @@ export class InventoryCountComponent implements OnInit {
     }
   }
 
+  /**
+   * Staff mode entry point: the counter sees only their assigned shops and
+   * the slim per-shop catalog (code + name + unit). System quantities and
+   * prices are never fetched in this mode.
+   */
+  private async initializeStaffMode(uid: string, displayName: string, shopCodes: string[]): Promise<void> {
+    this.staffMode = true;
+    this.staffUid = uid;
+    this.userName = displayName || "Nhân viên kiểm kê";
+    const index = await this.staffCountService
+      .getShopCatalogIndex()
+      .catch((): Record<string, ShopCatalogIndexEntry> => ({}));
+    this.shops = shopCodes.map((code) => ({
+      ShopCode: code,
+      ShopName: index[code]?.name || code,
+    }));
+    if (this.shops.length === 0) {
+      throw new Error("Tài khoản chưa được phân shop kiểm kê nào. Liên hệ quản lý.");
+    }
+    this.selectedShopCode = this.shops[0].ShopCode;
+    this.loadSavedSessions();
+    await this.loadProductCatalog();
+    await this.retryPendingSubmissions();
+  }
+
+  private async loadStaffCatalog(): Promise<void> {
+    this.loading = true;
+    this.errorMessage = "";
+    this.catalogStatus = "";
+    try {
+      const catalog = await this.staffCountService.getShopCatalog(this.selectedShopCode);
+      const items = catalog?.items || [];
+      this.catalogProducts = items.map((item) => ({
+        code: item.c,
+        name: item.n || item.c,
+        unit: item.u || "",
+        expectedQuantity: 0,
+        unitPrice: 0,
+        countedQuantity: null,
+      }));
+      const inShopCodes = new Set(items.map((item) => item.c));
+      const globalItems = await this.staffCountService.getGlobalCatalog().catch(() => []);
+      this.extraCatalogProducts = globalItems
+        .filter((item) => !inShopCodes.has(item.c))
+        .map((item) => ({
+          code: item.c,
+          name: item.n || item.c,
+          unit: item.u || "",
+          expectedQuantity: 0,
+          unitPrice: 0,
+          countedQuantity: null,
+          outsideCatalog: true,
+        }));
+      if (items.length === 0) {
+        this.catalogStatus = `Chưa có danh mục sản phẩm cho ${this.selectedShopCode}. Danh mục được tạo ở lần đồng bộ kế tiếp.`;
+      } else {
+        const updatedText = catalog?.updatedAt
+          ? ` · cập nhật ${new Intl.DateTimeFormat("vi-VN", {
+              hour: "2-digit",
+              minute: "2-digit",
+              day: "2-digit",
+              month: "2-digit",
+            }).format(new Date(catalog.updatedAt))}`
+          : "";
+        this.catalogStatus = `Danh mục gồm ${items.length} sản phẩm đang có hàng tại ${this.selectedShopCode}${updatedText}. Chỉ gồm mã và tên sản phẩm để kiểm kê.`;
+      }
+    } catch (error) {
+      this.catalogProducts = [];
+      this.extraCatalogProducts = [];
+      this.errorMessage = this.errorText(error);
+    } finally {
+      this.loading = false;
+    }
+  }
+
   private async loadProductCatalog(): Promise<void> {
+    if (this.staffMode) {
+      await this.loadStaffCatalog();
+      return;
+    }
     const login = this.upharmaService.getSession();
     if (!login || !this.selectedShopCode) return;
     this.loading = true;
@@ -614,7 +950,8 @@ export class InventoryCountComponent implements OnInit {
   }
 
   private sessionsStorageKey(): string {
-    return `upharma_inventory_count:${this.userId}:${this.selectedShopCode}`;
+    const ownerKey = this.staffMode ? `staff-${this.staffUid}` : String(this.userId);
+    return `upharma_inventory_count:${ownerKey}:${this.selectedShopCode}`;
   }
 
   private errorText(error: unknown): string {

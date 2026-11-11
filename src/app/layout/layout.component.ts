@@ -10,6 +10,7 @@ import {
   RouterOutlet,
 } from "@angular/router";
 import { UpharmaService } from "../upharma.service";
+import { STAFF_PAGE_OPTIONS, StaffAuthService, StaffPageOption } from "../staff-auth.service";
 import { ShopVisibilityService } from "../shop-visibility.service";
 import { TabStateService, OpenTab } from "../tab-state.service";
 import { TabReuseStrategy } from "../tab-reuse.strategy";
@@ -53,11 +54,25 @@ export class LayoutComponent implements OnInit, OnDestroy {
 
   constructor(
     public upharma: UpharmaService,
+    public staffAuth: StaffAuthService,
     public router: Router,
     public tabState: TabStateService,
     private reuseStrategy: TabReuseStrategy,
     private shopVisibility: ShopVisibilityService
   ) {}
+
+  /** True when only a staff (inventory counter) session is present. */
+  get staffOnly(): boolean {
+    return this.staffAuth.hasSession() && !this.upharma.isAuthenticated();
+  }
+
+  /** Menu entries a staff-only session may see: exactly its granted pages. */
+  get staffMenuItems(): StaffPageOption[] {
+    const session = this.staffAuth.getSession();
+    if (!session) return [];
+    const pages = session.pages?.length ? session.pages : ["kiem-ke"];
+    return STAFF_PAGE_OPTIONS.filter((option) => pages.includes(option.path));
+  }
 
   tabs: OpenTab[] = [];
   activePath = "";
@@ -888,6 +903,12 @@ renderDashboard(); renderInventory(); renderNearExpiryOrders(); renderTabs(); re
 
   checkSession() {
     if (!this.upharma.isAuthenticated()) {
+      const staffSession = this.staffAuth.getSession();
+      if (staffSession) {
+        this.userTitle = staffSession.displayName || "Nhân viên kiểm kê";
+        this.brandShopText = staffSession.shops?.[0] || "";
+        return;
+      }
       this.router.navigate(["/login"]);
       return;
     }
@@ -991,6 +1012,7 @@ renderDashboard(); renderInventory(); renderNearExpiryOrders(); renderTabs(); re
   async confirmLogout() {
     this.showLogoutConfirm = false;
     this.upharma.clearSession();
+    this.staffAuth.signOut();
     await this.router.navigateByUrl("/login", { replaceUrl: true });
   }
 
