@@ -19,7 +19,7 @@ quantity per product.
   percent-encoded).
 - Passwords are never stored in plain text: each account stores a salted
   **PBKDF2-SHA256** hash (120 000 iterations). Staff passwords must be at
-  least 8 characters and should be used only for this app.
+  least 4 characters and should be used only for this app.
 - Staff sign in on the login page's **Nhân viên kiểm kê** tab with the
   username and password the manager gave them. The app reads the account
   record, verifies the password against the stored hash in the browser, and
@@ -67,7 +67,7 @@ else to configure.
 
 ## Daily use
 
-- Manager: open **Tài khoản kiểm kê**, fill in username, password (≥ 8
+- Manager: open **Tài khoản kiểm kê**, fill in username, password (≥ 4
   characters), full name, the shops the person is responsible for, and the
   pages they may open (**Kiểm kê** is pre-selected), then **Tạo tài khoản**.
   Later, **Phân quyền** on a row re-assigns shops/pages and can also set a

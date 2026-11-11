@@ -22,7 +22,7 @@ import { environment } from "../environments/environment";
  * app-level, not database-rule level — the login flow must be able to read
  * the stored hash to verify a password, so the hashes are readable by anyone
  * who knows the database address. Staff passwords must therefore be at least
- * 8 characters and unique to this app. Locking an account (`active: false`)
+ * 4 characters and unique to this app. Locking an account (`active: false`)
  * takes effect at the next sign-in check.
  */
 
@@ -94,7 +94,7 @@ interface StoredStaffAccount {
 const SESSION_STORAGE_KEY = "upharma_staff_session";
 const STAFF_USERNAME_PATTERN = /^[a-z0-9._-]+$/;
 const PBKDF2_ITERATIONS = 120_000;
-const MIN_STAFF_PASSWORD_LENGTH = 8;
+const MIN_STAFF_PASSWORD_LENGTH = 4;
 
 /** Database key for a username (RTDB keys cannot contain . $ # [ ] /). */
 export function staffAccountKey(username: string): string {

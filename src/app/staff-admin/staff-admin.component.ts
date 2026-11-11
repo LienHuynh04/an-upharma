@@ -64,7 +64,7 @@ import { ShopInfo, UpharmaService } from "../upharma.service";
                       type="text"
                       [(ngModel)]="newPassword"
                       name="newPassword"
-                      placeholder="Ít nhất 8 ký tự, chỉ dùng cho trang này"
+                      placeholder="Ít nhất 4 ký tự, chỉ dùng cho trang này"
                       autocomplete="off"
                       required
                     />
