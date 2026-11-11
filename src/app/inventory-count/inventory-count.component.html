@@ -121,7 +121,6 @@
               style="width: auto;"
               [(ngModel)]="reviewDate"
               [ngModelOptions]="{ standalone: true }"
-              (change)="reviewLoaded && loadSubmissions()"
               aria-label="Ngày kiểm kê"
             />
             <button class="btn btn-outline-primary" type="button" (click)="loadSubmissions()" [disabled]="submissionsLoading">
@@ -132,16 +131,15 @@
         <div class="card-body" *ngIf="!reviewLoaded && !submissionsError">
           <p class="text-secondary mb-0">
             Chọn ngày rồi bấm "Tải phiếu ngày này". Phiếu được quản lý theo ngày và nhà thuốc, mỗi nhân viên
-            một phiếu riêng — bấm vào một phiếu để mở chi tiết: xem các mã người đó đã đếm, chấm Đúng/Sai
-            cho từng mã và chốt số cuối cùng cho cả ngày. Số đếm của đồng nghiệp trong cùng ngày chỉ hiện
-            để tham khảo đối chiếu, hệ thống không tự cộng hay tự chọn.
+            một phiếu riêng — bấm vào một phiếu để mở chi tiết: xem các mã người đó đã đếm và chấm Đúng/Sai
+            cho từng mã. Cột Lệch là số đếm trừ tồn kho; dòng nền vàng là đếm khớp tồn kho (lệch bằng 0).
           </p>
         </div>
         <div class="alert alert-danger mx-3 mt-3 mb-0" *ngIf="submissionsError">{{ submissionsError }}</div>
         <ng-container *ngIf="reviewLoaded">
           <div class="card-body d-flex flex-wrap align-items-center justify-content-between gap-2" *ngIf="!daySubmissions.length">
             <p class="text-secondary mb-0">Ngày {{ reviewDate | date: "dd/MM/yyyy" }} chưa có nhân viên nào nộp phiếu cho {{ selectedShopCode }}.</p>
-            <button class="btn btn-outline-primary btn-sm" type="button" (click)="exportReview()" [disabled]="exporting">
+            <button class="btn btn-outline-primary btn-sm" type="button" (click)="openExportDialog()" [disabled]="exporting">
               <i class="ti ti-file-export me-1" aria-hidden="true"></i>Xuất Excel đối chiếu
             </button>
           </div>
@@ -178,9 +176,12 @@
             </div>
             <div class="card-footer d-flex flex-wrap align-items-center justify-content-between gap-2">
               <span class="text-secondary small">Ở ngoài chỉ hiện danh sách phiếu — bấm vào từng nhân viên để xem các mã đã đếm và chấm đúng/sai.</span>
-              <button class="btn btn-outline-primary btn-sm" type="button" (click)="exportReview()" [disabled]="exporting">
-                <i class="ti ti-file-export me-1" aria-hidden="true"></i>Xuất Excel đối chiếu
-              </button>
+              <span class="d-flex align-items-center gap-2">
+                <span class="text-success small" *ngIf="exportNotice">{{ exportNotice }}</span>
+                <button class="btn btn-outline-primary btn-sm" type="button" (click)="openExportDialog()" [disabled]="exporting">
+                  <i class="ti ti-file-export me-1" aria-hidden="true"></i>Xuất Excel đối chiếu
+                </button>
+              </span>
             </div>
           </ng-container>
           <ng-container *ngIf="selectedSubmission">
@@ -206,35 +207,17 @@
                     <th>Tên sản phẩm</th>
                     <th class="text-end">SL tồn kho</th>
                     <th class="text-end">SL đếm · {{ selectedSubmission.staffName }}</th>
-                    <th>Người khác đếm cùng ngày</th>
-                    <th class="text-end" style="min-width: 120px;">SL chốt</th>
-                    <th class="text-end">Lệch sau chốt</th>
+                    <th class="text-end">Lệch (đếm − tồn)</th>
                     <th>Đánh giá của quản lý</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let row of sheetRows" [class.review-row-disagree]="sheetRowDisagrees(row)">
+                  <tr *ngFor="let row of sheetRows" [class.review-row-disagree]="sheetRowDisagrees(row)" [class.review-row-zero]="countDifferenceValue(row) === 0">
                     <td class="text-primary fw-semibold">{{ row.code }}</td>
                     <td>{{ row.name }}<small class="d-block text-secondary">{{ row.unit }}</small></td>
                     <td class="text-end">{{ row.expectedQuantity !== null ? (row.expectedQuantity | number) : "—" }}</td>
                     <td class="text-end fw-semibold">{{ row.countedQuantity | number }}</td>
-                    <td>
-                      <span class="badge bg-orange-lt text-orange me-1" *ngFor="let count of row.otherCounts">{{ count.staffName }}: {{ count.quantity | number }}</span>
-                      <span class="text-secondary small" *ngIf="!row.otherCounts.length">—</span>
-                      <span class="badge bg-danger-lt text-danger" *ngIf="sheetRowDisagrees(row)">Lệch</span>
-                    </td>
-                    <td class="text-end">
-                      <input
-                        type="number"
-                        min="0"
-                        step="any"
-                        class="form-control form-control-sm text-end"
-                        [(ngModel)]="finalQuantities[row.code]"
-                        [ngModelOptions]="{ standalone: true }"
-                        placeholder="Chốt"
-                      />
-                    </td>
-                    <td class="text-end">{{ finalDifferenceText(row) }}</td>
+                    <td class="text-end">{{ countDifferenceText(row) }}</td>
                     <td>
                       <div class="btn-group btn-group-sm" role="group" [attr.aria-label]="'Đánh giá mã ' + row.code">
                         <button
@@ -260,16 +243,13 @@
             <div class="card-footer d-flex flex-wrap align-items-center justify-content-between gap-2">
               <span class="text-success small" *ngIf="evaluationNotice">{{ evaluationNotice }}</span>
               <span class="text-success small" *ngIf="!evaluationNotice && reviewNotice">{{ reviewNotice }}</span>
-              <span class="text-secondary small" *ngIf="!evaluationNotice && !reviewNotice">Bấm lại vào Đúng/Sai đang chọn để bỏ chấm mã đó. SL chốt là số cuối cùng của cả ngày tại shop này.</span>
+              <span class="text-secondary small" *ngIf="!evaluationNotice && !reviewNotice">Bấm lại vào Đúng/Sai đang chọn để bỏ chấm mã đó. Dòng nền vàng là mã đếm khớp tồn kho (lệch bằng 0).</span>
               <div class="btn-list">
                 <button class="btn btn-outline-danger btn-sm" type="button" (click)="deleteReviewSheet(selectedSubmission)" [disabled]="deletingSubmission">
                   <i class="ti ti-trash me-1" aria-hidden="true"></i>Xóa phiếu
                 </button>
                 <button class="btn btn-outline-secondary btn-sm" type="button" (click)="markAllCorrect()">
                   <i class="ti ti-checks me-1" aria-hidden="true"></i>Chấm tất cả là Đúng
-                </button>
-                <button class="btn btn-outline-primary btn-sm" type="button" (click)="saveFinalReview()" [disabled]="savingReview">
-                  {{ savingReview ? "Đang lưu…" : "Lưu số chốt" }}
                 </button>
                 <button class="btn btn-primary btn-sm" type="button" (click)="saveEvaluation()" [disabled]="savingEvaluation">
                   {{ savingEvaluation ? "Đang lưu…" : "Lưu đánh giá" }}
@@ -280,11 +260,12 @@
           <div class="card-body border-top" *ngIf="!selectedSubmission">
             <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
               <strong>Chưa được kiểm kê</strong>
-              <span class="badge bg-danger-lt text-danger" *ngIf="uncountedProducts.length">{{ uncountedProducts.length }} mã</span>
+              <span class="badge bg-success-lt text-success">Đã đếm {{ countedCodeCount }} mã</span>
+              <span class="badge bg-danger-lt text-danger" *ngIf="uncountedProducts.length">Chưa đếm {{ uncountedProducts.length }} mã</span>
               <span class="badge bg-success-lt text-success" *ngIf="!uncountedProducts.length">Đã đủ</span>
             </div>
             <p class="text-secondary small" *ngIf="uncountedProducts.length">
-              So với danh mục hàng còn tồn tại {{ selectedShopCode }}: các mã dưới đây chưa có nhân viên nào đếm trong ngày {{ reviewDate | date: "dd/MM/yyyy" }} — kiểm kê sót cần cho đếm bổ sung.
+              Danh sách này tính riêng cho ngày {{ reviewDate | date: "dd/MM/yyyy" }}: lấy toàn bộ hàng còn tồn tại {{ selectedShopCode }} rồi trừ đi {{ countedCodeCount }} mã đã có nhân viên đếm trong ngày này. Mỗi ngày số mã được đếm khác nhau nên danh sách cũng khác theo ngày — đổi ngày rồi bấm "Tải phiếu ngày này" để xem đúng ngày đó. Các mã dưới đây là kiểm kê sót của ngày {{ reviewDate | date: "dd/MM/yyyy" }}, cần cho đếm bổ sung.
             </p>
             <p class="text-success small mb-0" *ngIf="!uncountedProducts.length">
               Mọi mã còn tồn tại {{ selectedShopCode }} đều đã có người đếm trong ngày {{ reviewDate | date: "dd/MM/yyyy" }}.
@@ -300,7 +281,7 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let product of uncountedProducts">
+                  <tr *ngFor="let product of uncountedPreview">
                     <td class="text-primary fw-semibold">{{ product.code }}</td>
                     <td>{{ product.name }}</td>
                     <td>{{ product.unit }}</td>
@@ -309,9 +290,36 @@
                 </tbody>
               </table>
             </div>
+            <p class="text-secondary small mt-2 mb-0" *ngIf="uncountedProducts.length > uncountedPreview.length">
+              Đang hiện {{ uncountedPreview.length }} mã đầu tiên — còn {{ uncountedProducts.length - uncountedPreview.length }} mã nữa. Bấm "Xuất Excel đối chiếu" để xem toàn bộ danh sách ở trang "Chưa kiểm kê".
+            </p>
           </div>
         </ng-container>
       </section>
+
+      <div class="export-dialog-backdrop" *ngIf="exportDialogOpen" (click)="exportDialogOpen = false">
+        <div class="export-dialog" (click)="$event.stopPropagation()">
+          <div class="d-flex align-items-start justify-content-between gap-3 mb-2">
+            <div>
+              <h3 class="h4 mb-1">Xuất Excel đối chiếu</h3>
+              <p class="text-secondary small mb-0">{{ selectedShopCode }} · ngày {{ reviewDate | date: "dd/MM/yyyy" }} — tick chọn các trang muốn xuất; mỗi phiếu của nhân viên là một trang riêng.</p>
+            </div>
+            <button type="button" class="btn btn-icon btn-sm btn-outline-secondary" (click)="exportDialogOpen = false" aria-label="Đóng">
+              <i class="ti ti-x" aria-hidden="true"></i>
+            </button>
+          </div>
+          <div class="form-check mb-2" *ngFor="let choice of exportChoices; let i = index">
+            <input class="form-check-input" type="checkbox" [id]="'export-choice-' + i" [(ngModel)]="choice.checked" [ngModelOptions]="{ standalone: true }">
+            <label class="form-check-label" [for]="'export-choice-' + i">{{ choice.label }}</label>
+          </div>
+          <div class="d-flex justify-content-end gap-2 mt-3">
+            <button class="btn btn-outline-secondary" type="button" (click)="exportDialogOpen = false">Hủy</button>
+            <button class="btn btn-primary" type="button" (click)="confirmExport()" [disabled]="exporting || !exportSelectionCount">
+              <i class="ti ti-file-export me-1" aria-hidden="true"></i>Xuất Excel ({{ exportSelectionCount }} trang)
+            </button>
+          </div>
+        </div>
+      </div>
     </ng-container>
 
     <ng-template #sessionWorkspace>

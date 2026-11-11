@@ -1555,7 +1555,7 @@ function parseShopCatalogNumber(value) {
 
 const SHOP_CATALOG_CODE_KEYS = ["ProductCode", "ProductID", "Product_ID", "MaSP", "MaSanPham", "ItemCode", "Code"];
 const SHOP_CATALOG_NAME_KEYS = ["ProductName", "Product_Name", "ProductFullName", "Product_Name_Full", "TenSP", "TenSanPham", "Name", "ItemName"];
-const SHOP_CATALOG_UNIT_KEYS = ["UnitName", "Unit_Name", "Unit", "UnitCode", "BaseUnit", "BaseUnitName", "ProductUnit", "UOM", "DonVi", "DonViTinh", "DVT"];
+const SHOP_CATALOG_UNIT_KEYS = ["UnitOfMeasure", "UnitName", "Unit_Name", "Unit", "UnitCode", "BaseUnit", "BaseUnitName", "ProductUnit", "UOM", "DonVi", "DonViTinh", "DVT"];
 const SHOP_CATALOG_QTY_KEYS = ["Quantity", "Qty", "SL", "SoLuong", "InventoryQuantity", "StockQty", "TonKho", "RemainQty"];
 
 /**

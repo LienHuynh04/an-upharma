@@ -106,10 +106,19 @@ export class InventoryCountComponent implements OnInit {
   sheetRows: SheetRow[] = [];
   /** Saved manager evaluations of the shop's sheets, keyed by submission id. */
   evaluationsBySubmission: Record<string, StaffEvaluation> = {};
+  /** Products with stock that no sheet of the loaded day counted (computed once per load, never in a template getter). */
+  uncountedProducts: { code: string; name: string; unit: string; expectedQuantity: number }[] = [];
+  /** First rows of uncountedProducts actually rendered; the full list goes to the Excel export. */
+  uncountedPreview: { code: string; name: string; unit: string; expectedQuantity: number }[] = [];
+  /** Distinct product codes counted by any sheet of the loaded day. */
+  countedCodeCount = 0;
   /** Verdicts being edited in the open sheet detail. */
   verdicts: Record<string, "correct" | "wrong"> = {};
   savingEvaluation = false;
   deletingSubmission = false;
+  exportNotice = "";
+  exportDialogOpen = false;
+  exportChoices: { key: string; label: string; checked: boolean }[] = [];
   evaluationNotice = "";
   finalQuantities: Record<string, number | null> = {};
   savingReview = false;
@@ -316,6 +325,7 @@ export class InventoryCountComponent implements OnInit {
       }
     }
 
+    if (!sessionProduct.unit && product.unit) sessionProduct.unit = product.unit;
     this.activeProduct = sessionProduct;
     this.searchText = "";
     this.countedQuantityInput =
@@ -632,6 +642,7 @@ export class InventoryCountComponent implements OnInit {
         .catch(() => ({}));
       await this.prepareFinalQuantities();
       this.reviewLoaded = true;
+      this.computeUncountedProducts();
     } catch (error) {
       this.submissionsError = this.errorText(error);
     } finally {
@@ -713,7 +724,7 @@ export class InventoryCountComponent implements OnInit {
     const evaluation = this.evaluationsBySubmission[submission.id];
     const total = new Set(submission.items.map((item) => item.code)).size;
     if (!evaluation) return { label: "Chưa đánh giá", done: false, started: false };
-    const values = Object.values(evaluation.verdicts);
+    const values = evaluation.verdicts ? Object.values(evaluation.verdicts) : [];
     const correct = values.filter((value) => value === "correct").length;
     const wrong = values.length - correct;
     const done = values.length >= total && total > 0;
@@ -849,15 +860,23 @@ export class InventoryCountComponent implements OnInit {
 
   /**
    * Admin view: products that still have stock at the shop but NO staff
-   * sheet of the selected day counted — the "kiểm kê sót" list.
+   * sheet of the selected day counted — the "kiểm kê sót" list. Computed
+   * once per review/catalog load and stored: as a template getter it was
+   * re-filtered and re-sorted on every change-detection cycle and froze
+   * the page (Page Unresponsive) on shops with ~2,000 catalog rows.
    */
-  get uncountedProducts(): { code: string; name: string; unit: string; expectedQuantity: number }[] {
-    if (!this.reviewLoaded) return [];
+  private computeUncountedProducts(): void {
+    if (!this.reviewLoaded) {
+      this.uncountedProducts = [];
+      this.uncountedPreview = [];
+      return;
+    }
     const countedCodes = new Set<string>();
     for (const submission of this.daySubmissions) {
       for (const item of submission.items) countedCodes.add(item.code);
     }
-    return this.catalogProducts
+    this.countedCodeCount = countedCodes.size;
+    this.uncountedProducts = this.catalogProducts
       .filter((product) => product.expectedQuantity > 0 && !countedCodes.has(product.code))
       .map((product) => ({
         code: product.code,
@@ -866,14 +885,18 @@ export class InventoryCountComponent implements OnInit {
         expectedQuantity: product.expectedQuantity,
       }))
       .sort((first, second) => first.name.localeCompare(second.name, "vi", { sensitivity: "base" }));
+    this.uncountedPreview = this.uncountedProducts.slice(0, 200);
   }
 
-  finalDifferenceText(row: SheetRow): string {
-    const finalQuantity = this.finalQuantities[row.code];
-    if (finalQuantity === null || finalQuantity === undefined || row.expectedQuantity === null) {
-      return "—";
-    }
-    return this.formatSigned(finalQuantity - row.expectedQuantity);
+  /** Counted quantity minus system stock; null while the stock side is unknown. */
+  countDifferenceValue(row: SheetRow): number | null {
+    if (row.expectedQuantity === null) return null;
+    return row.countedQuantity - row.expectedQuantity;
+  }
+
+  countDifferenceText(row: SheetRow): string {
+    const value = this.countDifferenceValue(row);
+    return value === null ? "—" : this.formatSigned(value);
   }
 
   async saveFinalReview(): Promise<void> {
@@ -906,8 +929,51 @@ export class InventoryCountComponent implements OnInit {
     }
   }
 
-  async exportReview(): Promise<void> {
+  /** Opens the export popup: one checkbox per sheet the file can contain. */
+  openExportDialog(): void {
     if (this.staffMode || this.exporting || !this.reviewLoaded) return;
+    const choices: { key: string; label: string; checked: boolean }[] = [];
+    if (this.daySubmissions.length) {
+      choices.push({ key: "doi-chieu", label: "Đối chiếu kiểm kê (tổng hợp theo mã)", checked: true });
+      choices.push({ key: "danh-sach", label: "Danh sách phiếu (thông tin các account)", checked: true });
+      for (const submission of this.daySubmissions) {
+        const time = new Intl.DateTimeFormat("vi-VN", {
+          hour: "2-digit",
+          minute: "2-digit",
+        }).format(new Date(submission.completedAt));
+        const codes = new Set(submission.items.map((item) => item.code)).size;
+        choices.push({
+          key: `phieu:${submission.id}`,
+          label: `Phiếu của ${submission.staffName} — nộp ${time} · ${codes} mã`,
+          checked: true,
+        });
+      }
+    }
+    choices.push({
+      key: "chua-kiem-ke",
+      label: `Chưa kiểm kê (${this.uncountedProducts.length} mã)`,
+      checked: true,
+    });
+    this.exportChoices = choices;
+    this.exportNotice = "";
+    this.exportDialogOpen = true;
+  }
+
+  get exportSelectionCount(): number {
+    return this.exportChoices.filter((choice) => choice.checked).length;
+  }
+
+  async confirmExport(): Promise<void> {
+    const selected = new Set(
+      this.exportChoices.filter((choice) => choice.checked).map((choice) => choice.key),
+    );
+    this.exportDialogOpen = false;
+    if (!selected.size) return;
+    await this.runExport(selected);
+  }
+
+  private async runExport(selected: Set<string>): Promise<void> {
+    if (this.staffMode || this.exporting || !this.reviewLoaded || !selected.size) return;
     this.exporting = true;
     this.errorMessage = "";
     try {
@@ -931,7 +997,7 @@ export class InventoryCountComponent implements OnInit {
       const verdictFor = (staffName: string, code: string): string => {
         const submission = latestSubmissionByStaff.get(staffName);
         const verdict = submission
-          ? this.evaluationsBySubmission[submission.id]?.verdicts[code]
+          ? this.evaluationsBySubmission[submission.id]?.verdicts?.[code]
           : undefined;
         return verdict === "correct" ? "Đúng" : verdict === "wrong" ? "Sai" : "";
       };
@@ -952,18 +1018,12 @@ export class InventoryCountComponent implements OnInit {
         for (const staffName of staffNames) {
           record[`Đánh giá - ${staffName}`] = verdictFor(staffName, code);
         }
-        const finalQuantity = this.finalQuantities[code];
-        record["SL chốt"] = finalQuantity ?? "";
-        record["SL chênh lệch (chốt - tồn)"] =
-          finalQuantity !== null && finalQuantity !== undefined && expected
-            ? finalQuantity - expected.expectedQuantity
-            : "";
         return record;
       });
       const sheetRows = this.daySubmissions.map((submission) => {
         const total = new Set(submission.items.map((item) => item.code)).size;
         const evaluation = this.evaluationsBySubmission[submission.id];
-        const values = evaluation ? Object.values(evaluation.verdicts) : [];
+        const values = evaluation?.verdicts ? Object.values(evaluation.verdicts) : [];
         const correct = values.filter((value) => value === "correct").length;
         const wrong = values.length - correct;
         return {
@@ -989,14 +1049,47 @@ export class InventoryCountComponent implements OnInit {
         "Đơn vị": product.unit,
         "SL tồn kho": product.expectedQuantity,
       }));
+      // One sheet per submitted sheet, named after its staff member, so
+      // each person\'s counts and verdicts can be read on their own tab.
+      const usedSheetNames = new Set<string>(["Đối chiếu kiểm kê", "Phiếu kiểm kê", "Chưa kiểm kê"]);
+      const submissionSheets = this.daySubmissions.map((submission) => {
+        const time = new Intl.DateTimeFormat("vi-VN", {
+          hour: "2-digit",
+          minute: "2-digit",
+        }).format(new Date(submission.completedAt)).replace(":", "h");
+        let sheetName = `Phiếu ${submission.staffName} ${time}`.replace(/[\\/?*[\]:]/g, "-").slice(0, 31);
+        if (usedSheetNames.has(sheetName)) sheetName = `${sheetName.slice(0, 27)} (2)`;
+        usedSheetNames.add(sheetName);
+        const evaluation = this.evaluationsBySubmission[submission.id];
+        const rowsByCode = new Map<string, Record<string, unknown>>();
+        for (const item of submission.items) {
+          const expected = expectedByCode.get(item.code);
+          const verdict = evaluation?.verdicts?.[item.code];
+          rowsByCode.set(item.code, {
+            "Mã SP": item.code,
+            "Tên sản phẩm": expected?.name || item.name || "",
+            "Đơn vị": expected?.unit || item.unit || "",
+            "SL tồn kho": expected ? expected.expectedQuantity : "",
+            "SL đếm": item.countedQuantity,
+            "Đánh giá": verdict === "correct" ? "Đúng" : verdict === "wrong" ? "Sai" : "",
+            "Lệch (đếm - tồn)": expected ? item.countedQuantity - expected.expectedQuantity : "",
+          });
+        }
+        return { key: submission.id, name: sheetName, data: Array.from(rowsByCode.values()) };
+      });
+      const sheets: { name: string; data: Record<string, any>[] }[] = [];
+      if (selected.has("doi-chieu")) sheets.push({ name: "Đối chiếu kiểm kê", data: comparisonRows });
+      if (selected.has("danh-sach")) sheets.push({ name: "Phiếu kiểm kê", data: sheetRows });
+      for (const sheet of submissionSheets) {
+        if (selected.has(`phieu:${sheet.key}`)) sheets.push({ name: sheet.name, data: sheet.data });
+      }
+      if (selected.has("chua-kiem-ke")) sheets.push({ name: "Chưa kiểm kê", data: uncountedRows });
+      if (!sheets.length) return;
       await this.excelExportService.exportSheetsToExcel(
-        [
-          { name: "Đối chiếu kiểm kê", data: comparisonRows },
-          { name: "Phiếu kiểm kê", data: sheetRows },
-          { name: "Chưa kiểm kê", data: uncountedRows },
-        ],
+        sheets,
         `Doi-chieu-kiem-ke-${this.selectedShopCode}-${this.reviewDate}.xlsx`,
       );
+      this.exportNotice = `Đã xuất file Excel: ${sheets.length} trang (${sheets.map((sheet) => sheet.name).join(", ")}).`;
     } catch (error) {
       this.errorMessage = `Không xuất được báo cáo Excel: ${this.errorText(error)}`;
     } finally {
@@ -1072,16 +1165,20 @@ export class InventoryCountComponent implements OnInit {
     try {
       const catalog = await this.staffCountService.getShopCatalog(this.selectedShopCode);
       const items = catalog?.items || [];
+      const globalItems = await this.staffCountService.getGlobalCatalog().catch(() => []);
+      // Shop catalogs written by older sync runs may carry no unit at all;
+      // the system-wide catalog has the real unit (Viên, Gói, Hộp...), so
+      // fill any missing one from there by product code.
+      const unitByCode = new Map(globalItems.map((item) => [item.c, item.u || ""]));
       this.catalogProducts = items.map((item) => ({
         code: item.c,
         name: item.n || item.c,
-        unit: item.u || "",
+        unit: item.u || unitByCode.get(item.c) || "",
         expectedQuantity: 0,
         unitPrice: 0,
         countedQuantity: null,
       }));
       const inShopCodes = new Set(items.map((item) => item.c));
-      const globalItems = await this.staffCountService.getGlobalCatalog().catch(() => []);
       this.extraCatalogProducts = globalItems
         .filter((item) => !inShopCodes.has(item.c))
         .map((item) => ({
@@ -1171,6 +1268,9 @@ export class InventoryCountComponent implements OnInit {
       }
 
       this.catalogProducts = this.aggregateProducts(rows);
+      // If the day's sheets were loaded before the catalog arrived, the
+      // uncounted list can only be computed now that both sides exist.
+      if (this.reviewLoaded) this.computeUncountedProducts();
       if (this.catalogProducts.length === 0) {
         this.catalogStatus = `Không có sản phẩm tồn kho để kiểm kê tại ${this.selectedShopCode}.`;
       } else if (fetchedFromApi) {

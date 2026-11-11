@@ -160,6 +160,10 @@
   background-color: rgba(247, 178, 60, 0.07) !important;
 }
 
+.review-row-zero > td {
+  background-color: rgba(250, 176, 5, 0.18) !important;
+}
+
 .review-row-disagree > td:first-child {
   box-shadow: inset 3px 0 0 #f7b23c;
 }
@@ -606,4 +610,26 @@
 
 .staff-sheet-save:disabled {
   opacity: 0.5;
+}
+
+.export-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1080;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.export-dialog {
+  width: min(520px, 100%);
+  max-height: 84vh;
+  overflow: auto;
+  padding: 20px;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #1e293b;
+  box-shadow: 0 24px 60px rgba(2, 6, 17, 0.35);
 }
