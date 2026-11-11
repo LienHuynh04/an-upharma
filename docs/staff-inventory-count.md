@@ -45,16 +45,24 @@ side and confirms the final quantity per product.
    ```json
    { "displayName": "Quản lý", "role": "admin", "shops": { "SHOP0025": true }, "active": true }
    ```
-4. **Create each staff account**: Authentication → Users → Add user with
-   email `<username>@an-upharma.local` (e.g. `kiemke01@an-upharma.local`) and
-   a password you hand to that person. Then create `staff_users/{uid}`:
+4. **Create staff accounts from the app** (recommended): open the
+   **Tài khoản kiểm kê** page (top menu, next to Cài đặt), fill in username,
+   password, full name and the shops that person may count, and press
+   **Tạo tài khoản**. The page creates the Firebase user and its role record
+   together. From the same page you can re-assign shops or lock/unlock an
+   account — locking revokes counting access immediately (the app refuses
+   inactive accounts and the database rules stop serving them catalogs).
+   Creating accounts manually in the console also still works: add the user
+   in Authentication with email `<username>@an-upharma.local`, then create
+   `staff_users/{uid}`:
    ```json
-   { "displayName": "Tên nhân viên", "role": "counter",
+   { "username": "kiemke01", "displayName": "Tên nhân viên", "role": "counter",
      "shops": { "SHOP0025": true, "SHOP0097": true }, "active": true }
    ```
    `shops` must be a map of shop code → `true` (not an array) — the database
-   rules match on it. To revoke access, set `active: false` (and/or disable
-   the user in Authentication).
+   rules match on it. Deleting an account entirely, or resetting a forgotten
+   password (the `@an-upharma.local` addresses cannot receive mail), is done
+   in the Firebase Console.
 5. **Deploy the database rules**: the rules in `database.rules.json` (which
    add `staff_users`, `shop_catalog`, `shop_catalog_index`,
    `count_submissions`, `count_final_reviews`) must be the live rules —

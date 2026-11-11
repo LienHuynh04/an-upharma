@@ -39,9 +39,10 @@
     },
 
     "staff_users": {
+      ".read": "auth != null && root.child('staff_users').child(auth.uid).child('role').val() == 'admin'",
+      ".write": "auth != null && root.child('staff_users').child(auth.uid).child('role').val() == 'admin'",
       "$uid": {
-        ".read": "auth != null && auth.uid == $uid",
-        ".write": false
+        ".read": "auth != null && auth.uid == $uid"
       }
     },
     "shop_catalog_index": {
@@ -50,7 +51,7 @@
     },
     "shop_catalog": {
       "$shopCode": {
-        ".read": "auth != null && (root.child('staff_users').child(auth.uid).child('role').val() == 'admin' || root.child('staff_users').child(auth.uid).child('shops').child($shopCode).val() == true)",
+        ".read": "auth != null && (root.child('staff_users').child(auth.uid).child('role').val() == 'admin' || (root.child('staff_users').child(auth.uid).child('active').val() == true && root.child('staff_users').child(auth.uid).child('shops').child($shopCode).val() == true))",
         ".write": false
       }
     },
@@ -58,7 +59,7 @@
       "$shopCode": {
         ".read": "auth != null && root.child('staff_users').child(auth.uid).child('role').val() == 'admin'",
         "$sessionId": {
-          ".write": "auth != null && (root.child('staff_users').child(auth.uid).child('role').val() == 'admin' || newData.child('staffUid').val() == auth.uid || data.child('staffUid').val() == auth.uid)"
+          ".write": "auth != null && (root.child('staff_users').child(auth.uid).child('role').val() == 'admin' || (root.child('staff_users').child(auth.uid).child('active').val() == true && (newData.child('staffUid').val() == auth.uid || data.child('staffUid').val() == auth.uid)))"
         }
       }
     },

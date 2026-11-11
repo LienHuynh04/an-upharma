@@ -65,6 +65,11 @@ const routes: Routes = [
         title: "UPHARMA - Kiểm kê hàng hoá",
       },
       {
+        path: "tai-khoan-kiem-ke",
+        loadComponent: () => import("./app/staff-admin/staff-admin.component").then((m) => m.StaffAdminComponent),
+        title: "UPHARMA - Tài khoản kiểm kê",
+      },
+      {
         path: "fefo",
         loadComponent: () => import("./app/fefo/fefo.component").then((m) => m.FefoComponent),
         title: "UPHARMA - Kiểm tra FEFO",

@@ -1,1 +1,71 @@
-{"rules":{".read":"false",".write":"false","count_final_reviews":{"$shopCode":{".read":"auth != null && root.child('staff_users').child(auth.uid).child('role').val() == 'admin'",".write":"auth != null && root.child('staff_users').child(auth.uid).child('role').val() == 'admin'"}},"count_submissions":{"$shopCode":{"$sessionId":{".write":"auth != null && (root.child('staff_users').child(auth.uid).child('role').val() == 'admin' || newData.child('staffUid').val() == auth.uid || data.child('staffUid').val() == auth.uid)"},".read":"auth != null && root.child('staff_users').child(auth.uid).child('role').val() == 'admin'"}},"hidden_products":{".read":"true",".write":"auth != null"},"national_inventory_cache":{".read":"auth != null",".write":"auth != null"},"product_catalog":{".read":"true",".write":"auth != null"},"shop_catalog":{"$shopCode":{".read":"auth != null && (root.child('staff_users').child(auth.uid).child('role').val() == 'admin' || root.child('staff_users').child(auth.uid).child('shops').child($shopCode).val() == true)",".write":false}},"shop_catalog_index":{".read":"auth != null",".write":false},"shops":{"$shopCode":{"upharma_data":{".read":"auth != null",".write":"auth != null"}}},"shops_summary":{".read":"true",".write":"auth != null"},"staff_users":{"$uid":{".read":"auth != null && auth.uid == $uid",".write":false}},"transfer_suggestions_cache":{".read":"true",".write":"auth != null"},"users_by_username":{"$username":{".read":"auth != null",".write":"auth != null"}}}}
+{
+  "rules": {
+    ".read": "false",
+    ".write": "false",
+    "count_final_reviews": {
+      "$shopCode": {
+        ".read": "auth != null && root.child('staff_users').child(auth.uid).child('role').val() == 'admin'",
+        ".write": "auth != null && root.child('staff_users').child(auth.uid).child('role').val() == 'admin'"
+      }
+    },
+    "count_submissions": {
+      "$shopCode": {
+        ".read": "auth != null && root.child('staff_users').child(auth.uid).child('role').val() == 'admin'",
+        "$sessionId": {
+          ".write": "auth != null && (root.child('staff_users').child(auth.uid).child('role').val() == 'admin' || (root.child('staff_users').child(auth.uid).child('active').val() == true && (newData.child('staffUid').val() == auth.uid || data.child('staffUid').val() == auth.uid)))"
+        }
+      }
+    },
+    "hidden_products": {
+      ".read": "true",
+      ".write": "auth != null"
+    },
+    "national_inventory_cache": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "product_catalog": {
+      ".read": "true",
+      ".write": "auth != null"
+    },
+    "shop_catalog": {
+      "$shopCode": {
+        ".read": "auth != null && (root.child('staff_users').child(auth.uid).child('role').val() == 'admin' || (root.child('staff_users').child(auth.uid).child('active').val() == true && root.child('staff_users').child(auth.uid).child('shops').child($shopCode).val() == true))",
+        ".write": false
+      }
+    },
+    "shop_catalog_index": {
+      ".read": "auth != null",
+      ".write": false
+    },
+    "shops": {
+      "$shopCode": {
+        "upharma_data": {
+          ".read": "auth != null",
+          ".write": "auth != null"
+        }
+      }
+    },
+    "shops_summary": {
+      ".read": "true",
+      ".write": "auth != null"
+    },
+    "staff_users": {
+      ".read": "auth != null && root.child('staff_users').child(auth.uid).child('role').val() == 'admin'",
+      ".write": "auth != null && root.child('staff_users').child(auth.uid).child('role').val() == 'admin'",
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid"
+      }
+    },
+    "transfer_suggestions_cache": {
+      ".read": "true",
+      ".write": "auth != null"
+    },
+    "users_by_username": {
+      "$username": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    }
+  }
+}
