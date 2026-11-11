@@ -38,13 +38,18 @@ side and confirms the final quantity per product.
    then rebuild/redeploy. (The key is a public project identifier, not a
    secret.) Until this is done, the staff tab shows a "not configured" error
    and manager login is unaffected.
-3. **Create the manager's Firebase link account**: Authentication → Users →
-   Add user with email `<your-upharma-username>@an-upharma.local` and the
-   **same password as your Upharma login**. Then in Realtime Database create
-   `staff_users/{that user's uid}`:
-   ```json
-   { "displayName": "Quản lý", "role": "admin", "shops": { "SHOP0025": true }, "active": true }
-   ```
+3. **Link the manager account from the web app** (after steps 1, 2 and 5):
+   sign in as manager, open **Tài khoản kiểm kê**, and use the
+   *Liên kết tài khoản Firebase quyền quản lý* form — re-enter your Upharma
+   username and password and press the button. The app verifies the password
+   against the Upharma API, creates your Firebase account
+   (`<username>@an-upharma.local`, same password), claims the create-once
+   `system_admin` node, writes your `staff_users` record with role `admin`,
+   and unlocks the page immediately. Do this promptly after deploying: the
+   claim goes to the first account that links, then it is locked — resetting
+   it is only possible by deleting the `system_admin` node in the Firebase
+   Console. (Creating the account and record manually in the Console, as in
+   earlier revisions of this guide, also still works.)
 4. **Create staff accounts from the app** (recommended): open the
    **Tài khoản kiểm kê** page (top menu, next to Cài đặt), fill in username,
    password, full name and the shops that person may count, and press

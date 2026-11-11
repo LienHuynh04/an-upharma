@@ -36,13 +36,57 @@ import { ShopInfo, UpharmaService } from "../upharma.service";
         <div class="alert alert-danger" role="alert" *ngIf="errorText">{{ errorText }}</div>
         <div class="alert alert-success" role="status" *ngIf="noticeText">{{ noticeText }}</div>
 
-        <div class="alert alert-warning" *ngIf="!isAdminLinked">
-          <strong>Chưa liên kết tài khoản Firebase quyền quản lý.</strong>
-          Trang này cần tài khoản Firebase của chính bạn (role admin) để tạo và quản lý tài khoản nhân viên.
-          Cách làm một lần duy nhất: tạo tài khoản Firebase với email là tên đăng nhập Upharma của bạn + "@an-upharma.local"
-          và <strong>mật khẩu trùng mật khẩu đăng nhập Upharma</strong>, kèm bản ghi quyền admin — xem
-          <span class="fw-semibold">docs/staff-inventory-count.md</span> trong mã nguồn. Sau đó đăng xuất và đăng nhập lại,
-          hệ thống sẽ tự liên kết.
+        <div class="card mb-3" *ngIf="!isAdminLinked">
+          <div class="card-header">
+            <h3 class="card-title">Liên kết tài khoản Firebase quyền quản lý</h3>
+          </div>
+          <div class="card-body">
+            <p class="text-secondary">
+              Trang này cần tài khoản Firebase của chính bạn (quyền quản lý) để tạo và quản lý tài khoản nhân viên.
+              Bấm nút dưới đây, hệ thống sẽ tự tạo tài khoản Firebase cho bạn bằng chính tên đăng nhập và mật khẩu
+              Upharma — làm một lần duy nhất, ngay trên web này, không cần vào Firebase Console.
+              <strong>Hãy làm ngay khi thấy thông báo này</strong>: quyền quản lý chỉ cấp cho tài khoản liên kết đầu tiên,
+              sau đó khóa cứng (chỉ mở lại được từ Firebase Console).
+            </p>
+            <form (ngSubmit)="linkAdmin()">
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label class="form-label" for="link-username">Tên đăng nhập Upharma của bạn</label>
+                  <input
+                    id="link-username"
+                    class="form-control"
+                    [(ngModel)]="linkUsername"
+                    name="linkUsername"
+                    placeholder="vd: 0936494049"
+                    autocomplete="username"
+                    required
+                  />
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label" for="link-password">Mật khẩu Upharma của bạn</label>
+                  <input
+                    id="link-password"
+                    class="form-control"
+                    type="password"
+                    [(ngModel)]="linkPassword"
+                    name="linkPassword"
+                    placeholder="Nhập lại mật khẩu để xác thực"
+                    autocomplete="current-password"
+                    required
+                  />
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                  <button class="btn btn-primary" type="submit" [disabled]="linking">
+                    <i class="ti ti-link me-1" aria-hidden="true"></i>{{ linking ? "Đang liên kết…" : "Tạo liên kết quản lý ngay" }}
+                  </button>
+                </div>
+              </div>
+            </form>
+            <p class="text-secondary small mt-3 mb-0">
+              Mật khẩu được kiểm tra lại với hệ thống Upharma trước khi tạo liên kết, nên các lần đăng nhập sau
+              hệ thống tự liên kết lại mà bạn không cần làm gì thêm.
+            </p>
+          </div>
         </div>
 
         <ng-container *ngIf="isAdminLinked">
@@ -220,6 +264,10 @@ export class StaffAdminComponent implements OnInit {
   editingUid = "";
   editShops: Record<string, boolean> = {};
 
+  linkUsername = "";
+  linkPassword = "";
+  linking = false;
+
   constructor(
     private readonly upharmaService: UpharmaService,
     private readonly staffAuthService: StaffAuthService,
@@ -232,6 +280,44 @@ export class StaffAdminComponent implements OnInit {
   async ngOnInit(): Promise<void> {
     this.shops = this.upharmaService.getActiveShops();
     await this.loadUsers();
+  }
+
+  /**
+   * One-time self-service bootstrap: verifies the typed password against the
+   * Upharma API, then creates (or resumes) the manager's Firebase admin link
+   * and unlocks this page immediately.
+   */
+  async linkAdmin(): Promise<void> {
+    if (this.linking) return;
+    if (!this.linkUsername.trim() || !this.linkPassword) {
+      this.errorText = "Nhập tên đăng nhập và mật khẩu Upharma của bạn để liên kết.";
+      return;
+    }
+    this.linking = true;
+    this.errorText = "";
+    this.noticeText = "";
+    try {
+      const login = await this.upharmaService.login({
+        UserName: this.linkUsername.trim(),
+        Password: this.linkPassword,
+      });
+      const displayName = login.UserInfo?.FullName || "Quản lý";
+      const shops = this.upharmaService.getActiveShops().map((shop) => shop.ShopCode);
+      await this.staffAuthService.linkAdminAccount({
+        username: this.linkUsername,
+        password: this.linkPassword,
+        displayName,
+        shops,
+      });
+      this.linkPassword = "";
+      this.noticeText =
+        "Đã liên kết tài khoản Firebase quyền quản lý. Từ giờ bạn tạo và quản lý tài khoản nhân viên ngay tại trang này.";
+      await this.loadUsers();
+    } catch (error) {
+      this.errorText = this.messageOf(error);
+    } finally {
+      this.linking = false;
+    }
   }
 
   async loadUsers(): Promise<void> {

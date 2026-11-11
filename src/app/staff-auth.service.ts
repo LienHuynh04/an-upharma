@@ -116,8 +116,147 @@ export class StaffAuthService {
       refreshToken: data.refreshToken,
       expiresAt: Date.now() + Number(data.expiresIn || 3600) * 1000,
     };
-    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+    this.saveSession(session);
     return session;
+  }
+
+  private saveSession(session: StaffSession): void {
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+  }
+
+  /**
+   * One-time bootstrap that lets the main (manager) account create its own
+   * Firebase admin link from inside the app, without the Firebase Console:
+   *
+   * 1. Creates the Firebase user `<upharma-username>@an-upharma.local` with
+   *    the manager's Upharma password (or signs in if it already exists).
+   * 2. Claims the create-once `system_admin` node — database rules accept the
+   *    claim only while the node does not exist, so exactly one account can
+   *    ever bootstrap itself this way; afterwards only the Console can reset
+   *    the claim.
+   * 3. Writes the manager's own `staff_users` record with role "admin" (the
+   *    rules treat the claim holder as admin) and stores the session, so the
+   *    account-management page unlocks immediately.
+   *
+   * The caller must verify the password against the Upharma API first, so
+   * the password stored in Firebase is provably the manager's real one and
+   * the silent re-link on later logins keeps working.
+   */
+  async linkAdminAccount(input: {
+    username: string;
+    password: string;
+    displayName: string;
+    shops: string[];
+  }): Promise<StaffSession> {
+    if (!this.isConfigured) {
+      throw new Error(
+        "Chưa cấu hình Firebase API key (environment.firebaseApiKey). Xem docs/staff-inventory-count.md.",
+      );
+    }
+    const username = input.username.trim().toLowerCase();
+    const auth = await this.signUpOrSignIn(username, input.password);
+
+    const session: StaffSession = {
+      uid: auth.localId,
+      username,
+      displayName: input.displayName.trim(),
+      role: "admin",
+      shops: [...input.shops],
+      idToken: auth.idToken,
+      refreshToken: auth.refreshToken,
+      expiresAt: Date.now() + Number(auth.expiresIn || 3600) * 1000,
+    };
+
+    await this.claimSystemAdmin(session);
+    await this.writeStaffUser(
+      {
+        uid: session.uid,
+        username,
+        displayName: session.displayName,
+        role: "admin",
+        shops: session.shops,
+        active: true,
+      },
+      session.idToken,
+    );
+    this.saveSession(session);
+    return session;
+  }
+
+  /** Signs up a new Firebase user; falls back to sign-in when it exists. */
+  private async signUpOrSignIn(
+    username: string,
+    password: string,
+  ): Promise<FirebaseSignInResponse> {
+    const email = staffEmailForUsername(username);
+    const signUpResponse = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${this.apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, returnSecureToken: true }),
+      },
+    );
+    const signUpData = (await signUpResponse.json().catch(() => null)) as
+      | (FirebaseSignInResponse & { error?: { message?: string } })
+      | null;
+    if (signUpResponse.ok && signUpData?.idToken && signUpData.localId) {
+      return signUpData;
+    }
+    if (signUpData?.error?.message !== "EMAIL_EXISTS") {
+      throw new Error(this.signInErrorText(signUpData?.error?.message));
+    }
+    // Account already created (e.g. a previous interrupted attempt): sign in.
+    const signInResponse = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${this.apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, returnSecureToken: true }),
+      },
+    );
+    const signInData = (await signInResponse.json().catch(() => null)) as
+      | (FirebaseSignInResponse & { error?: { message?: string } })
+      | null;
+    if (!signInResponse.ok || !signInData?.idToken || !signInData.localId) {
+      throw new Error(this.signInErrorText(signInData?.error?.message));
+    }
+    return signInData;
+  }
+
+  /**
+   * Claims the create-once `system_admin` node for this session's uid.
+   * Succeeds silently when the claim already belongs to the same uid
+   * (resuming an interrupted link); fails when someone else holds it.
+   */
+  private async claimSystemAdmin(session: StaffSession): Promise<void> {
+    const readResponse = await fetch(
+      `${this.dbUrl}/system_admin.json?auth=${encodeURIComponent(session.idToken)}`,
+    );
+    const existing = (await readResponse.json().catch(() => null)) as { uid?: string } | null;
+    if (existing?.uid) {
+      if (existing.uid === session.uid) return;
+      throw new Error(
+        "Quyền quản lý Firebase đã được liên kết bởi một tài khoản khác. Nếu đó không phải bạn, xóa node system_admin trong Firebase Console rồi thử lại.",
+      );
+    }
+    const writeResponse = await fetch(
+      `${this.dbUrl}/system_admin.json?auth=${encodeURIComponent(session.idToken)}`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          uid: session.uid,
+          username: session.username,
+          claimedAt: Date.now(),
+        }),
+      },
+    );
+    if (!writeResponse.ok) {
+      throw new Error(
+        "Không ghi được quyền quản lý (có thể vừa có người liên kết trước bạn). Tải lại trang rồi thử lại.",
+      );
+    }
   }
 
   /**
@@ -274,8 +413,8 @@ export class StaffAuthService {
     await this.writeStaffUser(record);
   }
 
-  private async writeStaffUser(record: StaffUserRecord): Promise<void> {
-    const idToken = await this.getValidIdToken();
+  private async writeStaffUser(record: StaffUserRecord, providedIdToken?: string): Promise<void> {
+    const idToken = providedIdToken || (await this.getValidIdToken());
     const shops: Record<string, boolean> = {};
     for (const code of record.shops) shops[code] = true;
     const response = await fetch(
