@@ -67,7 +67,10 @@
         >Nhân viên kiểm kê</button>
       </div>
       <p class="small text-secondary" *ngIf="loginMode === 'staff'">
-        Tài khoản nhân viên do quản lý cấp, chỉ vào được trang kiểm kê của shop được phân.
+        Tài khoản nhân viên do quản lý cấp, chỉ vào được các trang được phân quyền.
+      </p>
+      <p class="small text-secondary" *ngIf="loginMode === 'manager'">
+        Nhân viên được cấp tài khoản riêng cũng đăng nhập ngay tại form này — hệ thống tự nhận diện, không cần sang hệ thống khác.
       </p>
 
       <label>

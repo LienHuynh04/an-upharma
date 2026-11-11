@@ -128,6 +128,25 @@ export class LoginComponent implements OnInit {
     this.loadingProgress = 15;
     this.errorText = "";
 
+    // Staff accounts live in this app's own database, not in the upstream
+    // Upharma system: when the typed username is a staff account, verify it
+    // here instead of sending it to the third-party login API (which does
+    // not know it and would only reject it). Real Upharma usernames are not
+    // staff accounts, so the manager flow below is untouched for them.
+    if (await this.staffAuthService.hasStaffAccount(this.username)) {
+      try {
+        const session = await this.staffAuthService.signIn(this.username.trim(), this.password);
+        this.loadingProgress = 100;
+        await this.router.navigateByUrl(`/${this.staffHomePath(session.pages)}`);
+      } catch (error) {
+        this.errorText = error instanceof Error ? error.message : String(error);
+        this.loadingProgress = 100;
+      } finally {
+        this.loading = false;
+      }
+      return;
+    }
+
     try {
       this.loadingProgress = 45;
       await this.upharmaService.login({
