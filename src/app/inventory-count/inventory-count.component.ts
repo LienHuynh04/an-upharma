@@ -323,6 +323,7 @@ export class InventoryCountComponent implements OnInit {
       }
     }
 
+    if (!sessionProduct.unit && product.unit) sessionProduct.unit = product.unit;
     this.activeProduct = sessionProduct;
     this.searchText = "";
     this.countedQuantityInput =
@@ -1130,16 +1131,20 @@ export class InventoryCountComponent implements OnInit {
     try {
       const catalog = await this.staffCountService.getShopCatalog(this.selectedShopCode);
       const items = catalog?.items || [];
+      const globalItems = await this.staffCountService.getGlobalCatalog().catch(() => []);
+      // Shop catalogs written by older sync runs may carry no unit at all;
+      // the system-wide catalog has the real unit (Viên, Gói, Hộp...), so
+      // fill any missing one from there by product code.
+      const unitByCode = new Map(globalItems.map((item) => [item.c, item.u || ""]));
       this.catalogProducts = items.map((item) => ({
         code: item.c,
         name: item.n || item.c,
-        unit: item.u || "",
+        unit: item.u || unitByCode.get(item.c) || "",
         expectedQuantity: 0,
         unitPrice: 0,
         countedQuantity: null,
       }));
       const inShopCodes = new Set(items.map((item) => item.c));
-      const globalItems = await this.staffCountService.getGlobalCatalog().catch(() => []);
       this.extraCatalogProducts = globalItems
         .filter((item) => !inShopCodes.has(item.c))
         .map((item) => ({
