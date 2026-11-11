@@ -110,10 +110,13 @@ export class InventoryCountComponent implements OnInit {
   uncountedProducts: { code: string; name: string; unit: string; expectedQuantity: number }[] = [];
   /** First rows of uncountedProducts actually rendered; the full list goes to the Excel export. */
   uncountedPreview: { code: string; name: string; unit: string; expectedQuantity: number }[] = [];
+  /** Distinct product codes counted by any sheet of the loaded day. */
+  countedCodeCount = 0;
   /** Verdicts being edited in the open sheet detail. */
   verdicts: Record<string, "correct" | "wrong"> = {};
   savingEvaluation = false;
   deletingSubmission = false;
+  exportNotice = "";
   evaluationNotice = "";
   finalQuantities: Record<string, number | null> = {};
   savingReview = false;
@@ -869,6 +872,7 @@ export class InventoryCountComponent implements OnInit {
     for (const submission of this.daySubmissions) {
       for (const item of submission.items) countedCodes.add(item.code);
     }
+    this.countedCodeCount = countedCodes.size;
     this.uncountedProducts = this.catalogProducts
       .filter((product) => product.expectedQuantity > 0 && !countedCodes.has(product.code))
       .map((product) => ({
@@ -881,12 +885,18 @@ export class InventoryCountComponent implements OnInit {
     this.uncountedPreview = this.uncountedProducts.slice(0, 200);
   }
 
-  finalDifferenceText(row: SheetRow): string {
+  /** Final confirmed quantity minus system stock; null while either side is unknown. */
+  finalDifferenceValue(row: SheetRow): number | null {
     const finalQuantity = this.finalQuantities[row.code];
     if (finalQuantity === null || finalQuantity === undefined || row.expectedQuantity === null) {
-      return "—";
+      return null;
     }
-    return this.formatSigned(finalQuantity - row.expectedQuantity);
+    return finalQuantity - row.expectedQuantity;
+  }
+
+  finalDifferenceText(row: SheetRow): string {
+    const value = this.finalDifferenceValue(row);
+    return value === null ? "—" : this.formatSigned(value);
   }
 
   async saveFinalReview(): Promise<void> {
@@ -1002,14 +1012,49 @@ export class InventoryCountComponent implements OnInit {
         "Đơn vị": product.unit,
         "SL tồn kho": product.expectedQuantity,
       }));
+      // One sheet per submitted sheet, named after its staff member, so
+      // each person\'s counts and verdicts can be read on their own tab.
+      const usedSheetNames = new Set<string>(["Đối chiếu kiểm kê", "Phiếu kiểm kê", "Chưa kiểm kê"]);
+      const submissionSheets = this.daySubmissions.map((submission) => {
+        const time = new Intl.DateTimeFormat("vi-VN", {
+          hour: "2-digit",
+          minute: "2-digit",
+        }).format(new Date(submission.completedAt)).replace(":", "h");
+        let sheetName = `Phiếu ${submission.staffName} ${time}`.replace(/[\\/?*[\]:]/g, "-").slice(0, 31);
+        if (usedSheetNames.has(sheetName)) sheetName = `${sheetName.slice(0, 27)} (2)`;
+        usedSheetNames.add(sheetName);
+        const evaluation = this.evaluationsBySubmission[submission.id];
+        const rowsByCode = new Map<string, Record<string, unknown>>();
+        for (const item of submission.items) {
+          const expected = expectedByCode.get(item.code);
+          const finalQuantity = this.finalQuantities[item.code];
+          const verdict = evaluation?.verdicts[item.code];
+          rowsByCode.set(item.code, {
+            "Mã SP": item.code,
+            "Tên sản phẩm": expected?.name || item.name || "",
+            "Đơn vị": expected?.unit || item.unit || "",
+            "SL tồn kho": expected ? expected.expectedQuantity : "",
+            "SL đếm": item.countedQuantity,
+            "Đánh giá": verdict === "correct" ? "Đúng" : verdict === "wrong" ? "Sai" : "",
+            "SL chốt": finalQuantity ?? "",
+            "Lệch sau chốt":
+              finalQuantity !== null && finalQuantity !== undefined && expected
+                ? finalQuantity - expected.expectedQuantity
+                : "",
+          });
+        }
+        return { name: sheetName, data: Array.from(rowsByCode.values()) };
+      });
       await this.excelExportService.exportSheetsToExcel(
         [
           { name: "Đối chiếu kiểm kê", data: comparisonRows },
           { name: "Phiếu kiểm kê", data: sheetRows },
+          ...submissionSheets,
           { name: "Chưa kiểm kê", data: uncountedRows },
         ],
         `Doi-chieu-kiem-ke-${this.selectedShopCode}-${this.reviewDate}.xlsx`,
       );
+      this.exportNotice = `Đã xuất file Excel: ${2 + submissionSheets.length + 1} trang (đối chiếu, danh sách phiếu, ${submissionSheets.length} phiếu chi tiết, chưa kiểm kê).`;
     } catch (error) {
       this.errorMessage = `Không xuất được báo cáo Excel: ${this.errorText(error)}`;
     } finally {

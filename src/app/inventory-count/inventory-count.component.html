@@ -121,7 +121,6 @@
               style="width: auto;"
               [(ngModel)]="reviewDate"
               [ngModelOptions]="{ standalone: true }"
-              (change)="reviewLoaded && loadSubmissions()"
               aria-label="Ngày kiểm kê"
             />
             <button class="btn btn-outline-primary" type="button" (click)="loadSubmissions()" [disabled]="submissionsLoading">
@@ -178,9 +177,12 @@
             </div>
             <div class="card-footer d-flex flex-wrap align-items-center justify-content-between gap-2">
               <span class="text-secondary small">Ở ngoài chỉ hiện danh sách phiếu — bấm vào từng nhân viên để xem các mã đã đếm và chấm đúng/sai.</span>
-              <button class="btn btn-outline-primary btn-sm" type="button" (click)="exportReview()" [disabled]="exporting">
-                <i class="ti ti-file-export me-1" aria-hidden="true"></i>Xuất Excel đối chiếu
-              </button>
+              <span class="d-flex align-items-center gap-2">
+                <span class="text-success small" *ngIf="exportNotice">{{ exportNotice }}</span>
+                <button class="btn btn-outline-primary btn-sm" type="button" (click)="exportReview()" [disabled]="exporting">
+                  <i class="ti ti-file-export me-1" aria-hidden="true"></i>Xuất Excel đối chiếu
+                </button>
+              </span>
             </div>
           </ng-container>
           <ng-container *ngIf="selectedSubmission">
@@ -206,23 +208,17 @@
                     <th>Tên sản phẩm</th>
                     <th class="text-end">SL tồn kho</th>
                     <th class="text-end">SL đếm · {{ selectedSubmission.staffName }}</th>
-                    <th>Người khác đếm cùng ngày</th>
                     <th class="text-end" style="min-width: 120px;">SL chốt</th>
                     <th class="text-end">Lệch sau chốt</th>
                     <th>Đánh giá của quản lý</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let row of sheetRows" [class.review-row-disagree]="sheetRowDisagrees(row)">
+                  <tr *ngFor="let row of sheetRows" [class.review-row-disagree]="sheetRowDisagrees(row)" [class.review-row-settled]="finalDifferenceValue(row) === 0">
                     <td class="text-primary fw-semibold">{{ row.code }}</td>
                     <td>{{ row.name }}<small class="d-block text-secondary">{{ row.unit }}</small></td>
                     <td class="text-end">{{ row.expectedQuantity !== null ? (row.expectedQuantity | number) : "—" }}</td>
                     <td class="text-end fw-semibold">{{ row.countedQuantity | number }}</td>
-                    <td>
-                      <span class="badge bg-orange-lt text-orange me-1" *ngFor="let count of row.otherCounts">{{ count.staffName }}: {{ count.quantity | number }}</span>
-                      <span class="text-secondary small" *ngIf="!row.otherCounts.length">—</span>
-                      <span class="badge bg-danger-lt text-danger" *ngIf="sheetRowDisagrees(row)">Lệch</span>
-                    </td>
                     <td class="text-end">
                       <input
                         type="number"
@@ -280,11 +276,12 @@
           <div class="card-body border-top" *ngIf="!selectedSubmission">
             <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
               <strong>Chưa được kiểm kê</strong>
-              <span class="badge bg-danger-lt text-danger" *ngIf="uncountedProducts.length">{{ uncountedProducts.length }} mã</span>
+              <span class="badge bg-success-lt text-success">Đã đếm {{ countedCodeCount }} mã</span>
+              <span class="badge bg-danger-lt text-danger" *ngIf="uncountedProducts.length">Chưa đếm {{ uncountedProducts.length }} mã</span>
               <span class="badge bg-success-lt text-success" *ngIf="!uncountedProducts.length">Đã đủ</span>
             </div>
             <p class="text-secondary small" *ngIf="uncountedProducts.length">
-              So với danh mục hàng còn tồn tại {{ selectedShopCode }}: các mã dưới đây chưa có nhân viên nào đếm trong ngày {{ reviewDate | date: "dd/MM/yyyy" }} — kiểm kê sót cần cho đếm bổ sung.
+              Danh sách này tính riêng cho ngày {{ reviewDate | date: "dd/MM/yyyy" }}: lấy toàn bộ hàng còn tồn tại {{ selectedShopCode }} rồi trừ đi {{ countedCodeCount }} mã đã có nhân viên đếm trong ngày này. Mỗi ngày số mã được đếm khác nhau nên danh sách cũng khác theo ngày — đổi ngày rồi bấm "Tải phiếu ngày này" để xem đúng ngày đó. Các mã dưới đây là kiểm kê sót của ngày {{ reviewDate | date: "dd/MM/yyyy" }}, cần cho đếm bổ sung.
             </p>
             <p class="text-success small mb-0" *ngIf="!uncountedProducts.length">
               Mọi mã còn tồn tại {{ selectedShopCode }} đều đã có người đếm trong ngày {{ reviewDate | date: "dd/MM/yyyy" }}.
