@@ -37,11 +37,8 @@
     </div>
 
     <ng-container *ngIf="!currentSession; else sessionWorkspace">
-      <div class="alert d-flex align-items-start justify-content-between gap-2" [class.alert-warning]="!catalogProducts.length" [class.alert-info]="catalogProducts.length" *ngIf="catalogStatus">
+      <div class="alert d-flex align-items-start gap-2" [class.alert-warning]="!catalogProducts.length && !loading" [class.alert-info]="loading || catalogProducts.length" *ngIf="catalogStatus">
         <span>{{ catalogStatus }}</span>
-        <button type="button" class="btn btn-sm btn-outline-primary flex-shrink-0" *ngIf="!catalogProducts.length" (click)="goToInventory()">
-          Mở Tồn kho
-        </button>
       </div>
 
       <div class="card mb-3" *ngIf="activeSession">
@@ -104,18 +101,13 @@
             <span class="avatar avatar-lg bg-primary-lt text-primary mb-3">
               <i class="ti ti-clipboard-list" aria-hidden="true"></i>
             </span>
-            <h3>{{ loading ? "Đang đọc dữ liệu đã lưu…" : "Chưa có phiên kiểm kê" }}</h3>
+            <h3>{{ loading ? "Đang tải dữ liệu tồn kho…" : "Chưa có phiên kiểm kê" }}</h3>
             <p class="text-secondary mb-3" *ngIf="catalogProducts.length">
               Mở phiên mới, sau đó chọn từng mã cần kiểm kê để thêm vào phiên.
             </p>
-            <p class="text-secondary mb-3" *ngIf="!catalogProducts.length && !loading">
-              Cần có dữ liệu tồn kho đã lưu trên thiết bị để gợi ý sản phẩm và tính chênh lệch.
-            </p>
+            <p class="text-secondary mb-3" *ngIf="!catalogProducts.length && !loading">{{ catalogStatus || "Không có sản phẩm tồn kho để kiểm kê." }}</p>
             <button class="btn btn-primary" type="button" *ngIf="catalogProducts.length" (click)="startSession()">
               <i class="ti ti-plus me-1" aria-hidden="true"></i>Mở phiên kiểm kê
-            </button>
-            <button class="btn btn-outline-primary" type="button" *ngIf="!catalogProducts.length && !loading" (click)="goToInventory()">
-              Mở trang Tồn kho
             </button>
           </div>
         </section>

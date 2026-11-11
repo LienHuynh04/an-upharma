@@ -1,10 +1,9 @@
 import { CommonModule } from "@angular/common";
 import { Component, ElementRef, OnInit, ViewChild } from "@angular/core";
 import { FormsModule } from "@angular/forms";
-import { Router } from "@angular/router";
 import { normalizeFilterText, normalizeInventoryRow, parseNumericValue } from "../inventory-utils";
 import { ExcelExportService } from "../shared/services/excel-export.service";
-import { LoginResponse, RawRecord, ShopInfo, UpharmaService } from "../upharma.service";
+import { LoginResponse, RawRecord, ResourceResponse, ShopInfo, UpharmaService } from "../upharma.service";
 
 interface CountProduct {
   code: string;
@@ -28,7 +27,8 @@ interface CountSession {
 
 interface InventoryCacheRecord {
   cacheKey: string;
-  data: { data?: RawRecord[] };
+  data: ResourceResponse;
+  savedAt?: number;
 }
 
 @Component({
@@ -66,7 +66,6 @@ export class InventoryCountComponent implements OnInit {
   constructor(
     private readonly upharmaService: UpharmaService,
     private readonly excelExportService: ExcelExportService,
-    private readonly router: Router,
   ) {}
 
   ngOnInit(): void {
@@ -140,10 +139,6 @@ export class InventoryCountComponent implements OnInit {
     this.noticeMessage = "";
     this.loadSavedSessions();
     await this.loadProductCatalog();
-  }
-
-  goToInventory(): void {
-    void this.router.navigateByUrl("/ton-kho");
   }
 
   startSession(): void {
@@ -419,28 +414,69 @@ export class InventoryCountComponent implements OnInit {
     this.errorMessage = "";
     this.catalogStatus = "";
 
+    let cache: InventoryCacheRecord | null = null;
     try {
-      const cache = await this.readInventoryCache(login);
-      const rows = (cache?.data?.data || []).filter(
+      cache = await this.readInventoryCache(login);
+    } catch (error) {
+      console.warn("Không đọc được cache tồn kho; sẽ tải dữ liệu mới:", error);
+    }
+
+    try {
+      let rows = (cache?.data?.data || []).filter(
         (row) => String(row["__shopCode"] || row["ShopCode"] || row["StoreCode"] || "") === this.selectedShopCode,
       );
+      let fetchedFromApi = false;
+      let cacheWriteFailed = false;
+      if (rows.length === 0) {
+        this.catalogStatus = "Đang tải dữ liệu tồn kho để chuẩn bị kiểm kê...";
+        const inventoryData = await this.upharmaService.loadInventoryResource({
+          forceRefresh: true,
+          shopCodes: this.shops.map((shop) => shop.ShopCode),
+        });
+        rows = (inventoryData.data || []).filter(
+          (row) => String(row["__shopCode"] || row["ShopCode"] || row["StoreCode"] || "") === this.selectedShopCode,
+        );
+        const selectedShopFailure = inventoryData.failedShops?.find((failure) =>
+          failure === this.selectedShopCode || failure.startsWith(`${this.selectedShopCode}:`),
+        );
+        if (rows.length === 0 && selectedShopFailure) {
+          throw new Error(`Không tải được tồn kho của ${this.selectedShopCode}: ${selectedShopFailure}`);
+        }
+
+        if (inventoryData.data?.length) {
+          try {
+            await this.writeInventoryCache({
+              cacheKey: this.inventoryCacheKey(login),
+              data: inventoryData,
+              savedAt: Date.now(),
+            });
+          } catch (error) {
+            console.error("Đã tải được tồn kho nhưng không lưu được cache dùng chung:", error);
+            cacheWriteFailed = true;
+          }
+        }
+        fetchedFromApi = true;
+      }
+
       this.catalogProducts = this.aggregateProducts(rows);
       if (this.catalogProducts.length === 0) {
-        this.catalogStatus = "Chưa có tồn kho đã lưu cho nhà thuốc này trên thiết bị. Mở trang Tồn kho để tải dữ liệu trước; trang Kiểm kê không gọi API.";
+        this.catalogStatus = `Không có sản phẩm tồn kho để kiểm kê tại ${this.selectedShopCode}.`;
+      } else if (fetchedFromApi) {
+        this.catalogStatus = cacheWriteFailed
+          ? `Đã tải ${this.catalogProducts.length} sản phẩm cho ${this.selectedShopCode}, nhưng không lưu được cache trên thiết bị.`
+          : `Đã tải ${this.catalogProducts.length} sản phẩm tồn kho cho ${this.selectedShopCode}.`;
+      } else if (cache?.savedAt) {
+        this.catalogStatus = `Danh mục lấy từ dữ liệu tồn kho đã lưu lúc ${new Intl.DateTimeFormat("vi-VN", {
+          hour: "2-digit",
+          minute: "2-digit",
+          day: "2-digit",
+          month: "2-digit",
+        }).format(new Date(cache.savedAt))}.`;
       } else {
-        const savedAt = (cache as InventoryCacheRecord & { savedAt?: number }).savedAt;
-        this.catalogStatus = savedAt
-          ? `Danh mục lấy từ dữ liệu tồn kho đã lưu lúc ${new Intl.DateTimeFormat("vi-VN", {
-              hour: "2-digit",
-              minute: "2-digit",
-              day: "2-digit",
-              month: "2-digit",
-            }).format(new Date(savedAt))}.`
-          : "Danh mục lấy từ dữ liệu tồn kho đã lưu trên thiết bị.";
+        this.catalogStatus = "Danh mục lấy từ dữ liệu tồn kho đã lưu trên thiết bị.";
       }
     } catch (error) {
       this.catalogProducts = [];
-      this.catalogStatus = "Không đọc được danh mục tồn kho đã lưu trên thiết bị.";
       this.errorMessage = this.errorText(error);
     } finally {
       this.loading = false;
@@ -476,8 +512,7 @@ export class InventoryCountComponent implements OnInit {
   }
 
   private async readInventoryCache(login: LoginResponse): Promise<InventoryCacheRecord | null> {
-    const shopCodes = this.shops.map((shop) => shop.ShopCode).join(",");
-    const cacheKey = `inventory_new:${login.UserInfo.uPharmaID}:${shopCodes}:v2`;
+    const cacheKey = this.inventoryCacheKey(login);
     const db = await this.openInventoryCacheDb();
 
     return new Promise<InventoryCacheRecord | null>((resolve, reject) => {
@@ -497,6 +532,26 @@ export class InventoryCountComponent implements OnInit {
         reject(request.error);
       };
     });
+  }
+
+  private inventoryCacheKey(login: LoginResponse): string {
+    const shopCodes = this.shops.map((shop) => shop.ShopCode).join(",");
+    return `inventory_new:${login.UserInfo.uPharmaID}:${shopCodes}:v2`;
+  }
+
+  private async writeInventoryCache(record: InventoryCacheRecord): Promise<void> {
+    if (!record.data?.data?.length) return;
+    const db = await this.openInventoryCacheDb();
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const transaction = db.transaction("inventory", "readwrite");
+        const request = transaction.objectStore("inventory").put(record);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error || new Error("Không lưu được dữ liệu tồn kho."));
+      });
+    } finally {
+      db.close();
+    }
   }
 
   private openInventoryCacheDb(): Promise<IDBDatabase> {
