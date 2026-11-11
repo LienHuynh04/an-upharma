@@ -128,7 +128,7 @@
     drop-shadow(0 5px 8px rgba(7, 17, 36, 0.2))
     drop-shadow(0 0 14px rgba(255, 246, 207, 0.55));
   will-change: transform;
-  animation: holiday-santa-flight 30s linear -7s infinite;
+  animation: holiday-santa-flight 60s linear -14s infinite;
 }
 
 .holiday-santa-art {
