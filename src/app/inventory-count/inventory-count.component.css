@@ -163,3 +163,17 @@
 .review-row-disagree > td:first-child {
   box-shadow: inset 3px 0 0 #f7b23c;
 }
+
+/* Manager review detail: the table is the main content — cap its height so
+   it scrolls in place with a sticky header instead of pushing the page down. */
+.review-table-scroll {
+  max-height: 62vh;
+  overflow-y: auto;
+}
+
+.review-table-scroll thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background-color: #1d2740;
+}
