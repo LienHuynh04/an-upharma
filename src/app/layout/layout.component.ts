@@ -997,10 +997,12 @@ renderDashboard(); renderInventory(); renderNearExpiryOrders(); renderTabs(); re
       url.includes("/goi-y-chuyen-hang");
     const isReportsRoute =
       url.includes("/xuat-bao-cao") || url.includes("/lay-bao-cao-don-hang");
+    const isSettingsRoute = url.includes("/cai-dat") || url.includes("/tai-khoan-kiem-ke");
     this.menuGroups["inventory"] = isInventoryRoute;
     this.menuGroups["operations"] = isOperationsRoute;
     this.menuGroups["reports"] = isReportsRoute;
     this.menuGroups["stats"] = isStatsRoute;
+    this.menuGroups["settings"] = isSettingsRoute;
   }
 
   openLogoutConfirm(e: Event) {
