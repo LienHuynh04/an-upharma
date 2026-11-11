@@ -152,3 +152,14 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Manager review: a product another staff member counted differently the
+   same day gets a subtle amber tint that fits the dark theme (the old
+   table-warning cream clashed with it) plus an amber edge marker. */
+.review-row-disagree > td {
+  background-color: rgba(247, 178, 60, 0.07) !important;
+}
+
+.review-row-disagree > td:first-child {
+  box-shadow: inset 3px 0 0 #f7b23c;
+}

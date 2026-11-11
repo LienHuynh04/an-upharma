@@ -62,6 +62,8 @@ export interface FinalReview {
   shopCode: string;
   reviewedBy: string;
   reviewedAt: number;
+  /** yyyy-MM-dd of the counting day this review confirms (one review per shop per day). */
+  dateKey?: string;
   items: { code: string; finalQuantity: number | null }[];
 }
 
@@ -113,6 +115,14 @@ export class StaffCountService {
     return Object.values(data)
       .filter((submission) => submission && Array.isArray(submission.items))
       .sort((first, second) => (second.completedAt || 0) - (first.completedAt || 0));
+  }
+
+  /** The saved final review for one shop and review id, or null when none exists yet. */
+  async getFinalReview(shopCode: string, reviewId: string): Promise<FinalReview | null> {
+    const data = await this.readJson<FinalReview | null>(
+      `count_final_reviews/${encodeURIComponent(shopCode)}/${encodeURIComponent(reviewId)}.json`,
+    );
+    return data && Array.isArray(data.items) ? data : null;
   }
 
   async saveFinalReview(review: FinalReview): Promise<void> {

@@ -87,10 +87,10 @@
               <button class="btn btn-sm btn-outline-primary" type="button" (click)="openSession(session)">
                 {{ session.status === "completed" ? "Kết quả" : "Mở" }}
               </button>
-              <button class="btn btn-sm btn-outline-primary" type="button" (click)="editSession(session)" [attr.aria-label]="'Sửa phiên ' + session.shopCode">
+              <button class="btn btn-sm btn-outline-primary" type="button" (click)="editSession(session)" [attr.aria-label]="'Sửa phiên ' + session.shopCode" *ngIf="!(staffMode && session.status === 'completed')">
                 <i class="ti ti-edit me-sm-1" aria-hidden="true"></i><span class="d-none d-sm-inline">Sửa</span>
               </button>
-              <button class="btn btn-sm btn-outline-danger" type="button" (click)="deleteSession(session)" [attr.aria-label]="'Xóa phiên ' + session.shopCode">
+              <button class="btn btn-sm btn-outline-danger" type="button" (click)="deleteSession(session)" [attr.aria-label]="'Xóa phiên ' + session.shopCode" *ngIf="!(staffMode && session.status === 'completed')">
                 <i class="ti ti-trash me-sm-1" aria-hidden="true"></i><span class="d-none d-sm-inline">Xóa</span>
               </button>
             </div>
@@ -120,86 +120,103 @@
             <div class="page-pretitle">KẾT QUẢ NHÂN VIÊN ĐÃ NỘP</div>
             <h3 class="card-title">Đối chiếu kiểm kê · {{ selectedShopCode }}</h3>
           </div>
-          <button class="btn btn-outline-primary" type="button" (click)="loadSubmissions()" [disabled]="submissionsLoading">
-            <i class="ti ti-refresh me-1" aria-hidden="true"></i>{{ submissionsLoading ? "Đang tải…" : "Tải kết quả nhân viên nộp" }}
-          </button>
+          <div class="d-flex align-items-center gap-2">
+            <input
+              type="date"
+              class="form-control"
+              style="width: auto;"
+              [(ngModel)]="reviewDate"
+              [ngModelOptions]="{ standalone: true }"
+              (change)="reviewLoaded && loadSubmissions()"
+              aria-label="Ngày kiểm kê"
+            />
+            <button class="btn btn-outline-primary" type="button" (click)="loadSubmissions()" [disabled]="submissionsLoading">
+              <i class="ti ti-refresh me-1" aria-hidden="true"></i>{{ submissionsLoading ? "Đang tải…" : "Tải phiếu ngày này" }}
+            </button>
+          </div>
         </div>
         <div class="card-body" *ngIf="!reviewLoaded && !submissionsError">
           <p class="text-secondary mb-0">
-            Bấm "Tải kết quả nhân viên nộp" để xem các phiếu kiểm kê nhân viên đã gửi cho shop đang chọn.
-            Nhiều nhân viên đếm cùng một mã là đối chứng độc lập — các số được xếp cạnh nhau để bạn chốt,
-            hệ thống không tự cộng hay tự chọn.
+            Chọn ngày rồi bấm "Tải phiếu ngày này". Phiếu được quản lý theo ngày và nhà thuốc, mỗi nhân viên
+            một phiếu riêng — mở từng phiếu để xem số đếm của người đó rồi chốt số cuối cùng cho cả ngày.
+            Số đếm của đồng nghiệp trong cùng ngày chỉ hiện để tham khảo đối chiếu, hệ thống không tự cộng hay tự chọn.
           </p>
         </div>
         <div class="alert alert-danger mx-3 mt-3 mb-0" *ngIf="submissionsError">{{ submissionsError }}</div>
         <ng-container *ngIf="reviewLoaded">
-          <div class="card-body pb-0" *ngIf="submissions.length">
-            <div class="text-secondary small mb-2">{{ submissions.length }} phiếu đã nộp:</div>
-            <div class="d-flex flex-wrap gap-2">
-              <span class="badge bg-primary-lt text-primary" *ngFor="let submission of submissions">
-                {{ submission.staffName }} · {{ submission.completedAt | date: "HH:mm dd/MM" }} · {{ submission.items.length }} mã
-              </span>
-            </div>
+          <div class="card-body" *ngIf="!daySubmissions.length">
+            <p class="text-secondary mb-0">Ngày {{ reviewDate | date: "dd/MM/yyyy" }} chưa có nhân viên nào nộp phiếu cho {{ selectedShopCode }}.</p>
           </div>
-          <div class="card-body" *ngIf="!submissions.length">
-            <p class="text-secondary mb-0">Chưa có nhân viên nào nộp kết quả cho shop này.</p>
-          </div>
-          <div class="table-responsive" *ngIf="reviewRows.length">
-            <table class="table table-vcenter card-table table-striped table-hover">
-              <thead>
-                <tr>
-                  <th>Mã SP</th>
-                  <th>Tên sản phẩm</th>
-                  <th class="text-end">SL tồn kho</th>
-                  <th>SL nhân viên đếm</th>
-                  <th class="text-end" style="min-width: 130px;">SL chốt</th>
-                  <th class="text-end">Lệch sau chốt</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let row of reviewRows" [class.table-warning]="countsDisagree(row)">
-                  <td class="text-primary fw-semibold">{{ row.code }}</td>
-                  <td>{{ row.name }}<small class="d-block text-secondary">{{ row.unit }}</small></td>
-                  <td class="text-end">{{ row.expectedQuantity !== null ? (row.expectedQuantity | number) : "—" }}</td>
-                  <td>
-                    <span
-                      class="badge me-1"
-                      *ngFor="let count of row.counts"
-                      [class.bg-success-lt]="!countsDisagree(row)"
-                      [class.text-success]="!countsDisagree(row)"
-                      [class.bg-orange-lt]="countsDisagree(row)"
-                      [class.text-orange]="countsDisagree(row)"
-                    >{{ count.staffName }}: {{ count.quantity | number }}</span>
-                    <span class="badge bg-danger-lt text-danger" *ngIf="countsDisagree(row)">Lệch số đếm</span>
-                  </td>
-                  <td class="text-end">
-                    <input
-                      type="number"
-                      min="0"
-                      step="any"
-                      class="form-control form-control-sm text-end"
-                      [(ngModel)]="finalQuantities[row.code]"
-                      [ngModelOptions]="{ standalone: true }"
-                      placeholder="Chốt"
-                    />
-                  </td>
-                  <td class="text-end">{{ finalDifferenceText(row) }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <div class="card-footer d-flex flex-wrap align-items-center justify-content-between gap-2" *ngIf="reviewRows.length">
-            <span class="text-success small" *ngIf="reviewNotice">{{ reviewNotice }}</span>
-            <span class="text-secondary small" *ngIf="!reviewNotice">Mã tô vàng = các nhân viên đếm lệch nhau, cần chốt tay.</span>
-            <div class="btn-list">
-              <button class="btn btn-outline-primary btn-sm" type="button" (click)="exportReview()" [disabled]="exporting">
-                <i class="ti ti-file-export me-1" aria-hidden="true"></i>Xuất Excel đối chiếu
-              </button>
-              <button class="btn btn-primary btn-sm" type="button" (click)="saveFinalReview()" [disabled]="savingReview">
-                {{ savingReview ? "Đang lưu…" : "Lưu số chốt" }}
+          <ng-container *ngIf="daySubmissions.length">
+            <div class="list-group list-group-flush border-bottom">
+              <button
+                type="button"
+                class="list-group-item list-group-item-action d-flex flex-wrap align-items-center gap-3"
+                *ngFor="let submission of daySubmissions"
+                [class.active]="selectedSubmission?.id === submission.id"
+                (click)="selectSubmission(submission)"
+              >
+                <span class="avatar bg-primary-lt text-primary">{{ submission.staffName.charAt(0) }}</span>
+                <span class="flex-fill text-start min-w-0">
+                  <span class="fw-semibold d-block">Phiếu của {{ submission.staffName }}</span>
+                  <span class="small text-secondary">Nộp lúc {{ submission.completedAt | date: "HH:mm" }} · {{ submission.items.length }} mã</span>
+                </span>
+                <span class="badge bg-orange-lt text-orange" *ngIf="sheetHasDisagreement(submission)">Có mã lệch với người khác</span>
               </button>
             </div>
-          </div>
+            <div class="table-responsive" *ngIf="selectedSubmission && sheetRows.length">
+              <table class="table table-vcenter card-table table-hover">
+                <thead>
+                  <tr>
+                    <th>Mã SP</th>
+                    <th>Tên sản phẩm</th>
+                    <th class="text-end">SL tồn kho</th>
+                    <th class="text-end">SL đếm · {{ selectedSubmission.staffName }}</th>
+                    <th>Người khác đếm cùng ngày</th>
+                    <th class="text-end" style="min-width: 130px;">SL chốt</th>
+                    <th class="text-end">Lệch sau chốt</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let row of sheetRows" [class.review-row-disagree]="sheetRowDisagrees(row)">
+                    <td class="text-primary fw-semibold">{{ row.code }}</td>
+                    <td>{{ row.name }}<small class="d-block text-secondary">{{ row.unit }}</small></td>
+                    <td class="text-end">{{ row.expectedQuantity !== null ? (row.expectedQuantity | number) : "—" }}</td>
+                    <td class="text-end fw-semibold">{{ row.countedQuantity | number }}</td>
+                    <td>
+                      <span class="badge bg-orange-lt text-orange me-1" *ngFor="let count of row.otherCounts">{{ count.staffName }}: {{ count.quantity | number }}</span>
+                      <span class="text-secondary small" *ngIf="!row.otherCounts.length">—</span>
+                      <span class="badge bg-danger-lt text-danger" *ngIf="sheetRowDisagrees(row)">Lệch</span>
+                    </td>
+                    <td class="text-end">
+                      <input
+                        type="number"
+                        min="0"
+                        step="any"
+                        class="form-control form-control-sm text-end"
+                        [(ngModel)]="finalQuantities[row.code]"
+                        [ngModelOptions]="{ standalone: true }"
+                        placeholder="Chốt"
+                      />
+                    </td>
+                    <td class="text-end">{{ finalDifferenceText(row) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="card-footer d-flex flex-wrap align-items-center justify-content-between gap-2">
+              <span class="text-success small" *ngIf="reviewNotice">{{ reviewNotice }}</span>
+              <span class="text-secondary small" *ngIf="!reviewNotice">Hàng viền vàng = đồng nghiệp đếm khác số ở mã này trong cùng ngày. SL chốt là số cuối cùng của cả ngày tại shop này — mở phiếu của ai cũng thấy cùng một số chốt.</span>
+              <div class="btn-list">
+                <button class="btn btn-outline-primary btn-sm" type="button" (click)="exportReview()" [disabled]="exporting">
+                  <i class="ti ti-file-export me-1" aria-hidden="true"></i>Xuất Excel đối chiếu
+                </button>
+                <button class="btn btn-primary btn-sm" type="button" (click)="saveFinalReview()" [disabled]="savingReview">
+                  {{ savingReview ? "Đang lưu…" : "Lưu số chốt" }}
+                </button>
+              </div>
+            </div>
+          </ng-container>
         </ng-container>
       </section>
     </ng-container>
@@ -388,6 +405,9 @@
       </ng-container>
 
       <ng-container *ngIf="currentTab === 'results' && currentSession?.status === 'completed' && !editingCompletedSession">
+        <div class="alert alert-info py-2 mb-3" *ngIf="staffMode">
+          <i class="ti ti-lock me-1" aria-hidden="true"></i>Phiên đã hoàn thành — bạn chỉ xem lại chi tiết, không sửa được nữa. Nếu cần đếm lại, hãy mở phiên mới.
+        </div>
         <div class="row row-cards mb-3" *ngIf="staffMode">
           <div class="col-6">
             <div class="card card-sm h-100"><div class="card-body">
@@ -441,7 +461,6 @@
           </ng-template>
           <div class="card-footer d-flex flex-wrap align-items-center justify-content-between gap-2">
             <span class="text-secondary small">Kết quả đối chiếu do quản lý xem. Số đếm của đồng nghiệp không hiển thị ở đây.</span>
-            <button class="btn btn-outline-primary btn-sm" type="button" (click)="editCurrentSession()">Sửa phiên</button>
           </div>
         </section>
 
@@ -522,7 +541,7 @@
             <button class="btn btn-outline-primary btn-sm" type="button" *ngIf="currentSession?.status !== 'completed' || editingCompletedSession" (click)="currentTab = 'count'">
               {{ editingCompletedSession ? "Tiếp tục sửa" : "Tiếp tục kiểm kê" }}
             </button>
-            <button class="btn btn-outline-primary btn-sm" type="button" *ngIf="currentSession?.status === 'completed' && !editingCompletedSession" (click)="editCurrentSession()">
+            <button class="btn btn-outline-primary btn-sm" type="button" *ngIf="currentSession?.status === 'completed' && !editingCompletedSession && !staffMode" (click)="editCurrentSession()">
               Sửa phiên
             </button>
           </div>

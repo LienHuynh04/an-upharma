@@ -22,7 +22,6 @@ export class LoginComponent implements OnInit {
   loading = false;
   loadingProgress = 0;
   errorText = "";
-  loginMode: "manager" | "staff" = "manager";
 
   constructor(
     private readonly route: ActivatedRoute,
@@ -49,27 +48,7 @@ export class LoginComponent implements OnInit {
   }
 
   onSubmit(): void {
-    if (this.loginMode === "staff") {
-      void this.submitStaffLogin();
-    } else {
-      void this.submitLogin();
-    }
-  }
-
-  async submitStaffLogin(): Promise<void> {
-    this.loading = true;
-    this.loadingProgress = 40;
-    this.errorText = "";
-    try {
-      const session = await this.staffAuthService.signIn(this.username.trim(), this.password);
-      this.loadingProgress = 100;
-      await this.router.navigateByUrl(`/${this.staffHomePath(session.pages)}`);
-    } catch (error) {
-      this.errorText = error instanceof Error ? error.message : String(error);
-      this.loadingProgress = 100;
-    } finally {
-      this.loading = false;
-    }
+    void this.submitLogin();
   }
 
   get faceClasses(): Record<string, boolean> {
