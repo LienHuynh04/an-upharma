@@ -300,7 +300,7 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let product of uncountedProducts">
+                  <tr *ngFor="let product of uncountedPreview">
                     <td class="text-primary fw-semibold">{{ product.code }}</td>
                     <td>{{ product.name }}</td>
                     <td>{{ product.unit }}</td>
@@ -309,6 +309,9 @@
                 </tbody>
               </table>
             </div>
+            <p class="text-secondary small mt-2 mb-0" *ngIf="uncountedProducts.length > uncountedPreview.length">
+              Đang hiện {{ uncountedPreview.length }} mã đầu tiên — còn {{ uncountedProducts.length - uncountedPreview.length }} mã nữa. Bấm "Xuất Excel đối chiếu" để xem toàn bộ danh sách ở trang "Chưa kiểm kê".
+            </p>
           </div>
         </ng-container>
       </section>

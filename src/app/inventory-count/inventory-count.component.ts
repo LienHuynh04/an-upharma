@@ -106,6 +106,10 @@ export class InventoryCountComponent implements OnInit {
   sheetRows: SheetRow[] = [];
   /** Saved manager evaluations of the shop's sheets, keyed by submission id. */
   evaluationsBySubmission: Record<string, StaffEvaluation> = {};
+  /** Products with stock that no sheet of the loaded day counted (computed once per load, never in a template getter). */
+  uncountedProducts: { code: string; name: string; unit: string; expectedQuantity: number }[] = [];
+  /** First rows of uncountedProducts actually rendered; the full list goes to the Excel export. */
+  uncountedPreview: { code: string; name: string; unit: string; expectedQuantity: number }[] = [];
   /** Verdicts being edited in the open sheet detail. */
   verdicts: Record<string, "correct" | "wrong"> = {};
   savingEvaluation = false;
@@ -632,6 +636,7 @@ export class InventoryCountComponent implements OnInit {
         .catch(() => ({}));
       await this.prepareFinalQuantities();
       this.reviewLoaded = true;
+      this.computeUncountedProducts();
     } catch (error) {
       this.submissionsError = this.errorText(error);
     } finally {
@@ -849,15 +854,22 @@ export class InventoryCountComponent implements OnInit {
 
   /**
    * Admin view: products that still have stock at the shop but NO staff
-   * sheet of the selected day counted — the "kiểm kê sót" list.
+   * sheet of the selected day counted — the "kiểm kê sót" list. Computed
+   * once per review/catalog load and stored: as a template getter it was
+   * re-filtered and re-sorted on every change-detection cycle and froze
+   * the page (Page Unresponsive) on shops with ~2,000 catalog rows.
    */
-  get uncountedProducts(): { code: string; name: string; unit: string; expectedQuantity: number }[] {
-    if (!this.reviewLoaded) return [];
+  private computeUncountedProducts(): void {
+    if (!this.reviewLoaded) {
+      this.uncountedProducts = [];
+      this.uncountedPreview = [];
+      return;
+    }
     const countedCodes = new Set<string>();
     for (const submission of this.daySubmissions) {
       for (const item of submission.items) countedCodes.add(item.code);
     }
-    return this.catalogProducts
+    this.uncountedProducts = this.catalogProducts
       .filter((product) => product.expectedQuantity > 0 && !countedCodes.has(product.code))
       .map((product) => ({
         code: product.code,
@@ -866,6 +878,7 @@ export class InventoryCountComponent implements OnInit {
         expectedQuantity: product.expectedQuantity,
       }))
       .sort((first, second) => first.name.localeCompare(second.name, "vi", { sensitivity: "base" }));
+    this.uncountedPreview = this.uncountedProducts.slice(0, 200);
   }
 
   finalDifferenceText(row: SheetRow): string {
@@ -1171,6 +1184,9 @@ export class InventoryCountComponent implements OnInit {
       }
 
       this.catalogProducts = this.aggregateProducts(rows);
+      // If the day's sheets were loaded before the catalog arrived, the
+      // uncounted list can only be computed now that both sides exist.
+      if (this.reviewLoaded) this.computeUncountedProducts();
       if (this.catalogProducts.length === 0) {
         this.catalogStatus = `Không có sản phẩm tồn kho để kiểm kê tại ${this.selectedShopCode}.`;
       } else if (fetchedFromApi) {
