@@ -109,6 +109,7 @@ export class InventoryCountComponent implements OnInit {
   /** Verdicts being edited in the open sheet detail. */
   verdicts: Record<string, "correct" | "wrong"> = {};
   savingEvaluation = false;
+  deletingSubmission = false;
   evaluationNotice = "";
   finalQuantities: Record<string, number | null> = {};
   savingReview = false;
@@ -176,10 +177,25 @@ export class InventoryCountComponent implements OnInit {
     const searchable = this.staffMode
       ? [...this.catalogProducts, ...this.extraCatalogProducts]
       : this.catalogProducts;
+    const queryDigits = query.replace(/\D/g, "");
     return searchable
-      .filter((product) => normalizeFilterText(`${product.code} ${product.name}`).includes(query))
+      .filter((product) => {
+        if (normalizeFilterText(`${product.code} ${product.name}`).includes(query)) return true;
+        // Staff often type only the number part of a code, or part of it:
+        // compare digit-only forms with leading zeros stripped on both
+        // sides, so "4787" and "84787" both surface code TH04787.
+        if (queryDigits.length >= 2) {
+          const codeDigits = product.code.replace(/\D/g, "").replace(/^0+/, "");
+          const wanted = queryDigits.replace(/^0+/, "");
+          if (codeDigits && wanted && (codeDigits.includes(wanted) || wanted.includes(codeDigits))) {
+            return true;
+          }
+        }
+        return false;
+      })
       .slice(0, 8);
   }
+
 
   get countedTotalValue(): number {
     return this.countedProducts.reduce(
@@ -312,7 +328,17 @@ export class InventoryCountComponent implements OnInit {
   selectSearchResult(): void {
     const query = normalizeFilterText(this.searchText);
     const exactMatch = this.catalogProducts.find((product) => normalizeFilterText(product.code) === query);
-    const product = exactMatch || (this.matchingProducts.length === 1 ? this.matchingProducts[0] : null);
+    // Typing the code's full number part (leading zeros aside) is an exact
+    // match too, so Enter opens that product even when fragments of other
+    // codes also match the typed digits.
+    const queryDigits = query.replace(/\D/g, "").replace(/^0+/, "");
+    const digitExactMatch = queryDigits
+      ? this.catalogProducts.find(
+          (product) => product.code.replace(/\D/g, "").replace(/^0+/, "") === queryDigits,
+        )
+      : undefined;
+    const product =
+      exactMatch || digitExactMatch || (this.matchingProducts.length === 1 ? this.matchingProducts[0] : null);
     if (product) {
       this.selectProduct(product);
     } else if (this.matchingProducts.length === 0) {
@@ -620,6 +646,33 @@ export class InventoryCountComponent implements OnInit {
     this.verdicts = { ...(this.evaluationsBySubmission[submission.id]?.verdicts || {}) };
     this.evaluationNotice = "";
     this.reviewNotice = "";
+  }
+
+  /** Manager-only: permanently deletes one submitted sheet of the day. */
+  async deleteReviewSheet(submission: CountSubmission): Promise<void> {
+    if (this.staffMode || this.deletingSubmission) return;
+    const when = new Intl.DateTimeFormat("vi-VN", {
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(new Date(submission.completedAt));
+    if (
+      !window.confirm(
+        `Xóa phiếu của ${submission.staffName} (nộp lúc ${when}) khỏi dữ liệu đối chiếu của ${this.selectedShopCode}? Hành động này không hoàn tác được.`,
+      )
+    ) {
+      return;
+    }
+    this.deletingSubmission = true;
+    this.errorMessage = "";
+    try {
+      await this.staffCountService.deleteSubmission(this.selectedShopCode, submission.id);
+      if (this.selectedSubmission?.id === submission.id) this.backToSheetList();
+      await this.loadSubmissions();
+    } catch (error) {
+      this.errorMessage = `Không xóa được phiếu: ${this.errorText(error)}`;
+    } finally {
+      this.deletingSubmission = false;
+    }
   }
 
   /** Back to the sheet list; product rows are only shown inside a detail. */
@@ -1238,10 +1291,29 @@ export class InventoryCountComponent implements OnInit {
     });
   }
 
+  /**
+   * Where counting sessions persist on this device. Staff sessions use
+   * sessionStorage by request: drafts survive a refresh but are gone when
+   * the tab/browser closes, so nothing counting-related lingers on a shared
+   * device. The manager's own sessions keep using localStorage.
+   */
+  private sessionsStore(): Storage {
+    return this.staffMode ? sessionStorage : localStorage;
+  }
+
   private loadSavedSessions(): void {
     const storageKey = this.sessionsStorageKey();
     try {
-      const rawSessions = localStorage.getItem(storageKey);
+      // One-time move of staff drafts written by older builds to
+      // localStorage, so an in-progress count is not lost on upgrade.
+      if (this.staffMode && !sessionStorage.getItem(storageKey)) {
+        const legacy = localStorage.getItem(storageKey);
+        if (legacy) {
+          sessionStorage.setItem(storageKey, legacy);
+          localStorage.removeItem(storageKey);
+        }
+      }
+      const rawSessions = this.sessionsStore().getItem(storageKey);
       const savedSessions = rawSessions ? (JSON.parse(rawSessions) as CountSession[]) : [];
       let migrated = false;
       this.sessions = savedSessions.map((session) => {
@@ -1264,7 +1336,8 @@ export class InventoryCountComponent implements OnInit {
     if (!this.selectedShopCode) return false;
     try {
       const sessionsForShop = sessions.filter((session) => session.shopCode === this.selectedShopCode);
-      localStorage.setItem(this.sessionsStorageKey(), JSON.stringify(sessionsForShop));
+      this.sessionsStore().setItem(this.sessionsStorageKey(), JSON.stringify(sessionsForShop));
+      if (this.staffMode) localStorage.removeItem(this.sessionsStorageKey());
       return true;
     } catch (error) {
       this.errorMessage = `Không lưu được phiên kiểm kê trên thiết bị: ${this.errorText(error)}`;
