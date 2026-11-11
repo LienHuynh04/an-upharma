@@ -139,6 +139,16 @@ export class StaffCountService {
     return data || {};
   }
 
+  /** Manager action: permanently removes one submitted sheet and, best-effort, its evaluation. */
+  async deleteSubmission(shopCode: string, submissionId: string): Promise<void> {
+    const shop = encodeURIComponent(shopCode);
+    const id = encodeURIComponent(submissionId);
+    await this.deleteJson(`count_submissions/${shop}/${id}.json`);
+    // An evaluation without its sheet has no meaning left; clean it up too,
+    // but never fail the whole action if that cleanup hiccups.
+    await this.deleteJson(`count_evaluations/${shop}/${id}.json`).catch(() => undefined);
+  }
+
   async saveEvaluation(evaluation: StaffEvaluation): Promise<void> {
     await this.writeJson(
       `count_evaluations/${encodeURIComponent(evaluation.shopCode)}/${encodeURIComponent(evaluation.id)}.json`,
@@ -159,6 +169,13 @@ export class StaffCountService {
       `count_final_reviews/${encodeURIComponent(review.shopCode)}/${encodeURIComponent(review.id)}.json`,
       review,
     );
+  }
+
+  private async deleteJson(path: string): Promise<void> {
+    const response = await fetch(`${this.dbUrl}/${path}`, { method: "DELETE" });
+    if (!response.ok) {
+      throw new Error(`Không xóa được dữ liệu kiểm kê (mã ${response.status}).`);
+    }
   }
 
   private async readJson<T>(path: string): Promise<T> {

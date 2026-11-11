@@ -169,6 +169,10 @@
                   [class.bg-success-lt]="evaluationState(submission).done"
                   [class.text-success]="evaluationState(submission).done"
                 >{{ evaluationState(submission).label }}</span>
+                <span class="btn btn-icon btn-sm btn-outline-danger" role="button" aria-label="Xóa phiếu" title="Xóa phiếu này"
+                  (click)="$event.stopPropagation(); deleteReviewSheet(submission)">
+                  <i class="ti ti-trash" aria-hidden="true"></i>
+                </span>
                 <i class="ti ti-chevron-right text-secondary" aria-hidden="true"></i>
               </button>
             </div>
@@ -258,6 +262,9 @@
               <span class="text-success small" *ngIf="!evaluationNotice && reviewNotice">{{ reviewNotice }}</span>
               <span class="text-secondary small" *ngIf="!evaluationNotice && !reviewNotice">Bấm lại vào Đúng/Sai đang chọn để bỏ chấm mã đó. SL chốt là số cuối cùng của cả ngày tại shop này.</span>
               <div class="btn-list">
+                <button class="btn btn-outline-danger btn-sm" type="button" (click)="deleteReviewSheet(selectedSubmission)" [disabled]="deletingSubmission">
+                  <i class="ti ti-trash me-1" aria-hidden="true"></i>Xóa phiếu
+                </button>
                 <button class="btn btn-outline-secondary btn-sm" type="button" (click)="markAllCorrect()">
                   <i class="ti ti-checks me-1" aria-hidden="true"></i>Chấm tất cả là Đúng
                 </button>
