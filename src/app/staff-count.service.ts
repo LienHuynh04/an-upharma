@@ -136,7 +136,16 @@ export class StaffCountService {
     const data = await this.readJson<Record<string, StaffEvaluation> | null>(
       `count_evaluations/${encodeURIComponent(shopCode)}.json`,
     );
-    return data || {};
+    const evaluations = data || {};
+    // Firebase drops empty objects: an evaluation saved before any verdict
+    // was marked comes back WITHOUT its verdicts field. Normalise here so
+    // every reader can index verdicts safely.
+    for (const evaluation of Object.values(evaluations)) {
+      if (evaluation && typeof evaluation === "object" && !evaluation.verdicts) {
+        evaluation.verdicts = {};
+      }
+    }
+    return evaluations;
   }
 
   /** Manager action: permanently removes one submitted sheet and, best-effort, its evaluation. */
