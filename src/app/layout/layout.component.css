@@ -128,7 +128,7 @@
     drop-shadow(0 5px 8px rgba(7, 17, 36, 0.2))
     drop-shadow(0 0 14px rgba(255, 246, 207, 0.55));
   will-change: transform;
-  animation: holiday-santa-flight 60s linear -14s infinite;
+  animation: holiday-santa-flight 45s linear -10.5s infinite;
 }
 
 .holiday-santa-art {
@@ -175,25 +175,25 @@
     transform: translate3d(-112%, calc(100vh - 100% - 12px), 0) rotate(-4deg) scale(0.72);
   }
   17% {
-    transform: translate3d(12vw, calc(100vh - 112%), 0) rotate(-1deg) scale(0.84);
+    transform: translate3d(12vw, calc(100vh - 100% - 20px), 0) rotate(-1deg) scale(0.84);
   }
   34% {
-    transform: translate3d(58vw, 66vh, 0) rotate(-6deg) scale(0.9);
+    transform: translate3d(58vw, calc(100vh - 100% - 44px), 0) rotate(-6deg) scale(0.9);
   }
   48% {
-    transform: translate3d(calc(100vw - 100%), 43vh, 0) rotate(6deg) scaleX(-1) scale(0.9);
+    transform: translate3d(calc(100vw - 100%), calc(100vh - 100% - 24px), 0) rotate(6deg) scaleX(-1) scale(0.9);
   }
   61% {
-    transform: translate3d(calc(100vw - 100%), 18vh, 0) rotate(-5deg) scaleX(-1) scale(0.8);
+    transform: translate3d(calc(100vw - 100%), calc(100vh - 100% - 48px), 0) rotate(-5deg) scaleX(-1) scale(0.8);
   }
   77% {
-    transform: translate3d(44vw, 8vh, 0) rotate(-2deg) scaleX(-1) scale(0.74);
+    transform: translate3d(44vw, calc(100vh - 100% - 18px), 0) rotate(-2deg) scaleX(-1) scale(0.74);
   }
   89% {
-    transform: translate3d(-12%, 25vh, 0) rotate(5deg) scaleX(-1) scale(0.8);
+    transform: translate3d(-12%, calc(100vh - 100% - 42px), 0) rotate(5deg) scaleX(-1) scale(0.8);
   }
   95% {
-    transform: translate3d(-112%, 56vh, 0) rotate(-6deg) scaleX(-1) scale(0.84);
+    transform: translate3d(-112%, calc(100vh - 100% - 16px), 0) rotate(-6deg) scaleX(-1) scale(0.84);
   }
   100% {
     transform: translate3d(-112%, calc(100vh - 100% - 12px), 0) rotate(-4deg) scale(0.72);
@@ -208,10 +208,11 @@
 
   .holiday-santa {
     left: 50%;
-    top: 55%;
+    top: auto;
+    bottom: max(0px, env(safe-area-inset-bottom));
     width: min(105px, 24vw);
     animation: none;
-    transform: translate(-50%, -50%) scale(0.8);
+    transform: translateX(-50%) scale(0.8);
   }
 
   .holiday-santa-art {
