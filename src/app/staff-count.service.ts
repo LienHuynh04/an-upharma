@@ -57,6 +57,20 @@ export interface CountSubmission {
   items: CountSubmissionItem[];
 }
 
+/** The manager's per-product verdicts (đúng/sai) for one staff count sheet. */
+export interface StaffEvaluation {
+  /** Same id as the evaluated submission. */
+  id: string;
+  shopCode: string;
+  staffUid: string;
+  staffName: string;
+  evaluatedBy: string;
+  evaluatedAt: number;
+  /** yyyy-MM-dd of the counting day the sheet belongs to. */
+  dateKey?: string;
+  verdicts: Record<string, "correct" | "wrong">;
+}
+
 export interface FinalReview {
   id: string;
   shopCode: string;
@@ -115,6 +129,21 @@ export class StaffCountService {
     return Object.values(data)
       .filter((submission) => submission && Array.isArray(submission.items))
       .sort((first, second) => (second.completedAt || 0) - (first.completedAt || 0));
+  }
+
+  /** All staff evaluations of a shop, keyed by submission id. */
+  async listEvaluations(shopCode: string): Promise<Record<string, StaffEvaluation>> {
+    const data = await this.readJson<Record<string, StaffEvaluation> | null>(
+      `count_evaluations/${encodeURIComponent(shopCode)}.json`,
+    );
+    return data || {};
+  }
+
+  async saveEvaluation(evaluation: StaffEvaluation): Promise<void> {
+    await this.writeJson(
+      `count_evaluations/${encodeURIComponent(evaluation.shopCode)}/${encodeURIComponent(evaluation.id)}.json`,
+      evaluation,
+    );
   }
 
   /** The saved final review for one shop and review id, or null when none exists yet. */
