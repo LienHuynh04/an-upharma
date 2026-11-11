@@ -23,13 +23,16 @@ interface CountProduct {
   outsideCatalog?: boolean;
 }
 
-/** One row of the manager's cross-check table (manager mode only). */
-interface ReviewRow {
+/** One row of a single staff sheet in the manager review (manager mode only). */
+interface SheetRow {
   code: string;
   name: string;
   unit: string;
   expectedQuantity: number | null;
-  counts: { staffName: string; quantity: number }[];
+  /** The count of the staff member whose sheet is being viewed. */
+  countedQuantity: number;
+  /** Same-day counts of the same product by OTHER staff, shown for reference. */
+  otherCounts: { staffName: string; quantity: number }[];
 }
 
 interface CountSession {
@@ -95,7 +98,11 @@ export class InventoryCountComponent implements OnInit {
   submissionsLoading = false;
   submissionsError = "";
   reviewLoaded = false;
-  reviewRows: ReviewRow[] = [];
+  /** Review is managed per day and per shop: one staff sheet at a time. */
+  reviewDate: string = InventoryCountComponent.todayInputValue();
+  daySubmissions: CountSubmission[] = [];
+  selectedSubmission: CountSubmission | null = null;
+  sheetRows: SheetRow[] = [];
   finalQuantities: Record<string, number | null> = {};
   savingReview = false;
   reviewNotice = "";
@@ -122,6 +129,9 @@ export class InventoryCountComponent implements OnInit {
   }
 
   get canEditSession(): boolean {
+    // Staff rule: once a count is completed it is final for the staff
+    // member — the session opens as a view-only detail, never for editing.
+    if (this.staffMode && this.currentSession?.status === "completed") return false;
     return this.currentSession?.status !== "completed" || this.editingCompletedSession;
   }
 
@@ -183,7 +193,10 @@ export class InventoryCountComponent implements OnInit {
     this.noticeMessage = "";
     this.reviewLoaded = false;
     this.submissions = [];
-    this.reviewRows = [];
+    this.daySubmissions = [];
+    this.selectedSubmission = null;
+    this.sheetRows = [];
+    this.finalQuantities = {};
     this.submissionsError = "";
     this.reviewNotice = "";
     this.loadSavedSessions();
@@ -221,6 +234,11 @@ export class InventoryCountComponent implements OnInit {
   }
 
   editSession(session: CountSession): void {
+    if (this.staffMode && session.status === "completed") {
+      // Completed staff sessions are view-only; open the detail instead.
+      this.openSession(session);
+      return;
+    }
     this.openSession(session, true);
   }
 
@@ -229,6 +247,10 @@ export class InventoryCountComponent implements OnInit {
   }
 
   deleteSession(session: CountSession): void {
+    if (this.staffMode && session.status === "completed") {
+      this.noticeMessage = "Phiên đã hoàn thành chỉ được xem lại chi tiết, không xóa được.";
+      return;
+    }
     const confirmation = session.status === "completed"
       ? `Xóa phiên kiểm kê ${session.shopCode} ngày ${new Intl.DateTimeFormat("vi-VN").format(new Date(session.createdAt))}? Kết quả của phiên sẽ bị xóa khỏi thiết bị này.`
       : `Xóa phiên kiểm kê ${session.shopCode} đang thực hiện? Các số đếm của phiên sẽ bị xóa khỏi thiết bị này.`;
@@ -489,11 +511,26 @@ export class InventoryCountComponent implements OnInit {
     }
   }
 
+  /** Local yyyy-MM-dd for the date input (avoids UTC shift of toISOString). */
+  private static todayInputValue(): string {
+    const now = new Date();
+    const month = `${now.getMonth() + 1}`.padStart(2, "0");
+    const day = `${now.getDate()}`.padStart(2, "0");
+    return `${now.getFullYear()}-${month}-${day}`;
+  }
+
+  /** Deterministic id of the saved final review for the selected day. */
+  private reviewIdForSelectedDay(): string {
+    return `review-${this.reviewDate.replaceAll("-", "")}`;
+  }
+
   /**
-   * Manager review: loads every count sheet staff submitted for the selected
-   * shop and lines the counts up per product — several staff counting the same
-   * product at the same time is intentional cross-checking, so the numbers are
-   * shown side by side and never summed or auto-picked.
+   * Manager review, organised by day and shop: loads the sheets staff
+   * submitted for the selected shop, keeps only the selected day, and shows
+   * ONE staff member's sheet at a time — sheets are never merged together.
+   * The confirmed final quantity is still one number per product per day;
+   * other staff counts of the same product appear only as a reference chip,
+   * never summed and never auto-picked.
    */
   async loadSubmissions(): Promise<void> {
     if (this.staffMode || this.submissionsLoading) return;
@@ -501,8 +538,18 @@ export class InventoryCountComponent implements OnInit {
     this.submissionsError = "";
     this.reviewNotice = "";
     try {
-      this.submissions = await this.staffCountService.listSubmissions(this.selectedShopCode);
-      this.buildReviewRows();
+      const all = await this.staffCountService.listSubmissions(this.selectedShopCode);
+      this.submissions = all;
+      const [year, month, day] = this.reviewDate.split("-").map(Number);
+      this.daySubmissions = all
+        .filter((submission) => {
+          const at = new Date(submission.completedAt);
+          return at.getFullYear() === year && at.getMonth() + 1 === month && at.getDate() === day;
+        })
+        .sort((first, second) => first.completedAt - second.completedAt);
+      this.selectedSubmission = this.daySubmissions[0] ?? null;
+      this.buildSheetRows();
+      await this.prepareFinalQuantities();
       this.reviewLoaded = true;
     } catch (error) {
       this.submissionsError = this.errorText(error);
@@ -511,51 +558,109 @@ export class InventoryCountComponent implements OnInit {
     }
   }
 
-  private buildReviewRows(): void {
-    const expectedByCode = new Map(this.catalogProducts.map((product) => [product.code, product]));
-    const rowsByCode = new Map<string, ReviewRow>();
-    // Submissions arrive newest first: the first count seen per staff member
-    // and product is that member's latest count for the product.
-    const seenStaffProduct = new Set<string>();
-    for (const submission of this.submissions) {
-      for (const item of submission.items) {
-        const seenKey = `${submission.staffUid}:${item.code}`;
-        if (seenStaffProduct.has(seenKey)) continue;
-        seenStaffProduct.add(seenKey);
-        let row = rowsByCode.get(item.code);
-        if (!row) {
-          const expected = expectedByCode.get(item.code);
-          row = {
-            code: item.code,
-            name: expected?.name || item.name,
-            unit: expected?.unit || item.unit || "",
-            expectedQuantity: expected ? expected.expectedQuantity : null,
-            counts: [],
-          };
-          rowsByCode.set(item.code, row);
-        }
-        row.counts.push({ staffName: submission.staffName, quantity: item.countedQuantity });
-      }
+  /** Opens one staff sheet in the review table. */
+  selectSubmission(submission: CountSubmission): void {
+    this.selectedSubmission = submission;
+    this.buildSheetRows();
+  }
+
+  private buildSheetRows(): void {
+    const submission = this.selectedSubmission;
+    if (!submission) {
+      this.sheetRows = [];
+      return;
     }
-    this.reviewRows = Array.from(rowsByCode.values()).sort((first, second) =>
+    const expectedByCode = new Map(this.catalogProducts.map((product) => [product.code, product]));
+    const seenCodes = new Set<string>();
+    const rows: SheetRow[] = [];
+    for (const item of submission.items) {
+      if (seenCodes.has(item.code)) continue;
+      seenCodes.add(item.code);
+      const expected = expectedByCode.get(item.code);
+      rows.push({
+        code: item.code,
+        name: expected?.name || item.name,
+        unit: expected?.unit || item.unit || "",
+        expectedQuantity: expected ? expected.expectedQuantity : null,
+        countedQuantity: item.countedQuantity,
+        otherCounts: this.otherCountsFor(item.code, submission.staffUid),
+      });
+    }
+    this.sheetRows = rows.sort((first, second) =>
       first.name.localeCompare(second.name, "vi", { sensitivity: "base" }),
     );
+  }
+
+  /** Latest same-day count of a product by every OTHER staff member. */
+  private otherCountsFor(code: string, excludeUid: string): { staffName: string; quantity: number }[] {
+    const latestByStaff = new Map<string, { staffName: string; quantity: number }>();
+    for (const submission of this.daySubmissions) {
+      if (submission.staffUid === excludeUid || latestByStaff.has(submission.staffUid)) continue;
+      const item = submission.items.find((entry) => entry.code === code);
+      if (item) {
+        latestByStaff.set(submission.staffUid, {
+          staffName: submission.staffName,
+          quantity: item.countedQuantity,
+        });
+      }
+    }
+    return Array.from(latestByStaff.values());
+  }
+
+  /** True when another staff member counted this product differently the same day. */
+  sheetRowDisagrees(row: SheetRow): boolean {
+    return row.otherCounts.some((count) => count.quantity !== row.countedQuantity);
+  }
+
+  /** True when the sheet holds at least one product others counted differently. */
+  sheetHasDisagreement(submission: CountSubmission): boolean {
+    const seenCodes = new Set<string>();
+    for (const item of submission.items) {
+      if (seenCodes.has(item.code)) continue;
+      seenCodes.add(item.code);
+      const others = this.otherCountsFor(item.code, submission.staffUid);
+      if (others.some((count) => count.quantity !== item.countedQuantity)) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Final quantities are per product per day: prefilled from the saved review
+   * of the day when one exists, otherwise from products where every staff
+   * count of the day agrees (never from disagreeing counts).
+   */
+  private async prepareFinalQuantities(): Promise<void> {
     this.finalQuantities = {};
-    for (const row of this.reviewRows) {
-      const quantities = row.counts.map((count) => count.quantity);
-      this.finalQuantities[row.code] =
+    const codes = new Set<string>();
+    for (const submission of this.daySubmissions) {
+      for (const item of submission.items) codes.add(item.code);
+    }
+    const saved = await this.staffCountService
+      .getFinalReview(this.selectedShopCode, this.reviewIdForSelectedDay())
+      .catch(() => null);
+    if (saved) {
+      for (const item of saved.items) this.finalQuantities[item.code] = item.finalQuantity;
+    }
+    for (const code of codes) {
+      if (code in this.finalQuantities) continue;
+      const quantities: number[] = [];
+      const seenStaff = new Set<string>();
+      for (const submission of this.daySubmissions) {
+        if (seenStaff.has(submission.staffUid)) continue;
+        const item = submission.items.find((entry) => entry.code === code);
+        if (item) {
+          seenStaff.add(submission.staffUid);
+          quantities.push(item.countedQuantity);
+        }
+      }
+      this.finalQuantities[code] =
         quantities.length > 0 && quantities.every((quantity) => quantity === quantities[0])
           ? quantities[0]
           : null;
     }
   }
 
-  /** True when at least two staff counts for the row disagree. */
-  countsDisagree(row: ReviewRow): boolean {
-    return row.counts.some((count) => count.quantity !== row.counts[0].quantity);
-  }
-
-  finalDifferenceText(row: ReviewRow): string {
+  finalDifferenceText(row: SheetRow): string {
     const finalQuantity = this.finalQuantities[row.code];
     if (finalQuantity === null || finalQuantity === undefined || row.expectedQuantity === null) {
       return "—";
@@ -564,23 +669,28 @@ export class InventoryCountComponent implements OnInit {
   }
 
   async saveFinalReview(): Promise<void> {
-    if (this.staffMode || this.savingReview || this.reviewRows.length === 0) return;
+    if (this.staffMode || this.savingReview || this.daySubmissions.length === 0) return;
     this.savingReview = true;
     this.reviewNotice = "";
     this.submissionsError = "";
     try {
+      const codes = new Set<string>();
+      for (const submission of this.daySubmissions) {
+        for (const item of submission.items) codes.add(item.code);
+      }
       const review: FinalReview = {
-        id: `review-${Date.now().toString(36)}`,
+        id: this.reviewIdForSelectedDay(),
         shopCode: this.selectedShopCode,
         reviewedBy: this.userName,
         reviewedAt: Date.now(),
-        items: this.reviewRows.map((row) => ({
-          code: row.code,
-          finalQuantity: this.finalQuantities[row.code] ?? null,
+        dateKey: this.reviewDate,
+        items: Array.from(codes).map((code) => ({
+          code,
+          finalQuantity: this.finalQuantities[code] ?? null,
         })),
       };
       await this.staffCountService.saveFinalReview(review);
-      this.reviewNotice = "Đã lưu số chốt cho đợt kiểm kê này.";
+      this.reviewNotice = `Đã lưu số chốt ngày ${this.reviewDate.split("-").reverse().join("/")} cho ${this.selectedShopCode}.`;
     } catch (error) {
       this.submissionsError = this.errorText(error);
     } finally {
@@ -589,36 +699,49 @@ export class InventoryCountComponent implements OnInit {
   }
 
   async exportReview(): Promise<void> {
-    if (this.staffMode || this.exporting || this.reviewRows.length === 0) return;
+    if (this.staffMode || this.exporting || this.daySubmissions.length === 0) return;
     this.exporting = true;
     this.errorMessage = "";
     try {
-      const staffNames = Array.from(
-        new Set(this.reviewRows.flatMap((row) => row.counts.map((count) => count.staffName))),
-      );
-      const rows = this.reviewRows.map((row) => {
+      const expectedByCode = new Map(this.catalogProducts.map((product) => [product.code, product]));
+      const staffNames = Array.from(new Set(this.daySubmissions.map((entry) => entry.staffName)));
+      const codes = new Set<string>();
+      for (const submission of this.daySubmissions) {
+        for (const item of submission.items) codes.add(item.code);
+      }
+      const latestCount = (staffName: string, code: string): number | "" => {
+        for (const submission of this.daySubmissions) {
+          if (submission.staffName !== staffName) continue;
+          const item = submission.items.find((entry) => entry.code === code);
+          if (item) return item.countedQuantity;
+        }
+        return "";
+      };
+      const rows = Array.from(codes).map((code) => {
+        const expected = expectedByCode.get(code);
+        const anyItem = this.daySubmissions
+          .flatMap((entry) => entry.items)
+          .find((entry) => entry.code === code);
         const record: Record<string, unknown> = {
-          "Mã SP": row.code,
-          "Tên SP": row.name,
-          "Đơn vị": row.unit,
-          "SL tồn kho": row.expectedQuantity,
+          "Mã SP": code,
+          "Tên SP": expected?.name || anyItem?.name || "",
+          "Đơn vị": expected?.unit || anyItem?.unit || "",
+          "SL tồn kho": expected ? expected.expectedQuantity : "",
         };
         for (const staffName of staffNames) {
-          record[`SL đếm - ${staffName}`] =
-            row.counts.find((count) => count.staffName === staffName)?.quantity ?? "";
+          record[`SL đếm - ${staffName}`] = latestCount(staffName, code);
         }
-        const finalQuantity = this.finalQuantities[row.code];
+        const finalQuantity = this.finalQuantities[code];
         record["SL chốt"] = finalQuantity ?? "";
         record["SL chênh lệch (chốt - tồn)"] =
-          finalQuantity !== null && finalQuantity !== undefined && row.expectedQuantity !== null
-            ? finalQuantity - row.expectedQuantity
+          finalQuantity !== null && finalQuantity !== undefined && expected
+            ? finalQuantity - expected.expectedQuantity
             : "";
         return record;
       });
-      const date = new Date().toISOString().slice(0, 10);
       await this.excelExportService.exportJsonToExcel(
         rows,
-        `Doi-chieu-kiem-ke-${this.selectedShopCode}-${date}.xlsx`,
+        `Doi-chieu-kiem-ke-${this.selectedShopCode}-${this.reviewDate}.xlsx`,
         "Đối chiếu kiểm kê",
       );
     } catch (error) {
