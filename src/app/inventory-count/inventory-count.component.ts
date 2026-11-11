@@ -730,8 +730,10 @@ export class InventoryCountComponent implements OnInit {
   /** Latest same-day count of a product by every OTHER staff member. */
   private otherCountsFor(code: string, excludeUid: string): { staffName: string; quantity: number }[] {
     const latestByStaff = new Map<string, { staffName: string; quantity: number }>();
+    // daySubmissions are chronological: overwriting means the LAST sheet of a
+    // staff member that day is the one that counts.
     for (const submission of this.daySubmissions) {
-      if (submission.staffUid === excludeUid || latestByStaff.has(submission.staffUid)) continue;
+      if (submission.staffUid === excludeUid) continue;
       const item = submission.items.find((entry) => entry.code === code);
       if (item) {
         latestByStaff.set(submission.staffUid, {
@@ -779,21 +781,38 @@ export class InventoryCountComponent implements OnInit {
     }
     for (const code of codes) {
       if (code in this.finalQuantities) continue;
-      const quantities: number[] = [];
-      const seenStaff = new Set<string>();
+      const latestByStaff = new Map<string, number>();
       for (const submission of this.daySubmissions) {
-        if (seenStaff.has(submission.staffUid)) continue;
         const item = submission.items.find((entry) => entry.code === code);
-        if (item) {
-          seenStaff.add(submission.staffUid);
-          quantities.push(item.countedQuantity);
-        }
+        if (item) latestByStaff.set(submission.staffUid, item.countedQuantity);
       }
+      const quantities = Array.from(latestByStaff.values());
       this.finalQuantities[code] =
         quantities.length > 0 && quantities.every((quantity) => quantity === quantities[0])
           ? quantities[0]
           : null;
     }
+  }
+
+  /**
+   * Admin view: products that still have stock at the shop but NO staff
+   * sheet of the selected day counted — the "kiểm kê sót" list.
+   */
+  get uncountedProducts(): { code: string; name: string; unit: string; expectedQuantity: number }[] {
+    if (!this.reviewLoaded) return [];
+    const countedCodes = new Set<string>();
+    for (const submission of this.daySubmissions) {
+      for (const item of submission.items) countedCodes.add(item.code);
+    }
+    return this.catalogProducts
+      .filter((product) => product.expectedQuantity > 0 && !countedCodes.has(product.code))
+      .map((product) => ({
+        code: product.code,
+        name: product.name,
+        unit: product.unit,
+        expectedQuantity: product.expectedQuantity,
+      }))
+      .sort((first, second) => first.name.localeCompare(second.name, "vi", { sensitivity: "base" }));
   }
 
   finalDifferenceText(row: SheetRow): string {
@@ -835,7 +854,7 @@ export class InventoryCountComponent implements OnInit {
   }
 
   async exportReview(): Promise<void> {
-    if (this.staffMode || this.exporting || this.daySubmissions.length === 0) return;
+    if (this.staffMode || this.exporting || !this.reviewLoaded) return;
     this.exporting = true;
     this.errorMessage = "";
     try {
@@ -845,15 +864,25 @@ export class InventoryCountComponent implements OnInit {
       for (const submission of this.daySubmissions) {
         for (const item of submission.items) codes.add(item.code);
       }
+      // Latest sheet per staff member (daySubmissions are chronological).
+      const latestSubmissionByStaff = new Map<string, CountSubmission>();
+      for (const submission of this.daySubmissions) {
+        latestSubmissionByStaff.set(submission.staffName, submission);
+      }
       const latestCount = (staffName: string, code: string): number | "" => {
-        for (const submission of this.daySubmissions) {
-          if (submission.staffName !== staffName) continue;
-          const item = submission.items.find((entry) => entry.code === code);
-          if (item) return item.countedQuantity;
-        }
-        return "";
+        const item = latestSubmissionByStaff
+          .get(staffName)
+          ?.items.find((entry) => entry.code === code);
+        return item ? item.countedQuantity : "";
       };
-      const rows = Array.from(codes).map((code) => {
+      const verdictFor = (staffName: string, code: string): string => {
+        const submission = latestSubmissionByStaff.get(staffName);
+        const verdict = submission
+          ? this.evaluationsBySubmission[submission.id]?.verdicts[code]
+          : undefined;
+        return verdict === "correct" ? "Đúng" : verdict === "wrong" ? "Sai" : "";
+      };
+      const comparisonRows = Array.from(codes).map((code) => {
         const expected = expectedByCode.get(code);
         const anyItem = this.daySubmissions
           .flatMap((entry) => entry.items)
@@ -867,6 +896,9 @@ export class InventoryCountComponent implements OnInit {
         for (const staffName of staffNames) {
           record[`SL đếm - ${staffName}`] = latestCount(staffName, code);
         }
+        for (const staffName of staffNames) {
+          record[`Đánh giá - ${staffName}`] = verdictFor(staffName, code);
+        }
         const finalQuantity = this.finalQuantities[code];
         record["SL chốt"] = finalQuantity ?? "";
         record["SL chênh lệch (chốt - tồn)"] =
@@ -875,10 +907,42 @@ export class InventoryCountComponent implements OnInit {
             : "";
         return record;
       });
-      await this.excelExportService.exportJsonToExcel(
-        rows,
+      const sheetRows = this.daySubmissions.map((submission) => {
+        const total = new Set(submission.items.map((item) => item.code)).size;
+        const evaluation = this.evaluationsBySubmission[submission.id];
+        const values = evaluation ? Object.values(evaluation.verdicts) : [];
+        const correct = values.filter((value) => value === "correct").length;
+        const wrong = values.length - correct;
+        return {
+          "Nhân viên": submission.staffName,
+          "Tài khoản": submission.staffUid,
+          "Giờ nộp": new Intl.DateTimeFormat("vi-VN", {
+            hour: "2-digit",
+            minute: "2-digit",
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+          }).format(new Date(submission.completedAt)),
+          "Số mã đã đếm": total,
+          "Đúng": correct,
+          "Sai": wrong,
+          "Chưa chấm": total - values.length,
+          "Người đánh giá": evaluation?.evaluatedBy || "",
+        };
+      });
+      const uncountedRows = this.uncountedProducts.map((product) => ({
+        "Mã SP": product.code,
+        "Tên SP": product.name,
+        "Đơn vị": product.unit,
+        "SL tồn kho": product.expectedQuantity,
+      }));
+      await this.excelExportService.exportSheetsToExcel(
+        [
+          { name: "Đối chiếu kiểm kê", data: comparisonRows },
+          { name: "Phiếu kiểm kê", data: sheetRows },
+          { name: "Chưa kiểm kê", data: uncountedRows },
+        ],
         `Doi-chieu-kiem-ke-${this.selectedShopCode}-${this.reviewDate}.xlsx`,
-        "Đối chiếu kiểm kê",
       );
     } catch (error) {
       this.errorMessage = `Không xuất được báo cáo Excel: ${this.errorText(error)}`;
