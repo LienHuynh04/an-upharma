@@ -15,5 +15,4 @@ export const environment = {
   // Needed for staff (inventory counter) sign-in via Firebase Auth.
   // Get it from Firebase Console -> Project settings -> General -> Web API key.
   // See docs/staff-inventory-count.md. Leave empty to disable staff sign-in.
-  firebaseApiKey: ""
 };

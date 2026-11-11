@@ -821,6 +821,10 @@ async function run() {
   // (product code + name + unit only; never quantities or prices)
   await uploadShopCatalogs(db, shops, allShopsData);
 
+  // Make sure the database rules contain the staff-account nodes, so the
+  // accounts page works without anyone pasting rules in the Firebase Console.
+  await ensureStaffRules();
+
   // Tự động tính toán và lưu cache gợi ý điều chuyển hàng cận date → /transfer_suggestions_cache/<shopCode>
   // (Đọc từ national_inventory_cache có sẵn trên Firebase, chỉ mất vài giây thay vì 2 giờ)
   await generateTransferSuggestionsForShops(shops, allShopsData, db, loginData);
@@ -1445,7 +1449,90 @@ if (require.main === module) {
   });
 }
 
-module.exports = { parseHiddenShopCodes, resolveShopsToSync, DEFAULT_HIDDEN_SHOP_CODES, buildShopCatalogItems };
+/**
+ * Database rules for the site-native staff accounts feature. These nodes are
+ * app-managed (same posture as the long-standing `hidden_products` config):
+ * staff accounts, their count submissions and the manager's final reviews
+ * are read/written by the web app without a Firebase Auth token, and page /
+ * shop permissions are enforced by the Angular guard. `shop_catalog` stays
+ * writable only through the Admin SDK (this script).
+ */
+const STAFF_RULES_NODES = {
+  staff_accounts: { ".read": true, ".write": true },
+  shop_catalog_index: { ".read": true, ".write": false },
+  shop_catalog: { "$shopCode": { ".read": true, ".write": false } },
+  count_submissions: { ".read": true, ".write": true },
+  count_final_reviews: { ".read": true, ".write": true },
+};
+
+/**
+ * Returns the live rules with the staff nodes merged in. Only the staff
+ * nodes are touched — every other rule is preserved exactly as deployed —
+ * plus whether anything actually changed.
+ */
+function mergeStaffRules(currentRules) {
+  const merged = JSON.parse(JSON.stringify(currentRules || {}));
+  if (!merged.rules || typeof merged.rules !== "object") merged.rules = {};
+  let changed = false;
+  for (const [node, rule] of Object.entries(STAFF_RULES_NODES)) {
+    if (JSON.stringify(merged.rules[node]) !== JSON.stringify(rule)) {
+      merged.rules[node] = rule;
+      changed = true;
+    }
+  }
+  return { merged, changed };
+}
+
+/**
+ * Deploys the staff rules nodes if the live rules do not have them yet, via
+ * the RTDB rules endpoint with the sync service account's OAuth token.
+ * Fail-open by design: any error is logged and the sync continues — the
+ * fallback is pasting database.rules.json in the Firebase Console once.
+ */
+async function ensureStaffRules() {
+  if (!db) return;
+  try {
+    const credential = db.app.options.credential;
+    if (!credential || typeof credential.getAccessToken !== "function") {
+      console.log("[staff-rules] No credential access token available; skipping rules check.");
+      return;
+    }
+    const { access_token: accessToken } = await credential.getAccessToken();
+    const databaseUrl = String(db.app.options.databaseURL || "").replace(/\/+$/, "");
+    if (!accessToken || !databaseUrl) {
+      console.log("[staff-rules] Missing access token or database URL; skipping rules check.");
+      return;
+    }
+    const rulesUrl = `${databaseUrl}/.settings/rules.json`;
+    const headers = { Authorization: `Bearer ${accessToken}` };
+
+    const getResponse = await fetch(rulesUrl, { headers });
+    if (!getResponse.ok) {
+      console.warn(`[staff-rules] Cannot read current rules (HTTP ${getResponse.status}); skipping. Paste database.rules.json in the Firebase Console if the accounts page reports a rules error.`);
+      return;
+    }
+    const currentRules = await getResponse.json();
+    const { merged, changed } = mergeStaffRules(currentRules);
+    if (!changed) {
+      console.log("[staff-rules] Staff rules already present; nothing to deploy.");
+      return;
+    }
+    const putResponse = await fetch(rulesUrl, {
+      method: "PUT",
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify(merged),
+    });
+    if (!putResponse.ok) {
+      console.warn(`[staff-rules] Rules update rejected (HTTP ${putResponse.status}). Paste database.rules.json in the Firebase Console if the accounts page reports a rules error.`);
+      return;
+    }
+    console.log("[staff-rules] Deployed staff rules nodes (staff_accounts, shop_catalog, count_submissions, count_final_reviews).");
+  } catch (err) {
+    console.warn("[staff-rules] Rules check failed (sync continues):", err && err.message ? err.message : err);
+  }
+}
+
+module.exports = { parseHiddenShopCodes, resolveShopsToSync, DEFAULT_HIDDEN_SHOP_CODES, buildShopCatalogItems, mergeStaffRules, STAFF_RULES_NODES };
 
 /** Mirrors parseNumericValue in src/app/inventory-utils.ts (incl. vi formats). */
 function parseShopCatalogNumber(value) {

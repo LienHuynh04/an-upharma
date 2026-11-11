@@ -14,10 +14,10 @@ import { environment } from "../environments/environment";
  *   used so staff can also count a product they find on the shelf even when
  *   the system shows it out of stock at their shop.
  * - `count_submissions/{shopCode}/{sessionId}`: one submitted count sheet per
- *   staff member. Staff can only write their own sheet and can never read
- *   anyone's counts (blind cross-counting); only the admin role can read.
+ *   staff member. The app never shows a staff member anyone else's sheet
+ *   (blind cross-counting); only the manager's review panel reads them all.
  * - `count_final_reviews/{shopCode}/{reviewId}`: the manager's confirmed final
- *   quantity per product after reviewing the staff counts. Admin only.
+ *   quantity per product after reviewing the staff counts.
  */
 
 export interface ShopCatalogItem {
@@ -71,19 +71,19 @@ export class StaffCountService {
     return environment.firebaseDbUrl.replace(/\/+$/, "");
   }
 
-  async getShopCatalogIndex(idToken: string): Promise<Record<string, ShopCatalogIndexEntry>> {
+  async getShopCatalogIndex(): Promise<Record<string, ShopCatalogIndexEntry>> {
     const data = await this.readJson<Record<string, ShopCatalogIndexEntry> | null>(
-      `shop_catalog_index.json?auth=${encodeURIComponent(idToken)}`,
+      "shop_catalog_index.json",
     );
     return data || {};
   }
 
-  async getShopCatalog(shopCode: string, idToken: string): Promise<ShopCatalog | null> {
+  async getShopCatalog(shopCode: string): Promise<ShopCatalog | null> {
     const data = await this.readJson<{
       shopName?: string;
       updatedAt?: number;
       items?: ShopCatalogItem[];
-    } | null>(`shop_catalog/${encodeURIComponent(shopCode)}.json?auth=${encodeURIComponent(idToken)}`);
+    } | null>(`shop_catalog/${encodeURIComponent(shopCode)}.json`);
     if (!data) return null;
     return {
       shopName: String(data.shopName || shopCode),
@@ -98,16 +98,16 @@ export class StaffCountService {
     return Array.isArray(data?.items) ? data.items : [];
   }
 
-  async submitCount(submission: CountSubmission, idToken: string): Promise<void> {
+  async submitCount(submission: CountSubmission): Promise<void> {
     await this.writeJson(
-      `count_submissions/${encodeURIComponent(submission.shopCode)}/${encodeURIComponent(submission.id)}.json?auth=${encodeURIComponent(idToken)}`,
+      `count_submissions/${encodeURIComponent(submission.shopCode)}/${encodeURIComponent(submission.id)}.json`,
       submission,
     );
   }
 
-  async listSubmissions(shopCode: string, idToken: string): Promise<CountSubmission[]> {
+  async listSubmissions(shopCode: string): Promise<CountSubmission[]> {
     const data = await this.readJson<Record<string, CountSubmission> | null>(
-      `count_submissions/${encodeURIComponent(shopCode)}.json?auth=${encodeURIComponent(idToken)}`,
+      `count_submissions/${encodeURIComponent(shopCode)}.json`,
     );
     if (!data) return [];
     return Object.values(data)
@@ -115,9 +115,9 @@ export class StaffCountService {
       .sort((first, second) => (second.completedAt || 0) - (first.completedAt || 0));
   }
 
-  async saveFinalReview(review: FinalReview, idToken: string): Promise<void> {
+  async saveFinalReview(review: FinalReview): Promise<void> {
     await this.writeJson(
-      `count_final_reviews/${encodeURIComponent(review.shopCode)}/${encodeURIComponent(review.id)}.json?auth=${encodeURIComponent(idToken)}`,
+      `count_final_reviews/${encodeURIComponent(review.shopCode)}/${encodeURIComponent(review.id)}.json`,
       review,
     );
   }

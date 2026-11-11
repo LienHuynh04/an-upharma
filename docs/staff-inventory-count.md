@@ -12,84 +12,70 @@ quantity per product.
 
 ## How it works
 
-- Sign-in uses Firebase Authentication (email/password). In the app's login
-  page, staff pick the **Nhân viên kiểm kê** tab and type a short username;
-  the app maps it to the Firebase email `<username>@an-upharma.local`.
-- After sign-in the app reads `staff_users/{uid}` in Realtime Database:
-  `{ displayName, role, shops, pages, active }`. `role: "counter"` = staff,
-  `role: "admin"` = the shared management account (below). `pages` is the
-  list of route paths the account may open; the route guard and the menu
-  enforce it, redirecting anything else to the first granted page.
+- Accounts are **site-native**: no Firebase Authentication, no Web API key,
+  no Firebase Console setup. The main (manager) account creates them on the
+  **Tài khoản kiểm kê** page; they are stored in Realtime Database under
+  `staff_accounts/{key}` (key = the username with RTDB-forbidden characters
+  percent-encoded).
+- Passwords are never stored in plain text: each account stores a salted
+  **PBKDF2-SHA256** hash (120 000 iterations). Staff passwords must be at
+  least 8 characters and should be used only for this app.
+- Staff sign in on the login page's **Nhân viên kiểm kê** tab with the
+  username and password the manager gave them. The app reads the account
+  record, verifies the password against the stored hash in the browser, and
+  keeps a session in localStorage — the same pattern as the main account.
+- The record carries `shops` (map of shop code → `true`) and `pages` (list of
+  route paths). **Page permission is enforced by the Angular route guard**
+  (plus the menu, which shows exactly the granted pages): any other address
+  redirects to the account's first granted page.
 - The hourly sync script writes `shop_catalog/{shopCode}` — products whose
   total stock at that shop is > 0, as `{ c, n, u }` items — plus
-  `shop_catalog_index`. Database rules let a staff account read only the
-  catalogs of its assigned shops.
-- Finished count sheets are written to `count_submissions/{shopCode}/{id}`.
-  Rules: staff can write only their own sheet and cannot read any submission;
-  only the admin role can read them and write `count_final_reviews`.
-- **Management account**: account management runs through one shared Firebase
-  account, `quantri@an-upharma.local`, protected by a management password the
-  manager sets on the accounts page itself. There is no per-manager Firebase
-  account and nothing to create in the Console. The first unlock creates the
-  account and claims the create-once `system_admin` node (database rules
-  accept the claim only while the node does not exist), so exactly one
-  management account can ever be bootstrapped this way; the accounts page can
-  only be opened by a signed-in main (Upharma) account in the first place.
+  `shop_catalog_index`. In staff mode the count page loads only these slim
+  catalogs for the account's shops.
+- Finished count sheets are written to `count_submissions/{shopCode}/{id}`;
+  the app never shows a staff member anyone else's sheet. The manager's
+  confirmed quantities go to `count_final_reviews/{shopCode}/{id}`.
 
-Scope note: page grants are enforced by the app (guard + menu). The
-inventory-count data path is additionally enforced by database rules (slim
-catalog per assigned shop, blind submissions). Other pages read data nodes
-that are still public until Phase 4 below — so granting a staff account an
-extra page means trusting that person with everything that page shows.
+Honest limits of this design (accepted by the manager): enforcement is
+app-level, not database-rule level — the login flow must be able to read the
+stored hash to verify a password, so the hashes are readable by anyone who
+knows the database address (the same posture the app already has for the
+shop-visibility config). That is why staff passwords must be unique to this
+app. Locking an account takes effect at its next sign-in. Tightening this
+properly means per-user server-side auth and is tracked as future work, not
+as part of this feature.
 
-## Setup (one time)
+## Setup
 
-1. **Enable Email/Password sign-in** (Firebase Console): Authentication →
-   Sign-in method → Email/Password → Enable.
-2. **Set the Web API key in the app**: Project settings → General → copy
-   *Web API key*, paste it into `firebaseApiKey` in both
-   `src/environments/environment.ts` and `src/environments/environment.prod.ts`,
-   then rebuild/redeploy. (The key is a public project identifier, not a
-   secret.) Until this is done, the staff tab shows a "not configured" error
-   and manager login is unaffected.
-3. **Deploy the database rules**: the rules in `database.rules.json` (which
-   add `system_admin`, `staff_users`, `shop_catalog`, `shop_catalog_index`,
-   `count_submissions`, `count_final_reviews`) must be the live rules —
-   `firebase deploy --only database` or paste them in the console's Rules tab.
-4. **Set the management password**: sign in as manager, open
-   **Tài khoản kiểm kê** (top menu, next to Cài đặt) and enter a management
-   password in the *Mở khóa quản lý tài khoản* form. Do this promptly after
-   deploying — the management account goes to whoever unlocks first, then it
-   is locked. Later visits on the same browser stay unlocked; a new browser
-   asks for the password once. **Forgotten password**: delete the
-   `system_admin` node and the `quantri` user in the Firebase Console, then
-   set a new password here.
-5. **Create staff accounts** on the same page: username, password, full name,
-   the shops the person is responsible for, and the pages they may open
-   (**Kiểm kê** is pre-selected). The page creates the Firebase user and its
-   role record together. From the same page you can re-assign shops/pages
-   (**Phân quyền**) or lock/unlock an account — locking revokes access
-   immediately (the app refuses inactive accounts and the database rules stop
-   serving them catalogs). Creating accounts manually in the console also
-   still works: add the user in Authentication with email
-   `<username>@an-upharma.local`, then create `staff_users/{uid}`:
-   ```json
-   { "username": "kiemke01", "displayName": "Tên nhân viên", "role": "counter",
-     "shops": { "SHOP0025": true, "SHOP0097": true },
-     "pages": ["kiem-ke"], "active": true }
-   ```
-   `shops` must be a map of shop code → `true` (not an array) — the database
-   rules match on it. Deleting an account entirely, or resetting a forgotten
-   staff password (the `@an-upharma.local` addresses cannot receive mail), is
-   done in the Firebase Console.
-6. **Generate the catalogs**: wait for the next hourly sync (or run
-   `node scripts/fetch-upharma-data.js` once). Check `shop_catalog/` appears
-   in Realtime Database.
+There is exactly **one** requirement: the database rules must contain the
+staff nodes (`staff_accounts`, `shop_catalog`, `shop_catalog_index`,
+`count_submissions`, `count_final_reviews` — all in `database.rules.json`).
+
+- **Automatic (normal path)**: the hourly sync script checks the live rules
+  on every run and merges the staff nodes in if they are missing
+  (`ensureStaffRules` in `scripts/fetch-upharma-data.js`). It only ever adds
+  or updates those five nodes — every other rule is preserved byte for byte —
+  and it is fail-open: if the rules endpoint rejects the change, the sync
+  logs a warning and continues. Just wait for the next hourly sync after
+  deploying this code (or trigger the workflow once).
+- **Manual fallback**: if the accounts page still reports a rules error after
+  a sync, paste `database.rules.json` into Firebase Console → Realtime
+  Database → Rules → Publish, once.
+
+Catalogs appear after the same sync run writes `shop_catalog/` — nothing
+else to configure.
 
 ## Daily use
 
-- Staff open the app, choose **Nhân viên kiểm kê**, sign in, and land on the
-  first page granted to them; the menu shows exactly their granted pages.
+- Manager: open **Tài khoản kiểm kê**, fill in username, password (≥ 8
+  characters), full name, the shops the person is responsible for, and the
+  pages they may open (**Kiểm kê** is pre-selected), then **Tạo tài khoản**.
+  Later, **Phân quyền** on a row re-assigns shops/pages and can also set a
+  new password (leave the field empty to keep the current one);
+  **Khóa / Mở khóa** enables or disables the account. Deleting an account
+  entirely is not offered in the app — lock it instead.
+- Staff: open the app, choose **Nhân viên kiểm kê**, sign in, and land on
+  the first page granted to them; the menu shows exactly their granted pages.
 - Counting: pick the shop, open a count session, count, and press
   **Hoàn thành kiểm kê** — the sheet is submitted automatically; if there is
   no signal it stays on the device marked *Chưa nộp* and is resent on the
@@ -97,17 +83,18 @@ extra page means trusting that person with everything that page shows.
 - On the shelf they may also add a product the shop catalog does not list
   (system stock zero): search finds it in the system-wide catalog and it is
   flagged *Ngoài danh mục shop* on the sheet and in the review.
-- Manager: open Kiểm kê, pick the shop, press **Tải kết quả nhân viên nộp**
-  (requires the management unlock from step 4). Rows where staff disagree are
-  highlighted; type the final quantity per product in **SL chốt**, then
-  **Lưu số chốt** and/or **Xuất Excel đối chiếu**.
+- Manager review: open Kiểm kê, pick the shop, press **Tải kết quả nhân viên
+  nộp**. Rows where staff disagree are highlighted; type the final quantity
+  per product in **SL chốt**, then **Lưu số chốt** and/or **Xuất Excel đối
+  chiếu**.
 
 ## Phase 4 (prepared, not deployed)
 
 `database.rules.phase4.json` additionally closes the long-standing public
 reads of the full inventory (`shops/*/upharma_data`, `national_inventory_cache`)
-and the public writes (`hidden_products`, `transfer_suggestions_cache`).
-**Do not deploy it yet**: the manager app still reads those nodes without a
-Firebase token on several pages. Deploy it only after every read/write path
-in the app attaches the Firebase ID token, and test in the Rules Simulator
-first, keeping the previous rules file for one-click rollback.
+and the public writes (`hidden_products`, `transfer_suggestions_cache`), while
+keeping the staff nodes above exactly as they are. **Do not deploy it yet**:
+the whole app (manager pages included) still reads those legacy nodes
+anonymously, so closing them today would break the app; it needs a separate
+authenticated-read design first. Test in the Rules Simulator before ever
+deploying it, keeping the previous rules file for one-click rollback.

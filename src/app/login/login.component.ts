@@ -36,9 +36,16 @@ export class LoginComponent implements OnInit {
       void this.router.navigateByUrl("/dashboard");
       return;
     }
-    if (this.staffAuthService.hasSession()) {
-      void this.router.navigateByUrl("/kiem-ke");
+    const staffSession = this.staffAuthService.getSession();
+    if (staffSession) {
+      void this.router.navigateByUrl(`/${this.staffHomePath(staffSession.pages)}`);
     }
+  }
+
+  /** Landing page for a staff session: Kiểm kê when granted, else its first granted page. */
+  private staffHomePath(pages: string[]): string {
+    if (pages.includes("kiem-ke")) return "kiem-ke";
+    return pages[0] || "kiem-ke";
   }
 
   onSubmit(): void {
@@ -54,9 +61,9 @@ export class LoginComponent implements OnInit {
     this.loadingProgress = 40;
     this.errorText = "";
     try {
-      await this.staffAuthService.signIn(this.username.trim(), this.password);
+      const session = await this.staffAuthService.signIn(this.username.trim(), this.password);
       this.loadingProgress = 100;
-      await this.router.navigateByUrl("/kiem-ke");
+      await this.router.navigateByUrl(`/${this.staffHomePath(session.pages)}`);
     } catch (error) {
       this.errorText = error instanceof Error ? error.message : String(error);
       this.loadingProgress = 100;

@@ -2,19 +2,27 @@
   "rules": {
     ".read": "false",
     ".write": "false",
-    "count_final_reviews": {
+    "staff_accounts": {
+      ".read": true,
+      ".write": true
+    },
+    "shop_catalog_index": {
+      ".read": true,
+      ".write": false
+    },
+    "shop_catalog": {
       "$shopCode": {
-        ".read": "auth != null && (root.child('staff_users').child(auth.uid).child('role').val() == 'admin' || root.child('system_admin').child('uid').val() == auth.uid)",
-        ".write": "auth != null && (root.child('staff_users').child(auth.uid).child('role').val() == 'admin' || root.child('system_admin').child('uid').val() == auth.uid)"
+        ".read": true,
+        ".write": false
       }
     },
     "count_submissions": {
-      "$shopCode": {
-        ".read": "auth != null && (root.child('staff_users').child(auth.uid).child('role').val() == 'admin' || root.child('system_admin').child('uid').val() == auth.uid)",
-        "$sessionId": {
-          ".write": "auth != null && ((root.child('staff_users').child(auth.uid).child('role').val() == 'admin' || root.child('system_admin').child('uid').val() == auth.uid) || (root.child('staff_users').child(auth.uid).child('active').val() == true && (newData.child('staffUid').val() == auth.uid || data.child('staffUid').val() == auth.uid)))"
-        }
-      }
+      ".read": true,
+      ".write": true
+    },
+    "count_final_reviews": {
+      ".read": true,
+      ".write": true
     },
     "hidden_products": {
       ".read": "true",
@@ -28,16 +36,6 @@
       ".read": "true",
       ".write": "auth != null"
     },
-    "shop_catalog": {
-      "$shopCode": {
-        ".read": "auth != null && ((root.child('staff_users').child(auth.uid).child('role').val() == 'admin' || root.child('system_admin').child('uid').val() == auth.uid) || (root.child('staff_users').child(auth.uid).child('active').val() == true && root.child('staff_users').child(auth.uid).child('shops').child($shopCode).val() == true))",
-        ".write": false
-      }
-    },
-    "shop_catalog_index": {
-      ".read": "auth != null",
-      ".write": false
-    },
     "shops": {
       "$shopCode": {
         "upharma_data": {
@@ -50,13 +48,6 @@
       ".read": "true",
       ".write": "auth != null"
     },
-    "staff_users": {
-      ".read": "auth != null && (root.child('staff_users').child(auth.uid).child('role').val() == 'admin' || root.child('system_admin').child('uid').val() == auth.uid)",
-      ".write": "auth != null && (root.child('staff_users').child(auth.uid).child('role').val() == 'admin' || root.child('system_admin').child('uid').val() == auth.uid)",
-      "$uid": {
-        ".read": "auth != null && auth.uid == $uid"
-      }
-    },
     "transfer_suggestions_cache": {
       ".read": "true",
       ".write": "auth != null"
@@ -66,10 +57,6 @@
         ".read": "auth != null",
         ".write": "auth != null"
       }
-    },
-    "system_admin": {
-      ".read": "auth != null",
-      ".write": "auth != null && !data.exists() && newData.child('uid').val() == auth.uid"
     }
   }
 }

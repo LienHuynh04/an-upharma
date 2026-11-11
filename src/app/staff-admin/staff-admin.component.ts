@@ -7,14 +7,13 @@ import { ShopInfo, UpharmaService } from "../upharma.service";
 /**
  * Manager page for staff accounts.
  *
- * The main (manager) account creates staff accounts here instead of using the
- * Firebase Console: the page signs the new user up through Firebase Auth and
- * writes its role record (assigned shops, granted pages, active flag) to
- * `staff_users`. The page itself is unlocked with a shared management
- * password (see StaffAuthService.unlockManagement) — no per-manager Firebase
- * account is involved. Deleting an account entirely and resetting a forgotten
- * password still happen in the Firebase Console; deactivating here is enough
- * to revoke access immediately.
+ * The main (manager) account creates staff accounts here and assigns each
+ * one its shops and the pages it may open. Accounts are site-native records
+ * in `staff_accounts` (see StaffAuthService) — no Firebase Console, no API
+ * key, no unlock step: this page is only reachable under the main account,
+ * and staff page permissions are enforced by the route guard. From here the
+ * manager can also re-assign shops/pages, reset a staff password, or lock an
+ * account (locking revokes access at the next sign-in).
  */
 @Component({
   selector: "app-staff-admin",
@@ -37,45 +36,6 @@ import { ShopInfo, UpharmaService } from "../upharma.service";
         <div class="alert alert-danger" role="alert" *ngIf="errorText">{{ errorText }}</div>
         <div class="alert alert-success" role="status" *ngIf="noticeText">{{ noticeText }}</div>
 
-        <div class="card mb-3" *ngIf="!isAdminLinked">
-          <div class="card-header">
-            <h3 class="card-title">Mở khóa quản lý tài khoản</h3>
-          </div>
-          <div class="card-body">
-            <p class="text-secondary">
-              Để tạo và quản lý tài khoản nhân viên, trang này dùng một <strong>tài khoản quản trị Firebase</strong>
-              riêng — bạn chỉ cần đặt một mật khẩu quản trị ngay tại đây, không cần vào Firebase Console và không
-              liên quan tới mật khẩu Upharma của bạn. Lần đầu nhập là hệ thống tự tạo tài khoản quản trị với mật
-              khẩu đó; các lần sau nhập đúng mật khẩu để mở khóa (phiên mở khóa được ghi nhớ trên trình duyệt này).
-              <strong>Hãy đặt mật khẩu quản trị ngay khi thấy form này</strong> — tài khoản quản trị chỉ tạo được một
-              lần duy nhất, ai đặt trước thì người đó giữ (đặt lại chỉ được khi xóa thủ công trong Firebase Console).
-            </p>
-            <form (ngSubmit)="unlockManagement()">
-              <div class="row g-3">
-                <div class="col-md-4">
-                  <label class="form-label" for="admin-password">Mật khẩu quản trị</label>
-                  <input
-                    id="admin-password"
-                    class="form-control"
-                    type="password"
-                    [(ngModel)]="adminPassword"
-                    name="adminPassword"
-                    placeholder="Đặt mới hoặc nhập lại (ít nhất 6 ký tự)"
-                    autocomplete="current-password"
-                    required
-                  />
-                </div>
-                <div class="col-md-4 d-flex align-items-end">
-                  <button class="btn btn-primary" type="submit" [disabled]="unlocking">
-                    <i class="ti ti-lock-open me-1" aria-hidden="true"></i>{{ unlocking ? "Đang mở khóa…" : "Mở khóa quản lý tài khoản" }}
-                  </button>
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>
-
-        <ng-container *ngIf="isAdminLinked">
           <div class="card mb-3">
             <div class="card-header">
               <h3 class="card-title">Tạo tài khoản nhân viên mới</h3>
@@ -104,7 +64,7 @@ import { ShopInfo, UpharmaService } from "../upharma.service";
                       type="text"
                       [(ngModel)]="newPassword"
                       name="newPassword"
-                      placeholder="Ít nhất 6 ký tự"
+                      placeholder="Ít nhất 8 ký tự, chỉ dùng cho trang này"
                       autocomplete="off"
                       required
                     />
@@ -189,9 +149,7 @@ import { ShopInfo, UpharmaService } from "../upharma.service";
                     <td class="fw-semibold">{{ user.username || "—" }}</td>
                     <td>{{ user.displayName || "—" }}</td>
                     <td>
-                      <span class="badge" [class.bg-purple-lt]="user.role === 'admin'" [class.text-purple]="user.role === 'admin'" [class.bg-primary-lt]="user.role !== 'admin'" [class.text-primary]="user.role !== 'admin'">
-                        {{ user.role === "admin" ? "Quản lý" : "Nhân viên kiểm kê" }}
-                      </span>
+                      <span class="badge bg-primary-lt text-primary">Nhân viên</span>
                     </td>
                     <td>
                       <ng-container *ngIf="editingUid !== user.uid">
@@ -233,7 +191,7 @@ import { ShopInfo, UpharmaService } from "../upharma.service";
                       </span>
                     </td>
                     <td class="text-end">
-                      <div class="btn-list flex-nowrap justify-content-end" *ngIf="user.role !== 'admin'">
+                      <div class="btn-list flex-nowrap justify-content-end">
                         <ng-container *ngIf="editingUid !== user.uid">
                           <button class="btn btn-sm btn-outline-primary" type="button" (click)="startEditShops(user)">Phân quyền</button>
                           <button
@@ -245,6 +203,15 @@ import { ShopInfo, UpharmaService } from "../upharma.service";
                           >{{ user.active ? "Khóa" : "Mở khóa" }}</button>
                         </ng-container>
                         <ng-container *ngIf="editingUid === user.uid">
+                          <input
+                            class="form-control form-control-sm"
+                            style="min-width: 170px;"
+                            type="text"
+                            [(ngModel)]="editPassword"
+                            [ngModelOptions]="{ standalone: true }"
+                            placeholder="Mật khẩu mới (bỏ trống = giữ nguyên)"
+                            autocomplete="off"
+                          />
                           <button class="btn btn-sm btn-primary" type="button" (click)="saveShops(user)" [disabled]="saving">Lưu</button>
                           <button class="btn btn-sm btn-ghost-secondary" type="button" (click)="editingUid = ''">Hủy</button>
                         </ng-container>
@@ -264,7 +231,6 @@ import { ShopInfo, UpharmaService } from "../upharma.service";
               Xóa hẳn tài khoản hoặc đặt lại mật khẩu khi nhân viên quên: làm trong Firebase Console → Authentication.
             </div>
           </div>
-        </ng-container>
       </div>
     </div>
   `,
@@ -287,8 +253,7 @@ export class StaffAdminComponent implements OnInit {
   editShops: Record<string, boolean> = {};
   editPages: Record<string, boolean> = {};
 
-  adminPassword = "";
-  unlocking = false;
+  editPassword = "";
 
   readonly pageOptions = STAFF_PAGE_OPTIONS;
 
@@ -297,50 +262,13 @@ export class StaffAdminComponent implements OnInit {
     private readonly staffAuthService: StaffAuthService,
   ) {}
 
-  get isAdminLinked(): boolean {
-    return this.staffAuthService.isAdmin();
-  }
-
   async ngOnInit(): Promise<void> {
     this.shops = this.upharmaService.getActiveShops();
     await this.loadUsers();
   }
 
-  /**
-   * Unlocks account management with the shared management password: the first
-   * unlock creates the management account, later unlocks sign in with it.
-   */
-  async unlockManagement(): Promise<void> {
-    if (this.unlocking) return;
-    if (!this.adminPassword) {
-      this.errorText = "Nhập mật khẩu quản trị để mở khóa.";
-      return;
-    }
-    this.unlocking = true;
-    this.errorText = "";
-    this.noticeText = "";
-    try {
-      const session = this.upharmaService.getSession();
-      const displayName = session?.UserInfo?.FullName || "Quản trị";
-      const shops = this.upharmaService.getActiveShops().map((shop) => shop.ShopCode);
-      await this.staffAuthService.unlockManagement({
-        password: this.adminPassword,
-        displayName,
-        shops,
-      });
-      this.adminPassword = "";
-      this.noticeText =
-        "Đã mở khóa quản lý tài khoản. Từ giờ bạn tạo và phân quyền tài khoản nhân viên ngay tại trang này.";
-      await this.loadUsers();
-    } catch (error) {
-      this.errorText = this.messageOf(error);
-    } finally {
-      this.unlocking = false;
-    }
-  }
-
   async loadUsers(): Promise<void> {
-    if (!this.isAdminLinked || this.loading) return;
+    if (this.loading) return;
     this.loading = true;
     this.errorText = "";
     try {
@@ -418,6 +346,7 @@ export class StaffAdminComponent implements OnInit {
 
   startEditShops(user: StaffUserRecord): void {
     this.editingUid = user.uid;
+    this.editPassword = "";
     this.editShops = {};
     for (const shop of this.shops) {
       this.editShops[shop.ShopCode] = user.shops.includes(shop.ShopCode);
@@ -447,11 +376,15 @@ export class StaffAdminComponent implements OnInit {
     this.saving = true;
     this.errorText = "";
     try {
+      const newPassword = this.editPassword.trim() || undefined;
       const updated = { ...user, shops: selectedShops, pages: selectedPages };
-      await this.staffAuthService.updateStaffUser(updated);
+      await this.staffAuthService.updateStaffUser(updated, newPassword);
       this.users = this.users.map((item) => (item.uid === user.uid ? updated : item));
       this.editingUid = "";
-      this.noticeText = `Đã cập nhật phân quyền cho "${user.username || user.displayName}".`;
+      this.editPassword = "";
+      this.noticeText = newPassword
+        ? `Đã cập nhật phân quyền và đặt lại mật khẩu cho "${user.username || user.displayName}".`
+        : `Đã cập nhật phân quyền cho "${user.username || user.displayName}".`;
     } catch (error) {
       this.errorText = this.messageOf(error);
     } finally {

@@ -2,50 +2,36 @@ import { Injectable } from "@angular/core";
 import { environment } from "../environments/environment";
 
 /**
- * Staff sign-in for the inventory-count (kiem ke) feature, built on Firebase
- * Authentication's REST API so the app needs no extra SDK dependency.
+ * Site-native staff accounts, stored in Realtime Database.
  *
- * Accounts are created by the manager in the Firebase Console. A staff member
- * signs in with a short username; the app maps it to the Firebase email
- * `<username>@an-upharma.local`. After sign-in the app reads the role record
- * at `staff_users/{uid}` in Realtime Database:
- *   { displayName: string, role: "counter" | "admin",
- *     shops: { SHOP0025: true, ... }, active: true }
+ * There is deliberately no Firebase Authentication here: the main (manager)
+ * account creates staff accounts itself on the "Tài khoản kiểm kê" page, the
+ * accounts live in `staff_accounts/{key}` in the same database the app
+ * already uses, and sign-in is verified in the browser against a salted
+ * PBKDF2 password hash stored with the account. The session is kept in
+ * localStorage, the same pattern as the main account's own session.
  *
- * - role "counter": a staff account. It may open only the pages the manager
- *   granted it in its record (`pages`, e.g. just the inventory-count page),
- *   only for the shops listed in its record, and the inventory-count page in
- *   this mode only ever receives the slim shop catalog (product code + name +
- *   unit, never quantities or prices).
- * - role "admin": the shared management account (`quantri@an-upharma.local`)
- *   the accounts page uses to create/manage staff accounts and read submitted
- *   counts. The manager unlocks it with a management password from the
- *   accounts page — see {@link StaffAuthService.unlockManagement}.
+ * What each account may do is decided by its record and enforced by the
+ * Angular route guard and the menu:
+ * - `shops`: the shops the account is responsible for (the inventory-count
+ *   page only ever loads the slim catalog of these shops — code + name +
+ *   unit, never system quantities or prices).
+ * - `pages`: the route paths the account may open.
  *
- * Setup steps: docs/staff-inventory-count.md.
+ * Honest limits of this design (accepted by the manager): enforcement is
+ * app-level, not database-rule level — the login flow must be able to read
+ * the stored hash to verify a password, so the hashes are readable by anyone
+ * who knows the database address. Staff passwords must therefore be at least
+ * 8 characters and unique to this app. Locking an account (`active: false`)
+ * takes effect at the next sign-in check.
  */
 
-export type StaffRole = "counter" | "admin";
-
-export interface StaffSession {
-  uid: string;
-  username: string;
-  displayName: string;
-  role: StaffRole;
-  shops: string[];
-  /** Route paths this account may open (empty for the management account). */
-  pages: string[];
-  idToken: string;
-  refreshToken: string;
-  expiresAt: number;
-}
-
-/** One row of `staff_users`, as managed from the admin page. */
+/** One row of `staff_accounts`, as managed from the admin page. */
 export interface StaffUserRecord {
+  /** Stable account id used in sessions and count submissions (= username). */
   uid: string;
   username: string;
   displayName: string;
-  role: StaffRole;
   shops: string[];
   /** Route paths this account may open, assigned by the manager. */
   pages: string[];
@@ -62,8 +48,7 @@ export interface StaffPageOption {
 /**
  * Pages a staff account can be granted. Deliberately excludes the management
  * pages (settings, account management, reports, targets) — those stay with
- * the main account. Page grants are enforced by the route guard and the menu;
- * the inventory-count data itself is additionally enforced by database rules.
+ * the main account.
  */
 export const STAFF_PAGE_OPTIONS: StaffPageOption[] = [
   { path: "kiem-ke", label: "Kiểm kê", icon: "ti-clipboard-check" },
@@ -79,234 +64,128 @@ export const STAFF_PAGE_OPTIONS: StaffPageOption[] = [
 
 export const DEFAULT_STAFF_PAGES = ["kiem-ke"];
 
-/** Username of the shared management account used by the accounts page. */
-export const MANAGEMENT_USERNAME = "quantri";
-
-const SESSION_STORAGE_KEY = "upharma_staff_session";
-export const STAFF_EMAIL_DOMAIN = "an-upharma.local";
-
-export function staffEmailForUsername(username: string): string {
-  return `${username.trim().toLowerCase()}@${STAFF_EMAIL_DOMAIN}`;
+export interface StaffSession {
+  uid: string;
+  username: string;
+  displayName: string;
+  shops: string[];
+  /** Route paths this account may open. */
+  pages: string[];
+  signedInAt: number;
 }
 
-interface FirebaseSignInResponse {
-  localId: string;
-  idToken: string;
-  refreshToken: string;
-  expiresIn: string;
+interface StoredPassword {
+  salt: string;
+  hash: string;
+  iterations: number;
+}
+
+interface StoredStaffAccount {
+  username?: string;
+  displayName?: string;
+  password?: StoredPassword;
+  shops?: Record<string, unknown> | string[];
+  pages?: unknown;
+  active?: boolean;
+  createdAt?: number;
+  updatedAt?: number;
+}
+
+const SESSION_STORAGE_KEY = "upharma_staff_session";
+const STAFF_USERNAME_PATTERN = /^[a-z0-9._-]+$/;
+const PBKDF2_ITERATIONS = 120_000;
+const MIN_STAFF_PASSWORD_LENGTH = 8;
+
+/** Database key for a username (RTDB keys cannot contain . $ # [ ] /). */
+export function staffAccountKey(username: string): string {
+  return username
+    .trim()
+    .toLowerCase()
+    .replace(/[%.$#[\]/]/g, (character) => {
+      return "%" + character.charCodeAt(0).toString(16).toUpperCase().padStart(2, "0");
+    });
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
+}
+
+function base64ToBytes(value: string): Uint8Array {
+  const binary = atob(value);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index++) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return bytes;
+}
+
+/** PBKDF2-SHA256 password hash; generates a fresh salt when none is given. */
+export async function hashStaffPassword(
+  password: string,
+  saltBase64?: string,
+  iterations: number = PBKDF2_ITERATIONS,
+): Promise<StoredPassword> {
+  if (!globalThis.crypto?.subtle) {
+    throw new Error("Trình duyệt không hỗ trợ mã hóa mật khẩu (cần HTTPS).");
+  }
+  const salt = saltBase64 ? base64ToBytes(saltBase64) : crypto.getRandomValues(new Uint8Array(16));
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(password),
+    "PBKDF2",
+    false,
+    ["deriveBits"],
+  );
+  const derived = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", salt: salt as BufferSource, iterations, hash: "SHA-256" },
+    keyMaterial,
+    256,
+  );
+  return {
+    salt: bytesToBase64(salt),
+    hash: bytesToBase64(new Uint8Array(derived)),
+    iterations,
+  };
+}
+
+async function verifyStaffPassword(password: string, stored: StoredPassword): Promise<boolean> {
+  const candidate = await hashStaffPassword(password, stored.salt, stored.iterations);
+  const expected = base64ToBytes(stored.hash);
+  const actual = base64ToBytes(candidate.hash);
+  if (expected.length !== actual.length) return false;
+  let difference = 0;
+  for (let index = 0; index < expected.length; index++) {
+    difference |= expected[index] ^ actual[index];
+  }
+  return difference === 0;
 }
 
 @Injectable({ providedIn: "root" })
 export class StaffAuthService {
-  private get apiKey(): string {
-    return (environment.firebaseApiKey || "").trim();
-  }
-
   private get dbUrl(): string {
     return environment.firebaseDbUrl.replace(/\/+$/, "");
   }
 
-  get isConfigured(): boolean {
-    return Boolean(this.apiKey);
-  }
-
-  async signIn(username: string, password: string): Promise<StaffSession> {
-    if (!this.isConfigured) {
-      throw new Error(
-        "Chưa cấu hình Firebase API key cho đăng nhập nhân viên (environment.firebaseApiKey). Xem docs/staff-inventory-count.md.",
-      );
-    }
-    const response = await fetch(
-      `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${this.apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: staffEmailForUsername(username),
-          password,
-          returnSecureToken: true,
-        }),
-      },
-    );
-    const data = (await response.json().catch(() => null)) as
-      | (FirebaseSignInResponse & { error?: { message?: string } })
-      | null;
-    if (!response.ok || !data?.idToken || !data.localId) {
-      throw new Error(this.signInErrorText(data?.error?.message));
-    }
-
-    const profile = await this.fetchProfile(data.localId, data.idToken);
-    if (!profile) {
-      throw new Error(
-        "Tài khoản chưa được cấp quyền kiểm kê trên hệ thống. Liên hệ quản lý để được cấp quyền.",
-      );
-    }
-
-    const session: StaffSession = {
-      uid: data.localId,
-      username: username.trim().toLowerCase(),
-      displayName: profile.displayName,
-      role: profile.role,
-      shops: profile.shops,
-      pages: profile.pages,
-      idToken: data.idToken,
-      refreshToken: data.refreshToken,
-      expiresAt: Date.now() + Number(data.expiresIn || 3600) * 1000,
-    };
-    this.saveSession(session);
-    return session;
-  }
-
-  private saveSession(session: StaffSession): void {
-    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
-  }
-
-  /**
-   * Unlocks staff-account management with the shared management account
-   * (`quantri@an-upharma.local`) — no per-manager Firebase account and no
-   * Console step:
-   *
-   * - First time (account does not exist yet): creates the management account
-   *   with the password the manager sets, claims the create-once
-   *   `system_admin` node (database rules accept the claim only while the
-   *   node does not exist, so exactly one management account can ever be
-   *   created this way), and writes its admin role record.
-   * - Later: simply signs in with that management password. The session is
-   *   persisted in the browser, so the password is only needed again when
-   *   the session is gone (new browser, cleared data).
-   *
-   * Only a signed-in main (Upharma) account can open the accounts page, so
-   * in practice the management password is set by the manager; recovering a
-   * forgotten one means deleting `system_admin` and the `quantri` user in
-   * the Firebase Console and setting it up again.
-   */
-  async unlockManagement(input: {
-    password: string;
-    displayName: string;
-    shops: string[];
-  }): Promise<StaffSession> {
-    if (!this.isConfigured) {
-      throw new Error(
-        "Chưa cấu hình Firebase API key (environment.firebaseApiKey). Xem docs/staff-inventory-count.md.",
-      );
-    }
-    if (input.password.length < 6) {
-      throw new Error("Mật khẩu quản trị phải có ít nhất 6 ký tự.");
-    }
-    const auth = await this.signUpOrSignIn(MANAGEMENT_USERNAME, input.password);
-
-    const session: StaffSession = {
-      uid: auth.localId,
-      username: MANAGEMENT_USERNAME,
-      displayName: input.displayName.trim() || "Quản trị",
-      role: "admin",
-      shops: [...input.shops],
-      pages: [],
-      idToken: auth.idToken,
-      refreshToken: auth.refreshToken,
-      expiresAt: Date.now() + Number(auth.expiresIn || 3600) * 1000,
-    };
-
-    await this.claimSystemAdmin(session);
-    await this.writeStaffUser(
-      {
-        uid: session.uid,
-        username: MANAGEMENT_USERNAME,
-        displayName: session.displayName,
-        role: "admin",
-        shops: session.shops,
-        pages: [],
-        active: true,
-      },
-      session.idToken,
-    );
-    this.saveSession(session);
-    return session;
-  }
-
-  /** Signs up a new Firebase user; falls back to sign-in when it exists. */
-  private async signUpOrSignIn(
-    username: string,
-    password: string,
-  ): Promise<FirebaseSignInResponse> {
-    const email = staffEmailForUsername(username);
-    const signUpResponse = await fetch(
-      `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${this.apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, returnSecureToken: true }),
-      },
-    );
-    const signUpData = (await signUpResponse.json().catch(() => null)) as
-      | (FirebaseSignInResponse & { error?: { message?: string } })
-      | null;
-    if (signUpResponse.ok && signUpData?.idToken && signUpData.localId) {
-      return signUpData;
-    }
-    if (signUpData?.error?.message !== "EMAIL_EXISTS") {
-      throw new Error(this.signInErrorText(signUpData?.error?.message));
-    }
-    // Account already created (e.g. a previous interrupted attempt): sign in.
-    const signInResponse = await fetch(
-      `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${this.apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, returnSecureToken: true }),
-      },
-    );
-    const signInData = (await signInResponse.json().catch(() => null)) as
-      | (FirebaseSignInResponse & { error?: { message?: string } })
-      | null;
-    if (!signInResponse.ok || !signInData?.idToken || !signInData.localId) {
-      throw new Error(this.signInErrorText(signInData?.error?.message));
-    }
-    return signInData;
-  }
-
-  /**
-   * Claims the create-once `system_admin` node for this session's uid.
-   * Succeeds silently when the claim already belongs to the same uid
-   * (resuming an interrupted link); fails when someone else holds it.
-   */
-  private async claimSystemAdmin(session: StaffSession): Promise<void> {
-    const readResponse = await fetch(
-      `${this.dbUrl}/system_admin.json?auth=${encodeURIComponent(session.idToken)}`,
-    );
-    const existing = (await readResponse.json().catch(() => null)) as { uid?: string } | null;
-    if (existing?.uid) {
-      if (existing.uid === session.uid) return;
-      throw new Error(
-        "Quyền quản lý Firebase đã được liên kết bởi một tài khoản khác. Nếu đó không phải bạn, xóa node system_admin trong Firebase Console rồi thử lại.",
-      );
-    }
-    const writeResponse = await fetch(
-      `${this.dbUrl}/system_admin.json?auth=${encodeURIComponent(session.idToken)}`,
-      {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          uid: session.uid,
-          username: session.username,
-          claimedAt: Date.now(),
-        }),
-      },
-    );
-    if (!writeResponse.ok) {
-      throw new Error(
-        "Không ghi được quyền quản lý (có thể vừa có người liên kết trước bạn). Tải lại trang rồi thử lại.",
-      );
-    }
-  }
+  // ---------------------------------------------------------------- session
 
   getSession(): StaffSession | null {
     try {
       const raw = localStorage.getItem(SESSION_STORAGE_KEY);
       if (!raw) return null;
-      const session = JSON.parse(raw) as StaffSession;
-      if (!session?.uid || !session.idToken || !session.refreshToken) return null;
-      return session;
+      const parsed = JSON.parse(raw) as StaffSession;
+      if (
+        !parsed ||
+        typeof parsed.username !== "string" ||
+        typeof parsed.displayName !== "string" ||
+        !Array.isArray(parsed.shops) ||
+        !Array.isArray(parsed.pages) ||
+        typeof parsed.signedInAt !== "number"
+      ) {
+        return null;
+      }
+      return parsed;
     } catch {
       return null;
     }
@@ -316,59 +195,40 @@ export class StaffAuthService {
     return this.getSession() !== null;
   }
 
-  isStaff(): boolean {
-    return this.getSession()?.role === "counter";
-  }
-
-  isAdmin(): boolean {
-    return this.getSession()?.role === "admin";
-  }
-
-  /** Returns an ID token that is valid for at least ~5 more minutes. */
-  async getValidIdToken(): Promise<string> {
-    const session = this.getSession();
-    if (!session) {
-      throw new Error("Chưa đăng nhập tài khoản nhân viên.");
-    }
-    if (session.expiresAt - Date.now() > 5 * 60 * 1000) {
-      return session.idToken;
-    }
-    const response = await fetch(`https://securetoken.googleapis.com/v1/token?key=${this.apiKey}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        grant_type: "refresh_token",
-        refresh_token: session.refreshToken,
-      }),
-    });
-    const data = (await response.json().catch(() => null)) as
-      | { id_token?: string; refresh_token?: string; expires_in?: string }
-      | null;
-    if (!response.ok || !data?.id_token) {
-      this.signOut();
-      throw new Error("Phiên đăng nhập nhân viên đã hết hạn. Đăng nhập lại giúp mình nhé.");
-    }
-    const updated: StaffSession = {
-      ...session,
-      idToken: data.id_token,
-      refreshToken: data.refresh_token || session.refreshToken,
-      expiresAt: Date.now() + Number(data.expires_in || 3600) * 1000,
-    };
-    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(updated));
-    return updated.idToken;
-  }
-
   signOut(): void {
     localStorage.removeItem(SESSION_STORAGE_KEY);
   }
 
-  // ---- Admin: staff account management (requires an admin session) ----
+  // --------------------------------------------------------------- sign-in
 
-  /**
-   * Creates a Firebase Auth user (email/password sign-up) and its role record.
-   * The sign-up response tokens belong to the new user and are discarded —
-   * the manager's own session in localStorage is never touched.
-   */
+  async signIn(username: string, password: string): Promise<StaffSession> {
+    const normalized = username.trim().toLowerCase();
+    const account = await this.readAccount(normalized);
+    if (!account || !account.password) {
+      throw new Error("Tên đăng nhập hoặc mật khẩu không đúng.");
+    }
+    const matches = await verifyStaffPassword(password, account.password);
+    if (!matches) {
+      throw new Error("Tên đăng nhập hoặc mật khẩu không đúng.");
+    }
+    if (account.active === false) {
+      throw new Error("Tài khoản đã bị khóa. Liên hệ quản lý để mở lại.");
+    }
+
+    const session: StaffSession = {
+      uid: String(account.username || normalized),
+      username: normalized,
+      displayName: String(account.displayName || normalized),
+      shops: this.parseShops(account.shops),
+      pages: this.parsePages(account.pages),
+      signedInAt: Date.now(),
+    };
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+    return session;
+  }
+
+  // ------------------------------------------------------- account manager
+
   async createStaffAccount(input: {
     username: string;
     password: string;
@@ -376,131 +236,135 @@ export class StaffAuthService {
     shops: string[];
     pages: string[];
   }): Promise<StaffUserRecord> {
-    if (!this.isConfigured) {
+    const username = input.username.trim().toLowerCase();
+    if (!STAFF_USERNAME_PATTERN.test(username)) {
       throw new Error(
-        "Chưa cấu hình Firebase API key (environment.firebaseApiKey). Xem docs/staff-inventory-count.md.",
+        "Tên đăng nhập chỉ gồm chữ thường, số, dấu chấm, gạch ngang hoặc gạch dưới (không dấu, không khoảng trắng).",
       );
     }
-    const username = input.username.trim().toLowerCase();
-    if (!/^[a-z0-9._-]+$/.test(username)) {
-      throw new Error("Tên đăng nhập chỉ gồm chữ thường, số và dấu . _ - (không dấu, không khoảng trắng).");
+    if (input.password.length < MIN_STAFF_PASSWORD_LENGTH) {
+      throw new Error(`Mật khẩu nhân viên phải có ít nhất ${MIN_STAFF_PASSWORD_LENGTH} ký tự.`);
     }
-    if (input.password.length < 6) {
-      throw new Error("Mật khẩu phải có ít nhất 6 ký tự.");
+    if (await this.readAccount(username)) {
+      throw new Error(`Tên đăng nhập "${username}" đã tồn tại.`);
     }
-    const response = await fetch(
-      `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${this.apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: staffEmailForUsername(username),
-          password: input.password,
-          returnSecureToken: true,
-        }),
-      },
-    );
-    const data = (await response.json().catch(() => null)) as
-      | { localId?: string; error?: { message?: string } }
-      | null;
-    if (!response.ok || !data?.localId) {
-      throw new Error(this.createAccountErrorText(data?.error?.message));
-    }
-    const record: StaffUserRecord = {
-      uid: data.localId,
+
+    const stored: StoredStaffAccount = {
       username,
       displayName: input.displayName.trim(),
-      role: "counter",
-      shops: [...input.shops],
+      password: await hashStaffPassword(input.password),
+      shops: this.toShopMap(input.shops),
       pages: this.parsePages(input.pages),
       active: true,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
     };
-    await this.writeStaffUser(record);
-    return record;
+    await this.writeAccount(username, stored);
+    return this.toRecord(stored);
   }
 
   async listStaffUsers(): Promise<StaffUserRecord[]> {
-    const idToken = await this.getValidIdToken();
-    const response = await fetch(
-      `${this.dbUrl}/staff_users.json?auth=${encodeURIComponent(idToken)}`,
-    );
+    const response = await fetch(`${this.dbUrl}/staff_accounts.json`);
     if (!response.ok) {
-      throw new Error(`Không tải được danh sách tài khoản nhân viên (mã ${response.status}).`);
+      throw new Error(
+        response.status === 401 || response.status === 403
+          ? "Chưa đọc được danh sách tài khoản — rules của database chưa có node staff_accounts. Đợi bản đồng bộ tiếp theo tự cập nhật rules, hoặc dán rules trong Firebase Console (xem docs/staff-inventory-count.md)."
+          : `Không tải được danh sách tài khoản (mã ${response.status}).`,
+      );
     }
-    const data = (await response.json().catch(() => null)) as Record<
-      string,
-      Record<string, unknown>
-    > | null;
+    const data = (await response.json().catch(() => null)) as Record<string, StoredStaffAccount> | null;
     if (!data) return [];
-    return Object.entries(data)
-      .map(([uid, raw]) => this.toStaffUserRecord(uid, raw))
-      .sort((first, second) => first.displayName.localeCompare(second.displayName, "vi"));
+    return Object.values(data)
+      .filter((account) => account && typeof account.username === "string")
+      .map((account) => this.toRecord(account))
+      .sort((first, second) => first.username.localeCompare(second.username));
   }
 
-  /** Updates a role record (e.g. activate/deactivate, change shops). */
-  async updateStaffUser(record: StaffUserRecord): Promise<void> {
-    await this.writeStaffUser(record);
+  /**
+   * Writes back the mutable fields of an account (display name, shops,
+   * pages, active). When `newPassword` is non-empty the password hash is
+   * replaced too; the stored hash is otherwise preserved untouched.
+   */
+  async updateStaffUser(record: StaffUserRecord, newPassword?: string): Promise<void> {
+    const current = await this.readAccount(record.username);
+    if (!current) {
+      throw new Error("Không tìm thấy tài khoản để cập nhật.");
+    }
+    if (newPassword) {
+      if (newPassword.length < MIN_STAFF_PASSWORD_LENGTH) {
+        throw new Error(`Mật khẩu mới phải có ít nhất ${MIN_STAFF_PASSWORD_LENGTH} ký tự.`);
+      }
+      current.password = await hashStaffPassword(newPassword);
+    }
+    current.displayName = record.displayName;
+    current.shops = this.toShopMap(record.shops);
+    current.pages = this.parsePages(record.pages);
+    current.active = record.active;
+    current.updatedAt = Date.now();
+    await this.writeAccount(record.username, current);
   }
 
-  private async writeStaffUser(record: StaffUserRecord, providedIdToken?: string): Promise<void> {
-    const idToken = providedIdToken || (await this.getValidIdToken());
-    const shops: Record<string, boolean> = {};
-    for (const code of record.shops) shops[code] = true;
+  // ---------------------------------------------------------------- helpers
+
+  private async readAccount(username: string): Promise<StoredStaffAccount | null> {
     const response = await fetch(
-      `${this.dbUrl}/staff_users/${encodeURIComponent(record.uid)}.json?auth=${encodeURIComponent(idToken)}`,
+      `${this.dbUrl}/staff_accounts/${encodeURIComponent(staffAccountKey(username))}.json`,
+    );
+    if (response.status === 401 || response.status === 403) {
+      throw new Error(
+        "Chưa truy cập được tài khoản nhân viên — rules của database chưa có node staff_accounts. Đợi bản đồng bộ tiếp theo tự cập nhật rules, hoặc dán rules trong Firebase Console (xem docs/staff-inventory-count.md).",
+      );
+    }
+    if (!response.ok) return null;
+    return (await response.json().catch(() => null)) as StoredStaffAccount | null;
+  }
+
+  private async writeAccount(username: string, account: StoredStaffAccount): Promise<void> {
+    const response = await fetch(
+      `${this.dbUrl}/staff_accounts/${encodeURIComponent(staffAccountKey(username))}.json`,
       {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          username: record.username,
-          displayName: record.displayName,
-          role: record.role,
-          shops,
-          pages: record.pages || [],
-          active: record.active,
-        }),
+        body: JSON.stringify(account),
       },
     );
     if (!response.ok) {
       throw new Error(
-        `Không lưu được tài khoản nhân viên (mã ${response.status}). Kiểm tra quyền quản lý Firebase của bạn.`,
+        response.status === 401 || response.status === 403
+          ? "Chưa ghi được tài khoản — rules của database chưa cho phép node staff_accounts. Đợi bản đồng bộ tiếp theo tự cập nhật rules, hoặc dán rules trong Firebase Console (xem docs/staff-inventory-count.md)."
+          : `Không lưu được tài khoản (mã ${response.status}).`,
       );
     }
   }
 
-  private toStaffUserRecord(uid: string, raw: Record<string, unknown>): StaffUserRecord {
-    const shopsRaw = raw["shops"];
-    let shops: string[] = [];
-    if (Array.isArray(shopsRaw)) {
-      shops = shopsRaw.map((code) => String(code)).filter(Boolean);
-    } else if (shopsRaw && typeof shopsRaw === "object") {
-      shops = Object.entries(shopsRaw as Record<string, unknown>)
-        .filter(([, allowed]) => allowed === true || allowed === "true")
-        .map(([code]) => code);
-    }
+  private toRecord(account: StoredStaffAccount): StaffUserRecord {
+    const username = String(account.username || "");
     return {
-      uid,
-      username: String(raw["username"] || ""),
-      displayName: String(raw["displayName"] || raw["name"] || ""),
-      role: raw["role"] === "admin" ? "admin" : "counter",
-      shops,
-      pages: this.parsePages(raw["pages"]),
-      active: raw["active"] !== false,
+      uid: username,
+      username,
+      displayName: String(account.displayName || username),
+      shops: this.parseShops(account.shops),
+      pages: this.parsePages(account.pages),
+      active: account.active !== false,
     };
   }
 
-  private createAccountErrorText(code: string | undefined): string {
-    switch (code) {
-      case "EMAIL_EXISTS":
-        return "Tên đăng nhập này đã có tài khoản. Chọn tên khác.";
-      case "WEAK_PASSWORD : Password should be at least 6 characters":
-      case "WEAK_PASSWORD":
-        return "Mật khẩu quá yếu — cần ít nhất 6 ký tự.";
-      case "OPERATION_NOT_ALLOWED":
-        return "Firebase chưa bật đăng nhập Email/Password. Bật trong Firebase Console → Authentication → Sign-in method.";
-      default:
-        return "Không tạo được tài khoản nhân viên. Kiểm tra mạng rồi thử lại.";
+  private parseShops(raw: StoredStaffAccount["shops"]): string[] {
+    if (Array.isArray(raw)) {
+      return raw.map((code) => String(code)).filter(Boolean);
     }
+    if (raw && typeof raw === "object") {
+      return Object.entries(raw)
+        .filter(([, allowed]) => allowed === true || allowed === "true")
+        .map(([code]) => code);
+    }
+    return [];
+  }
+
+  private toShopMap(shops: string[]): Record<string, boolean> {
+    const map: Record<string, boolean> = {};
+    for (const code of shops) map[code] = true;
+    return map;
   }
 
   private parsePages(raw: unknown): string[] {
@@ -508,49 +372,5 @@ export class StaffAuthService {
     const known = new Set(STAFF_PAGE_OPTIONS.map((option) => option.path));
     const pages = raw.map((page) => String(page)).filter((page) => known.has(page));
     return pages.length ? pages : [...DEFAULT_STAFF_PAGES];
-  }
-
-  private async fetchProfile(
-    uid: string,
-    idToken: string,
-  ): Promise<{ displayName: string; role: StaffRole; shops: string[]; pages: string[] } | null> {
-    const response = await fetch(
-      `${this.dbUrl}/staff_users/${encodeURIComponent(uid)}.json?auth=${encodeURIComponent(idToken)}`,
-    );
-    if (!response.ok) return null;
-    const raw = (await response.json().catch(() => null)) as Record<string, unknown> | null;
-    if (!raw || raw["active"] === false) return null;
-
-    const shopsRaw = raw["shops"];
-    let shops: string[] = [];
-    if (Array.isArray(shopsRaw)) {
-      shops = shopsRaw.map((code) => String(code)).filter(Boolean);
-    } else if (shopsRaw && typeof shopsRaw === "object") {
-      shops = Object.entries(shopsRaw as Record<string, unknown>)
-        .filter(([, allowed]) => allowed === true || allowed === "true")
-        .map(([code]) => code);
-    }
-
-    return {
-      displayName: String(raw["displayName"] || raw["name"] || ""),
-      role: raw["role"] === "admin" ? "admin" : "counter",
-      shops,
-      pages: this.parsePages(raw["pages"]),
-    };
-  }
-
-  private signInErrorText(code: string | undefined): string {
-    switch (code) {
-      case "EMAIL_NOT_FOUND":
-      case "INVALID_PASSWORD":
-      case "INVALID_LOGIN_CREDENTIALS":
-        return "Sai tài khoản hoặc mật khẩu nhân viên.";
-      case "USER_DISABLED":
-        return "Tài khoản nhân viên đã bị khóa. Liên hệ quản lý.";
-      case "TOO_MANY_ATTEMPTS_TRY_LATER":
-        return "Đăng nhập sai quá nhiều lần. Thử lại sau ít phút.";
-      default:
-        return "Không đăng nhập được tài khoản nhân viên. Kiểm tra mạng rồi thử lại.";
-    }
   }
 }

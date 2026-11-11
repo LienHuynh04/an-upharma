@@ -70,12 +70,6 @@ export class LayoutComponent implements OnInit, OnDestroy {
   get staffMenuItems(): StaffPageOption[] {
     const session = this.staffAuth.getSession();
     if (!session) return [];
-    if (session.role === "admin") {
-      return [
-        { path: "tai-khoan-kiem-ke", label: "Tài khoản kiểm kê", icon: "ti-users" },
-        ...STAFF_PAGE_OPTIONS.filter((option) => option.path === "kiem-ke"),
-      ];
-    }
     const pages = session.pages?.length ? session.pages : ["kiem-ke"];
     return STAFF_PAGE_OPTIONS.filter((option) => pages.includes(option.path));
   }

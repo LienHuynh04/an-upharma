@@ -12,18 +12,12 @@ export const authGuard: CanActivateFn = (_route, state) => {
     return true;
   }
 
-  // Staff accounts sign in through Firebase Auth only. A counter account may
-  // open exactly the pages the manager granted it (its `pages` list, default
-  // inventory count only); every other target is redirected to its first
-  // granted page. The shared management (admin) session on its own may open
-  // the account-management and inventory-count pages.
+  // Staff accounts (site-native accounts stored in the database) may open
+  // exactly the pages the manager granted them (their `pages` list, default
+  // inventory count only); every other target is redirected to their first
+  // granted page. This guard is where staff page permissions are enforced.
   const staffSession = staffAuthService.getSession();
   if (staffSession) {
-    if (staffSession.role === "admin") {
-      return state.url.startsWith("/tai-khoan-kiem-ke") || state.url.startsWith("/kiem-ke")
-        ? true
-        : router.createUrlTree(["/tai-khoan-kiem-ke"]);
-    }
     const pages = staffSession.pages?.length ? staffSession.pages : ["kiem-ke"];
     const allowed = pages.some((page) => state.url.startsWith(`/${page}`));
     if (allowed) return true;

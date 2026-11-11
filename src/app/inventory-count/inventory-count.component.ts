@@ -164,11 +164,6 @@ export class InventoryCountComponent implements OnInit {
       .slice(0, 8);
   }
 
-  /** Manager mode: whether the manager's Firebase (admin) link is available. */
-  get hasFirebaseAdmin(): boolean {
-    return this.staffAuthService.isAdmin();
-  }
-
   get countedTotalValue(): number {
     return this.countedProducts.reduce(
       (total, product) => total + (product.countedQuantity || 0) * product.unitPrice,
@@ -438,8 +433,7 @@ export class InventoryCountComponent implements OnInit {
    */
   private async submitSessionToServer(session: CountSession): Promise<void> {
     try {
-      const idToken = await this.staffAuthService.getValidIdToken();
-      await this.staffCountService.submitCount(this.buildSubmission(session), idToken);
+      await this.staffCountService.submitCount(this.buildSubmission(session));
       session.submittedAt = Date.now();
       session.submitPending = false;
       this.sessions = this.sessions.map((item) => (item.id === session.id ? session : item));
@@ -507,13 +501,7 @@ export class InventoryCountComponent implements OnInit {
     this.submissionsError = "";
     this.reviewNotice = "";
     try {
-      if (!this.hasFirebaseAdmin) {
-        throw new Error(
-          "Chưa mở khóa quản lý tài khoản Firebase. Mở trang Tài khoản kiểm kê, nhập mật khẩu quản trị để mở khóa, rồi quay lại đây thử lại.",
-        );
-      }
-      const idToken = await this.staffAuthService.getValidIdToken();
-      this.submissions = await this.staffCountService.listSubmissions(this.selectedShopCode, idToken);
+      this.submissions = await this.staffCountService.listSubmissions(this.selectedShopCode);
       this.buildReviewRows();
       this.reviewLoaded = true;
     } catch (error) {
@@ -581,7 +569,6 @@ export class InventoryCountComponent implements OnInit {
     this.reviewNotice = "";
     this.submissionsError = "";
     try {
-      const idToken = await this.staffAuthService.getValidIdToken();
       const review: FinalReview = {
         id: `review-${Date.now().toString(36)}`,
         shopCode: this.selectedShopCode,
@@ -592,7 +579,7 @@ export class InventoryCountComponent implements OnInit {
           finalQuantity: this.finalQuantities[row.code] ?? null,
         })),
       };
-      await this.staffCountService.saveFinalReview(review, idToken);
+      await this.staffCountService.saveFinalReview(review);
       this.reviewNotice = "Đã lưu số chốt cho đợt kiểm kê này.";
     } catch (error) {
       this.submissionsError = this.errorText(error);
@@ -686,9 +673,8 @@ export class InventoryCountComponent implements OnInit {
     this.staffMode = true;
     this.staffUid = uid;
     this.userName = displayName || "Nhân viên kiểm kê";
-    const idToken = await this.staffAuthService.getValidIdToken();
     const index = await this.staffCountService
-      .getShopCatalogIndex(idToken)
+      .getShopCatalogIndex()
       .catch((): Record<string, ShopCatalogIndexEntry> => ({}));
     this.shops = shopCodes.map((code) => ({
       ShopCode: code,
@@ -708,8 +694,7 @@ export class InventoryCountComponent implements OnInit {
     this.errorMessage = "";
     this.catalogStatus = "";
     try {
-      const idToken = await this.staffAuthService.getValidIdToken();
-      const catalog = await this.staffCountService.getShopCatalog(this.selectedShopCode, idToken);
+      const catalog = await this.staffCountService.getShopCatalog(this.selectedShopCode);
       const items = catalog?.items || [];
       this.catalogProducts = items.map((item) => ({
         code: item.c,
