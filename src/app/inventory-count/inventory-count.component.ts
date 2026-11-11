@@ -9,6 +9,7 @@ import {
   FinalReview,
   ShopCatalogIndexEntry,
   StaffCountService,
+  StaffEvaluation,
 } from "../staff-count.service";
 import { LoginResponse, RawRecord, ResourceResponse, ShopInfo, UpharmaService } from "../upharma.service";
 
@@ -103,6 +104,12 @@ export class InventoryCountComponent implements OnInit {
   daySubmissions: CountSubmission[] = [];
   selectedSubmission: CountSubmission | null = null;
   sheetRows: SheetRow[] = [];
+  /** Saved manager evaluations of the shop's sheets, keyed by submission id. */
+  evaluationsBySubmission: Record<string, StaffEvaluation> = {};
+  /** Verdicts being edited in the open sheet detail. */
+  verdicts: Record<string, "correct" | "wrong"> = {};
+  savingEvaluation = false;
+  evaluationNotice = "";
   finalQuantities: Record<string, number | null> = {};
   savingReview = false;
   reviewNotice = "";
@@ -196,6 +203,8 @@ export class InventoryCountComponent implements OnInit {
     this.daySubmissions = [];
     this.selectedSubmission = null;
     this.sheetRows = [];
+    this.evaluationsBySubmission = {};
+    this.verdicts = {};
     this.finalQuantities = {};
     this.submissionsError = "";
     this.reviewNotice = "";
@@ -547,8 +556,14 @@ export class InventoryCountComponent implements OnInit {
           return at.getFullYear() === year && at.getMonth() + 1 === month && at.getDate() === day;
         })
         .sort((first, second) => first.completedAt - second.completedAt);
-      this.selectedSubmission = this.daySubmissions[0] ?? null;
-      this.buildSheetRows();
+      this.selectedSubmission = null;
+      this.sheetRows = [];
+      this.verdicts = {};
+      // The evaluations node may not be readable yet (rules merge pending):
+      // treat that as "no evaluations yet" instead of failing the review.
+      this.evaluationsBySubmission = await this.staffCountService
+        .listEvaluations(this.selectedShopCode)
+        .catch(() => ({}));
       await this.prepareFinalQuantities();
       this.reviewLoaded = true;
     } catch (error) {
@@ -558,10 +573,91 @@ export class InventoryCountComponent implements OnInit {
     }
   }
 
-  /** Opens one staff sheet in the review table. */
+  /** Opens the detail of one staff sheet: its products and the verdict form. */
   selectSubmission(submission: CountSubmission): void {
     this.selectedSubmission = submission;
     this.buildSheetRows();
+    this.verdicts = { ...(this.evaluationsBySubmission[submission.id]?.verdicts || {}) };
+    this.evaluationNotice = "";
+    this.reviewNotice = "";
+  }
+
+  /** Back to the sheet list; product rows are only shown inside a detail. */
+  backToSheetList(): void {
+    this.selectedSubmission = null;
+    this.sheetRows = [];
+    this.verdicts = {};
+    this.evaluationNotice = "";
+  }
+
+  /** Toggles one product verdict in the open detail; clicking again clears it. */
+  setVerdict(code: string, verdict: "correct" | "wrong"): void {
+    if (this.verdicts[code] === verdict) {
+      delete this.verdicts[code];
+    } else {
+      this.verdicts[code] = verdict;
+    }
+  }
+
+  /** Marks every product of the open sheet as counted correctly. */
+  markAllCorrect(): void {
+    for (const row of this.sheetRows) this.verdicts[row.code] = "correct";
+  }
+
+  /** Verdict tallies of the open detail. */
+  get verdictSummary(): { correct: number; wrong: number; pending: number } {
+    let correct = 0;
+    let wrong = 0;
+    for (const row of this.sheetRows) {
+      if (this.verdicts[row.code] === "correct") correct += 1;
+      else if (this.verdicts[row.code] === "wrong") wrong += 1;
+    }
+    return { correct, wrong, pending: this.sheetRows.length - correct - wrong };
+  }
+
+  /** Evaluation progress of one sheet, for the list badge. */
+  evaluationState(submission: CountSubmission): { label: string; done: boolean; started: boolean } {
+    const evaluation = this.evaluationsBySubmission[submission.id];
+    const total = new Set(submission.items.map((item) => item.code)).size;
+    if (!evaluation) return { label: "Chưa đánh giá", done: false, started: false };
+    const values = Object.values(evaluation.verdicts);
+    const correct = values.filter((value) => value === "correct").length;
+    const wrong = values.length - correct;
+    const done = values.length >= total && total > 0;
+    return {
+      label: done
+        ? `Đã đánh giá xong · Đúng ${correct} · Sai ${wrong}`
+        : `Đang đánh giá · Đúng ${correct} · Sai ${wrong} / ${total} mã`,
+      done,
+      started: true,
+    };
+  }
+
+  async saveEvaluation(): Promise<void> {
+    const submission = this.selectedSubmission;
+    if (this.staffMode || this.savingEvaluation || !submission) return;
+    this.savingEvaluation = true;
+    this.evaluationNotice = "";
+    this.submissionsError = "";
+    try {
+      const evaluation: StaffEvaluation = {
+        id: submission.id,
+        shopCode: this.selectedShopCode,
+        staffUid: submission.staffUid,
+        staffName: submission.staffName,
+        evaluatedBy: this.userName,
+        evaluatedAt: Date.now(),
+        dateKey: this.reviewDate,
+        verdicts: { ...this.verdicts },
+      };
+      await this.staffCountService.saveEvaluation(evaluation);
+      this.evaluationsBySubmission[submission.id] = evaluation;
+      this.evaluationNotice = `Đã lưu đánh giá phiếu của ${submission.staffName}.`;
+    } catch (error) {
+      this.submissionsError = this.errorText(error);
+    } finally {
+      this.savingEvaluation = false;
+    }
   }
 
   private buildSheetRows(): void {

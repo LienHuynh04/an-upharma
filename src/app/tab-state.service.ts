@@ -54,6 +54,7 @@ export class TabStateService {
     "/ton-kho-toan-quoc": "ti ti-world",
     "/cronjob": "ti ti-refresh",
     "/cai-dat": "ti ti-settings",
+    "/tai-khoan-kiem-ke": "ti ti-user-cog",
   };
 
   private static readonly TITLES: Record<string, string> = {
@@ -75,6 +76,7 @@ export class TabStateService {
     "/ton-kho-toan-quoc": "Tồn kho toàn quốc",
     "/cronjob": "Đồng bộ dữ liệu",
     "/cai-dat": "Cài đặt",
+    "/tai-khoan-kiem-ke": "Tài khoản kiểm kê",
   };
 
   /** Paths that should never become tabs (auth, errors). */

@@ -57,6 +57,10 @@
     "count_final_reviews": {
       ".read": true,
       ".write": true
+    },
+    "count_evaluations": {
+      ".read": true,
+      ".write": true
     }
   }
 }
