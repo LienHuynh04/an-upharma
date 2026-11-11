@@ -154,6 +154,7 @@
                 class="btn btn-sm"
                 [class.btn-primary]="currentTab === 'results'"
                 [class.btn-outline-primary]="currentTab !== 'results'"
+                [disabled]="currentSession?.status !== 'completed' || editingCompletedSession"
                 (click)="currentTab = 'results'"
               >Kết quả kiểm kê</button>
             </div>
@@ -196,15 +197,13 @@
                   <strong class="d-block text-truncate">{{ product.name }}</strong>
                   <small class="text-secondary">{{ product.code }} · {{ product.unit || "Chưa có đơn vị" }}</small>
                 </span>
-                <span class="text-secondary small text-nowrap">
-                  Tồn {{ product.expectedQuantity | number }} · {{ formatMoney(product.unitPrice) }} đ
-                </span>
               </button>
             </div>
 
             <p class="text-secondary small mt-3 mb-0" *ngIf="!activeProduct">
               Nhập mã / tên sản phẩm <span class="text-primary mx-1">→</span>
-              nhập số lượng thực tế <span class="text-primary mx-1">→</span> bấm <strong>Kiểm kê</strong> để xem chênh lệch.
+              nhập số lượng thực tế <span class="text-primary mx-1">→</span> nhấn <strong>Enter</strong> hoặc bấm <strong>Kiểm kê</strong> để lưu.
+              Kết quả đối chiếu chỉ hiện sau khi hoàn thành phiên.
             </p>
 
             <form class="card card-body stocktake-entry-card mt-3" *ngIf="activeProduct" (ngSubmit)="saveCount()">
@@ -217,10 +216,6 @@
                 <button type="button" class="btn btn-icon btn-ghost-secondary" aria-label="Đóng" (click)="closeCountForm()">
                   <i class="ti ti-x" aria-hidden="true"></i>
                 </button>
-              </div>
-              <div class="stocktake-stock-level d-flex justify-content-between align-items-center border rounded p-2 mt-3">
-                <span class="text-secondary small">Tồn kho trên sổ</span>
-                <strong>{{ activeProduct.expectedQuantity | number }} {{ activeProduct.unit }}</strong>
               </div>
               <label class="form-label mt-3 mb-1" for="counted-quantity">Số lượng thực tế ({{ activeProduct.unit || "đơn vị" }})</label>
               <input
@@ -256,16 +251,8 @@
                   </span>
                   <div class="flex-fill min-w-0">
                     <strong class="d-block text-truncate">{{ product.name }}</strong>
-                    <small class="text-secondary">{{ product.code }} · Đếm {{ product.countedQuantity | number }} · Sổ {{ product.expectedQuantity | number }}</small>
+                    <small class="text-secondary">{{ product.code }} · Đếm {{ product.countedQuantity | number }}</small>
                   </div>
-                  <span
-                    class="badge"
-                    [class.bg-success-lt]="difference(product) > 0"
-                    [class.text-success]="difference(product) > 0"
-                    [class.bg-danger-lt]="difference(product) < 0"
-                    [class.text-danger]="difference(product) < 0"
-                    [class.bg-secondary-lt]="difference(product) === 0"
-                  >{{ formatSigned(difference(product)) }} {{ product.unit }}</span>
                   <div class="btn-list flex-nowrap">
                     <button class="btn btn-sm btn-outline-primary" type="button" (click)="selectProduct(product)" title="Sửa số lượng">
                       <i class="ti ti-edit me-1" aria-hidden="true"></i>Sửa
@@ -288,7 +275,7 @@
                   <button class="btn btn-sm btn-outline-primary" type="button" (click)="selectProduct(product)">Đếm</button>
                   <div class="flex-fill min-w-0">
                     <strong class="d-block text-truncate">{{ product.name }}</strong>
-                    <small class="text-secondary">{{ product.code }} · Tồn {{ product.expectedQuantity | number }} {{ product.unit }}</small>
+                    <small class="text-secondary">{{ product.code }} · {{ product.unit || "Chưa có đơn vị" }}</small>
                   </div>
                   <button class="btn btn-sm btn-outline-danger" type="button" (click)="removePendingProduct(product)" aria-label="Xóa mã chưa kiểm kê">
                     <i class="ti ti-trash" aria-hidden="true"></i>
@@ -307,7 +294,7 @@
         </section>
       </ng-container>
 
-      <ng-container *ngIf="currentTab === 'results'">
+      <ng-container *ngIf="currentTab === 'results' && currentSession?.status === 'completed' && !editingCompletedSession">
         <div class="row row-cards mb-3">
           <div class="col-6 col-md-3">
             <div class="card card-sm h-100"><div class="card-body">

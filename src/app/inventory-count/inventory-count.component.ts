@@ -267,7 +267,7 @@ export class InventoryCountComponent implements OnInit {
     this.countedQuantityInput = "";
     this.searchText = "";
     this.saving = false;
-    this.noticeMessage = `Đã kiểm kê ${product.name}. Chênh lệch: ${this.formatSigned(this.difference(product))} ${product.unit}.`;
+    this.noticeMessage = `Đã lưu số đếm ${product.name}. Kết quả đối chiếu sẽ hiện sau khi hoàn thành phiên.`;
     this.searchInput?.nativeElement.focus();
   }
 
