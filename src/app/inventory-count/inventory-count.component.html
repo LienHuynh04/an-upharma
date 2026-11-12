@@ -466,7 +466,7 @@
           </form>
 
           <div class="staff-sheet-backdrop" *ngIf="codePadOpen" (click)="closeCodePad()"></div>
-          <section class="staff-sheet" *ngIf="codePadOpen" aria-label="Nhập mã sản phẩm">
+          <section class="staff-sheet staff-code-sheet" *ngIf="codePadOpen" aria-label="Nhập mã sản phẩm">
             <div class="staff-sheet-grip"></div>
             <div class="staff-sheet-head">
               <span class="staff-app-item-main">
@@ -482,7 +482,8 @@
               <span *ngIf="searchText">{{ searchText }}</span>
             </div>
 
-            <div class="staff-code-matches" *ngIf="searchText">
+            <div class="staff-code-matches">
+              <p class="staff-app-hint" *ngIf="!searchText">Mã khớp sẽ hiện ở đây — cứ bấm số, danh sách tự lọc theo từng phím.</p>
               <button type="button" class="staff-code-match" *ngFor="let product of matchingProducts.slice(0, 5)" (click)="pickFromPad(product)">
                 <span class="staff-app-item-main">
                   <strong>{{ product.name }}</strong>
@@ -491,10 +492,12 @@
                 <span class="badge bg-orange-lt text-orange" *ngIf="product.outsideCatalog">Ngoài danh mục</span>
                 <i class="ti ti-plus staff-app-add" aria-hidden="true"></i>
               </button>
-              <p class="staff-app-hint" *ngIf="!matchingProducts.length">Không thấy mã khớp — kiểm tra lại phần số đã bấm.</p>
+              <p class="staff-app-hint" *ngIf="searchText && !matchingProducts.length">Không thấy mã khớp — kiểm tra lại phần số đã bấm.</p>
               <p class="staff-app-hint" *ngIf="matchingProducts.length > 5">Còn {{ matchingProducts.length - 5 }} sản phẩm khớp nữa — bấm thêm số để lọc hẹp lại.</p>
             </div>
-            <p class="staff-code-error" *ngIf="codePadError">{{ codePadError }}</p>
+            <div class="staff-code-error-slot">
+              <p class="staff-code-error" *ngIf="codePadError">{{ codePadError }}</p>
+            </div>
 
             <div class="staff-keypad">
               <button type="button" *ngFor="let key of ['1', '2', '3', '4', '5', '6', '7', '8', '9']" (click)="searchKeypadPress(key)">{{ key }}</button>
