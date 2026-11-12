@@ -1,6 +1,6 @@
 <div class="page">
   <!-- Combined Header & Navigation Bar -->
-  <header class="navbar navbar-expand-md navbar-dark d-print-none" style="background: #0d172d; border-bottom: 1px solid rgba(255, 255, 255, 0.08); min-height: 56px; padding: 0.5rem 0;">
+  <header class="navbar navbar-expand-lg navbar-dark d-print-none" style="background: #0d172d; border-bottom: 1px solid rgba(255, 255, 255, 0.08); min-height: 56px; padding: 0.5rem 0;">
     <div class="container-xl">
       <!-- Hamburger for mobile menu toggling navigation -->
       <button
@@ -14,7 +14,7 @@
       </button>
 
       <!-- Brand -->
-      <h1 class="navbar-brand navbar-brand-autodark pe-0 pe-md-3 me-3">
+      <h1 class="navbar-brand navbar-brand-autodark pe-0 pe-lg-3 me-3">
         <a routerLink="/dashboard" class="text-decoration-none d-flex align-items-center text-white">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" class="me-2" style="width: 32px; height: 32px;">
             <defs>
@@ -36,9 +36,9 @@
 
       <!-- Navigation Menu (inline on desktop, collapsible on mobile) -->
       <div class="collapse navbar-collapse" [class.show]="appClasses['is-sidebar-open']" id="navbar-menu">
-        <div class="d-flex flex-column flex-md-row flex-fill align-items-stretch align-items-md-center justify-content-between">
+        <div class="d-flex flex-column flex-lg-row flex-fill align-items-stretch align-items-lg-center justify-content-between">
           <!-- Staff sessions see only the pages the manager granted them -->
-          <ul class="navbar-nav align-items-md-center" *ngIf="staffOnly">
+          <ul class="navbar-nav align-items-lg-center" *ngIf="staffOnly">
             <li class="nav-item" *ngFor="let item of staffMenuItems">
               <a class="nav-link py-2" [routerLink]="'/' + item.path" routerLinkActive="active" (click)="closeSidebar()">
                 <span class="nav-link-icon d-md-none d-lg-inline-block"><i [class]="'ti ' + item.icon" style="font-size: 1.1rem;"></i></span>
@@ -46,7 +46,7 @@
               </a>
             </li>
           </ul>
-          <ul class="navbar-nav align-items-md-center" *ngIf="!staffOnly">
+          <ul class="navbar-nav align-items-lg-center" *ngIf="!staffOnly">
             <!-- Cài đặt: shop visibility + staff accounts in one dropdown -->
             <li class="nav-item dropdown" [class.show]="openMenuId === 'settings'" [class.active]="menuGroups['settings']">
               <a
@@ -263,7 +263,7 @@
       </div>
 
       <!-- Right actions (Theme, notification, user dropdown) -->
-      <div class="navbar-nav flex-row order-md-last align-items-center ms-auto gap-2">
+      <div class="navbar-nav flex-row order-lg-last align-items-center ms-auto gap-2">
 
 
         <!-- Report button -->

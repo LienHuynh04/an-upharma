@@ -190,6 +190,44 @@
   max-width: 620px;
   margin: 0 auto;
   padding-bottom: 8px;
+  /* Staff surfaces follow the app theme. Light values are the base (the
+     light theme is the absence of data-bs-theme); the dark block below
+     restores the original navy palette, so dark mode looks unchanged. */
+  --s-raise: #ffffff;
+  --s-card: #ffffff;
+  --s-inset: #edf1f7;
+  --s-key: #edf1f7;
+  --s-border: #d7dfea;
+  --s-border-soft: #e2e8f2;
+  --s-active: #e6edf7;
+  --s-shadow: 0 8px 22px rgba(15, 23, 42, 0.14);
+  --s-key-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+  --s-sheet-shadow: 0 -14px 40px rgba(15, 23, 42, 0.22);
+  --s-bottom: rgba(255, 255, 255, 0.96);
+  --s-track: rgba(15, 23, 42, 0.08);
+  --s-grip: rgba(15, 23, 42, 0.22);
+  --s-green: #1e9e4a;
+  --s-danger: #d92b2b;
+  --s-gold: #dd9207;
+}
+
+:host-context([data-bs-theme="dark"]) .staff-app {
+  --s-raise: #232d47;
+  --s-card: #1d2740;
+  --s-inset: #1d2740;
+  --s-key: rgba(255, 255, 255, 0.05);
+  --s-border: rgba(255, 255, 255, 0.12);
+  --s-border-soft: rgba(255, 255, 255, 0.08);
+  --s-active: #263354;
+  --s-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+  --s-key-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  --s-sheet-shadow: 0 -14px 40px rgba(0, 0, 0, 0.5);
+  --s-bottom: rgba(24, 31, 51, 0.96);
+  --s-track: rgba(255, 255, 255, 0.09);
+  --s-grip: rgba(255, 255, 255, 0.25);
+  --s-green: #51cf66;
+  --s-danger: #ff8787;
+  --s-gold: #fab005;
 }
 
 .staff-app-head {
@@ -207,8 +245,8 @@
   align-items: center;
   justify-content: center;
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: #232d47;
+  border: 1px solid var(--s-border);
+  background: var(--s-raise);
   color: inherit;
   font-size: 20px;
 }
@@ -239,13 +277,13 @@
   padding: 6px 12px;
   border-radius: 999px;
   background: rgba(47, 179, 68, 0.16);
-  color: #51cf66;
+  color: var(--s-green);
 }
 
 .staff-app-progress {
   height: 6px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.09);
+  background: var(--s-track);
   overflow: hidden;
   margin-bottom: 12px;
 }
@@ -265,11 +303,11 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  background: #232d47;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--s-raise);
+  border: 1px solid var(--s-border);
   border-radius: 14px;
   padding: 4px 12px;
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--s-shadow);
 }
 
 .staff-app-search > i {
@@ -333,14 +371,14 @@
   padding: 10px 12px;
   margin-bottom: 8px;
   border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: #1d2740;
+  border: 1px solid var(--s-border-soft);
+  background: var(--s-card);
   color: inherit;
   cursor: pointer;
 }
 
 .staff-app-item:active {
-  background: #263354;
+  background: var(--s-active);
 }
 
 .staff-app-item-main {
@@ -374,7 +412,7 @@
   flex: 0 0 auto;
   font-size: 21px;
   font-weight: 800;
-  color: #51cf66;
+  color: var(--s-green);
   padding: 4px 10px;
   border-radius: 10px;
   background: rgba(47, 179, 68, 0.14);
@@ -404,7 +442,7 @@
 
 .staff-app-done > i {
   font-size: 26px;
-  color: #51cf66;
+  color: var(--s-green);
 }
 
 .staff-app-spacer {
@@ -422,8 +460,8 @@
   align-items: center;
   gap: 12px;
   padding: 12px 14px calc(12px + env(safe-area-inset-bottom));
-  background: rgba(24, 31, 51, 0.96);
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--s-bottom);
+  border-top: 1px solid var(--s-border);
   backdrop-filter: blur(8px);
 }
 
@@ -466,10 +504,10 @@
   bottom: 0;
   width: min(620px, 100%);
   z-index: 1040;
-  background: #232d47;
+  background: var(--s-raise);
   border-radius: 20px 20px 0 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.14);
-  box-shadow: 0 -14px 40px rgba(0, 0, 0, 0.5);
+  border-top: 1px solid var(--s-border);
+  box-shadow: var(--s-sheet-shadow);
   padding: 8px 16px calc(14px + env(safe-area-inset-bottom));
   max-height: 92vh;
   overflow-y: auto;
@@ -479,7 +517,7 @@
   width: 44px;
   height: 5px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.25);
+  background: var(--s-grip);
   margin: 2px auto 10px;
 }
 
@@ -501,8 +539,8 @@
 
 .staff-sheet-input {
   width: 100%;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: #1d2740;
+  border: 1px solid var(--s-border);
+  background: var(--s-inset);
   color: inherit;
   border-radius: 14px;
   font-size: 30px;
@@ -524,8 +562,8 @@
 }
 
 .staff-sheet-steps button {
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: #1d2740;
+  border: 1px solid var(--s-border);
+  background: var(--s-inset);
   color: inherit;
   border-radius: 10px;
   padding: 9px 0;
@@ -535,8 +573,8 @@
 
 .staff-app-padbtn {
   flex: 0 0 auto;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--s-border);
+  background: var(--s-inset);
   color: inherit;
   border-radius: 10px;
   padding: 7px 10px;
@@ -545,8 +583,8 @@
   letter-spacing: 0.5px;
 }
 .staff-app-padbtn.is-open {
-  border-color: #fab005;
-  color: #fab005;
+  border-color: var(--s-gold);
+  color: var(--s-gold);
 }
 .staff-search-keypad {
   display: grid;
@@ -555,17 +593,17 @@
   margin-top: 10px;
 }
 .staff-search-keypad button {
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  background: #232d47;
+  border: 1px solid var(--s-border-soft);
+  background: var(--s-raise);
   color: inherit;
   border-radius: 12px;
   padding: 11px 0;
   font-size: 20px;
   font-weight: 700;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--s-key-shadow);
 }
 .staff-search-keypad button:active {
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--s-active);
 }
 .staff-search-keypad .staff-search-keypad-go {
   background: #3d9d4e;
@@ -580,8 +618,8 @@
 }
 
 .staff-keypad button {
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--s-border-soft);
+  background: var(--s-key);
   color: inherit;
   border-radius: 12px;
   padding: 13px 0;
@@ -616,7 +654,7 @@
 }
 
 .staff-sheet-remove {
-  color: #ff8787;
+  color: var(--s-danger);
 }
 
 .staff-sheet-actions {
@@ -627,7 +665,7 @@
 
 .staff-sheet-cancel {
   flex: 0 0 110px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  border: 1px solid var(--s-border);
   background: transparent;
   color: inherit;
   border-radius: 14px;
