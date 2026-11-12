@@ -597,12 +597,18 @@
 }
 .staff-code-matches {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
   gap: 8px;
   margin-top: 10px;
-  max-height: 232px;
+  /* Fixed height on purpose: the sheet must not grow or shrink while digits
+     are typed - matches scroll inside this box instead of pushing the
+     keypad around. */
+  height: 190px;
   overflow-y: auto;
 }
 .staff-code-match {
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -614,6 +620,10 @@
   background: var(--s-inset);
   color: inherit;
   cursor: pointer;
+}
+.staff-code-error-slot {
+  /* Reserved even when empty, so an error appearing never shifts the keypad. */
+  min-height: 30px;
 }
 .staff-code-error {
   color: var(--s-danger);
