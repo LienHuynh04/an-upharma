@@ -142,8 +142,10 @@ header.navbar .dropdown-item.active {
   background: rgba(255, 255, 255, 0.05) !important;
 }
 
-/* Responsive adjustment for Mobile view */
-@media (max-width: 767.98px) {
+/* Responsive adjustment for the collapsed navbar (below the lg breakpoint
+   the header switches to the hamburger panel; the inline menu needs ~930px,
+   so between 768-991px it used to push the whole page sideways) */
+@media (max-width: 991.98px) {
   header.navbar {
     height: auto !important;
     flex-wrap: wrap !important;
