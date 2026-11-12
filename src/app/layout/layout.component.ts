@@ -1015,7 +1015,10 @@ renderDashboard(); renderInventory(); renderNearExpiryOrders(); renderTabs(); re
     this.showLogoutConfirm = false;
     this.upharma.clearSession();
     this.staffAuth.signOut();
-    await this.router.navigateByUrl("/login", { replaceUrl: true });
+    // Hard reload, not a router navigation: retained tab components keep
+    // the previous account's loaded state in memory across SPA navigation,
+    // so only a full reload guarantees the next account starts clean.
+    window.location.assign("/login");
   }
 
   cancelLogout() {
