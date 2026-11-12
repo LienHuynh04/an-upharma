@@ -169,7 +169,9 @@ export class ProfileComponent implements OnInit {
 
   async confirmLogout(): Promise<void> {
     this.upharmaService.clearSession();
-    await this.router.navigateByUrl("/login");
+    // Hard reload: see layout sign-out — retained tabs keep the previous
+    // account's state in memory across SPA navigation.
+    window.location.assign("/login");
   }
 
   private getField(keys: string[]): string {

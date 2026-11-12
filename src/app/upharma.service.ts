@@ -303,7 +303,46 @@ export class UpharmaService {
     this.shopList = [];
     this.allShopList = [];
     localStorage.removeItem(this.authStorageKey);
-    this.clearResourceCache();
+    // The data caches (upharma_cache_* / upharma_call_*) deliberately stay:
+    // they hold shared shop datasets for the data-heavy pages (inventory,
+    // transfers...), are keyed per account + shop set, and expire within
+    // minutes — wiping them at sign-out only made the next sign-in slow.
+    // Everything personally tied to the account is removed below instead.
+    this.clearAccountLeftovers();
+  }
+
+  /**
+   * Everything stored on this device that belongs to the signed-in account
+   * must go at sign-out, so the next account never inherits the previous
+   * one's data: counting sessions and drafts (the manager's in localStorage,
+   * staff ones in sessionStorage), the staff sign-in session and saved
+   * report-generator inputs. Device-level UI preferences (theme, layout,
+   * sidebar) and the global shop-visibility config are not account data
+   * and stay.
+   */
+  private clearAccountLeftovers(): void {
+    for (const store of [localStorage, sessionStorage]) {
+      for (const key of Object.keys(store)) {
+        if (key.startsWith("upharma_inventory_count:")) {
+          store.removeItem(key);
+        }
+      }
+    }
+    // Same key StaffAuthService.SESSION_STORAGE_KEY removes in signOut();
+    // done here too because not every sign-out path goes through that call.
+    localStorage.removeItem("upharma_staff_session");
+    localStorage.removeItem("upharma_report_config_inputs");
+  }
+
+  private readStoredUserId(): number | null {
+    try {
+      const raw = localStorage.getItem(this.authStorageKey);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as { session?: LoginResponse };
+      return parsed.session?.UserInfo?.uPharmaID ?? null;
+    } catch {
+      return null;
+    }
   }
 
   ensureLogin(): LoginResponse {
@@ -722,6 +761,16 @@ export class UpharmaService {
   }
 
   private setSession(loginData: LoginResponse): void {
+    // Signing in as a different account than the one whose data is stored
+    // on this device: purge the previous account's leftovers first, so
+    // nothing of theirs leaks into the new session even when the previous
+    // sign-out was skipped (closed tab, expired session, another tab).
+    const previousUserId = this.sessionData?.UserInfo?.uPharmaID ?? this.readStoredUserId();
+    if (previousUserId !== null && previousUserId !== loginData.UserInfo.uPharmaID) {
+      // Account-scoped leftovers go; the per-account data caches stay (see
+      // clearSession) — the new account simply never matches the old keys.
+      this.clearAccountLeftovers();
+    }
     this.sessionData = loginData;
     this.allShopList = [...loginData.UserInfo.ShopLst].sort((firstShop, secondShop) =>
       firstShop.ShopCode.localeCompare(secondShop.ShopCode, "vi"),

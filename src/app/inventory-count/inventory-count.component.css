@@ -179,7 +179,12 @@
   position: sticky;
   top: 0;
   z-index: 1;
-  background-color: #1d2740;
+  /* Theme tokens, not a hardcoded navy: in light mode the header is a pale
+     tint with muted text, in dark mode a deeper strip than the card — the
+     old fixed #1d2740 stayed navy (with washed-out text) in light mode. */
+  background-color: var(--upharma-bg);
+  color: var(--upharma-muted-text);
+  box-shadow: inset 0 -1px 0 var(--upharma-border);
 }
 
 /* Staff counting app (staff mode only): a phone-like, POS-style workspace —
