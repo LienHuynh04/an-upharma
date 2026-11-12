@@ -45,6 +45,19 @@
   --upharma-brand-brown: #c98c1f;
 }
 
+html {
+  overflow-x: clip;
+}
+
+/* A native <select> whose selected option is wider than the control leaks
+   that option's full text width into the page's scrollable area in WebKit
+   (Safari iOS) — measured: the shop picker read 479px inside a 358px box
+   and widened the whole document to 496px on a 390px phone, while Chrome
+   reported no overflow at all. Clip every select's own content box. */
+select {
+  overflow: hidden;
+}
+
 body {
   /* Decorative fixed layers (snow, flying Santa) must never widen the
      page: clip horizontal overflow at the root. 'clip' (unlike 'hidden')

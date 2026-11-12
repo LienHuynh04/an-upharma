@@ -59,5 +59,77 @@
   </head>
   <body>
     <app-root></app-root>
+    <script>
+      // Overflow diagnostic (no effect unless the URL carries ?debug-overflow):
+      // on the device itself, lists the elements that stick out of the
+      // viewport sideways and outlines them in red, so a screenshot names
+      // the culprit instead of guessing from desktop browsers.
+      (function () {
+        if (!/[?&]debug-overflow\b/.test(location.search)) return;
+        var banner = null;
+        var outlined = [];
+        function ensureBanner() {
+          if (banner && document.body && document.body.contains(banner)) return;
+          banner = document.createElement("div");
+          banner.id = "overflow-debug-banner";
+          banner.style = "position:fixed;top:0;left:0;right:0;z-index:999999;background:#b3001b;color:#fff;font:11px/1.5 monospace;padding:8px 10px;white-space:pre-wrap;word-break:break-all;pointer-events:none;max-height:46vh;overflow:hidden;";
+          if (document.body) document.body.appendChild(banner);
+        }
+        function describe(el) {
+          var raw = el.className && el.className.baseVal !== undefined ? el.className.baseVal : String(el.className || "");
+          var cls = raw.trim().split(/\s+/).filter(Boolean).slice(0, 3).join(".");
+          return el.tagName.toLowerCase() + (el.id ? "#" + el.id : "") + (cls ? "." + cls : "");
+        }
+        function scan() {
+          if (!document.body) return;
+          ensureBanner();
+          if (!banner) return;
+          outlined.forEach(function (el) {
+            el.style.removeProperty("outline");
+            el.style.removeProperty("outline-offset");
+          });
+          outlined = [];
+          var vw = window.innerWidth;
+          var found = [];
+          var els = document.querySelectorAll("body *");
+          for (var i = 0; i < els.length; i++) {
+            var el = els[i];
+            if (el === banner || banner.contains(el)) continue;
+            // The holiday stage clips its children on purpose; their boxes
+            // may leave the viewport without affecting the page.
+            if (el.closest && el.closest(".holiday-stage")) continue;
+            var r = el.getBoundingClientRect();
+            if (r.width > 0 && (r.right > vw + 2 || r.left < -2)) {
+              found.push({ el: el, left: Math.round(r.left), right: Math.round(r.right), w: Math.round(r.width) });
+            }
+          }
+          found.sort(function (a, b) { return b.right - a.right; });
+          var top = found.slice(0, 8);
+          top.forEach(function (f) {
+            f.el.style.setProperty("outline", "3px solid #ff2d55", "important");
+            f.el.style.setProperty("outline-offset", "-3px", "important");
+            outlined.push(f.el);
+          });
+          var vv = window.visualViewport;
+          var lines = [
+            "OVERFLOW DEBUG",
+            "innerWidth=" + vw + " scrollWidth=" + document.documentElement.scrollWidth +
+              " dpr=" + window.devicePixelRatio +
+              (vv ? " vv.w=" + Math.round(vv.width) + " vv.scale=" + vv.scale.toFixed(2) : ""),
+            "offenders=" + found.length
+          ];
+          top.forEach(function (f) {
+            lines.push(describe(f.el) + " [" + f.left + ".." + f.right + "] w=" + f.w);
+          });
+          banner.textContent = lines.join("\n");
+        }
+        var n = 0;
+        var timer = setInterval(function () {
+          scan();
+          if (++n > 40) clearInterval(timer);
+        }, 500);
+        window.addEventListener("resize", scan);
+      })();
+    </script>
   </body>
 </html>
