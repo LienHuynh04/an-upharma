@@ -513,6 +513,10 @@
   box-shadow: var(--s-sheet-shadow);
   padding: 8px 16px calc(14px + env(safe-area-inset-bottom));
   max-height: 92vh;
+  /* svh = the smallest visual viewport (browser toolbars expanded): the
+     sheet's head must stay below Safari's URL bar instead of sliding
+     under it, which used to crop the title and the instruction line. */
+  max-height: 92svh;
   overflow-y: auto;
 }
 
