@@ -343,6 +343,7 @@
               <input
                 #searchInput
                 [(ngModel)]="searchText"
+                (focus)="searchKeypadOpen = true"
                 (keydown.enter)="selectSearchResult()"
                 type="search"
                 placeholder="Tìm mã hoặc tên sản phẩm…"
