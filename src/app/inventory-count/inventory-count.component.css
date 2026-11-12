@@ -520,6 +520,43 @@
   overflow-y: auto;
 }
 
+/* Phones: the counting sheets go full screen. A bottom sheet on a phone
+   loses its head under Safari's URL bar and its actions under the bottom
+   toolbar; a full-screen sheet has neither problem and needs no backdrop
+   strip. Actions pin to the bottom, and on the code pad the matches box
+   flexes to fill the spare height (its height stays constant while
+   typing, so the keypad still never jumps). */
+@media (max-width: 767.98px) {
+  .staff-sheet {
+    inset: 0;
+    left: 0;
+    transform: none;
+    width: 100%;
+    height: 100vh;
+    height: 100dvh;
+    max-height: none;
+    border-radius: 0;
+    border-top: none;
+    display: flex;
+    flex-direction: column;
+    padding-top: calc(10px + env(safe-area-inset-top));
+  }
+
+  .staff-sheet .staff-sheet-grip {
+    display: none;
+  }
+
+  .staff-sheet .staff-sheet-actions {
+    margin-top: auto;
+  }
+
+  .staff-code-sheet .staff-code-matches {
+    flex: 1 1 auto;
+    height: auto;
+    min-height: 120px;
+  }
+}
+
 .staff-sheet-grip {
   width: 44px;
   height: 5px;
