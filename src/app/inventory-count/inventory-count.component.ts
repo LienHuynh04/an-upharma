@@ -400,6 +400,7 @@ export class InventoryCountComponent implements OnInit {
       // Counting flow: the pad reopens at once so the next code can be keyed in.
       this.codePadError = "";
       this.codePadOpen = true;
+      this.scrollStaffViewToTop();
     } else {
       this.searchInput?.nativeElement.focus();
     }
@@ -409,6 +410,22 @@ export class InventoryCountComponent implements OnInit {
   openCodePad(): void {
     this.codePadError = "";
     this.codePadOpen = true;
+    this.scrollStaffViewToTop();
+  }
+
+  /**
+   * Counting flow: after each saved product (and whenever the code pad
+   * opens) the staff view returns to the very top - the page behind the
+   * sheet and the sheet's own scroll position - so the next code always
+   * starts from the top instead of wherever the list happened to be
+   * scrolled to, which left the sheet's head out of reach.
+   */
+  private scrollStaffViewToTop(): void {
+    window.scrollTo(0, 0);
+    requestAnimationFrame(() => {
+      window.scrollTo(0, 0);
+      document.querySelector(".staff-code-sheet")?.scrollTo(0, 0);
+    });
   }
 
   closeCodePad(): void {
