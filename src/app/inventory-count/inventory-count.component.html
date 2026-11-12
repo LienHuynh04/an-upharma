@@ -338,28 +338,13 @@
           <div class="staff-app-progress"><span [style.width.%]="progressPercent"></span></div>
 
           <ng-container *ngIf="currentSession?.status !== 'completed'; else staffResults">
-            <div class="staff-app-search">
+            <div class="staff-app-search" (click)="openCodePad()" role="button" tabindex="0" (keydown.enter)="openCodePad()" aria-label="Nhập mã sản phẩm bằng bàn phím số">
               <i class="ti ti-search" aria-hidden="true"></i>
-              <input
-                #searchInput
-                [(ngModel)]="searchText"
-                (focus)="searchKeypadOpen = true"
-                (keydown.enter)="selectSearchResult()"
-                type="search"
-                placeholder="Tìm mã hoặc tên sản phẩm…"
-                aria-label="Tìm sản phẩm"
-              />
-              <button *ngIf="searchText" type="button" class="staff-app-clear" (click)="searchText = ''" aria-label="Xóa tìm kiếm">
+              <span class="staff-app-searchtext" [class.is-placeholder]="!searchText">{{ searchText || "Nhập mã sản phẩm…" }}</span>
+              <button *ngIf="searchText" type="button" class="staff-app-clear" (click)="$event.stopPropagation(); searchText = ''" aria-label="Xóa tìm kiếm">
                 <i class="ti ti-x" aria-hidden="true"></i>
               </button>
-              <button type="button" class="staff-app-padbtn" [class.is-open]="searchKeypadOpen" (click)="searchKeypadOpen = !searchKeypadOpen" aria-label="Bàn phím số">123</button>
-            </div>
-
-            <div class="staff-search-keypad" *ngIf="searchKeypadOpen">
-              <button type="button" *ngFor="let key of ['1', '2', '3', '4', '5', '6', '7', '8', '9']" (click)="searchKeypadPress(key)">{{ key }}</button>
-              <button type="button" (click)="searchKeypadPress('back')" aria-label="Xóa một chữ số"><i class="ti ti-backspace" aria-hidden="true"></i></button>
-              <button type="button" (click)="searchKeypadPress('0')">0</button>
-              <button type="button" class="staff-search-keypad-go" (click)="searchKeypadPress('enter')" aria-label="Mở mã đã gõ"><i class="ti ti-check" aria-hidden="true"></i></button>
+              <span class="staff-app-padbtn" aria-hidden="true">123</span>
             </div>
 
             <div *ngIf="searchText && matchingProducts.length">
@@ -372,8 +357,8 @@
                 <i class="ti ti-plus staff-app-add" aria-hidden="true"></i>
               </button>
             </div>
-            <p class="staff-app-hint" *ngIf="searchText && !matchingProducts.length">Không thấy sản phẩm khớp — thử gõ mã khác hoặc tên ngắn hơn.</p>
-            <p class="staff-app-hint" *ngIf="!searchText">Gõ mã hoặc tên sản phẩm — bấm nút <strong>123</strong> để bấm số mã cho nhanh. Chạm vào sản phẩm để nhập số đếm. Đếm xong bấm <strong>Hoàn thành &amp; nộp</strong> ở thanh dưới cùng.</p>
+            <p class="staff-app-hint" *ngIf="searchText && !matchingProducts.length">Không thấy sản phẩm khớp — thử bấm lại phần số của mã.</p>
+            <p class="staff-app-hint" *ngIf="!searchText">Chạm vào ô trên để <strong>bấm số mã</strong> — chỉ cần phần số, ví dụ mã TH04787 thì bấm 4787. Chạm vào sản phẩm để nhập số đếm. Đếm xong bấm <strong>Hoàn thành &amp; nộp</strong> ở thanh dưới cùng.</p>
 
             <div class="staff-app-section" *ngIf="countedProducts.length">
               <div class="staff-app-section-title">Đã đếm <span>{{ countedProducts.length }} mã</span></div>
@@ -479,6 +464,51 @@
               </button>
             </div>
           </form>
+
+          <div class="staff-sheet-backdrop" *ngIf="codePadOpen" (click)="closeCodePad()"></div>
+          <section class="staff-sheet" *ngIf="codePadOpen" aria-label="Nhập mã sản phẩm">
+            <div class="staff-sheet-grip"></div>
+            <div class="staff-sheet-head">
+              <span class="staff-app-item-main">
+                <strong>Nhập mã sản phẩm</strong>
+                <small>Chỉ bấm phần số của mã — ví dụ TH04787 thì bấm 4787</small>
+              </span>
+              <button type="button" class="staff-app-iconbtn" (click)="closeCodePad()" aria-label="Đóng">
+                <i class="ti ti-x" aria-hidden="true"></i>
+              </button>
+            </div>
+            <div class="staff-sheet-input staff-code-display" aria-live="polite">
+              <span *ngIf="!searchText" class="staff-code-placeholder">0</span>
+              <span *ngIf="searchText">{{ searchText }}</span>
+            </div>
+
+            <div class="staff-code-matches" *ngIf="searchText">
+              <button type="button" class="staff-code-match" *ngFor="let product of matchingProducts.slice(0, 5)" (click)="pickFromPad(product)">
+                <span class="staff-app-item-main">
+                  <strong>{{ product.name }}</strong>
+                  <small>{{ product.code }} · {{ product.unit || "Chưa có đơn vị" }}</small>
+                </span>
+                <span class="badge bg-orange-lt text-orange" *ngIf="product.outsideCatalog">Ngoài danh mục</span>
+                <i class="ti ti-plus staff-app-add" aria-hidden="true"></i>
+              </button>
+              <p class="staff-app-hint" *ngIf="!matchingProducts.length">Không thấy mã khớp — kiểm tra lại phần số đã bấm.</p>
+              <p class="staff-app-hint" *ngIf="matchingProducts.length > 5">Còn {{ matchingProducts.length - 5 }} sản phẩm khớp nữa — bấm thêm số để lọc hẹp lại.</p>
+            </div>
+            <p class="staff-code-error" *ngIf="codePadError">{{ codePadError }}</p>
+
+            <div class="staff-keypad">
+              <button type="button" *ngFor="let key of ['1', '2', '3', '4', '5', '6', '7', '8', '9']" (click)="searchKeypadPress(key)">{{ key }}</button>
+              <button type="button" class="staff-keypad-text" (click)="searchKeypadPress('clear')">Xóa hết</button>
+              <button type="button" (click)="searchKeypadPress('0')">0</button>
+              <button type="button" (click)="searchKeypadPress('back')" aria-label="Xóa một chữ số"><i class="ti ti-backspace" aria-hidden="true"></i></button>
+            </div>
+            <div class="staff-sheet-actions">
+              <button type="button" class="staff-sheet-cancel" (click)="closeCodePad()">Hủy</button>
+              <button type="button" class="staff-sheet-save" (click)="confirmCodePad()" [disabled]="!searchText">
+                <i class="ti ti-check" aria-hidden="true"></i> Mở mã này
+              </button>
+            </div>
+          </section>
         </div>
       </ng-container>
       <ng-container *ngIf="!staffMode">

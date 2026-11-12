@@ -77,7 +77,8 @@ export class InventoryCountComponent implements OnInit {
   products: CountProduct[] = [];
   activeProduct: CountProduct | null = null;
   searchText = "";
-  searchKeypadOpen = false;
+  codePadOpen = false;
+  codePadError = "";
   countedQuantityInput = "";
   currentTab: "count" | "results" = "count";
   userName = "";
@@ -336,7 +337,12 @@ export class InventoryCountComponent implements OnInit {
     setTimeout(() => this.quantityInput?.nativeElement.focus(), 0);
   }
 
-  selectSearchResult(): void {
+  /**
+   * Resolves the typed query to one product: an exact code match, an exact
+   * digit-part match (leading zeros aside), or the single fuzzy match.
+   * Shared by the Enter key and the numeric code pad's confirm button.
+   */
+  private resolveSearchTarget(): CountProduct | null {
     const query = normalizeFilterText(this.searchText);
     const exactMatch = this.catalogProducts.find((product) => normalizeFilterText(product.code) === query);
     // Typing the code's full number part (leading zeros aside) is an exact
@@ -348,8 +354,11 @@ export class InventoryCountComponent implements OnInit {
           (product) => product.code.replace(/\D/g, "").replace(/^0+/, "") === queryDigits,
         )
       : undefined;
-    const product =
-      exactMatch || digitExactMatch || (this.matchingProducts.length === 1 ? this.matchingProducts[0] : null);
+    return exactMatch || digitExactMatch || (this.matchingProducts.length === 1 ? this.matchingProducts[0] : null);
+  }
+
+  selectSearchResult(): void {
+    const product = this.resolveSearchTarget();
     if (product) {
       this.selectProduct(product);
     } else if (this.matchingProducts.length === 0) {
@@ -387,22 +396,61 @@ export class InventoryCountComponent implements OnInit {
     this.searchText = "";
     this.saving = false;
     this.noticeMessage = `Đã lưu số đếm ${product.name}. Kết quả đối chiếu sẽ hiện sau khi hoàn thành phiên.`;
-    this.searchInput?.nativeElement.focus();
+    if (this.staffMode) {
+      // Counting flow: the pad reopens at once so the next code can be keyed in.
+      this.codePadError = "";
+      this.codePadOpen = true;
+    } else {
+      this.searchInput?.nativeElement.focus();
+    }
+  }
+
+  /** Opens the numeric code pad (the staff search bar is only a tap target now). */
+  openCodePad(): void {
+    this.codePadError = "";
+    this.codePadOpen = true;
+  }
+
+  closeCodePad(): void {
+    this.codePadOpen = false;
+  }
+
+  /** Code pad match row: jump straight into the quantity sheet for that product. */
+  pickFromPad(product: CountProduct): void {
+    this.codePadOpen = false;
+    this.selectProduct(product);
+  }
+
+  /** Code pad confirm: opens the resolved product, or explains why it cannot. */
+  confirmCodePad(): void {
+    const product = this.resolveSearchTarget();
+    if (product) {
+      this.codePadOpen = false;
+      this.selectProduct(product);
+      return;
+    }
+    this.codePadError = this.matchingProducts.length
+      ? `Có ${this.matchingProducts.length} sản phẩm khớp — chạm vào đúng sản phẩm trong danh sách phía trên.`
+      : "Không tìm thấy mã khớp — kiểm tra lại phần số đã bấm.";
   }
 
   /**
-   * Digit pad under the staff search box: builds the code query with big
-   * touch keys instead of the device keyboard. Only the number part of a
-   * code is needed - matchingProducts already resolves digit fragments,
-   * and the check key reuses the Enter behaviour of selectSearchResult().
+   * Digit pad of the code-entry sheet: builds the code query with big touch
+   * keys - staff never type letters, matchingProducts resolves the typed
+   * digits against the full codes (fragments included).
    */
   searchKeypadPress(key: string): void {
+    this.codePadError = "";
+    if (key === "clear") {
+      this.searchText = "";
+      return;
+    }
     if (key === "back") {
       this.searchText = this.searchText.slice(0, -1);
       return;
     }
     if (key === "enter") {
-      this.selectSearchResult();
+      this.confirmCodePad();
       return;
     }
     if (/^\d$/.test(key)) {
@@ -410,6 +458,19 @@ export class InventoryCountComponent implements OnInit {
     }
   }
 
+  /** Staff app sheet: removes the active product from the session entirely. */
+  removeActiveProduct(): void {
+    const product = this.activeProduct;
+    if (!product) return;
+    if (product.countedQuantity !== null) {
+      this.deleteCountedProduct(product);
+    } else {
+      this.removePendingProduct(product);
+    }
+    this.closeCountForm();
+  }
+
+  /** Stepper chips of the staff app sheet: quick +/- amounts on the quantity. */
   /** POS-style keypad of the staff app sheet: edits the quantity input as text. */
   keypadPress(key: string): void {
     const current = this.countedQuantityInput || "";
@@ -430,19 +491,6 @@ export class InventoryCountComponent implements OnInit {
     }
   }
 
-  /** Staff app sheet: removes the active product from the session entirely. */
-  removeActiveProduct(): void {
-    const product = this.activeProduct;
-    if (!product) return;
-    if (product.countedQuantity !== null) {
-      this.deleteCountedProduct(product);
-    } else {
-      this.removePendingProduct(product);
-    }
-    this.closeCountForm();
-  }
-
-  /** Stepper chips of the staff app sheet: quick +/- amounts on the quantity. */
   adjustQuantity(delta: number): void {
     const current = Number(this.countedQuantityInput);
     const base = Number.isFinite(current) ? current : 0;

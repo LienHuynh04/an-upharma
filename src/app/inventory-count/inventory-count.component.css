@@ -303,6 +303,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  cursor: pointer;
   background: var(--s-raise);
   border: 1px solid var(--s-border);
   border-radius: 14px;
@@ -315,15 +316,17 @@
   opacity: 0.6;
 }
 
-.staff-app-search input {
+.staff-app-searchtext {
   flex: 1 1 auto;
   min-width: 0;
-  border: 0;
-  background: transparent;
-  color: inherit;
   font-size: 16.5px;
   padding: 10px 0;
-  outline: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.staff-app-searchtext.is-placeholder {
+  opacity: 0.55;
 }
 
 .staff-app-clear {
@@ -573,42 +576,53 @@
 
 .staff-app-padbtn {
   flex: 0 0 auto;
-  border: 1px solid var(--s-border);
+  border: 1px solid var(--s-gold);
   background: var(--s-inset);
-  color: inherit;
+  color: var(--s-gold);
   border-radius: 10px;
   padding: 7px 10px;
   font-size: 15px;
   font-weight: 800;
   letter-spacing: 0.5px;
 }
-.staff-app-padbtn.is-open {
-  border-color: var(--s-gold);
-  color: var(--s-gold);
+.staff-code-display {
+  letter-spacing: 3px;
+  min-height: 62px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-.staff-search-keypad {
+.staff-code-placeholder {
+  opacity: 0.35;
+}
+.staff-code-matches {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
   gap: 8px;
   margin-top: 10px;
+  max-height: 232px;
+  overflow-y: auto;
 }
-.staff-search-keypad button {
-  border: 1px solid var(--s-border-soft);
-  background: var(--s-raise);
-  color: inherit;
+.staff-code-match {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
   border-radius: 12px;
-  padding: 11px 0;
-  font-size: 20px;
-  font-weight: 700;
-  box-shadow: var(--s-key-shadow);
+  border: 1px solid var(--s-border-soft);
+  background: var(--s-inset);
+  color: inherit;
+  cursor: pointer;
 }
-.staff-search-keypad button:active {
-  background: var(--s-active);
+.staff-code-error {
+  color: var(--s-danger);
+  font-size: 13.5px;
+  font-weight: 600;
+  margin: 10px 2px 0;
 }
-.staff-search-keypad .staff-search-keypad-go {
-  background: #3d9d4e;
-  border-color: #3d9d4e;
-  color: #fff;
+.staff-keypad-text {
+  font-size: 15px !important;
 }
 .staff-keypad {
   display: grid;
