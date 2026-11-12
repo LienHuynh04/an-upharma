@@ -77,6 +77,7 @@ export class InventoryCountComponent implements OnInit {
   products: CountProduct[] = [];
   activeProduct: CountProduct | null = null;
   searchText = "";
+  searchKeypadOpen = false;
   countedQuantityInput = "";
   currentTab: "count" | "results" = "count";
   userName = "";
@@ -387,6 +388,26 @@ export class InventoryCountComponent implements OnInit {
     this.saving = false;
     this.noticeMessage = `Đã lưu số đếm ${product.name}. Kết quả đối chiếu sẽ hiện sau khi hoàn thành phiên.`;
     this.searchInput?.nativeElement.focus();
+  }
+
+  /**
+   * Digit pad under the staff search box: builds the code query with big
+   * touch keys instead of the device keyboard. Only the number part of a
+   * code is needed - matchingProducts already resolves digit fragments,
+   * and the check key reuses the Enter behaviour of selectSearchResult().
+   */
+  searchKeypadPress(key: string): void {
+    if (key === "back") {
+      this.searchText = this.searchText.slice(0, -1);
+      return;
+    }
+    if (key === "enter") {
+      this.selectSearchResult();
+      return;
+    }
+    if (/^\d$/.test(key)) {
+      this.searchText += key;
+    }
   }
 
   /** POS-style keypad of the staff app sheet: edits the quantity input as text. */

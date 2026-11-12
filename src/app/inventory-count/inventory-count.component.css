@@ -533,6 +533,45 @@
   font-weight: 700;
 }
 
+.staff-app-padbtn {
+  flex: 0 0 auto;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  border-radius: 10px;
+  padding: 7px 10px;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
+.staff-app-padbtn.is-open {
+  border-color: #fab005;
+  color: #fab005;
+}
+.staff-search-keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 10px;
+}
+.staff-search-keypad button {
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: #232d47;
+  color: inherit;
+  border-radius: 12px;
+  padding: 11px 0;
+  font-size: 20px;
+  font-weight: 700;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+.staff-search-keypad button:active {
+  background: rgba(255, 255, 255, 0.12);
+}
+.staff-search-keypad .staff-search-keypad-go {
+  background: #3d9d4e;
+  border-color: #3d9d4e;
+  color: #fff;
+}
 .staff-keypad {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
