@@ -46,6 +46,10 @@
 }
 
 body {
+  /* Decorative fixed layers (snow, flying Santa) must never widen the
+     page: clip horizontal overflow at the root. 'clip' (unlike 'hidden')
+     creates no scroll container, so sticky headers keep working. */
+  overflow-x: clip;
   font-family: var(--tblr-font-sans-serif);
 }
 
