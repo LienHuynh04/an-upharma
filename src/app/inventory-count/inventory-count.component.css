@@ -1483,3 +1483,29 @@
   font-size: 11px;
   color: var(--cal-text-muted);
 }
+
+/* Sheet-list delete: a quiet ghost icon (red tint, no box) instead of a
+   boxed outline button competing with the row's content; full red with a
+   soft red wash on hover/focus. */
+.review-sheet-delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  border-radius: 8px;
+  color: rgba(214, 57, 57, 0.6);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.review-sheet-delete:hover,
+.review-sheet-delete:focus-visible {
+  background-color: rgba(214, 57, 57, 0.1);
+  color: #d63939;
+}
+
+.review-sheet-delete i {
+  font-size: 17px;
+}

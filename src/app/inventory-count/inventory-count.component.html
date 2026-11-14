@@ -395,7 +395,7 @@
                   [class.bg-success-lt]="evaluationState(submission).done"
                   [class.text-success]="evaluationState(submission).done"
                 >{{ evaluationState(submission).label }}</span>
-                <span class="btn btn-icon btn-sm btn-outline-danger" role="button" aria-label="Xóa phiếu" title="Xóa phiếu này"
+                <span class="review-sheet-delete" role="button" aria-label="Xóa phiếu" title="Xóa phiếu này"
                   (click)="$event.stopPropagation(); deleteReviewSheet(submission)">
                   <i class="ti ti-trash" aria-hidden="true"></i>
                 </span>

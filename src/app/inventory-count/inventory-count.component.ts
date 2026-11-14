@@ -1,6 +1,7 @@
-import { CommonModule } from "@angular/common";
+import { CommonModule, Location } from "@angular/common";
 import { Component, ElementRef, HostListener, OnInit, ViewChild } from "@angular/core";
 import { FormsModule } from "@angular/forms";
+import { ActivatedRoute, Router } from "@angular/router";
 import { normalizeFilterText, normalizeInventoryRow, parseNumericValue } from "../inventory-utils";
 import { ExcelExportService } from "../shared/services/excel-export.service";
 import { StaffAuthService } from "../staff-auth.service";
@@ -168,9 +169,28 @@ export class InventoryCountComponent implements OnInit {
     private readonly excelExportService: ExcelExportService,
     private readonly staffAuthService: StaffAuthService,
     private readonly staffCountService: StaffCountService,
+    private readonly router: Router,
+    private readonly route: ActivatedRoute,
+    private readonly location: Location,
   ) {}
 
+  /** Id of the sheet mirrored in the ?phieu= query param, if any. */
+  private sheetParamId: string | null = null;
+  /** True when this component pushed the current ?phieu= history entry. */
+  private pushedSheetParam = false;
+
   ngOnInit(): void {
+    this.route.queryParamMap.subscribe((params) => {
+      const id = params.get("phieu");
+      if (id) {
+        this.sheetParamId = id;
+        this.trySelectSheetFromParam();
+      } else {
+        this.sheetParamId = null;
+        this.pushedSheetParam = false;
+        if (this.selectedSubmission) this.clearSheetSelection();
+      }
+    });
     void this.initialize();
   }
 
@@ -1135,6 +1155,7 @@ export class InventoryCountComponent implements OnInit {
       await this.prepareFinalQuantities();
       this.reviewLoaded = true;
       this.computeUncountedProducts();
+      this.trySelectSheetFromParam();
     } catch (error) {
       this.submissionsError = this.errorText(error);
     } finally {
@@ -1144,11 +1165,28 @@ export class InventoryCountComponent implements OnInit {
 
   /** Opens the detail of one staff sheet: its products and the verdict form. */
   selectSubmission(submission: CountSubmission): void {
+    this.applySheetSelection(submission);
+    if (this.sheetParamId !== submission.id) {
+      this.pushedSheetParam = true;
+      void this.router.navigate(["/kiem-ke"], { queryParams: { phieu: submission.id } });
+    }
+  }
+
+  /** Applies the detail state for one sheet (no navigation). */
+  private applySheetSelection(submission: CountSubmission): void {
     this.selectedSubmission = submission;
     this.buildSheetRows();
     this.verdicts = { ...(this.evaluationsBySubmission[submission.id]?.verdicts || {}) };
     this.evaluationNotice = "";
     this.reviewNotice = "";
+  }
+
+  /** Selects the sheet named by the ?phieu= param once its list is loaded. */
+  private trySelectSheetFromParam(): void {
+    const id = this.sheetParamId;
+    if (!id || this.selectedSubmission?.id === id) return;
+    const submission = this.daySubmissions.find((item) => item.id === id);
+    if (submission) this.applySheetSelection(submission);
   }
 
   /** Manager-only: permanently deletes one submitted sheet of the day. */
@@ -1180,6 +1218,23 @@ export class InventoryCountComponent implements OnInit {
 
   /** Back to the sheet list; product rows are only shown inside a detail. */
   backToSheetList(): void {
+    if (this.sheetParamId) {
+      if (this.pushedSheetParam) {
+        // The detail was opened in-app, so its ?phieu= entry is ours to
+        // consume: going back one entry drops the param, and the param
+        // subscription clears the selection - the same path the browser
+        // Back button takes.
+        this.location.back();
+        return;
+      }
+      // Deep-linked detail: no in-app entry to consume, just drop the param.
+      void this.router.navigate(["/kiem-ke"]);
+    }
+    this.clearSheetSelection();
+  }
+
+  /** Clears the open sheet's detail state (no navigation). */
+  private clearSheetSelection(): void {
     this.selectedSubmission = null;
     this.sheetRows = [];
     this.verdicts = {};
@@ -1659,6 +1714,15 @@ export class InventoryCountComponent implements OnInit {
       await this.loadProductCatalog();
       if (!this.staffMode) {
         this.loadShopSubmissionsForCalendar();
+      }
+      // Deep link: opening the page with ?phieu=<id> loads the review and
+      // selects that sheet without the manager pressing "Tai phieu" first.
+      // The snapshot is read as a fallback: at boot the queryParamMap
+      // subscription can emit an empty map before the real one.
+      const deepLinkSheetId = this.sheetParamId || this.route.snapshot.queryParamMap.get("phieu");
+      if (deepLinkSheetId && !this.reviewLoaded) {
+        this.sheetParamId = deepLinkSheetId;
+        void this.loadSubmissions();
       }
     } catch (error) {
       this.errorMessage = this.errorText(error);
