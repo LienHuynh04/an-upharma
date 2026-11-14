@@ -689,9 +689,10 @@
                 <i class="ti ti-x" aria-hidden="true"></i>
               </button>
             </div>
-            <div class="staff-sheet-input staff-code-display" aria-live="polite">
+            <div class="staff-sheet-input staff-code-display" [class.staff-code-display-long]="searchText.length > 12" aria-live="polite">
               <span *ngIf="!searchText" class="staff-code-placeholder">0</span>
-              <span *ngIf="searchText">{{ searchText }}</span>
+              <span *ngIf="searchText && searchText.length <= 12">{{ searchText }}</span>
+              <span *ngIf="searchText.length > 12">&hellip;{{ searchText.slice(-14) }}</span>
             </div>
 
             <div class="staff-code-matches">
@@ -837,7 +838,7 @@
                 #quantityInput
                 id="counted-quantity"
                 name="countedQuantity"
-                class="form-control form-control-lg text-center"
+                class="form-control form-control-lg text-center count-quantity-input"
                 type="number"
                 min="0"
                 step="any"

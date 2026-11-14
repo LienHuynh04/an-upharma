@@ -24,10 +24,24 @@
   font-size: 1.15rem;
 }
 
+/* The manager quantity input follows the same long-text rule. */
+.count-quantity-input {
+  padding-left: 16px;
+  padding-right: 16px;
+  text-overflow: ellipsis;
+}
+
 .stocktake-search .form-control {
   min-width: 0;
   height: 44px;
   font-size: 1rem;
+  /* Same rule as the code pad display: the text never hugs the borders
+     (equal room on both sides), and an over-long value ends with an
+     ellipsis when the field is not being edited, instead of being cut
+     mid-letter at the edge. */
+  padding-left: 16px;
+  padding-right: 16px;
+  text-overflow: ellipsis;
 }
 
 .stocktake-counted-list {
@@ -595,7 +609,10 @@
   font-size: 30px;
   font-weight: 800;
   text-align: center;
-  padding: 10px;
+  /* Equal room on both sides, like the search input and the code pad
+     display; over-long values ellipsize instead of hugging the edges. */
+  padding: 10px 16px;
+  text-overflow: ellipsis;
   outline: none;
 }
 
@@ -637,6 +654,18 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
+}
+.staff-code-display span {
+  white-space: nowrap;
+}
+/* Long entries: the template swaps the content for an ellipsis plus
+   the last digits, shrunk - the block stays centred, so the space on
+   both sides of the number is always equal and the ellipsis makes it
+   obvious that earlier digits exist. */
+.staff-code-display-long span {
+  font-size: 22px;
+  letter-spacing: 1.5px;
 }
 .staff-code-placeholder {
   opacity: 0.35;
@@ -730,7 +759,23 @@
 .staff-sheet-actions {
   display: flex;
   gap: 10px;
-  margin-top: 12px;
+  margin-top: 16px;
+}
+/* In the code pad the confirm/cancel row reads as its own block,
+   clearly separated from the keypad above it. */
+.staff-code-sheet .staff-sheet-actions {
+  padding-top: 16px;
+  border-top: 1px solid var(--s-border-soft);
+}
+/* The outside-catalog badge and the add icon must never be squeezed by
+   a long product name - the name truncates, they keep their size. */
+.staff-code-match .badge,
+.staff-app-item .badge {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.staff-code-match .staff-app-add {
+  flex: 0 0 auto;
 }
 
 .staff-sheet-cancel {
