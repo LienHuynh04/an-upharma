@@ -9,34 +9,62 @@
     <script>
       // Block all unwanted zoom gestures (double-tap zoom, pinch zoom, trackpad smart-zoom) across Chrome, Safari, iOS & Android
       (function () {
+        var lastTouchStart = 0;
         var lastTouchEnd = 0;
-        document.addEventListener('touchend', function (event) {
+        var lastX = 0;
+        var lastY = 0;
+
+        // 1. Intercept touchstart to prevent double-tap gesture initialization on first load
+        document.addEventListener('touchstart', function (e) {
+          var now = Date.now();
+          var touch = e.touches ? e.touches[0] : null;
+          var x = touch ? touch.clientX : 0;
+          var y = touch ? touch.clientY : 0;
+          var dist = Math.hypot(x - lastX, y - lastY);
+
+          if (e.touches && e.touches.length > 1) {
+            e.preventDefault();
+          } else if (now - lastTouchStart <= 300 && dist < 50) {
+            e.preventDefault();
+            var target = e.target;
+            var clickable = target && target.closest ? target.closest('button, a, [role="button"], input, select, .btn, .calendar-day, .quick-date-tag') : target;
+            if (clickable && typeof clickable.click === 'function' && !clickable.disabled) {
+              clickable.click();
+            }
+          }
+          lastTouchStart = now;
+          lastX = x;
+          lastY = y;
+        }, { passive: false });
+
+        // 2. Intercept touchend
+        document.addEventListener('touchend', function (e) {
           var now = Date.now();
           if (now - lastTouchEnd <= 300) {
-            event.preventDefault();
-            var target = event.target;
-            if (target && typeof target.click === 'function' && !target.disabled) {
-              target.click();
-            }
+            e.preventDefault();
           }
           lastTouchEnd = now;
         }, { passive: false });
 
-        document.addEventListener('gesturestart', function (e) {
-          e.preventDefault();
-        });
-        document.addEventListener('gesturechange', function (e) {
-          e.preventDefault();
-        });
-        document.addEventListener('gestureend', function (e) {
-          e.preventDefault();
-        });
+        // 3. Intercept desktop dblclick (smart-zoom on Mac trackpad / Magic Mouse / PC)
+        document.addEventListener('dblclick', function (e) {
+          var tag = e.target ? e.target.tagName : '';
+          if (tag !== 'INPUT' && tag !== 'TEXTAREA') {
+            e.preventDefault();
+          }
+        }, { passive: false });
 
+        // 4. Intercept pinch-zoom / wheel zoom
         document.addEventListener('wheel', function (e) {
           if (e.ctrlKey) {
             e.preventDefault();
           }
         }, { passive: false });
+
+        // 5. Intercept Apple Safari gesture events
+        document.addEventListener('gesturestart', function (e) { e.preventDefault(); });
+        document.addEventListener('gesturechange', function (e) { e.preventDefault(); });
+        document.addEventListener('gestureend', function (e) { e.preventDefault(); });
       })();
     </script>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJwIiB4MT0iMCUiIHkxPSIwJSIgeDI9IjAlIiB5Mj0iMTAwJSI+PHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iI2ZmYjgzNCIgLz48c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiNmMDVhMjgiIC8+PC9saW5lYXJHcmFkaWVudD48bGluZWFyR3JhZGllbnQgaWQ9ImwiIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjAlIj48c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSIjMDA5MjQ1IiAvPjxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzhjYzYzZiIgLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cGF0aCBkPSJNIDEyIDggQSA0IDQgMCAwIDEgMjAgOCBMIDIwIDEyIEwgMTIgMTIgWiIgZmlsbD0idXJsKCNwKSIgLz48cGF0aCBkPSJNIDkgMTAgQyA3IDEwLCA3IDE4LCA3IDIwIEMgNyAyNC41LCAxMSAyNywgMTYgMjcgQyAyMSAyNywgMjUgMjQuNSwgMjUgMjAgQyAyNSAxOCwgMjUgMTAsIDIzIDEwIEMgMjIuNSAxMCwgMjIgMTMsIDIyIDE2IEMgMjIgMjEuNSwgMTkgMjMsIDE2IDIzIEMgMTMgMjMsIDEwIDIxLjUsIDEwIDE2IEMgMTAgMTMsIDkuNSAxMCwgOSAxMCBaIiBmaWxsPSJ1cmwoI2wpIiAvPjwvc3ZnPg==" />
