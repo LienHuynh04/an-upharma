@@ -25,6 +25,12 @@
 <div class="page-body">
   <div class="container-xl">
 
+    <!-- Alert / Status banner (FEFO-style, non-blocking) -->
+    <div class="alert alert-info d-flex align-items-center" *ngIf="loading || outStockRefreshing">
+      <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+      <div>{{ outStockCacheStatus || 'Đang tải dữ liệu...' }}</div>
+    </div>
+
     <!-- Shop Tabs Selection -->
     <div class="card mb-3" *ngIf="tabs.length > 0">
       <div class="card-header p-0">
@@ -183,13 +189,3 @@
   </div>
 </div>
 
-<div class="loading-overlay" [class.is-visible]="loading" aria-live="polite">
-  <div class="loading-box">
-    <span class="loader" aria-hidden="true"></span>
-    <strong>Đang lấy dữ liệu hàng hết kho...</strong>
-    <div class="loading-progress" aria-hidden="true">
-      <i [style.width.%]="loadingProgress"></i>
-    </div>
-    <span class="loading-progress-percent">{{ loadingProgress }}%</span>
-  </div>
-</div>

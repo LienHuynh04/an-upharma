@@ -57,7 +57,6 @@ export class OutOfStockComponent implements OnInit {
   monthFilter = "current";
   userTitle = "Đang tải người dùng...";
   loading = false;
-  loadingProgress = 0;
   outStockRefreshing = false;
   visibleCount = 50;
 
@@ -250,7 +249,7 @@ export class OutOfStockComponent implements OnInit {
 
   async loadOutOfStock(): Promise<void> {
     this.loading = true;
-    this.loadingProgress = 10;
+    this.outStockCacheStatus = "Đang tải dữ liệu...";
     this.errorText = "";
     let shouldLoadActiveShop = false;
     this.cdr.markForCheck();
@@ -271,7 +270,6 @@ export class OutOfStockComponent implements OnInit {
         console.warn("Không tải được shops_summary:", err);
       }
 
-      this.loadingProgress = 25;
       shouldLoadActiveShop = Boolean(this.activeShopCode);
     } catch (error) {
       this.errorText = error instanceof Error ? error.message : String(error);
@@ -797,10 +795,8 @@ export class OutOfStockComponent implements OnInit {
 
     if (runInBackground) {
       this.outStockRefreshing = true;
-      this.loadingProgress = Math.max(this.loadingProgress, 30);
     } else {
       this.outStockRefreshing = true;
-      this.loadingProgress = 15;
       this.outStockCacheStatus = "Đang lấy dữ liệu hàng đã hết cho shop đang xem...";
     }
 
@@ -816,7 +812,6 @@ export class OutOfStockComponent implements OnInit {
         cache: true,
         forceRefresh,
       });
-      this.loadingProgress = 70;
       
       try {
         await this.loadStarProductsForShop(shop.ShopCode, forceRefresh);
@@ -824,11 +819,9 @@ export class OutOfStockComponent implements OnInit {
         console.warn("Không tải được hàng key thường trực:", err);
       }
       
-      this.loadingProgress = 85;
       const shopRows: OutOfStockItem[] = (this.extractArray(response) as unknown as OutOfStockItem[]).sort((first, second) =>
         PRODUCT_NAME_COLLATOR.compare(first.productName, second.productName),
       );
-      this.loadingProgress = 95;
 
       this.applyShopRows(shop.ShopCode, shopRows);
       this.loadedShopKeys.add(this.getLoadedShopKey(shop.ShopCode));
@@ -838,13 +831,11 @@ export class OutOfStockComponent implements OnInit {
         savedAt: Date.now(),
       });
       this.outStockCacheStatus = `Dữ liệu hàng đã hết đã cập nhật lúc ${this.formatCacheTime(Date.now())}.`;
-      this.loadingProgress = 100;
     } catch (error) {
       this.errorText = error instanceof Error ? error.message : String(error);
       if (this.rows.some((row) => row.shopCode === shop.ShopCode)) {
         this.outStockCacheStatus = "Chưa cập nhật được dữ liệu mới, vẫn đang hiển thị dữ liệu đã lưu.";
       }
-      this.loadingProgress = 100;
     } finally {
       this.loadingShopKeys.delete(loadedShopKey);
       this.outStockRefreshing = this.loadingShopKeys.size > 0;

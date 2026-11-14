@@ -965,6 +965,12 @@ body.modal-open {
   line-height: 1.1 !important;
   font-weight: 700 !important;
 }
+
+/* STT header stays on one line in every table (it was wrapping as ST/T) */
+.table thead th:first-child {
+  white-space: nowrap;
+  min-width: 52px;
+}
 .row[aria-label="Thống kê hạn dùng"] .text-secondary.font-weight-medium {
   font-size: 13px !important;
   line-height: 1.2 !important;
