@@ -13,6 +13,7 @@ import {
   StaffEvaluation,
 } from "../staff-count.service";
 import { LoginResponse, RawRecord, ResourceResponse, ShopInfo, UpharmaService } from "../upharma.service";
+import { onTabReattach } from "../tab-reuse.strategy";
 import { NoTapZoomDirective } from "./no-tap-zoom.directive";
 
 interface CountProduct {
@@ -174,6 +175,7 @@ export class InventoryCountComponent implements OnInit {
     private readonly location: Location,
   ) {}
 
+  private detachTabReattach?: () => void;
   /** Id of the sheet mirrored in the ?phieu= query param, if any. */
   private sheetParamId: string | null = null;
   /** True when this component pushed the current ?phieu= history entry. */
@@ -191,7 +193,28 @@ export class InventoryCountComponent implements OnInit {
         if (this.selectedSubmission) this.clearSheetSelection();
       }
     });
+    this.detachTabReattach = onTabReattach("kiem-ke", () => this.revalidateOnTabReturn());
     void this.initialize();
+  }
+
+  ngOnDestroy(): void {
+    this.detachTabReattach?.();
+  }
+
+  /**
+   * Returned to this tab after a long absence: refresh the manager catalog
+   * in the background and reload an open review. An in-progress counting
+   * session is left completely alone.
+   */
+  private revalidateOnTabReturn(): void {
+    if (this.staffMode || this.currentSession) return;
+    try {
+      const login = this.upharmaService.ensureLogin();
+      void this.refreshManagerCatalogInBackground(login);
+    } catch {
+      // Not signed in as a manager: nothing to revalidate.
+    }
+    if (this.reviewLoaded) void this.loadSubmissions();
   }
 
   get shopName(): string {

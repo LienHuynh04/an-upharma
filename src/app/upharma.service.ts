@@ -227,6 +227,16 @@ export class UpharmaService {
   private readonly callCacheKeyPrefix = "upharma_call_";
   private readonly cacheTtlMs = 5 * 60 * 1000;
   private readonly callCacheTtlMs = 10 * 60 * 1000;
+  /** Freshness budget per resource: fast-moving data (inventory) stays at
+   *  5 minutes; slower reference data may live longer. One policy for every
+   *  page instead of each page inventing its own TTL. */
+  private readonly resourceTtlMs: Partial<Record<keyof RemoteDatasets, number>> = {
+    inventory: 5 * 60 * 1000,
+    invoices: 10 * 60 * 1000,
+    orders: 10 * 60 * 1000,
+    messages: 15 * 60 * 1000,
+    employees: 30 * 60 * 1000,
+  };
   private readonly shopConcurrency = 6;
   private readonly apiBaseUrl = environment.apiBaseUrl.replace(/\/$/, "");
   private readonly directApiBaseUrl = environment.directApiBaseUrl.replace(/\/$/, "");
@@ -963,7 +973,7 @@ export class UpharmaService {
     }
 
     const cacheKey = this.getResourceCacheKey(resourceName, session);
-    const cached = options.forceRefresh ? null : this.readResourceCache(cacheKey);
+    const cached = options.forceRefresh ? null : this.readResourceCache(cacheKey, resourceName);
     const revalidate = this.dedupeResourceFetch(cacheKey, resourceName, session);
 
     if (!cached) {
@@ -992,7 +1002,16 @@ export class UpharmaService {
 
     const request = this.fetchResourceFromApi(resourceName, session)
       .then((data) => {
-        this.writeResourceCache(cacheKey, data);
+        // Safe-write gate: a partial refresh (some shops failed) inherits
+        // the missing shops' rows from the previous cache, and an empty
+        // result never erases a good cache. The guarded value is also what
+        // callers and onFresh handlers receive, so the open page and the
+        // stored cache can never disagree about completeness.
+        const prepared = this.prepareResourceCacheWrite(cacheKey, data);
+        if (prepared) {
+          this.writeResourceCache(cacheKey, prepared);
+          return prepared;
+        }
         return data;
       })
       .finally(() => {
@@ -1175,7 +1194,11 @@ export class UpharmaService {
     return `${this.cacheStorageKeyPrefix}${resourceName}_${session.UserInfo.uPharmaID}_${shopCodes}_${JSON.stringify(config.payload())}`;
   }
 
-  private readResourceCache(cacheKey: string): ResourceResponse | null {
+  private ttlForResource(resourceName: keyof RemoteDatasets): number {
+    return this.resourceTtlMs[resourceName] ?? this.cacheTtlMs;
+  }
+
+  private readResourceCache(cacheKey: string, resourceName: keyof RemoteDatasets): ResourceResponse | null {
     try {
       const rawCache = localStorage.getItem(cacheKey);
 
@@ -1185,7 +1208,7 @@ export class UpharmaService {
 
       const entry = JSON.parse(rawCache) as CachedResource;
 
-      if (!entry.savedAt || Date.now() - entry.savedAt > this.cacheTtlMs) {
+      if (!entry.savedAt || Date.now() - entry.savedAt > this.ttlForResource(resourceName)) {
         localStorage.removeItem(cacheKey);
         return null;
       }
@@ -1194,6 +1217,50 @@ export class UpharmaService {
     } catch {
       localStorage.removeItem(cacheKey);
       return null;
+    }
+  }
+
+  /**
+   * Guards one resource-cache write against partial or empty refreshes.
+   * Returns the value that may be written (and shown), or null when the
+   * write must be skipped entirely to keep the previous good cache.
+   */
+  private prepareResourceCacheWrite(cacheKey: string, data: ResourceResponse): ResourceResponse | null {
+    try {
+      const rawCache = localStorage.getItem(cacheKey);
+      if (!rawCache) return data;
+      const previous = (JSON.parse(rawCache) as CachedResource)?.data;
+      const previousRows = previous?.data || [];
+      if (!previous || previousRows.length === 0) return data;
+
+      let result = data;
+      if (data.failedShops?.length) {
+        const failedCodes = new Set(
+          data.failedShops.map((entry) => entry.split(":")[0].trim()).filter(Boolean),
+        );
+        const newRows = data.data || [];
+        const presentCodes = new Set(
+          newRows.map((row) => String(row["__shopCode"] || "")).filter(Boolean),
+        );
+        const carried = previousRows.filter((row) => {
+          const code = String(row["__shopCode"] || "");
+          return code && failedCodes.has(code) && !presentCodes.has(code);
+        });
+        if (carried.length > 0) {
+          result = { ...data, data: [...newRows, ...carried] };
+        }
+      }
+
+      if ((result.data || []).length === 0 && previousRows.length > 0) {
+        console.warn(
+          "[UpharmaService] Bỏ qua ghi cache: kết quả mới rỗng trong khi cache cũ còn dữ liệu:",
+          cacheKey,
+        );
+        return null;
+      }
+      return result;
+    } catch {
+      return data;
     }
   }
 

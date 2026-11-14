@@ -3,6 +3,7 @@ import { AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, E
 import { FormsModule } from "@angular/forms";
 import Chart from "chart.js/auto";
 import { UpharmaService } from "../upharma.service";
+import { onTabReattach } from "../tab-reuse.strategy";
 import { OperationShopInput, ReportCustomInputs, ReportGeneratorService } from "../report-generator.service";
 
 interface PaymentMethodInfo {
@@ -101,13 +102,19 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
 
   constructor(private readonly upharmaService: UpharmaService) {}
 
+  /** When the numbers on screen were produced (cache time or fresh load). */
+  dataUpdatedAt: number | null = null;
+  private detachTabReattach?: () => void;
+
   ngAfterViewInit(): void {
     this.activeShopCode = this.shops[0]?.ShopCode || "";
     this.setDefaultDateRange();
     void this.loadDashboard();
+    this.detachTabReattach = onTabReattach("dashboard", () => void this.loadDashboard());
   }
 
   ngOnDestroy(): void {
+    this.detachTabReattach?.();
     this.salesChart?.destroy();
     this.salesChart = null;
   }
@@ -135,6 +142,7 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
       this.customerSalesLst = cached.customerSalesLst;
       this.customerNewLst = cached.customerNewLst;
       this.customerInfoLst = cached.customerInfoLst;
+      this.dataUpdatedAt = cached.savedAt;
       this.dashboardLoading = false;
       this.chartLoading = false;
       this.renderSalesChart();
@@ -192,6 +200,7 @@ export class DashboardComponent implements AfterViewInit, OnDestroy {
         customerInfoLst: this.customerInfoLst,
         savedAt: Date.now(),
       });
+      this.dataUpdatedAt = Date.now();
     } catch (error) {
       if (!this.isInvalidTokenError(error)) {
         this.dashboardErrorText = error instanceof Error ? error.message : String(error);

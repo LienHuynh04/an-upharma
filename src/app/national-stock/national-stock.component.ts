@@ -2,6 +2,7 @@ import { CommonModule } from "@angular/common";
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, HostListener, inject, OnInit } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { UpharmaService } from "../upharma.service";
+import { onTabReattach } from "../tab-reuse.strategy";
 import { FirebaseInventoryService } from "../firebase-inventory.service";
 import { NationalInventoryService } from "../national-inventory.service";
 
@@ -643,8 +644,15 @@ export class NationalStockComponent implements OnInit {
   picked = "";
   pickerLimit = 200;
 
+  private detachTabReattach?: () => void;
+
   ngOnInit() {
     this.loadProducts(false);
+    this.detachTabReattach = onTabReattach("ton-kho-toan-quoc", () => void this.loadProducts(false));
+  }
+
+  ngOnDestroy(): void {
+    this.detachTabReattach?.();
   }
 
   static normalize(str: string): string {

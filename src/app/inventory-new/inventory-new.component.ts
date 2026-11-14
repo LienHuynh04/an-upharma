@@ -19,6 +19,7 @@ import {
 import { STATIC_DATA } from "../static-data";
 import { isShopHiddenByVisibility } from "../shop-visibility.service";
 import { RemoteDatasets, ResourceResponse, ShopInfo, UpharmaService } from "../upharma.service";
+import { onTabReattach } from "../tab-reuse.strategy";
 
 type LayoutMode = "left" | "top";
 type N8nWorkflowKey = "expiry" | "inventory" | "report";
@@ -205,7 +206,12 @@ export class InventoryNewComponent implements OnInit {
     private readonly router: Router,
   ) {}
 
+  private detachTabReattach?: () => void;
+
   ngOnInit(): void {
+    this.detachTabReattach = onTabReattach("ton-kho", () => {
+      if (environment.apiEnabled) void this.loadInventory();
+    });
     this.layoutMode = this.getStoredLayoutMode();
     this.sidebarCollapsed = localStorage.getItem("upharma_sidebar_collapsed") === "true";
 
@@ -315,6 +321,10 @@ export class InventoryNewComponent implements OnInit {
 
   get isLoading(): boolean {
     return this.loadingTasks.size > 0;
+  }
+
+  ngOnDestroy(): void {
+    this.detachTabReattach?.();
   }
 
   async loadInventory(forceRefresh = false): Promise<void> {

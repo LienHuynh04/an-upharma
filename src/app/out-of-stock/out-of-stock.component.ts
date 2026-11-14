@@ -4,6 +4,7 @@ import { FormsModule } from "@angular/forms";
 import { Router } from "@angular/router";
 import { formatMoney, normalizeFilterText, PRODUCT_NAME_COLLATOR } from "../inventory-utils";
 import { RawRecord, ShopInfo, UpharmaService, isExcludedProduct } from "../upharma.service";
+import { onTabReattach } from "../tab-reuse.strategy";
 import { environment } from "../../environments/environment";
 import { ExcelExportService } from "../shared/services/excel-export.service";
 
@@ -102,9 +103,16 @@ export class OutOfStockComponent implements OnInit {
     private readonly router: Router,
   ) {}
 
+  private detachTabReattach?: () => void;
+
   ngOnInit(): void {
     this.sidebarCollapsed = localStorage.getItem("upharma_sidebar_collapsed") === "true";
     void this.loadOutOfStock();
+    this.detachTabReattach = onTabReattach("hang-da-het", () => void this.loadOutOfStock());
+  }
+
+  ngOnDestroy(): void {
+    this.detachTabReattach?.();
   }
 
   get pageClasses(): Record<string, boolean> {

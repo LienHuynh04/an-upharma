@@ -4,6 +4,7 @@ import { FormsModule } from "@angular/forms";
 import { Router } from "@angular/router";
 import { normalizeFilterText } from "../inventory-utils";
 import { RawRecord, ShopInfo, UpharmaService, isExcludedProduct } from "../upharma.service";
+import { onTabReattach } from "../tab-reuse.strategy";
 import { ExcelExportService } from "../shared/services/excel-export.service";
 import { ShopTabsComponent } from "../shared/components/shop-tabs/shop-tabs.component";
 
@@ -88,9 +89,16 @@ export class KeyProductsComponent implements OnInit {
     private readonly router: Router,
   ) {}
 
+  private detachTabReattach?: () => void;
+
   ngOnInit(): void {
     this.sidebarCollapsed = localStorage.getItem("upharma_sidebar_collapsed") === "true";
     void this.loadKeyProducts();
+    this.detachTabReattach = onTabReattach("hang-key", () => void this.loadKeyProducts());
+  }
+
+  ngOnDestroy(): void {
+    this.detachTabReattach?.();
   }
 
   cachedTabs: KeyProductShopTab[] = [];

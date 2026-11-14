@@ -4,6 +4,7 @@
       <div class="col">
         <div class="page-pretitle">TỔNG QUAN DOANH THU & CHỈ SỐ</div>
         <h2 class="page-title">Dashboard</h2>
+        <div class="text-secondary small" *ngIf="dataUpdatedAt">Dữ liệu lúc {{ dataUpdatedAt | date:'HH:mm dd/MM/yyyy' }}</div>
       </div>
       <div class="col-12 col-md-auto ms-md-auto mt-2 mt-md-0 d-print-none">
         <div class="btn-list d-flex flex-wrap gap-2 align-items-center" style="flex-wrap: wrap;">

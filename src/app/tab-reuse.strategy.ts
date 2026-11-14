@@ -8,6 +8,28 @@ import {
 interface StoredHandle {
   handle: DetachedRouteHandle;
   lastUsed: number;
+  /** When the tab was last detached (user navigated away from it). */
+  detachedAt: number;
+}
+
+/** Away longer than this, a re-attached tab's data is considered stale. */
+export const TAB_REATTACH_STALE_MS = 30 * 60 * 1000;
+
+/**
+ * Subscribes to "the user returned to this tab after a long absence".
+ * The strategy dispatches a window event on re-attach when the tab was
+ * away for more than TAB_REATTACH_STALE_MS; pages listen for their own
+ * route path and soft-refresh, so retained tabs stop showing hours-old
+ * data while short tab hops stay instant and fetch-free.
+ * Returns the unsubscribe function (call it in ngOnDestroy).
+ */
+export function onTabReattach(path: string, callback: () => void): () => void {
+  const handler = (event: Event) => {
+    const detail = (event as CustomEvent<{ path?: string }>).detail;
+    if (detail?.path === path) callback();
+  };
+  window.addEventListener("upharma:tab-reattach", handler);
+  return () => window.removeEventListener("upharma:tab-reattach", handler);
 }
 
 /**
@@ -47,7 +69,7 @@ export class TabReuseStrategy implements RouteReuseStrategy {
   store(route: ActivatedRouteSnapshot, handle: DetachedRouteHandle | null): void {
     const key = this.keyOf(route);
     if (!key || !handle) return;
-    this.stored.set(key, { handle, lastUsed: Date.now() });
+    this.stored.set(key, { handle, lastUsed: Date.now(), detachedAt: Date.now() });
     while (this.stored.size > this.maxTabs) {
       let oldestKey: string | null = null;
       let oldest = Infinity;
@@ -72,6 +94,14 @@ export class TabReuseStrategy implements RouteReuseStrategy {
     const stored = key ? this.stored.get(key) : undefined;
     if (!stored) return null;
     stored.lastUsed = Date.now();
+    if (Date.now() - stored.detachedAt > TAB_REATTACH_STALE_MS) {
+      // Deferred so the component is attached before it reacts.
+      setTimeout(() => {
+        window.dispatchEvent(
+          new CustomEvent("upharma:tab-reattach", { detail: { path: key } }),
+        );
+      }, 0);
+    }
     return stored.handle;
   }
 

@@ -4,6 +4,7 @@ import { FormsModule } from "@angular/forms";
 
 import { isWarehouseStore, normalizeInventoryRow, parseNumericValue } from "../inventory-utils";
 import { RawRecord, ResourceResponse, ShopInfo, UpharmaService } from "../upharma.service";
+import { onTabReattach } from "../tab-reuse.strategy";
 import { InventoryApiMode, NationalInventoryService, NationalStoreStock } from "../national-inventory.service";
 import { FirebaseInventoryService } from "../firebase-inventory.service";
 import { ExcelExportService } from "../shared/services/excel-export.service";
@@ -1115,7 +1116,14 @@ export class TransferSuggestionsComponent implements OnInit {
     private readonly excelExportService: ExcelExportService,
   ) {}
 
+  private detachTabReattach?: () => void;
+  /** Shop set of the latest step-1 run, reused by background refreshes. */
+  private lastStep1ShopCodes: string[] = [];
+
   async ngOnInit(): Promise<void> {
+    this.detachTabReattach = onTabReattach("goi-y-chuyen-hang", () => {
+      if (!this.step2Done && !this.loadingStep1) void this.runStep1();
+    });
     try {
       this.upharma.ensureLogin();
       this.userShops = this.upharma.getActiveShops().filter((s) => !isWarehouseStore(s));
@@ -1126,6 +1134,10 @@ export class TransferSuggestionsComponent implements OnInit {
     } catch (err) {
       this.errorText = err instanceof Error ? err.message : String(err);
     }
+  }
+
+  ngOnDestroy(): void {
+    this.detachTabReattach?.();
   }
 
   setTransferView(view: "expiry" | "replenishment"): void {
@@ -1448,43 +1460,16 @@ export class TransferSuggestionsComponent implements OnInit {
         throw new Error("Tài khoản chưa có nhà thuốc nào để kiểm tra.");
       }
 
+      this.lastStep1ShopCodes = targetShopCodes;
+
       // Tải dữ liệu Tồn Kho chuẩn hóa
       const inventoryRes: ResourceResponse = await this.upharma.loadInventoryResource({
         forceRefresh: false,
         shopCodes: targetShopCodes,
+        onFresh: (fresh) => this.applyFreshStep1(fresh),
       });
 
-      const rawData = inventoryRes?.data || [];
-
-      this.expiringStockList = rawData
-        .map((row, index) => normalizeInventoryRow(row, index))
-        .filter(
-          (row) =>
-            !isWarehouseStore(row) &&
-            row.productCode &&
-            row.expiryDaysRemaining !== null &&
-            row.expiryDaysRemaining >= 0 &&
-            row.expiryDaysRemaining <= this.expiryDaysThreshold &&
-            parseNumericValue(row.quantity) > 0 &&
-            (targetShopCodes.length === 0 || targetShopCodes.includes(row.shopCode))
-        )
-        .map((row) => ({
-          key: row.rowKey,
-          productCode: row.productCode,
-          productName: row.productName,
-          shopCode: row.shopCode,
-          shopName: row.shopName,
-          lot: row.lot,
-          expiryText: row.expiryText,
-          daysRemaining: row.expiryDaysRemaining!,
-          quantity: parseNumericValue(row.quantity),
-          unit: row.unit || "Hộp",
-          priceText: row.priceText,
-        }))
-        .sort(
-          (a, b) =>
-            a.daysRemaining - b.daysRemaining || a.productName.localeCompare(b.productName, "vi")
-        );
+      this.applyStep1Inventory(inventoryRes?.data || [], targetShopCodes);
 
       this.step1Done = true;
       this.statusText = `Đã quét thấy ${this.expiringStockList.length} lô hàng cận date cần theo dõi.`;
@@ -1494,6 +1479,55 @@ export class TransferSuggestionsComponent implements OnInit {
     } finally {
       this.loadingStep1 = false;
     }
+  }
+
+  /** Derives the near-expiry watch list (step 1 output) from raw inventory. */
+  private applyStep1Inventory(rawData: RawRecord[], targetShopCodes: string[]): void {
+    this.expiringStockList = rawData
+      .map((row, index) => normalizeInventoryRow(row, index))
+      .filter(
+        (row) =>
+          !isWarehouseStore(row) &&
+          row.productCode &&
+          row.expiryDaysRemaining !== null &&
+          row.expiryDaysRemaining >= 0 &&
+          row.expiryDaysRemaining <= this.expiryDaysThreshold &&
+          parseNumericValue(row.quantity) > 0 &&
+          (targetShopCodes.length === 0 || targetShopCodes.includes(row.shopCode))
+      )
+      .map((row) => ({
+        key: row.rowKey,
+        productCode: row.productCode,
+        productName: row.productName,
+        shopCode: row.shopCode,
+        shopName: row.shopName,
+        lot: row.lot,
+        expiryText: row.expiryText,
+        daysRemaining: row.expiryDaysRemaining!,
+        quantity: parseNumericValue(row.quantity),
+        unit: row.unit || "Hộp",
+        priceText: row.priceText,
+      }))
+      .sort(
+        (a, b) =>
+          a.daysRemaining - b.daysRemaining || a.productName.localeCompare(b.productName, "vi")
+      );
+  }
+
+  /**
+   * Fresh inventory arrived in the background after step 1 rendered from
+   * cache. Rebuild the watch list in place — unless step 2 already computed
+   * suggestions from the older numbers; then only flag that newer data
+   * exists instead of silently changing step 2's inputs.
+   */
+  private applyFreshStep1(fresh: ResourceResponse): void {
+    if (!this.step1Done || this.loadingStep1) return;
+    if (this.step2Done) {
+      this.statusText = "Đã có dữ liệu tồn kho mới hơn — chạy lại Bước 1 để tính lại gợi ý theo số mới.";
+      return;
+    }
+    this.applyStep1Inventory(fresh.data || [], this.lastStep1ShopCodes);
+    this.statusText = `Đã quét thấy ${this.expiringStockList.length} lô hàng cận date cần theo dõi (vừa cập nhật tồn kho mới).`;
   }
 
   // ==========================================

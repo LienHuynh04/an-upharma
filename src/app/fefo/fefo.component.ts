@@ -12,7 +12,8 @@ import {
   parseNumericValue,
   InventoryItem,
 } from "../inventory-utils";
-import { RawRecord, ShopInfo, UpharmaService, isExcludedProduct } from "../upharma.service";
+import { RawRecord, ResourceResponse, ShopInfo, UpharmaService, isExcludedProduct } from "../upharma.service";
+import { onTabReattach } from "../tab-reuse.strategy";
 import { ExcelExportService } from "../shared/services/excel-export.service";
 
 export type FefoStatus = "all" | "violation" | "compliant" | "in_stock" | "out_of_stock";
@@ -146,11 +147,21 @@ export class FefoComponent implements OnInit {
     private readonly router: Router,
   ) {}
 
+  /** Sales rows of the last completed load: a background inventory refresh
+   *  rebuilds the FEFO rows from these without refetching sales. */
+  private lastSalesData: RawRecord[] = [];
+  private detachTabReattach?: () => void;
+
   ngOnInit(): void {
     this.sidebarCollapsed = localStorage.getItem("upharma_sidebar_collapsed") === "true";
     this.shops = this.upharmaService.getActiveShops();
     this.activeShopCode = this.getDefaultShopCode();
     void this.loadData();
+    this.detachTabReattach = onTabReattach("fefo", () => void this.loadData());
+  }
+
+  ngOnDestroy(): void {
+    this.detachTabReattach?.();
   }
 
   get displayedRows(): FefoItem[] {
@@ -263,32 +274,10 @@ export class FefoComponent implements OnInit {
       const inventoryRes = await this.upharmaService.loadInventoryResource({
         forceRefresh,
         shopCodes: allShopCodes.length > 0 ? allShopCodes : undefined,
+        onFresh: (fresh) => this.applyFreshInventory(fresh),
       });
 
-      const rawInventory = inventoryRes.data || [];
-      const inventoryItems = rawInventory.map((row, idx) => normalizeInventoryRow(row, idx));
-
-      // Group inventory items by shopCode + productCode
-      const inventoryByShopProduct = new Map<string, InventoryItem[]>();
-      for (const item of inventoryItems) {
-        const code = item.productCode.trim();
-        const shop = item.shopCode.trim();
-        if (!code) continue;
-        const key = `${shop}|${code}`;
-        const list = inventoryByShopProduct.get(key) || [];
-        list.push(item);
-        inventoryByShopProduct.set(key, list);
-      }
-
-      // Sort inventory items for each product by expiry date (earliest first - FEFO)
-      for (const [, list] of inventoryByShopProduct.entries()) {
-        list.sort((a, b) => {
-          if (a.expiryDaysRemaining === null && b.expiryDaysRemaining === null) return 0;
-          if (a.expiryDaysRemaining === null) return 1;
-          if (b.expiryDaysRemaining === null) return -1;
-          return a.expiryDaysRemaining - b.expiryDaysRemaining;
-        });
-      }
+      const inventoryByShopProduct = this.buildInventoryByShopProduct(inventoryRes);
 
       // 2. Fetch sales order report data for ALL active shops in parallel
       this.loadingProgress = 70;
@@ -319,6 +308,7 @@ export class FefoComponent implements OnInit {
 
       const salesPerShop = await Promise.all(shopSalesPromises);
       const salesData = salesPerShop.flat();
+      this.lastSalesData = salesData;
 
       this.loadingProgress = 90;
       this.rows = this.processFefoRows(salesData, inventoryByShopProduct);
@@ -333,6 +323,48 @@ export class FefoComponent implements OnInit {
       this.loading = false;
       this.cdr.markForCheck();
     }
+  }
+
+  /** Groups inventory rows per shop+product, each group FEFO-sorted. */
+  private buildInventoryByShopProduct(res: ResourceResponse): Map<string, InventoryItem[]> {
+    const inventoryItems = (res.data || []).map((row, idx) => normalizeInventoryRow(row, idx));
+
+    // Group inventory items by shopCode + productCode
+    const inventoryByShopProduct = new Map<string, InventoryItem[]>();
+    for (const item of inventoryItems) {
+      const code = item.productCode.trim();
+      const shop = item.shopCode.trim();
+      if (!code) continue;
+      const key = `${shop}|${code}`;
+      const list = inventoryByShopProduct.get(key) || [];
+      list.push(item);
+      inventoryByShopProduct.set(key, list);
+    }
+
+    // Sort inventory items for each product by expiry date (earliest first - FEFO)
+    for (const [, list] of inventoryByShopProduct.entries()) {
+      list.sort((a, b) => {
+        if (a.expiryDaysRemaining === null && b.expiryDaysRemaining === null) return 0;
+        if (a.expiryDaysRemaining === null) return 1;
+        if (b.expiryDaysRemaining === null) return -1;
+        return a.expiryDaysRemaining - b.expiryDaysRemaining;
+      });
+    }
+    return inventoryByShopProduct;
+  }
+
+  /**
+   * The service returned the page from cache and fetched in the background;
+   * when the fresh inventory lands, rebuild the rows from the stored sales
+   * data so the open page updates itself instead of lagging one visit.
+   */
+  private applyFreshInventory(fresh: ResourceResponse): void {
+    if (this.loading || this.lastSalesData.length === 0) return;
+    this.rows = this.processFefoRows(this.lastSalesData, this.buildInventoryByShopProduct(fresh));
+    this.recomputeFilteredRows();
+    const time = new Intl.DateTimeFormat("vi-VN", { hour: "2-digit", minute: "2-digit" }).format(new Date());
+    this.cacheStatus = `Vừa cập nhật tồn kho mới lúc ${time} và đối soát lại — ${this.rows.length} đơn/mặt hàng.`;
+    this.cdr.markForCheck();
   }
 
   private processFefoRows(
