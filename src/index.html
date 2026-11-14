@@ -4,7 +4,52 @@
     <meta charset="utf-8" />
     <title>UPHARMA - Tồn Kho</title>
     <base href="/" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <script>
+      // Page zoom stays OFF. This app is used like a POS terminal: staff
+      // tap keypad keys and cards in rapid succession, and iOS Safari
+      // turns two quick taps into a double-tap zoom that wedges the
+      // layout magnified. The CSS rule (touch-action: manipulation) does
+      // not stop Safari's double-tap zoom, so the gestures are blocked
+      // here instead: a second tap on the same target within 350 ms has
+      // its default prevented (no zoom, no synthetic click) and the click
+      // is re-dispatched by hand, so fast typing on the keypads loses
+      // nothing. Pinch gestures are blocked via Apple's gesturestart /
+      // gesturechange events. Scrolling is never intercepted, and text
+      // fields keep their native double-tap (word selection) behaviour.
+      (function () {
+        var lastTapAt = 0;
+        var lastTapTarget = null;
+        function tapTarget(node) {
+          if (!node || node === document) return null;
+          var el = node.nodeType === 1 ? node : node.parentElement;
+          if (!el || !el.closest) return el;
+          return el.closest("button, a, input, select, textarea, label, [role='button']") || el;
+        }
+        document.addEventListener(
+          "touchend",
+          function (event) {
+            var target = tapTarget(event.target);
+            if (!target) return;
+            if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
+            var now = Date.now();
+            if (target === lastTapTarget && now - lastTapAt < 350) {
+              event.preventDefault();
+              target.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+            }
+            lastTapAt = now;
+            lastTapTarget = target;
+          },
+          { passive: false }
+        );
+        document.addEventListener("gesturestart", function (event) {
+          event.preventDefault();
+        });
+        document.addEventListener("gesturechange", function (event) {
+          event.preventDefault();
+        });
+      })();
+    </script>
     <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://an-upharma-default-rtdb.firebaseio.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net; img-src 'self' data: https:; connect-src 'self' https://an-upharma-default-rtdb.firebaseio.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://icpc1hn.work https://api.github.com http://localhost:3000 http://127.0.0.1:3000;" />
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJwIiB4MT0iMCUiIHkxPSIwJSIgeDI9IjAlIiB5Mj0iMTAwJSI+PHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iI2ZmYjgzNCIgLz48c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiNmMDVhMjgiIC8+PC9saW5lYXJHcmFkaWVudD48bGluZWFyR3JhZGllbnQgaWQ9ImwiIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjAlIj48c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSIjMDA5MjQ1IiAvPjxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzhjYzYzZiIgLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cGF0aCBkPSJNIDEyIDggQSA0IDQgMCAwIDEgMjAgOCBMIDIwIDEyIEwgMTIgMTIgWiIgZmlsbD0idXJsKCNwKSIgLz48cGF0aCBkPSJNIDkgMTAgQyA3IDEwLCA3IDE4LCA3IDIwIEMgNyAyNC41LCAxMSAyNywgMTYgMjcgQyAyMSAyNywgMjUgMjQuNSwgMjUgMjAgQyAyNSAxOCwgMjUgMTAsIDIzIDEwIEMgMjIuNSAxMCwgMjIgMTMsIDIyIDE2IEMgMjIgMjEuNSwgMTkgMjMsIDE2IDIzIEMgMTMgMjMsIDEwIDIxLjUsIDEwIDE2IEMgMTAgMTMsIDkuNSAxMCwgOSAxMCBaIiBmaWxsPSJ1cmwoI2wpIiAvPjwvc3ZnPg==" />
     <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJwIiB4MT0iMCUiIHkxPSIwJSIgeDI9IjAlIiB5Mj0iMTAwJSI+PHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iI2ZmYjgzNCIgLz48c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiNmMDVhMjgiIC8+PC9saW5lYXJHcmFkaWVudD48bGluZWFyR3JhZGllbnQgaWQ9ImwiIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjAlIj48c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSIjMDA5MjQ1IiAvPjxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzhjYzYzZiIgLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cGF0aCBkPSJNIDEyIDggQSA0IDQgMCAwIDEgMjAgOCBMIDIwIDEyIEwgMTIgMTIgWiIgZmlsbD0idXJsKCNwKSIgLz48cGF0aCBkPSJNIDkgMTAgQyA3IDEwLCA3IDE4LCA3IDEwIEMgNyAyNC41LCAxMSAyNywgMTYgMjcgQyAyMSAyNywgMjUgMjQuNSwgMjUgMjAgQyAyNSAxOCwgMjUgMTAsIDIzIDEwIEMgMjIuNSAxMCwgMjIgMTMsIDIyIDE2IEMgMjIgMjEuNSwgMTkgMjMsIDE2IDIzIEMgMTMgMjMsIDEwIDIxLjUsIDEwIDE2IEMgMTAgMTMsIDkuNSAxMCwgOSAxMCBaIiBmaWxsPSJ1cmwoI2wpIiAvPjwvc3ZnPg==" />
