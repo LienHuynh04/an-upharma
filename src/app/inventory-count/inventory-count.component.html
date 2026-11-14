@@ -629,7 +629,7 @@
           </div>
 
           <div class="staff-sheet-backdrop" *ngIf="activeProduct" (click)="closeCountForm()"></div>
-          <form class="staff-sheet" *ngIf="activeProduct" (ngSubmit)="saveCount()">
+          <form class="staff-sheet" *ngIf="activeProduct" (ngSubmit)="saveCount()" appNoTapZoom>
             <div class="staff-sheet-grip"></div>
             <div class="staff-sheet-head">
               <span class="staff-app-item-main">
@@ -679,7 +679,7 @@
           </form>
 
           <div class="staff-sheet-backdrop" *ngIf="codePadOpen" (click)="closeCodePad()"></div>
-          <section class="staff-sheet staff-code-sheet" *ngIf="codePadOpen" aria-label="Nhập mã sản phẩm">
+          <section class="staff-sheet staff-code-sheet" *ngIf="codePadOpen" aria-label="Nhập mã sản phẩm" appNoTapZoom>
             <div class="staff-sheet-grip"></div>
             <div class="staff-sheet-head">
               <span class="staff-app-item-main">

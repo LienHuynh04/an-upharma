@@ -48,6 +48,11 @@
         }
         document.addEventListener("touchend", function (event) {
           if (touchMoved || event.touches.length > 0 || event.changedTouches.length > 1) return;
+          // Staff sheets run their own touchstart-level guard (the
+          // NoTapZoom directive in the counting component); their taps
+          // must not be handled twice.
+          var rawTarget = event.target;
+          if (rawTarget && rawTarget.closest && rawTarget.closest(".staff-sheet")) return;
           var target = tapTarget(event.target);
           if (!target) return;
           if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;

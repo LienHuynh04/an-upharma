@@ -12,6 +12,7 @@ import {
   StaffEvaluation,
 } from "../staff-count.service";
 import { LoginResponse, RawRecord, ResourceResponse, ShopInfo, UpharmaService } from "../upharma.service";
+import { NoTapZoomDirective } from "./no-tap-zoom.directive";
 
 interface CountProduct {
   code: string;
@@ -73,7 +74,7 @@ interface InventoryCacheRecord {
 @Component({
   selector: "app-inventory-count",
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, NoTapZoomDirective],
   templateUrl: "./inventory-count.component.html",
   styleUrl: "./inventory-count.component.css",
 })
