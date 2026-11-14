@@ -4,67 +4,65 @@
     <meta charset="utf-8" />
     <title>UPHARMA - Tồn Kho</title>
     <base href="/" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://an-upharma-default-rtdb.firebaseio.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net; img-src 'self' data: https:; connect-src 'self' https://an-upharma-default-rtdb.firebaseio.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://icpc1hn.work https://api.github.com http://localhost:3000 http://127.0.0.1:3000;" />
     <script>
-      // Block all unwanted zoom gestures (double-tap zoom, pinch zoom, trackpad smart-zoom) across Chrome, Safari, iOS & Android
+      // Zoom policy for this POS-style app: double-tap zoom OFF, pinch
+      // zoom LEFT AVAILABLE. Pinch is a deliberate two-finger gesture
+      // (never triggered by typing) and it is the user's way back if a
+      // page is ever magnified. Two layers:
+      //  1. CSS touch-action: manipulation (styles.css), which Chrome
+      //     and Android honour natively.
+      //  2. This handler: iOS Safari ignores touch-action for the
+      //     double-tap gesture, so a tap that ends within 500 ms of the
+      //     previous tap (Safari's double-tap window) is preventDefault-ed
+      //     wherever it lands, and its click is re-dispatched by hand, so
+      //     rapid keypad typing loses nothing.
+      // Nothing is intercepted on touchstart beyond passive bookkeeping:
+      // a non-passive touchstart listener forces the browser to wait for
+      // the main thread before starting every scroll, which made the app
+      // feel laggy. Scroll ends never count as taps, and text fields keep
+      // their native double-tap behaviour (word selection).
       (function () {
-        var lastTouchStart = 0;
-        var lastTouchEnd = 0;
-        var lastX = 0;
-        var lastY = 0;
-
-        // 1. Intercept touchstart to prevent double-tap gesture initialization on first load
-        document.addEventListener('touchstart', function (e) {
-          var now = Date.now();
-          var touch = e.touches ? e.touches[0] : null;
-          var x = touch ? touch.clientX : 0;
-          var y = touch ? touch.clientY : 0;
-          var dist = Math.hypot(x - lastX, y - lastY);
-
-          if (e.touches && e.touches.length > 1) {
-            e.preventDefault();
-          } else if (now - lastTouchStart <= 300 && dist < 50) {
-            e.preventDefault();
-            var target = e.target;
-            var clickable = target && target.closest ? target.closest('button, a, [role="button"], input, select, .btn, .calendar-day, .quick-date-tag') : target;
-            if (clickable && typeof clickable.click === 'function' && !clickable.disabled) {
-              clickable.click();
-            }
+        var lastTapEnd = 0;
+        var touchMoved = false;
+        var startX = 0;
+        var startY = 0;
+        document.addEventListener("touchstart", function (event) {
+          if (event.touches.length === 1) {
+            startX = event.touches[0].clientX;
+            startY = event.touches[0].clientY;
+            touchMoved = false;
           }
-          lastTouchStart = now;
-          lastX = x;
-          lastY = y;
-        }, { passive: false });
-
-        // 2. Intercept touchend
-        document.addEventListener('touchend', function (e) {
-          var now = Date.now();
-          if (now - lastTouchEnd <= 300) {
-            e.preventDefault();
+        }, { passive: true });
+        document.addEventListener("touchmove", function (event) {
+          if (event.touches.length === 1 && Math.hypot(event.touches[0].clientX - startX, event.touches[0].clientY - startY) > 10) {
+            touchMoved = true;
           }
-          lastTouchEnd = now;
-        }, { passive: false });
-
-        // 3. Intercept desktop dblclick (smart-zoom on Mac trackpad / Magic Mouse / PC)
-        document.addEventListener('dblclick', function (e) {
-          var tag = e.target ? e.target.tagName : '';
-          if (tag !== 'INPUT' && tag !== 'TEXTAREA') {
-            e.preventDefault();
+        }, { passive: true });
+        function tapTarget(node) {
+          if (!node || node === document) return null;
+          var el = node.nodeType === 1 ? node : node.parentElement;
+          if (!el || !el.closest) return el;
+          return el.closest("button, a, input, select, textarea, label, [role='button']") || el;
+        }
+        document.addEventListener("touchend", function (event) {
+          if (touchMoved || event.touches.length > 0 || event.changedTouches.length > 1) return;
+          var target = tapTarget(event.target);
+          if (!target) return;
+          if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
+          // Compare EVENT timestamps, not processing time: if the main
+          // thread is busy rendering the previous tap (the first keypad
+          // keystroke renders the match list), a fast second tap is
+          // handled late, and wall-clock timing would call it a slow tap
+          // and let the zoom through.
+          var now = event.timeStamp;
+          if (now - lastTapEnd < 500) {
+            event.preventDefault();
+            target.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
           }
+          lastTapEnd = now;
         }, { passive: false });
-
-        // 4. Intercept pinch-zoom / wheel zoom
-        document.addEventListener('wheel', function (e) {
-          if (e.ctrlKey) {
-            e.preventDefault();
-          }
-        }, { passive: false });
-
-        // 5. Intercept Apple Safari gesture events
-        document.addEventListener('gesturestart', function (e) { e.preventDefault(); });
-        document.addEventListener('gesturechange', function (e) { e.preventDefault(); });
-        document.addEventListener('gestureend', function (e) { e.preventDefault(); });
       })();
     </script>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJwIiB4MT0iMCUiIHkxPSIwJSIgeDI9IjAlIiB5Mj0iMTAwJSI+PHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iI2ZmYjgzNCIgLz48c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiNmMDVhMjgiIC8+PC9saW5lYXJHcmFkaWVudD48bGluZWFyR3JhZGllbnQgaWQ9ImwiIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjAlIj48c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSIjMDA5MjQ1IiAvPjxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzhjYzYzZiIgLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cGF0aCBkPSJNIDEyIDggQSA0IDQgMCAwIDEgMjAgOCBMIDIwIDEyIEwgMTIgMTIgWiIgZmlsbD0idXJsKCNwKSIgLz48cGF0aCBkPSJNIDkgMTAgQyA3IDEwLCA3IDE4LCA3IDIwIEMgNyAyNC41LCAxMSAyNywgMTYgMjcgQyAyMSAyNywgMjUgMjQuNSwgMjUgMjAgQyAyNSAxOCwgMjUgMTAsIDIzIDEwIEMgMjIuNSAxMCwgMjIgMTMsIDIyIDE2IEMgMjIgMjEuNSwgMTkgMjMsIDE2IDIzIEMgMTMgMjMsIDEwIDIxLjUsIDEwIDE2IEMgMTAgMTMsIDkuNSAxMCwgOSAxMCBaIiBmaWxsPSJ1cmwoI2wpIiAvPjwvc3ZnPg==" />

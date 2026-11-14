@@ -59,17 +59,20 @@ select {
 }
 
 /* Taps must never zoom the page. This app is used like a POS terminal:
-   staff tap keypad keys and rows in rapid succession. We disable double-tap zoom
-   and pinch-to-zoom across touch devices, Chrome, and Safari, while scrolling (pan-x, pan-y)
-   remains fully functional. */
+   staff tap keypad keys and rows in rapid succession. 'manipulation'
+   (pan + pinch-zoom, WITHOUT double-tap zoom) is the value that turns
+   double-tap zoom off; plain 'pan-x pan-y' leaves it enabled. Pinch zoom
+   stays available on purpose: it is deliberate and it is the way back
+   from any magnified state. iOS Safari ignores this for double-tap, so
+   index.html carries a small touchend handler as the second layer. */
 html, body {
-  touch-action: pan-x pan-y;
+  touch-action: manipulation;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
 
 * {
-  touch-action: pan-x pan-y;
+  touch-action: manipulation;
 }
 
 /* Prevent iOS Safari from auto-zooming on input focus by keeping font size >= 16px */
