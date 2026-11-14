@@ -839,6 +839,9 @@ export class OutOfStockComponent implements OnInit {
     } finally {
       this.loadingShopKeys.delete(loadedShopKey);
       this.outStockRefreshing = this.loadingShopKeys.size > 0;
+      // OnPush: without this mark the view keeps showing the pre-load state
+      // ("Chon mot nha thuoc...") even though the rows already arrived.
+      this.cdr.markForCheck();
     }
   }
 

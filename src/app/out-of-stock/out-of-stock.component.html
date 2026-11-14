@@ -30,6 +30,7 @@
       <div class="spinner-border spinner-border-sm me-2" role="status"></div>
       <div>{{ outStockCacheStatus || 'Đang tải dữ liệu...' }}</div>
     </div>
+    <div class="alert alert-danger" *ngIf="errorText" role="alert">{{ errorText }}</div>
 
     <!-- Shop Tabs Selection -->
     <div class="card mb-3" *ngIf="tabs.length > 0">
