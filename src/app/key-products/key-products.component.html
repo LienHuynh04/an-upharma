@@ -25,11 +25,17 @@
 <div class="page-body">
   <div class="container-xl">
 
+    <!-- Alert / Status banner (FEFO-style, non-blocking) -->
+    <div class="alert alert-info d-flex align-items-center" *ngIf="loading || keyProductsRefreshing">
+      <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+      <div>{{ cacheStatus || 'Đang lấy dữ liệu Hàng key...' }}</div>
+    </div>
+
     <!-- Shop Tabs Selection -->
     <app-shop-tabs [tabs]="tabs" [activeShopCode]="activeShopCode" (shopSelected)="setActiveShop($event)"></app-shop-tabs>
 
     <!-- Stats Summary Section -->
-    <div class="row g-3 mb-3" *ngIf="hasActiveShopLoaded && !loading">
+    <div class="row g-3 mb-3" *ngIf="hasActiveShopLoaded">
       <div class="col-sm-6 col-lg-3">
         <div class="card card-sm">
           <div class="card-body">
@@ -245,14 +251,4 @@
   </div>
 </div>
 
-<div class="loading-overlay" [class.is-visible]="loading" aria-live="polite">
-  <div class="loading-box">
-    <span class="loader" aria-hidden="true"></span>
-    <strong>Đang lấy dữ liệu Hàng key...</strong>
-    <div class="loading-progress" aria-hidden="true">
-      <i [style.width.%]="loadingProgress"></i>
-    </div>
-    <span class="loading-progress-percent">{{ loadingProgress }}%</span>
-  </div>
-</div>
 

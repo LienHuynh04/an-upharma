@@ -54,7 +54,6 @@ export class KeyProductsComponent implements OnInit {
   rows: KeyProductItem[] = [];
   userTitle = "Đang tải người dùng...";
   loading = false;
-  loadingProgress = 0;
   keyProductsRefreshing = false;
   visibleCount = 50;
 
@@ -225,7 +224,7 @@ export class KeyProductsComponent implements OnInit {
 
   async loadKeyProducts(): Promise<void> {
     this.loading = true;
-    this.loadingProgress = 10;
+    this.cacheStatus = "Đang lấy dữ liệu Hàng key...";
     this.errorText = "";
     let shouldLoadActiveShop = false;
 
@@ -244,7 +243,6 @@ export class KeyProductsComponent implements OnInit {
         console.warn("Không tải được shops_summary:", err);
       }
 
-      this.loadingProgress = 25;
       shouldLoadActiveShop = Boolean(this.activeShopCode);
       this.recomputeState();
     } catch (error) {
@@ -450,10 +448,8 @@ export class KeyProductsComponent implements OnInit {
 
     if (runInBackground) {
       this.keyProductsRefreshing = true;
-      this.loadingProgress = Math.max(this.loadingProgress, 30);
     } else {
       this.keyProductsRefreshing = true;
-      this.loadingProgress = 15;
       this.cacheStatus = `Đang lấy dữ liệu Hàng key cho shop đang xem...`;
     }
 
@@ -476,7 +472,6 @@ export class KeyProductsComponent implements OnInit {
         TimeEnd: timeEnd,
         _useFirebaseKeyProducts: false,
       };
-      this.loadingProgress = 45;
       const response = await this.upharmaService.callEndpoint<unknown>(this.endpoint, payload, {
         cache: true,
         forceRefresh,
@@ -500,7 +495,6 @@ export class KeyProductsComponent implements OnInit {
         this.stableProductCodes = new Set();
       }
 
-      this.loadingProgress = 70;
 
       const rawArray = this.extractArray(response);
 
@@ -572,7 +566,6 @@ export class KeyProductsComponent implements OnInit {
         }
       }
 
-      this.loadingProgress = 90;
 
       this.applyShopRows(shop.ShopCode, finalKeyRows);
       this.loadedShopKeys.add(loadedShopKey);
@@ -582,13 +575,11 @@ export class KeyProductsComponent implements OnInit {
         savedAt: Date.now(),
       });
       this.cacheStatus = `Dữ liệu Hàng key đã cập nhật lúc ${this.formatCacheTime(Date.now())}.`;
-      this.loadingProgress = 100;
     } catch (error) {
       this.errorText = error instanceof Error ? error.message : String(error);
       if (this.rows.some((row) => row.shopCode === shop.ShopCode)) {
         this.cacheStatus = "Chưa cập nhật được dữ liệu mới, vẫn đang hiển thị dữ liệu đã lưu.";
       }
-      this.loadingProgress = 100;
     } finally {
       this.loadingShopKeys.delete(loadedShopKey);
       this.keyProductsRefreshing = this.loadingShopKeys.size > 0;
