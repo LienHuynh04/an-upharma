@@ -444,11 +444,10 @@ interface ReplenishmentPlan {
               title="Click để xem tất cả mã SP luân chuyển"
             >
               <div class="card-status-start bg-primary"></div>
-              <div class="card-body">
-                <div class="text-secondary font-weight-medium">Tất cả</div>
-                <div class="h2 mt-2 mb-1">{{ expiryBucketCounts.all }}</div>
-                <div class="text-secondary mb-1"><small>SL đề xuất: {{ formatNumber(expiryBucketCounts.allQty) }}</small></div>
-                <div class="text-secondary"><small class="expiry-rate">100,00%</small></div>
+              <div class="card-body py-2 px-3 d-flex align-items-center gap-2 flex-wrap">
+                <span class="text-secondary font-weight-medium">Tất cả</span>
+                <span class="h3 m-0">{{ expiryBucketCounts.all }}</span>
+                <small class="text-secondary ms-auto text-nowrap">SL đề xuất: {{ formatNumber(expiryBucketCounts.allQty) }} · <span class="expiry-rate">100,00%</span></small>
               </div>
             </div>
           </div>
@@ -462,11 +461,10 @@ interface ReplenishmentPlan {
               title="Click để lọc HSD trong vòng 3 tháng"
             >
               <div class="card-status-start bg-danger"></div>
-              <div class="card-body">
-                <div class="text-secondary font-weight-medium">3 Tháng</div>
-                <div class="h2 mt-2 mb-1">{{ expiryBucketCounts.danger }}</div>
-                <div class="text-secondary mb-1"><small>SL đề xuất: {{ formatNumber(expiryBucketCounts.dangerQty) }}</small></div>
-                <div class="text-secondary"><small class="expiry-rate">{{ expiryBucketCounts.dangerRate }}%</small></div>
+              <div class="card-body py-2 px-3 d-flex align-items-center gap-2 flex-wrap">
+                <span class="text-secondary font-weight-medium">3 Tháng</span>
+                <span class="h3 m-0">{{ expiryBucketCounts.danger }}</span>
+                <small class="text-secondary ms-auto text-nowrap">SL đề xuất: {{ formatNumber(expiryBucketCounts.dangerQty) }} · <span class="expiry-rate">{{ expiryBucketCounts.dangerRate }}%</span></small>
               </div>
             </div>
           </div>
@@ -480,11 +478,10 @@ interface ReplenishmentPlan {
               title="Click để lọc HSD từ 3 - 6 tháng"
             >
               <div class="card-status-start bg-warning"></div>
-              <div class="card-body">
-                <div class="text-secondary font-weight-medium">6 Tháng</div>
-                <div class="h2 mt-2 mb-1">{{ expiryBucketCounts.warning }}</div>
-                <div class="text-secondary mb-1"><small>SL đề xuất: {{ formatNumber(expiryBucketCounts.warningQty) }}</small></div>
-                <div class="text-secondary"><small class="expiry-rate">{{ expiryBucketCounts.warningRate }}%</small></div>
+              <div class="card-body py-2 px-3 d-flex align-items-center gap-2 flex-wrap">
+                <span class="text-secondary font-weight-medium">6 Tháng</span>
+                <span class="h3 m-0">{{ expiryBucketCounts.warning }}</span>
+                <small class="text-secondary ms-auto text-nowrap">SL đề xuất: {{ formatNumber(expiryBucketCounts.warningQty) }} · <span class="expiry-rate">{{ expiryBucketCounts.warningRate }}%</span></small>
               </div>
             </div>
           </div>
@@ -498,11 +495,10 @@ interface ReplenishmentPlan {
               title="Click để lọc HSD đến 1 năm"
             >
               <div class="card-status-start bg-success"></div>
-              <div class="card-body">
-                <div class="text-secondary font-weight-medium">1 Năm</div>
-                <div class="h2 mt-2 mb-1">{{ expiryBucketCounts.safe }}</div>
-                <div class="text-secondary mb-1"><small>SL đề xuất: {{ formatNumber(expiryBucketCounts.safeQty) }}</small></div>
-                <div class="text-secondary"><small class="expiry-rate">{{ expiryBucketCounts.safeRate }}%</small></div>
+              <div class="card-body py-2 px-3 d-flex align-items-center gap-2 flex-wrap">
+                <span class="text-secondary font-weight-medium">1 Năm</span>
+                <span class="h3 m-0">{{ expiryBucketCounts.safe }}</span>
+                <small class="text-secondary ms-auto text-nowrap">SL đề xuất: {{ formatNumber(expiryBucketCounts.safeQty) }} · <span class="expiry-rate">{{ expiryBucketCounts.safeRate }}%</span></small>
               </div>
             </div>
           </div>

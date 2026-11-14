@@ -40,11 +40,10 @@
                [class.bg-success]="card.key === 'safe'"
                [class.bg-info]="card.key === 'normal'"
                [class.bg-primary]="card.key === 'all'"></div>
-          <div class="card-body">
-            <div class="text-secondary font-weight-medium">{{ card.label }}</div>
-            <div class="h2 mt-2 mb-1">{{ card.key === 'all' ? activeExpiryTotal : expirySummary[card.countKey!] }}</div>
-            <div class="text-secondary mb-1"><small>{{ getInventoryValueLabel(card.key) }} VNĐ</small></div>
-            <div class="text-secondary"><small class="expiry-rate">{{ getInventoryRateLabel(card.key) }}%</small></div>
+          <div class="card-body py-2 px-3 d-flex align-items-center gap-2 flex-wrap">
+            <span class="text-secondary font-weight-medium">{{ card.label }}</span>
+            <span class="h3 m-0">{{ card.key === 'all' ? activeExpiryTotal : expirySummary[card.countKey!] }}</span>
+            <small class="text-secondary ms-auto text-nowrap">{{ getInventoryValueLabel(card.key) }} VNĐ · <span class="expiry-rate">{{ getInventoryRateLabel(card.key) }}%</span></small>
           </div>
         </div>
       </div>

@@ -85,10 +85,10 @@
           style="cursor: pointer; transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;"
         >
           <div class="card-status-start" [class]="card.statusBg"></div>
-          <div class="card-body py-3">
-            <div class="text-secondary font-weight-medium">{{ card.label }}</div>
-            <div class="h2 mt-2 mb-1">{{ card.count }}</div>
-            <div class="text-secondary"><small>{{ card.sublabel }}</small></div>
+          <div class="card-body py-2 px-3 d-flex align-items-center gap-2 flex-wrap">
+            <span class="text-secondary font-weight-medium">{{ card.label }}</span>
+            <span class="h3 m-0">{{ card.count }}</span>
+            <small class="text-secondary ms-auto">{{ card.sublabel }}</small>
           </div>
         </div>
       </div>
