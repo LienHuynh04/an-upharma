@@ -222,6 +222,24 @@ async function requestUpharma(pathname, payload) {
   throw lastError || new Error(`UPHARMA ${pathname} thất bại sau ${RETRY_ATTEMPTS} lần thử`);
 }
 
+/**
+ * Reads the rows currently stored for one shop resource, so a failed or
+ * empty fetch can fall back to best-known data instead of overwriting it.
+ * Returns null when there is no usable previous array.
+ */
+async function readPreviousResourceData(db, shopCode, resourceName) {
+  try {
+    const snap = await db.ref(`shops/${shopCode}/upharma_data/${resourceName}`).once('value');
+    const val = snap.val();
+    if (val && Array.isArray(val.data)) {
+      return val.data;
+    }
+  } catch (err) {
+    console.warn(`[sync-safety] Không đọc được dữ liệu cũ của ${resourceName}/${shopCode}:`, err.message || err);
+  }
+  return null;
+}
+
 function extractArray(data) {
   if (Array.isArray(data)) return data;
   if (!data || typeof data !== "object") return [];
@@ -404,10 +422,13 @@ function getResourceConfig(resourceName, now = new Date()) {
     },
     customer_new: {
       pathname: "/Buyer/GetCustomerNewLst",
-      payload: () => ({
-        Month: now.getMonth() + 1,
-        Year: now.getFullYear(),
-      }),
+      payload: () => {
+        const vn = getVietnamTimeComponents(now);
+        return {
+          Month: vn.month + 1,
+          Year: vn.year,
+        };
+      },
     },
     dashboard_statistics: {
       pathname: "/CancelProduct/GetStatisticsShop",
@@ -418,10 +439,13 @@ function getResourceConfig(resourceName, now = new Date()) {
     },
     dashboard_customers: {
       pathname: "/Buyer/GetCustomerNewLst",
-      payload: () => ({
-        Month: now.getMonth() + 1,
-        Year: now.getFullYear(),
-      }),
+      payload: () => {
+        const vn = getVietnamTimeComponents(now);
+        return {
+          Month: vn.month + 1,
+          Year: vn.year,
+        };
+      },
     },
     transfer_process: {
       pathname: "/TransferOrder/GetTransferOrderProcess",
@@ -443,7 +467,8 @@ function getResourceConfig(resourceName, now = new Date()) {
     sales_report: {
       pathname: "/SalesInvoice/GetReportSalesByShop",
       payload: () => {
-        const firstDayOfMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+        const vnNow = getVietnamTimeComponents(now);
+        const firstDayOfMonth = `${vnNow.year}-${String(vnNow.month + 1).padStart(2, "0")}-01`;
         return {
           TimeStart: `${firstDayOfMonth} 00:00:00`,
           TimeEnd: currentTime,
@@ -453,11 +478,17 @@ function getResourceConfig(resourceName, now = new Date()) {
     key_products: {
       pathname: "/SalesInvoice/GetReportSalesByShop",
       payload: () => {
-        const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+        const vn = getVietnamTimeComponents(now);
+        let lastMonth = vn.month - 1;
+        let lastYear = vn.year;
+        if (lastMonth < 0) {
+          lastMonth += 12;
+          lastYear -= 1;
+        }
         const pad = (n) => String(n).padStart(2, "0");
-        const timeStart = `${lastMonthStart.getFullYear()}-${pad(lastMonthStart.getMonth() + 1)}-01 00:00:00`;
-        const timeEnd = `${lastMonthEnd.getFullYear()}-${pad(lastMonthEnd.getMonth() + 1)}-${pad(lastMonthEnd.getDate())} 23:59:59`;
+        const lastDay = new Date(lastYear, lastMonth + 1, 0).getDate();
+        const timeStart = `${lastYear}-${pad(lastMonth + 1)}-01 00:00:00`;
+        const timeEnd = `${lastYear}-${pad(lastMonth + 1)}-${pad(lastDay)} 23:59:59`;
         return {
           TimeStart: timeStart,
           TimeEnd: timeEnd,
@@ -743,46 +774,78 @@ async function run() {
           mappedArray = finalKeyRows;
         }
 
-        if (allShopsData[resourceName]) {
-          allShopsData[resourceName][shop.ShopCode] = mappedArray;
+        const isDashboardResource = resourceName === 'dashboard_statistics' || resourceName === 'dashboard_customers';
+        const payloadData = isDashboardResource ? responseData : mappedArray;
+        const hasError = Boolean(responseData && (
+          (responseData.RespCode !== undefined && responseData.RespCode !== 0) ||
+          (responseData.data && responseData.data.RespCode !== undefined && responseData.data.RespCode !== 0) ||
+          (typeof responseData.RespText === 'string' && responseData.RespText.toLowerCase().includes('timeout')) ||
+          (responseData.data && typeof responseData.data.RespText === 'string' && responseData.data.RespText.toLowerCase().includes('timeout'))
+        ));
+
+        // SAFETY (2026-11-14): an error response — or a "successful" but EMPTY
+        // one — must never overwrite good Firebase data, and must never feed
+        // the precalculation as if it were real data. Fall back to the
+        // previous node so downstream steps work on best-known data; when no
+        // previous data exists the shop stays ABSENT from allShopsData, which
+        // is exactly what the per-node precalculation guards test for.
+        let effectiveArray = mappedArray;
+        let carriedPrevious = false;
+        let skipWrite = hasError;
+        if (db && !isDashboardResource && (hasError || mappedArray.length === 0)) {
+          const previousData = await readPreviousResourceData(db, shop.ShopCode, resourceName);
+          if (Array.isArray(previousData) && previousData.length > 0) {
+            effectiveArray = previousData;
+            carriedPrevious = true;
+            skipWrite = true;
+            if (!hasError) {
+              console.warn(`[${resourceName}] ${shop.ShopCode}: API trả về 0 bản ghi nhưng dữ liệu cũ có ${previousData.length} — giữ dữ liệu cũ, bỏ qua ghi đè.`);
+            }
+          }
         }
 
-        if (resourceName === 'statistics_shop') {
+        if (allShopsData[resourceName] && (!hasError || carriedPrevious)) {
+          allShopsData[resourceName][shop.ShopCode] = effectiveArray;
+        }
+
+        if (resourceName === 'statistics_shop' && !hasError) {
           allShopsData.statistics_shop_raw = allShopsData.statistics_shop_raw || {};
           allShopsData.statistics_shop_raw[shop.ShopCode] = responseData;
         }
 
-        if (db) {
-          const payloadData = (resourceName === 'dashboard_statistics' || resourceName === 'dashboard_customers') ? responseData : mappedArray;
-          const hasError = responseData && (
-            (responseData.RespCode !== undefined && responseData.RespCode !== 0) ||
-            (responseData.data && responseData.data.RespCode !== undefined && responseData.data.RespCode !== 0) ||
-            (typeof responseData.RespText === 'string' && responseData.RespText.toLowerCase().includes('timeout')) ||
-            (responseData.data && typeof responseData.data.RespText === 'string' && responseData.data.RespText.toLowerCase().includes('timeout'))
-          );
-
-          if (hasError) {
-            console.warn(`[Firebase Fetch] Bỏ qua push ${resourceName} của shop ${shop.ShopCode} lên Firebase RTDB do phát hiện lỗi hoặc timeout từ Upharma API.`);
-          } else {
-            await db.ref(`shops/${shop.ShopCode}/upharma_data/${resourceName}`).set({
-              success: true,
-              resource: resourceName,
-              shop: {
-                ShopCode: shop.ShopCode,
-                ShopName: shop.ShopName,
-              },
-              data: payloadData,
-              fetchedAt: new Date().toISOString(),
-            });
-          }
+        if (db && !skipWrite) {
+          await db.ref(`shops/${shop.ShopCode}/upharma_data/${resourceName}`).set({
+            success: true,
+            resource: resourceName,
+            shop: {
+              ShopCode: shop.ShopCode,
+              ShopName: shop.ShopName,
+            },
+            data: payloadData,
+            fetchedAt: new Date().toISOString(),
+          });
         }
 
-        console.log(`[${resourceName}] DONE ${shop.ShopCode} (${mappedArray.length} records, ${Math.round((Date.now() - startedAt) / 1000)}s)`);
-        return { shop, mappedArray };
+        if (hasError) {
+          console.warn(`[Firebase Fetch] Bỏ qua push ${resourceName} của shop ${shop.ShopCode} lên Firebase RTDB do phát hiện lỗi hoặc timeout từ Upharma API.`);
+        }
+
+        console.log(`[${resourceName}] DONE ${shop.ShopCode} (${effectiveArray.length} records, ${Math.round((Date.now() - startedAt) / 1000)}s)`);
+        return { shop, mappedArray: effectiveArray };
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         console.warn(`[${resourceName}] FAIL ${shop.ShopCode}: ${message}`);
         failedShops.push(`${shop.ShopCode}: ${message}`);
+        // SAFETY (2026-11-14): keep best-known data flowing to downstream
+        // steps; without previous data the shop stays absent from
+        // allShopsData and the per-node guards will skip it.
+        if (db && allShopsData[resourceName]) {
+          const previousData = await readPreviousResourceData(db, shop.ShopCode, resourceName);
+          if (Array.isArray(previousData) && previousData.length > 0) {
+            allShopsData[resourceName][shop.ShopCode] = previousData;
+            return { shop, mappedArray: previousData };
+          }
+        }
         return { shop, mappedArray: [] };
       }
     });
@@ -1011,10 +1074,12 @@ async function fetchAndUploadNationalInventoryCache(loginData, allShopsData, db)
 function getDaysRemaining(dateText) {
   if (!dateText) return null;
   const str = String(dateText).trim();
+  // "Today" is the Vietnam calendar day — the sync runs on UTC servers,
+  // whose local date lags Vietnam by up to 7 hours.
+  const vnToday = getVietnamTimeComponents();
+  const now = new Date(vnToday.year, vnToday.month, vnToday.day);
   const d = new Date(str.replace(' ', 'T'));
   if (!isNaN(d.getTime())) {
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
     return Math.round((d.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
   }
   const parts = str.split(/[-/T ]/);
@@ -1031,8 +1096,6 @@ function getDaysRemaining(dateText) {
     }
     if (year && !isNaN(month) && day) {
       const exp = new Date(year, month, day);
-      const now = new Date();
-      now.setHours(0, 0, 0, 0);
       return Math.round((exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
     }
   }
@@ -1264,9 +1327,18 @@ function computeTransferSuggestionsForList(expiringStockList, nationalCache) {
     const allCombinedExpiringList = [];
     const allCombinedNationalMap = {};
 
+    let shopsMissingInventory = 0;
     for (const shop of shops) {
       const sc = shop.ShopCode;
-      const invRows = allShopsData.inventory[sc] || [];
+      if (allShopsData.inventory[sc] === undefined || allShopsData.inventory[sc] === null) {
+        // SAFETY (2026-11-14): no inventory for this shop in this run (fetch
+        // failed and no previous data to carry) — keep its previous
+        // transfer_suggestions_cache node instead of overwriting it empty.
+        shopsMissingInventory += 1;
+        console.warn(`[transfer_suggestions] Bỏ qua ${sc}: không có dữ liệu tồn kho trong lần đồng bộ này, giữ cache cũ.`);
+        continue;
+      }
+      const invRows = allShopsData.inventory[sc];
       const expiringStockList = [];
       const nationalStoreStockMap = {};
 
@@ -1324,6 +1396,12 @@ function computeTransferSuggestionsForList(expiringStockList, nationalCache) {
     }
 
     // Tính toán và lưu cho tab "ALL" (Tất cả nhà thuốc)
+    // SAFETY (2026-11-14): ALL/SUMMARY aggregate every shop — rebuilding them
+    // while a shop contributed nothing would silently shrink the totals, so
+    // they are only rewritten when every shop had inventory this run.
+    if (shopsMissingInventory > 0) {
+      console.warn(`[transfer_suggestions] Bỏ qua ALL/SUMMARY: ${shopsMissingInventory} shop thiếu dữ liệu tồn kho, giữ bản cũ.`);
+    } else {
     const allCalcResult = computeTransferSuggestionsForList(allCombinedExpiringList, nationalCache);
     await db.ref("transfer_suggestions_cache/ALL").set({
       shopCode: "ALL",
@@ -1366,6 +1444,7 @@ function computeTransferSuggestionsForList(expiringStockList, nationalCache) {
       topSuggestions: _topSuggestions,
     });
     console.log(`[transfer_suggestions] DONE ALL: ${allCalcResult.groupedSuggestions.length} nhóm SP, ${allCalcResult.suggestions.length} gợi ý`);
+    }
 
         console.log("[transfer_suggestions] ✅ Hoàn tất cập nhật pre-computed transfer_suggestions_cache lên Firebase RTDB!");
       })(),
@@ -1556,7 +1635,7 @@ function parseShopCatalogNumber(value) {
 const SHOP_CATALOG_CODE_KEYS = ["ProductCode", "ProductID", "Product_ID", "MaSP", "MaSanPham", "ItemCode", "Code"];
 const SHOP_CATALOG_NAME_KEYS = ["ProductName", "Product_Name", "ProductFullName", "Product_Name_Full", "TenSP", "TenSanPham", "Name", "ItemName"];
 const SHOP_CATALOG_UNIT_KEYS = ["UnitOfMeasure", "UnitName", "Unit_Name", "Unit", "UnitCode", "BaseUnit", "BaseUnitName", "ProductUnit", "UOM", "DonVi", "DonViTinh", "DVT"];
-const SHOP_CATALOG_QTY_KEYS = ["Quantity", "Qty", "SL", "SoLuong", "InventoryQuantity", "StockQty", "TonKho", "RemainQty"];
+const SHOP_CATALOG_QTY_KEYS = ["QuantityExist", "ExistQuantity", "Quantity", "Qty", "SL", "SoLuong", "InventoryQuantity", "StockQty", "TonKho", "RemainQty"];
 
 /**
  * Aggregates one shop's raw inventory rows into the slim staff catalog:
@@ -1595,7 +1674,19 @@ function buildShopCatalogItems(rows) {
  */
 async function uploadShopCatalogs(db, shops, allShopsData) {
   if (!db) return;
-  const index = {};
+  // SAFETY (2026-11-14): start from the previous index so shops skipped in
+  // this run keep their entry instead of vanishing from the lookup.
+  let previousIndex = {};
+  try {
+    const snap = await db.ref("shop_catalog_index").once('value');
+    const val = snap.val();
+    if (val && typeof val === 'object') {
+      previousIndex = val;
+    }
+  } catch (err) {
+    console.warn('[shop_catalog] Không đọc được shop_catalog_index cũ:', err.message || err);
+  }
+  const index = { ...previousIndex };
   for (const shop of shops || []) {
     const rows = allShopsData?.inventory?.[shop.ShopCode] || [];
     if (!rows.length) {
@@ -1604,6 +1695,12 @@ async function uploadShopCatalogs(db, shops, allShopsData) {
     }
     try {
       const items = buildShopCatalogItems(rows);
+      if (!items.length) {
+        // SAFETY (2026-11-14): inventory rows exist but no product has
+        // stock > 0 — never overwrite a good catalog with an empty one.
+        console.warn(`[shop_catalog] Bỏ qua ${shop.ShopCode}: có dữ liệu tồn kho nhưng không mã nào có tồn > 0, giữ danh mục cũ.`);
+        continue;
+      }
       const updatedAt = Date.now();
       await db.ref(`shop_catalog/${shop.ShopCode}`).set({
         shopName: shop.ShopName,
@@ -1673,8 +1770,15 @@ function precalculateSalesSpeed(rows, shop) {
   const now = new Date();
   const completedMonthKeys = [];
   const completedMonthSessions = [];
+  const vnNow = getVietnamTimeComponents(now);
   for (let offset = 2; offset >= 1; offset -= 1) {
-    const date = new Date(now.getFullYear(), now.getMonth() - offset, 1);
+    let monthIndex = vnNow.month - offset;
+    let monthYear = vnNow.year;
+    while (monthIndex < 0) {
+      monthIndex += 12;
+      monthYear -= 1;
+    }
+    const date = new Date(monthYear, monthIndex, 1);
     const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
     completedMonthKeys.push(key);
     completedMonthSessions.push({
@@ -1848,6 +1952,10 @@ function precalculateKeyProducts(rows, shop, rawData) {
 }
 
 function precalculateOutOfStock(salesSpeedRows, inventoryRows, transferProcessRows, productOffRows, productFollowerRows, shop) {
+  // Current month in Vietnam time, computed once — the sync server runs on
+  // UTC, whose month lags Vietnam for the first ~7 hours of each month.
+  const vnNow = getVietnamTimeComponents();
+  const currentMonthStr = `${vnNow.year}-${String(vnNow.month + 1).padStart(2, "0")}`;
   const inventoryAvailability = new Set();
   for (const row of inventoryRows || []) {
     const quantity = pick(row, ["QuantityExist", "ExistQuantity", "Quantity", "Qty", "SL", "SoLuong", "TonKho", "InventoryQuantity", "StockQty", "RemainQty"]);
@@ -1950,8 +2058,6 @@ function precalculateOutOfStock(salesSpeedRows, inventoryRows, transferProcessRo
       }
     }
 
-    const now = new Date();
-    const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
     if (shortageMonth !== currentMonthStr) {
       continue;
     }
@@ -2009,6 +2115,21 @@ function isWarehouseStore(store) {
 async function calculateAndUploadSummaries(shops, allShopsData, db, loginData, hiddenShopCodes = new Set()) {
   console.log("\n[precalculation] Bắt đầu tính toán Hàng đã hết, Hàng lặp tốt, Hàng lặp chậm và Shops Summary...");
   
+  // SAFETY (2026-11-14): previous summary counts are the fallback for any
+  // node that cannot be recomputed this run, and for shops not in this run.
+  let previousSummaryData = {};
+  if (db) {
+    try {
+      const snap = await db.ref('shops_summary').once('value');
+      const val = snap.val();
+      if (val && val.data && typeof val.data === 'object') {
+        previousSummaryData = val.data;
+      }
+    } catch (err) {
+      console.warn('[precalculation] Không đọc được shops_summary cũ:', err);
+    }
+  }
+
   const summaryMap = {};
   
   for (const shop of shops) {
@@ -2020,44 +2141,54 @@ async function calculateAndUploadSummaries(shops, allShopsData, db, loginData, h
       keyCount: 0
     };
 
+    // SAFETY (2026-11-14): each calculated node is guarded by ITS OWN inputs.
+    // An input counts as present when the fetch layer stored it for this shop
+    // — fresh data, or previous data carried over after a failed/empty fetch.
+    const hasInput = (res) => Boolean(allShopsData[res] && allShopsData[res][sc] !== undefined && allShopsData[res][sc] !== null);
+    const canSalesSpeed = hasInput('sales_speed');
+    const canOutOfStock = canSalesSpeed && hasInput('inventory') && hasInput('transfer_process') && hasInput('product_off') && hasInput('product_follower');
+    const canKey = hasInput('statistics_shop');
+
     const salesSpeedRows = allShopsData.sales_speed[sc] || [];
     const inventoryRows = allShopsData.inventory[sc] || [];
     const transferProcessRows = allShopsData.transfer_process[sc] || [];
     const productOffRows = allShopsData.product_off[sc] || [];
     const productFollowerRows = allShopsData.product_follower[sc] || [];
 
-    const { stableRows, slowRows } = precalculateSalesSpeed(salesSpeedRows, shop);
+    const { stableRows, slowRows } = canSalesSpeed ? precalculateSalesSpeed(salesSpeedRows, shop) : { stableRows: [], slowRows: [] };
     
-    const outStockRows = precalculateOutOfStock(
-      salesSpeedRows,
-      inventoryRows,
-      transferProcessRows,
-      productOffRows,
-      productFollowerRows,
-      shop
-    );
+    const outStockRows = canOutOfStock
+      ? precalculateOutOfStock(
+          salesSpeedRows,
+          inventoryRows,
+          transferProcessRows,
+          productOffRows,
+          productFollowerRows,
+          shop
+        )
+      : [];
     const statisticsShopRows = allShopsData.statistics_shop[sc] || [];
     const statisticsShopRaw = (allShopsData.statistics_shop_raw && allShopsData.statistics_shop_raw[sc]) || null;
-    const keyProductRows = precalculateKeyProducts(statisticsShopRows, shop, statisticsShopRaw);
+    const keyProductRows = canKey ? precalculateKeyProducts(statisticsShopRows, shop, statisticsShopRaw) : [];
 
-    summaryMap[sc].stableCount = stableRows.length;
-    summaryMap[sc].slowCount = slowRows.length;
-    summaryMap[sc].outOfStockCount = outStockRows.length;
-    summaryMap[sc].keyCount = keyProductRows.length;
+    const previousCounts = previousSummaryData[sc] || {};
+    summaryMap[sc].stableCount = canSalesSpeed ? stableRows.length : (previousCounts.stableCount || 0);
+    summaryMap[sc].slowCount = canSalesSpeed ? slowRows.length : (previousCounts.slowCount || 0);
+    summaryMap[sc].outOfStockCount = canOutOfStock ? outStockRows.length : (previousCounts.outOfStockCount || 0);
+    summaryMap[sc].keyCount = canKey ? keyProductRows.length : (previousCounts.keyCount || 0);
 
-    // DATA FIX (2026-10-16): skip shops whose source data failed to sync.
-    // Pushing empty arrays here would overwrite good cached data with nothing.
-    const hasSourceData =
-      (allShopsData.sales_speed[sc] !== undefined && allShopsData.sales_speed[sc] !== null) ||
-      (allShopsData.inventory[sc] !== undefined && allShopsData.inventory[sc] !== null);
-    if (hasSourceData) allShopsData.out_of_stock[sc] = outStockRows;
-    if (!hasSourceData) {
-      console.warn(`[precalculation] SKIP shop ${sc}: missing source data (sync failed) — keeping previous Firebase data.`);
+    // DATA FIX (2026-10-16, tightened 2026-11-14): a calculated node is only
+    // overwritten when every input IT consumes is present for this shop.
+    // The old single OR over sales_speed/inventory let one healthy input push
+    // empty results over good data derived from a failed one.
+    if (canOutOfStock) allShopsData.out_of_stock[sc] = outStockRows;
+    if (!canSalesSpeed || !canOutOfStock || !canKey) {
+      console.warn(`[precalculation] SKIP một phần ${sc}: sales_speed=${canSalesSpeed}, out_of_stock=${canOutOfStock}, key=${canKey} — giữ dữ liệu cũ cho các node thiếu nguồn.`);
     }
 
-    if (db && hasSourceData) {
+    if (db && (canSalesSpeed || canOutOfStock || canKey)) {
       try {
-        await db.ref(`shops/${sc}/upharma_data/stable_consumption_calculated`).set({
+        if (canSalesSpeed) await db.ref(`shops/${sc}/upharma_data/stable_consumption_calculated`).set({
           success: true,
           resource: 'stable_consumption_calculated',
           shop: { ShopCode: sc, ShopName: shop.ShopName },
@@ -2065,7 +2196,7 @@ async function calculateAndUploadSummaries(shops, allShopsData, db, loginData, h
           fetchedAt: new Date().toISOString(),
         });
 
-        await db.ref(`shops/${sc}/upharma_data/slow_selling_calculated`).set({
+        if (canSalesSpeed) await db.ref(`shops/${sc}/upharma_data/slow_selling_calculated`).set({
           success: true,
           resource: 'slow_selling_calculated',
           shop: { ShopCode: sc, ShopName: shop.ShopName },
@@ -2073,7 +2204,7 @@ async function calculateAndUploadSummaries(shops, allShopsData, db, loginData, h
           fetchedAt: new Date().toISOString(),
         });
 
-        await db.ref(`shops/${sc}/upharma_data/out_of_stock_calculated`).set({
+        if (canOutOfStock) await db.ref(`shops/${sc}/upharma_data/out_of_stock_calculated`).set({
           success: true,
           resource: 'out_of_stock_calculated',
           shop: { ShopCode: sc, ShopName: shop.ShopName },
@@ -2081,7 +2212,7 @@ async function calculateAndUploadSummaries(shops, allShopsData, db, loginData, h
           fetchedAt: new Date().toISOString(),
         });
 
-        await db.ref(`shops/${sc}/upharma_data/key_products_calculated`).set({
+        if (canKey) await db.ref(`shops/${sc}/upharma_data/key_products_calculated`).set({
           success: true,
           resource: 'key_products_calculated',
           shop: { ShopCode: sc, ShopName: shop.ShopName },
@@ -2089,7 +2220,7 @@ async function calculateAndUploadSummaries(shops, allShopsData, db, loginData, h
           fetchedAt: new Date().toISOString(),
         });
         
-        console.log(`[precalculation] DONE ${sc}: Hàng đã hết (${outStockRows.length}), Lặp tốt (${stableRows.length}), Lặp chậm (${slowRows.length}), Hàng key (${keyProductRows.length})`);
+        console.log(`[precalculation] DONE ${sc}: Hàng đã hết (${canOutOfStock ? outStockRows.length : 'SKIP'}), Lặp tốt (${canSalesSpeed ? stableRows.length : 'SKIP'}), Lặp chậm (${canSalesSpeed ? slowRows.length : 'SKIP'}), Hàng key (${canKey ? keyProductRows.length : 'SKIP'})`);
       } catch (err) {
         console.warn(`[precalculation] Lỗi khi upload kết quả tính toán cho shop ${sc}:`, err);
       }
@@ -2384,6 +2515,14 @@ async function calculateAndUploadSummaries(shops, allShopsData, db, loginData, h
       console.log(
         `[replenishment_suggestions] Đã cập nhật ${uploadedCount}/${shops.length} shop lên Firebase (${apiFailureCount} lỗi API, ${fallbackCount} dùng cache, ${unavailableCount} không có dữ liệu).`
       );
+  }
+
+  // SAFETY (2026-11-14): shops not part of this run (e.g. hidden) keep their
+  // previous summary counts instead of vanishing from the replaced node.
+  for (const [code, counts] of Object.entries(previousSummaryData)) {
+    if (!Object.prototype.hasOwnProperty.call(summaryMap, code)) {
+      summaryMap[code] = counts;
+    }
   }
 
   await generateReplenishmentSuggestionsForShops(shops, allShopsData, db, loginData);
