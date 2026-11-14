@@ -141,6 +141,14 @@ export class InventoryCountComponent implements OnInit {
   uncountedProducts: { code: string; name: string; unit: string; expectedQuantity: number }[] = [];
   /** First rows of uncountedProducts actually rendered; the full list goes to the Excel export. */
   uncountedPreview: { code: string; name: string; unit: string; expectedQuantity: number }[] = [];
+  /** On-screen filters for the uncounted table (the Excel export always carries the full list). */
+  uncountedCodeFilter = "";
+  uncountedNameFilter = "";
+  uncountedUnitFilter = "";
+  uncountedMinQty: number | null = null;
+  uncountedUnits: string[] = [];
+  filteredUncountedCount = 0;
+  uncountedFilterActive = false;
   /** Distinct product codes counted by any sheet of the loaded day. */
   countedCodeCount = 0;
   /** Verdicts being edited in the open sheet detail. */
@@ -446,12 +454,16 @@ export class InventoryCountComponent implements OnInit {
   selectSearchResult(): void {
     const product = this.resolveSearchTarget();
     if (product) {
+      this.errorMessage = "";
+      this.noticeMessage = "";
       this.selectProduct(product);
     } else if (this.matchingProducts.length === 0) {
+      this.noticeMessage = "";
       this.errorMessage = this.staffMode
         ? "Không tìm thấy mã hàng trong danh mục sản phẩm."
         : "Không tìm thấy mã hàng trong danh mục tồn kho đã lưu.";
     } else {
+      this.errorMessage = "";
       this.noticeMessage = "Có nhiều sản phẩm phù hợp. Chọn đúng sản phẩm trong danh sách.";
     }
   }
@@ -1351,7 +1363,41 @@ export class InventoryCountComponent implements OnInit {
         expectedQuantity: product.expectedQuantity,
       }))
       .sort((first, second) => first.name.localeCompare(second.name, "vi", { sensitivity: "base" }));
-    this.uncountedPreview = this.uncountedProducts.slice(0, 200);
+    this.uncountedUnits = Array.from(new Set(this.uncountedProducts.map((product) => product.unit))).sort((a, b) =>
+      a.localeCompare(b, "vi", { sensitivity: "base" }),
+    );
+    this.applyUncountedFilters();
+  }
+
+  /** Recomputes the rendered preview from the full uncounted list + the active filters. */
+  private applyUncountedFilters(): void {
+    const codeQuery = normalizeFilterText(this.uncountedCodeFilter);
+    const nameQuery = normalizeFilterText(this.uncountedNameFilter);
+    const minQty = this.uncountedMinQty;
+    this.uncountedFilterActive = Boolean(
+      codeQuery || nameQuery || this.uncountedUnitFilter || (minQty !== null && minQty !== undefined && !Number.isNaN(minQty)),
+    );
+    const filtered = this.uncountedProducts.filter((product) => {
+      if (codeQuery && !normalizeFilterText(product.code).includes(codeQuery)) return false;
+      if (nameQuery && !normalizeFilterText(product.name).includes(nameQuery)) return false;
+      if (this.uncountedUnitFilter && product.unit !== this.uncountedUnitFilter) return false;
+      if (minQty !== null && minQty !== undefined && !Number.isNaN(minQty) && product.expectedQuantity < minQty) return false;
+      return true;
+    });
+    this.filteredUncountedCount = filtered.length;
+    this.uncountedPreview = filtered.slice(0, 200);
+  }
+
+  onUncountedFilterChange(): void {
+    this.applyUncountedFilters();
+  }
+
+  clearUncountedFilters(): void {
+    this.uncountedCodeFilter = "";
+    this.uncountedNameFilter = "";
+    this.uncountedUnitFilter = "";
+    this.uncountedMinQty = null;
+    this.applyUncountedFilters();
   }
 
   /** Counted quantity minus system stock; null while the stock side is unknown. */
@@ -1745,6 +1791,14 @@ export class InventoryCountComponent implements OnInit {
       // If the day's sheets were loaded before the catalog arrived, the
       // uncounted list can only be computed now that both sides exist.
       if (this.reviewLoaded) this.computeUncountedProducts();
+      // The shared on-device cache is trusted as-is when the shop has any
+      // rows, so a cache written before a sync added products (new codes,
+      // new stock) would keep the counting catalog stale forever - the
+      // inventory page revalidates in the background, this page must too.
+      // Past 30 minutes, refresh behind the scenes and swap the catalog in.
+      if (!fetchedFromApi && cache?.savedAt && Date.now() - cache.savedAt > 30 * 60 * 1000) {
+        void this.refreshManagerCatalogInBackground(login);
+      }
       if (this.catalogProducts.length === 0) {
         this.catalogStatus = `Không có sản phẩm tồn kho để kiểm kê tại ${this.selectedShopCode}.`;
       } else if (fetchedFromApi) {
@@ -1766,6 +1820,52 @@ export class InventoryCountComponent implements OnInit {
       this.errorMessage = this.errorText(error);
     } finally {
       this.loading = false;
+    }
+  }
+
+  private catalogRefreshInFlight = false;
+
+  /** Background revalidation of the manager counting catalog (see loadCatalog). */
+  private async refreshManagerCatalogInBackground(login: LoginResponse): Promise<void> {
+    if (this.catalogRefreshInFlight) return;
+    this.catalogRefreshInFlight = true;
+    const shopAtStart = this.selectedShopCode;
+    try {
+      const inventoryData = await this.upharmaService.loadInventoryResource({
+        forceRefresh: true,
+        shopCodes: this.shops.map((shop) => shop.ShopCode),
+      });
+      if (this.selectedShopCode !== shopAtStart || !inventoryData.data?.length) return;
+      try {
+        await this.writeInventoryCache({
+          cacheKey: this.inventoryCacheKey(login),
+          data: inventoryData,
+          savedAt: Date.now(),
+        });
+      } catch (error) {
+        console.warn("Đã tải được tồn kho mới nhưng không lưu được cache dùng chung:", error);
+      }
+      const rows = (inventoryData.data || []).filter(
+        (row) => String(row["__shopCode"] || row["ShopCode"] || row["StoreCode"] || "") === shopAtStart,
+      );
+      if (!rows.length) return;
+      const fresh = this.aggregateProducts(rows);
+      const changed =
+        fresh.length !== this.catalogProducts.length ||
+        fresh.some(
+          (product, index) =>
+            product.code !== this.catalogProducts[index]?.code ||
+            product.expectedQuantity !== this.catalogProducts[index]?.expectedQuantity,
+        );
+      this.catalogProducts = fresh;
+      if (this.reviewLoaded) this.computeUncountedProducts();
+      if (changed) {
+        this.catalogStatus = `Danh mục vừa được cập nhật từ dữ liệu tồn kho mới nhất: ${fresh.length} sản phẩm cho ${shopAtStart}.`;
+      }
+    } catch (error) {
+      console.warn("Không làm mới được danh mục kiểm kê trong nền:", error);
+    } finally {
+      this.catalogRefreshInFlight = false;
     }
   }
 

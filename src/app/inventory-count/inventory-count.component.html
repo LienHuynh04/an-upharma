@@ -483,7 +483,23 @@
             <p class="text-success small mb-0" *ngIf="!uncountedProducts.length">
               Mọi mã còn tồn tại {{ selectedShopCode }} đều đã có người đếm trong {{ displayDateText }}.
             </p>
-            <div class="table-responsive review-table-scroll" style="max-height: 38vh;" *ngIf="uncountedProducts.length">
+            <div class="d-flex flex-wrap gap-2 mb-2" *ngIf="uncountedProducts.length">
+              <input class="form-control form-control-sm" style="flex: 0 1 150px;" type="search" placeholder="Lọc mã SP" aria-label="Lọc theo mã sản phẩm" [(ngModel)]="uncountedCodeFilter" [ngModelOptions]="{ standalone: true }" (ngModelChange)="onUncountedFilterChange()" />
+              <input class="form-control form-control-sm" style="flex: 1 1 220px;" type="search" placeholder="Lọc tên sản phẩm" aria-label="Lọc theo tên sản phẩm" [(ngModel)]="uncountedNameFilter" [ngModelOptions]="{ standalone: true }" (ngModelChange)="onUncountedFilterChange()" />
+              <select class="form-select form-select-sm" style="flex: 0 1 160px;" aria-label="Lọc theo đơn vị" [(ngModel)]="uncountedUnitFilter" [ngModelOptions]="{ standalone: true }" (ngModelChange)="onUncountedFilterChange()">
+                <option value="">Mọi đơn vị</option>
+                <option *ngFor="let unit of uncountedUnits" [value]="unit">{{ unit || "Chưa có đơn vị" }}</option>
+              </select>
+              <input class="form-control form-control-sm" style="flex: 0 1 130px;" type="number" min="0" placeholder="SL tồn ≥" aria-label="Lọc theo số lượng tồn tối thiểu" [(ngModel)]="uncountedMinQty" [ngModelOptions]="{ standalone: true }" (ngModelChange)="onUncountedFilterChange()" />
+              <button type="button" class="btn btn-sm btn-outline-secondary" *ngIf="uncountedFilterActive" (click)="clearUncountedFilters()">Xóa lọc</button>
+            </div>
+            <p class="text-secondary small mb-2" *ngIf="uncountedFilterActive">
+              Đang lọc: tìm thấy {{ filteredUncountedCount }} mã trong tổng số {{ uncountedProducts.length }} mã chưa đếm. Bộ lọc chỉ áp dụng cho bảng xem tại đây — file Excel vẫn xuất toàn bộ danh sách.
+            </p>
+            <p class="text-secondary small mb-0" *ngIf="uncountedProducts.length && !filteredUncountedCount">
+              Không có mã nào khớp bộ lọc.
+            </p>
+            <div class="table-responsive review-table-scroll" style="max-height: 38vh;" *ngIf="filteredUncountedCount">
               <table class="table table-sm table-vcenter card-table table-hover mb-0">
                 <thead>
                   <tr>
@@ -503,8 +519,8 @@
                 </tbody>
               </table>
             </div>
-            <p class="text-secondary small mt-2 mb-0" *ngIf="uncountedProducts.length > uncountedPreview.length">
-              Đang hiện {{ uncountedPreview.length }} mã đầu tiên — còn {{ uncountedProducts.length - uncountedPreview.length }} mã nữa. Bấm "Xuất Excel đối chiếu" để xem toàn bộ danh sách ở trang "Chưa kiểm kê".
+            <p class="text-secondary small mt-2 mb-0" *ngIf="filteredUncountedCount > uncountedPreview.length">
+              Đang hiện {{ uncountedPreview.length }} mã đầu tiên — còn {{ filteredUncountedCount - uncountedPreview.length }} mã nữa. Bấm "Xuất Excel đối chiếu" để xem toàn bộ danh sách ở trang "Chưa kiểm kê".
             </p>
           </div>
         </ng-container>
@@ -786,6 +802,7 @@
               <input
                 #searchInput
                 [(ngModel)]="searchText"
+                (ngModelChange)="errorMessage = ''; noticeMessage = ''"
                 (keydown.enter)="selectSearchResult()"
                 type="search"
                 class="form-control"
