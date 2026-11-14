@@ -201,6 +201,12 @@ import { ShopInfo, UpharmaService } from "../upharma.service";
                             type="button"
                             (click)="toggleActive(user)"
                           >{{ user.active ? "Khóa" : "Mở khóa" }}</button>
+                          <button
+                            class="btn btn-sm btn-outline-danger"
+                            type="button"
+                            (click)="deleteUser(user)"
+                            [disabled]="saving"
+                          >Xóa</button>
                         </ng-container>
                         <ng-container *ngIf="editingUid === user.uid">
                           <input
@@ -228,7 +234,7 @@ import { ShopInfo, UpharmaService } from "../upharma.service";
             </ng-template>
             <div class="card-footer text-secondary small">
               Khóa tài khoản là thu hồi quyền kiểm kê ngay (nhân viên không đăng nhập đếm tiếp được).
-              Xóa hẳn tài khoản hoặc đặt lại mật khẩu khi nhân viên quên: làm trong Firebase Console → Authentication.
+              Xóa tài khoản sẽ xoá vĩnh viễn tài khoản nhân viên khỏi hệ thống.
             </div>
           </div>
       </div>
@@ -337,6 +343,33 @@ export class StaffAdminComponent implements OnInit {
       this.noticeText = updated.active
         ? `Đã mở khóa tài khoản "${user.username || user.displayName}".`
         : `Đã khóa tài khoản "${user.username || user.displayName}".`;
+    } catch (error) {
+      this.errorText = this.messageOf(error);
+    } finally {
+      this.saving = false;
+    }
+  }
+
+  async deleteUser(user: StaffUserRecord): Promise<void> {
+    if (this.saving) return;
+    const displayName = user.displayName || user.username;
+    if (
+      !window.confirm(
+        `Bạn có chắc chắn muốn xóa tài khoản "${user.username}" (${displayName}) không?\nThao tác này không thể hoàn tác.`
+      )
+    ) {
+      return;
+    }
+    this.saving = true;
+    this.errorText = "";
+    this.noticeText = "";
+    try {
+      await this.staffAuthService.deleteStaffAccount(user.username);
+      this.users = this.users.filter((item) => item.uid !== user.uid);
+      if (this.editingUid === user.uid) {
+        this.editingUid = "";
+      }
+      this.noticeText = `Đã xóa tài khoản "${user.username}" (${displayName}).`;
     } catch (error) {
       this.errorText = this.messageOf(error);
     } finally {

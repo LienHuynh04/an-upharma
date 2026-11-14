@@ -72,8 +72,8 @@ else to configure.
   pages they may open (**Kiểm kê** is pre-selected), then **Tạo tài khoản**.
   Later, **Phân quyền** on a row re-assigns shops/pages and can also set a
   new password (leave the field empty to keep the current one);
-  **Khóa / Mở khóa** enables or disables the account. Deleting an account
-  entirely is not offered in the app — lock it instead.
+  **Khóa / Mở khóa** enables or disables the account; **Xóa** xóa hoàn toàn tài
+  khoản khỏi Realtime Database sau khi xác nhận.
 - Staff: open the app, choose **Nhân viên kiểm kê**, sign in, and land on
   the first page granted to them; the menu shows exactly their granted pages.
 - Counting: pick the shop, open a count session, count, and press

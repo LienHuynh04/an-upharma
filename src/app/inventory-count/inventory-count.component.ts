@@ -24,6 +24,19 @@ interface CountProduct {
   outsideCatalog?: boolean;
 }
 
+export interface CalendarCell {
+  dayNumber: number;
+  dateStr: string;
+  isCurrentMonth: boolean;
+  isToday: boolean;
+  isSelected: boolean;
+  isInRange: boolean;
+  isRangeStart: boolean;
+  isRangeEnd: boolean;
+  hasSubmissions: boolean;
+  submissions: CountSubmission[];
+}
+
 /** One row of a single staff sheet in the manager review (manager mode only). */
 interface SheetRow {
   code: string;
@@ -101,8 +114,22 @@ export class InventoryCountComponent implements OnInit {
   submissionsLoading = false;
   submissionsError = "";
   reviewLoaded = false;
-  /** Review is managed per day and per shop: one staff sheet at a time. */
+  /** Review is managed per day/range and per shop: one staff sheet at a time. */
   reviewDate: string = InventoryCountComponent.todayInputValue();
+  reviewEndDate: string = InventoryCountComponent.todayInputValue();
+  isDateRange = false;
+  showCalendarPopup = false;
+  calendarMode: "single" | "range" = "single";
+  calendarYear = new Date().getFullYear();
+  calendarMonth = new Date().getMonth() + 1;
+  calendarCells: CalendarCell[] = [];
+  calendarLoading = false;
+  allShopSubmissions: CountSubmission[] = [];
+  submissionsByDate: Record<string, CountSubmission[]> = {};
+  recentCountDates: string[] = [];
+  hoveredDate: string | null = null;
+  hoveredQuickDate: string | null = null;
+  rangeClickStep: 0 | 1 = 0;
   daySubmissions: CountSubmission[] = [];
   selectedSubmission: CountSubmission | null = null;
   sheetRows: SheetRow[] = [];
@@ -237,6 +264,9 @@ export class InventoryCountComponent implements OnInit {
     this.reviewNotice = "";
     this.loadSavedSessions();
     await this.loadProductCatalog();
+    if (!this.staffMode) {
+      this.loadShopSubmissionsForCalendar();
+    }
   }
 
   startSession(): void {
@@ -690,14 +720,275 @@ export class InventoryCountComponent implements OnInit {
     return `${now.getFullYear()}-${month}-${day}`;
   }
 
-  /** Deterministic id of the saved final review for the selected day. */
+  /** Deterministic id of the saved final review for the selected day or date range. */
   private reviewIdForSelectedDay(): string {
+    if (this.isDateRange && this.reviewDate !== this.reviewEndDate) {
+      return `review-${this.reviewDate.replaceAll("-", "")}-${this.reviewEndDate.replaceAll("-", "")}`;
+    }
     return `review-${this.reviewDate.replaceAll("-", "")}`;
   }
 
+  formatDisplayDate(dateStr: string): string {
+    if (!dateStr) return "";
+    const parts = dateStr.split("-");
+    if (parts.length !== 3) return dateStr;
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  }
+
+  get displayDateText(): string {
+    if (this.isDateRange && this.reviewDate !== this.reviewEndDate) {
+      return `${this.formatDisplayDate(this.reviewDate)} - ${this.formatDisplayDate(this.reviewEndDate)}`;
+    }
+    return this.formatDisplayDate(this.reviewDate);
+  }
+
+  toggleCalendarPopup(): void {
+    this.showCalendarPopup = !this.showCalendarPopup;
+    if (this.showCalendarPopup) {
+      if (this.reviewDate) {
+        const [y, m] = this.reviewDate.split("-").map(Number);
+        if (y && m) {
+          this.calendarYear = y;
+          this.calendarMonth = m;
+        }
+      }
+      this.generateCalendarCells();
+      if (!this.allShopSubmissions.length) {
+        this.loadShopSubmissionsForCalendar();
+      }
+    }
+  }
+
+  setCalendarMode(mode: "single" | "range"): void {
+    this.calendarMode = mode;
+    this.rangeClickStep = 0;
+    if (mode === "single") {
+      this.reviewEndDate = this.reviewDate;
+      this.isDateRange = false;
+    } else {
+      this.isDateRange = true;
+    }
+    this.generateCalendarCells();
+  }
+
+  prevCalendarMonth(): void {
+    if (this.calendarMonth === 1) {
+      this.calendarMonth = 12;
+      this.calendarYear--;
+    } else {
+      this.calendarMonth--;
+    }
+    this.generateCalendarCells();
+  }
+
+  nextCalendarMonth(): void {
+    if (this.calendarMonth === 12) {
+      this.calendarMonth = 1;
+      this.calendarYear++;
+    } else {
+      this.calendarMonth++;
+    }
+    this.generateCalendarCells();
+  }
+
+  goToTodayCalendar(): void {
+    const now = new Date();
+    this.calendarYear = now.getFullYear();
+    this.calendarMonth = now.getMonth() + 1;
+    this.generateCalendarCells();
+  }
+
+  onCalendarDayClick(cell: CalendarCell): void {
+    if (this.calendarMode === "single") {
+      this.reviewDate = cell.dateStr;
+      this.reviewEndDate = cell.dateStr;
+      this.isDateRange = false;
+      this.showCalendarPopup = false;
+      this.loadSubmissions();
+    } else {
+      if (this.rangeClickStep === 0) {
+        this.reviewDate = cell.dateStr;
+        this.reviewEndDate = cell.dateStr;
+        this.rangeClickStep = 1;
+        this.generateCalendarCells();
+      } else {
+        let start = this.reviewDate;
+        let end = cell.dateStr;
+        if (start > end) {
+          [start, end] = [end, start];
+        }
+        this.reviewDate = start;
+        this.reviewEndDate = end;
+        this.isDateRange = true;
+        this.rangeClickStep = 0;
+        this.showCalendarPopup = false;
+        this.loadSubmissions();
+      }
+    }
+  }
+
+  applyDateRange(): void {
+    if (this.reviewDate > this.reviewEndDate) {
+      const temp = this.reviewDate;
+      this.reviewDate = this.reviewEndDate;
+      this.reviewEndDate = temp;
+    }
+    this.isDateRange = this.reviewDate !== this.reviewEndDate;
+    this.showCalendarPopup = false;
+    this.loadSubmissions();
+  }
+
+  quickSelectDate(dateStr: string): void {
+    this.reviewDate = dateStr;
+    this.reviewEndDate = dateStr;
+    this.isDateRange = false;
+    this.loadSubmissions();
+  }
+
+  quickDateTooltip(dateStr: string): string {
+    const list = this.submissionsByDate[dateStr] || [];
+    if (!list.length) return `Ngày ${this.formatDisplayDate(dateStr)}: Chưa có phiếu`;
+    const lines = list.map((s) => {
+      const time = new Date(s.completedAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+      return `• ${s.staffName} (${time} - ${s.items.length} mã)`;
+    });
+    return `Phiếu kiểm kê ngày ${this.formatDisplayDate(dateStr)} (${list.length} phiếu):\n${lines.join("\n")}`;
+  }
+
+  async loadShopSubmissionsForCalendar(): Promise<void> {
+    if (this.staffMode || !this.selectedShopCode) return;
+    try {
+      this.calendarLoading = true;
+      const all = await this.staffCountService.listSubmissions(this.selectedShopCode);
+      this.allShopSubmissions = all;
+      this.indexSubmissionsByDate();
+      this.generateCalendarCells();
+    } catch {
+      this.allShopSubmissions = [];
+      this.submissionsByDate = {};
+      this.generateCalendarCells();
+    } finally {
+      this.calendarLoading = false;
+    }
+  }
+
+  private indexSubmissionsByDate(): void {
+    const map: Record<string, CountSubmission[]> = {};
+    for (const sub of this.allShopSubmissions) {
+      if (!sub.completedAt) continue;
+      const d = new Date(sub.completedAt);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      const key = `${y}-${m}-${day}`;
+      if (!map[key]) map[key] = [];
+      map[key].push(sub);
+    }
+    this.submissionsByDate = map;
+    this.recentCountDates = Object.keys(map)
+      .sort((a, b) => b.localeCompare(a))
+      .slice(0, 3);
+  }
+
+  generateCalendarCells(): void {
+    const year = this.calendarYear;
+    const month = this.calendarMonth;
+    const firstDay = new Date(year, month - 1, 1);
+    const startWeekday = (firstDay.getDay() + 6) % 7; // 0 for Mon, 6 for Sun
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const daysInPrevMonth = new Date(year, month - 1, 0).getDate();
+    const todayStr = InventoryCountComponent.todayInputValue();
+
+    const cells: CalendarCell[] = [];
+
+    // Previous month trailing days
+    for (let i = startWeekday - 1; i >= 0; i--) {
+      const dayNum = daysInPrevMonth - i;
+      const prevDate = new Date(year, month - 2, dayNum);
+      const dateStr = this.toDateInputValue(prevDate);
+      const subs = this.submissionsByDate[dateStr] || [];
+      cells.push({
+        dayNumber: dayNum,
+        dateStr,
+        isCurrentMonth: false,
+        isToday: dateStr === todayStr,
+        isSelected: this.isDateSelected(dateStr),
+        isInRange: this.isDateInRange(dateStr),
+        isRangeStart: dateStr === this.reviewDate,
+        isRangeEnd: dateStr === this.reviewEndDate,
+        hasSubmissions: subs.length > 0,
+        submissions: subs,
+      });
+    }
+
+    // Current month days
+    for (let dayNum = 1; dayNum <= daysInMonth; dayNum++) {
+      const curDate = new Date(year, month - 1, dayNum);
+      const dateStr = this.toDateInputValue(curDate);
+      const subs = this.submissionsByDate[dateStr] || [];
+      cells.push({
+        dayNumber: dayNum,
+        dateStr,
+        isCurrentMonth: true,
+        isToday: dateStr === todayStr,
+        isSelected: this.isDateSelected(dateStr),
+        isInRange: this.isDateInRange(dateStr),
+        isRangeStart: dateStr === this.reviewDate,
+        isRangeEnd: dateStr === this.reviewEndDate,
+        hasSubmissions: subs.length > 0,
+        submissions: subs,
+      });
+    }
+
+    // Next month padding days to complete grid
+    const remaining = (7 - (cells.length % 7)) % 7;
+    const totalNeeded = cells.length + remaining < 35 ? 35 - cells.length : remaining;
+    for (let dayNum = 1; dayNum <= totalNeeded; dayNum++) {
+      const nextDate = new Date(year, month, dayNum);
+      const dateStr = this.toDateInputValue(nextDate);
+      const subs = this.submissionsByDate[dateStr] || [];
+      cells.push({
+        dayNumber: dayNum,
+        dateStr,
+        isCurrentMonth: false,
+        isToday: dateStr === todayStr,
+        isSelected: this.isDateSelected(dateStr),
+        isInRange: this.isDateInRange(dateStr),
+        isRangeStart: dateStr === this.reviewDate,
+        isRangeEnd: dateStr === this.reviewEndDate,
+        hasSubmissions: subs.length > 0,
+        submissions: subs,
+      });
+    }
+
+    this.calendarCells = cells;
+  }
+
+  private toDateInputValue(d: Date): string {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }
+
+  isDateSelected(dateStr: string): boolean {
+    if (this.isDateRange && this.reviewDate !== this.reviewEndDate) {
+      return dateStr === this.reviewDate || dateStr === this.reviewEndDate;
+    }
+    return dateStr === this.reviewDate;
+  }
+
+  isDateInRange(dateStr: string): boolean {
+    if (!this.isDateRange || this.reviewDate === this.reviewEndDate) return false;
+    let start = this.reviewDate;
+    let end = this.reviewEndDate;
+    if (start > end) [start, end] = [end, start];
+    return dateStr >= start && dateStr <= end;
+  }
+
   /**
-   * Manager review, organised by day and shop: loads the sheets staff
-   * submitted for the selected shop, keeps only the selected day, and shows
+   * Manager review, organised by day/range and shop: loads the sheets staff
+   * submitted for the selected shop, keeps only the selected day or date range, and shows
    * ONE staff member's sheet at a time — sheets are never merged together.
    * The confirmed final quantity is still one number per product per day;
    * other staff counts of the same product appear only as a reference chip,
@@ -711,13 +1002,39 @@ export class InventoryCountComponent implements OnInit {
     try {
       const all = await this.staffCountService.listSubmissions(this.selectedShopCode);
       this.submissions = all;
-      const [year, month, day] = this.reviewDate.split("-").map(Number);
-      this.daySubmissions = all
-        .filter((submission) => {
-          const at = new Date(submission.completedAt);
-          return at.getFullYear() === year && at.getMonth() + 1 === month && at.getDate() === day;
-        })
-        .sort((first, second) => first.completedAt - second.completedAt);
+      this.allShopSubmissions = all;
+      this.indexSubmissionsByDate();
+      this.generateCalendarCells();
+
+      const isRange = this.isDateRange && this.reviewDate !== this.reviewEndDate;
+      if (!isRange) {
+        const [year, month, day] = this.reviewDate.split("-").map(Number);
+        this.daySubmissions = all
+          .filter((submission) => {
+            const at = new Date(submission.completedAt);
+            return at.getFullYear() === year && at.getMonth() + 1 === month && at.getDate() === day;
+          })
+          .sort((first, second) => first.completedAt - second.completedAt);
+      } else {
+        let startStr = this.reviewDate;
+        let endStr = this.reviewEndDate;
+        if (startStr > endStr) {
+          [startStr, endStr] = [endStr, startStr];
+          this.reviewDate = startStr;
+          this.reviewEndDate = endStr;
+        }
+        const [sYear, sMonth, sDay] = startStr.split("-").map(Number);
+        const [eYear, eMonth, eDay] = endStr.split("-").map(Number);
+        const startTime = new Date(sYear, sMonth - 1, sDay, 0, 0, 0, 0).getTime();
+        const endTime = new Date(eYear, eMonth - 1, eDay, 23, 59, 59, 999).getTime();
+        this.daySubmissions = all
+          .filter((submission) => {
+            const at = submission.completedAt;
+            return at >= startTime && at <= endTime;
+          })
+          .sort((first, second) => first.completedAt - second.completedAt);
+      }
+
       this.selectedSubmission = null;
       this.sheetRows = [];
       this.verdicts = {};
@@ -1007,7 +1324,9 @@ export class InventoryCountComponent implements OnInit {
         })),
       };
       await this.staffCountService.saveFinalReview(review);
-      this.reviewNotice = `Đã lưu số chốt ngày ${this.reviewDate.split("-").reverse().join("/")} cho ${this.selectedShopCode}.`;
+      this.reviewNotice = this.isDateRange && this.reviewDate !== this.reviewEndDate
+        ? `Đã lưu số chốt từ ngày ${this.formatDisplayDate(this.reviewDate)} đến ngày ${this.formatDisplayDate(this.reviewEndDate)} cho ${this.selectedShopCode}.`
+        : `Đã lưu số chốt ngày ${this.formatDisplayDate(this.reviewDate)} cho ${this.selectedShopCode}.`;
     } catch (error) {
       this.submissionsError = this.errorText(error);
     } finally {
@@ -1171,9 +1490,12 @@ export class InventoryCountComponent implements OnInit {
       }
       if (selected.has("chua-kiem-ke")) sheets.push({ name: "Chưa kiểm kê", data: uncountedRows });
       if (!sheets.length) return;
+      const dateSuffix = this.isDateRange && this.reviewDate !== this.reviewEndDate
+        ? `${this.reviewDate}_den_${this.reviewEndDate}`
+        : this.reviewDate;
       await this.excelExportService.exportSheetsToExcel(
         sheets,
-        `Doi-chieu-kiem-ke-${this.selectedShopCode}-${this.reviewDate}.xlsx`,
+        `Doi-chieu-kiem-ke-${this.selectedShopCode}-${dateSuffix}.xlsx`,
       );
       this.exportNotice = `Đã xuất file Excel: ${sheets.length} trang (${sheets.map((sheet) => sheet.name).join(", ")}).`;
     } catch (error) {
@@ -1212,6 +1534,9 @@ export class InventoryCountComponent implements OnInit {
       this.selectedShopCode = this.shops[0].ShopCode;
       this.loadSavedSessions();
       await this.loadProductCatalog();
+      if (!this.staffMode) {
+        this.loadShopSubmissionsForCalendar();
+      }
     } catch (error) {
       this.errorMessage = this.errorText(error);
     } finally {

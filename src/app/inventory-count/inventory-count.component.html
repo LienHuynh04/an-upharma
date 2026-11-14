@@ -114,23 +114,235 @@
             <div class="page-pretitle">KẾT QUẢ NHÂN VIÊN ĐÃ NỘP</div>
             <h3 class="card-title">Đối chiếu kiểm kê · {{ selectedShopCode }}</h3>
           </div>
-          <div class="d-flex align-items-center gap-2">
-            <input
-              type="date"
-              class="form-control"
-              style="width: auto;"
-              [(ngModel)]="reviewDate"
-              [ngModelOptions]="{ standalone: true }"
-              aria-label="Ngày kiểm kê"
-            />
-            <button class="btn btn-outline-primary" type="button" (click)="loadSubmissions()" [disabled]="submissionsLoading">
-              <i class="ti ti-refresh me-1" aria-hidden="true"></i>{{ submissionsLoading ? "Đang tải…" : "Tải phiếu ngày này" }}
+          <div class="d-flex flex-wrap align-items-center gap-2 position-relative">
+            <!-- Quick date tags for recent dates with count submissions -->
+            <div class="d-none d-lg-flex align-items-center gap-1" *ngIf="recentCountDates.length">
+              <span class="text-secondary small me-1">Gần đây:</span>
+              <div
+                *ngFor="let d of recentCountDates"
+                class="quick-date-wrapper position-relative"
+                (mouseenter)="hoveredQuickDate = d"
+                (mouseleave)="hoveredQuickDate = null"
+              >
+                <button
+                  type="button"
+                  class="quick-date-tag"
+                  [class.active]="reviewDate === d && !isDateRange"
+                  (click)="quickSelectDate(d)"
+                  [attr.title]="quickDateTooltip(d)"
+                >
+                  {{ formatDisplayDate(d) }}
+                  <span class="tag-badge">{{ submissionsByDate[d]?.length }}</span>
+                </button>
+
+                <!-- Hover popover / modal displaying count sheets -->
+                <div class="quick-tag-popover" *ngIf="hoveredQuickDate === d && (submissionsByDate[d]?.length || 0) > 0">
+                  <div class="popover-header">
+                    <span class="popover-title">
+                      <span class="dot-icon">●</span> Ngày {{ formatDisplayDate(d) }} · {{ submissionsByDate[d]?.length }} phiếu
+                    </span>
+                  </div>
+                  <div class="popover-list">
+                    <div class="popover-item" *ngFor="let sub of submissionsByDate[d]">
+                      <span class="staff-name">{{ sub.staffName }}</span>
+                      <span class="staff-meta">Nộp lúc {{ sub.completedAt | date: 'HH:mm' }} · {{ sub.items.length }} mã</span>
+                    </div>
+                  </div>
+                  <div class="popover-footer">
+                    Bấm để mở đối chiếu ngày này
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Calendar Popover Trigger Button -->
+            <button
+              type="button"
+              class="calendar-trigger-btn d-flex align-items-center gap-2"
+              (click)="toggleCalendarPopup()"
+              [attr.aria-expanded]="showCalendarPopup"
+              aria-label="Chọn ngày hoặc khoảng ngày kiểm kê"
+            >
+              <i class="ti ti-calendar trigger-icon" aria-hidden="true"></i>
+              <span class="trigger-label">{{ displayDateText }}</span>
+              <i class="ti ti-chevron-down trigger-chevron" aria-hidden="true"></i>
             </button>
+
+            <!-- Reload Button -->
+            <button class="btn btn-outline-primary" type="button" (click)="loadSubmissions()" [disabled]="submissionsLoading">
+              <i class="ti ti-refresh me-1" aria-hidden="true"></i>{{ submissionsLoading ? "Đang tải…" : "Tải phiếu" }}
+            </button>
+
+            <!-- Calendar Popup Dropdown -->
+            <div class="calendar-backdrop" *ngIf="showCalendarPopup" (click)="showCalendarPopup = false"></div>
+            <div class="calendar-popup" *ngIf="showCalendarPopup">
+              <!-- Header with Mode Selector (Single Day vs Date Range) -->
+              <div class="calendar-header py-2 px-3 d-flex align-items-center justify-content-between gap-2">
+                <div class="calendar-mode-switcher" role="group">
+                  <button
+                    type="button"
+                    class="mode-btn"
+                    [class.active]="calendarMode === 'single'"
+                    (click)="setCalendarMode('single')"
+                  >
+                    Xem 1 ngày
+                  </button>
+                  <button
+                    type="button"
+                    class="mode-btn"
+                    [class.active]="calendarMode === 'range'"
+                    (click)="setCalendarMode('range')"
+                  >
+                    Khoảng ngày
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  class="calendar-close-btn"
+                  aria-label="Đóng lịch"
+                  (click)="showCalendarPopup = false"
+                >
+                  <i class="ti ti-x"></i>
+                </button>
+              </div>
+
+              <!-- Range Inputs Form (if in range mode) -->
+              <div class="calendar-range-form px-3 pt-2 pb-2" *ngIf="calendarMode === 'range'">
+                <div class="row g-2 align-items-center">
+                  <div class="col-6">
+                    <label class="form-label-mini mb-1">Từ ngày</label>
+                    <input
+                      type="date"
+                      class="form-control form-control-sm calendar-input"
+                      [(ngModel)]="reviewDate"
+                      [ngModelOptions]="{ standalone: true }"
+                      (change)="generateCalendarCells()"
+                    />
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label-mini mb-1">Đến ngày</label>
+                    <input
+                      type="date"
+                      class="form-control form-control-sm calendar-input"
+                      [(ngModel)]="reviewEndDate"
+                      [ngModelOptions]="{ standalone: true }"
+                      (change)="generateCalendarCells()"
+                    />
+                  </div>
+                  <div class="col-12 d-flex justify-content-between align-items-center mt-1">
+                    <span class="range-hint">
+                      {{ rangeClickStep === 1 ? "👉 Chọn ngày kết thúc trên lịch" : "👉 Chọn 2 ngày trên lịch hoặc bấm Áp dụng" }}
+                    </span>
+                    <button class="btn btn-sm btn-primary py-0 px-2 fw-semibold" type="button" (click)="applyDateRange()">
+                      Áp dụng
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Month Navigation -->
+              <div class="calendar-nav d-flex align-items-center justify-content-between px-3 py-2">
+                <button
+                  type="button"
+                  class="calendar-nav-btn"
+                  (click)="prevCalendarMonth()"
+                  title="Tháng trước"
+                >
+                  <i class="ti ti-chevron-left" aria-hidden="true"></i>
+                </button>
+                <div class="d-flex align-items-center gap-2">
+                  <span class="calendar-title fw-bold">Tháng {{ calendarMonth }} / {{ calendarYear }}</span>
+                  <button
+                    type="button"
+                    class="calendar-today-btn"
+                    (click)="goToTodayCalendar()"
+                  >
+                    Hôm nay
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  class="calendar-nav-btn"
+                  (click)="nextCalendarMonth()"
+                  title="Tháng sau"
+                >
+                  <i class="ti ti-chevron-right" aria-hidden="true"></i>
+                </button>
+              </div>
+
+              <!-- Calendar Weekdays Header -->
+              <div class="calendar-weekdays px-2">
+                <span class="weekday">T2</span>
+                <span class="weekday">T3</span>
+                <span class="weekday">T4</span>
+                <span class="weekday">T5</span>
+                <span class="weekday">T6</span>
+                <span class="weekday weekend">T7</span>
+                <span class="weekday weekend">CN</span>
+              </div>
+
+              <!-- Calendar Grid -->
+              <div class="calendar-grid px-2 pb-2">
+                <div
+                  *ngFor="let cell of calendarCells"
+                  class="calendar-day"
+                  [class.other-month]="!cell.isCurrentMonth"
+                  [class.is-today]="cell.isToday"
+                  [class.is-selected]="cell.isSelected"
+                  [class.in-range]="cell.isInRange"
+                  [class.range-start]="cell.isRangeStart"
+                  [class.range-end]="cell.isRangeEnd"
+                  [class.has-data]="cell.hasSubmissions"
+                  (click)="onCalendarDayClick(cell)"
+                  (mouseenter)="hoveredDate = cell.dateStr"
+                  (mouseleave)="hoveredDate = null"
+                >
+                  <div class="day-content">
+                    <span class="day-num">{{ cell.dayNumber }}</span>
+
+                    <!-- Green indicator dot for days with count submissions -->
+                    <span
+                      class="count-dot"
+                      *ngIf="cell.hasSubmissions"
+                      [title]="cell.submissions.length + ' phiếu kiểm kê'"
+                    ></span>
+                  </div>
+
+                  <!-- Hover Tooltip showing who counted that day -->
+                  <div
+                    class="day-hover-tooltip"
+                    *ngIf="cell.hasSubmissions && hoveredDate === cell.dateStr"
+                  >
+                    <div class="tooltip-title">
+                      <span class="dot-icon">●</span> {{ formatDisplayDate(cell.dateStr) }} · {{ cell.submissions.length }} phiếu
+                    </div>
+                    <div class="tooltip-list">
+                      <div class="tooltip-item" *ngFor="let sub of cell.submissions">
+                        <span class="staff-name">{{ sub.staffName }}</span>
+                        <span class="staff-meta">{{ sub.completedAt | date: 'HH:mm' }} ({{ sub.items.length }} mã)</span>
+                      </div>
+                    </div>
+                    <div class="tooltip-action">
+                      Bấm để mở dữ liệu ngày này
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Footer Legend / Info -->
+              <div class="calendar-footer px-3 py-2 d-flex align-items-center justify-content-between">
+                <div class="d-flex align-items-center gap-2">
+                  <span class="count-dot-static"></span>
+                  <span class="footer-legend-text">Có kiểm kê (rê chuột xem ai đếm)</span>
+                </div>
+                <span *ngIf="calendarLoading" class="spinner-border spinner-border-sm text-primary"></span>
+              </div>
+            </div>
           </div>
         </div>
         <div class="card-body" *ngIf="!reviewLoaded && !submissionsError">
           <p class="text-secondary mb-0">
-            Chọn ngày rồi bấm "Tải phiếu ngày này". Phiếu được quản lý theo ngày và nhà thuốc, mỗi nhân viên
+            Chọn ngày hoặc khoảng ngày rồi bấm "Tải phiếu" (hoặc bấm vào ngày có chấm xanh trên lịch để mở ngay). Phiếu được quản lý theo ngày và nhà thuốc, mỗi nhân viên
             một phiếu riêng — bấm vào một phiếu để mở chi tiết: xem các mã người đó đã đếm và chấm Đúng/Sai
             cho từng mã. Cột Lệch là số đếm trừ tồn kho; dòng nền vàng là đếm khớp tồn kho (lệch bằng 0).
           </p>
@@ -138,7 +350,7 @@
         <div class="alert alert-danger mx-3 mt-3 mb-0" *ngIf="submissionsError">{{ submissionsError }}</div>
         <ng-container *ngIf="reviewLoaded">
           <div class="card-body d-flex flex-wrap align-items-center justify-content-between gap-2" *ngIf="!daySubmissions.length">
-            <p class="text-secondary mb-0">Ngày {{ reviewDate | date: "dd/MM/yyyy" }} chưa có nhân viên nào nộp phiếu cho {{ selectedShopCode }}.</p>
+            <p class="text-secondary mb-0">{{ isDateRange && reviewDate !== reviewEndDate ? ("Khoảng ngày " + formatDisplayDate(reviewDate) + " - " + formatDisplayDate(reviewEndDate)) : ("Ngày " + formatDisplayDate(reviewDate)) }} chưa có nhân viên nào nộp phiếu cho {{ selectedShopCode }}.</p>
             <button class="btn btn-outline-primary btn-sm" type="button" (click)="openExportDialog()" [disabled]="exporting">
               <i class="ti ti-file-export me-1" aria-hidden="true"></i>Xuất Excel đối chiếu
             </button>
@@ -155,7 +367,7 @@
                 <span class="avatar bg-primary-lt text-primary">{{ submission.staffName.charAt(0) }}</span>
                 <span class="flex-fill text-start min-w-0">
                   <span class="fw-semibold d-block">Phiếu của {{ submission.staffName }}</span>
-                  <span class="small text-secondary">Nộp lúc {{ submission.completedAt | date: "HH:mm" }} · {{ submission.items.length }} mã — bấm để xem chi tiết và đánh giá</span>
+                  <span class="small text-secondary">Nộp lúc {{ submission.completedAt | date: (isDateRange && reviewDate !== reviewEndDate ? "dd/MM HH:mm" : "HH:mm") }} · {{ submission.items.length }} mã — bấm để xem chi tiết và đánh giá</span>
                 </span>
                 <span class="badge bg-orange-lt text-orange" *ngIf="sheetHasDisagreement(submission)">Có mã lệch với người khác</span>
                 <span
@@ -265,10 +477,10 @@
               <span class="badge bg-success-lt text-success" *ngIf="!uncountedProducts.length">Đã đủ</span>
             </div>
             <p class="text-secondary small" *ngIf="uncountedProducts.length">
-              Danh sách này tính riêng cho ngày {{ reviewDate | date: "dd/MM/yyyy" }}: lấy toàn bộ hàng còn tồn tại {{ selectedShopCode }} rồi trừ đi {{ countedCodeCount }} mã đã có nhân viên đếm trong ngày này. Mỗi ngày số mã được đếm khác nhau nên danh sách cũng khác theo ngày — đổi ngày rồi bấm "Tải phiếu ngày này" để xem đúng ngày đó. Các mã dưới đây là kiểm kê sót của ngày {{ reviewDate | date: "dd/MM/yyyy" }}, cần cho đếm bổ sung.
+              Danh sách này tính riêng cho {{ displayDateText }}: lấy toàn bộ hàng còn tồn tại {{ selectedShopCode }} rồi trừ đi {{ countedCodeCount }} mã đã có nhân viên đếm trong khoảng thời gian này. Các mã dưới đây là kiểm kê sót, cần cho đếm bổ sung.
             </p>
             <p class="text-success small mb-0" *ngIf="!uncountedProducts.length">
-              Mọi mã còn tồn tại {{ selectedShopCode }} đều đã có người đếm trong ngày {{ reviewDate | date: "dd/MM/yyyy" }}.
+              Mọi mã còn tồn tại {{ selectedShopCode }} đều đã có người đếm trong {{ displayDateText }}.
             </p>
             <div class="table-responsive review-table-scroll" style="max-height: 38vh;" *ngIf="uncountedProducts.length">
               <table class="table table-sm table-vcenter card-table table-hover mb-0">

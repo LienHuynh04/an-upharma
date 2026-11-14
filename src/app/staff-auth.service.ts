@@ -317,6 +317,23 @@ export class StaffAuthService {
     await this.writeAccount(record.username, current);
   }
 
+  async deleteStaffAccount(username: string): Promise<void> {
+    const normalized = username.trim().toLowerCase();
+    const response = await fetch(
+      `${this.dbUrl}/staff_accounts/${encodeURIComponent(staffAccountKey(normalized))}.json`,
+      {
+        method: "DELETE",
+      },
+    );
+    if (!response.ok) {
+      throw new Error(
+        response.status === 401 || response.status === 403
+          ? "Chưa xóa được tài khoản — rules của database chưa cho phép node staff_accounts. Đợi bản đồng bộ tiếp theo tự cập nhật rules, hoặc dán rules trong Firebase Console (xem docs/staff-inventory-count.md)."
+          : `Không xóa được tài khoản (mã ${response.status}).`,
+      );
+    }
+  }
+
   // ---------------------------------------------------------------- helpers
 
   private async readAccount(username: string): Promise<StoredStaffAccount | null> {
