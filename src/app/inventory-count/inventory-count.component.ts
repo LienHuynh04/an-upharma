@@ -209,31 +209,85 @@ export class InventoryCountComponent implements OnInit {
     return this.countedProducts.filter((product) => this.difference(product) !== 0);
   }
 
-  get matchingProducts(): CountProduct[] {
-    const query = normalizeFilterText(this.searchText);
-    if (!query) return [];
+  // Search performance: this getter is read many times per change
+  // detection pass (both lists, hints, the confirm logic), and the
+  // searchable set is the whole shop catalog plus the global catalog
+  // (~7,000 products). Recomputing the filter per read made every
+  // keypad keystroke cost ~200ms on a phone. The normalized search
+  // strings are now indexed ONCE per catalog load, the filter itself
+  // is a cheap includes() scan with an early exit at 8 results, and
+  // the result is cached per (query, catalog, mode).
+  private searchIndex: { product: CountProduct; text: string; digits: string }[] = [];
+  private searchIndexCatalog: CountProduct[] | null = null;
+  private searchIndexExtra: CountProduct[] | null = null;
+  private searchIndexStaffMode: boolean | null = null;
+  private matchingCache: CountProduct[] = [];
+  private matchingCacheQuery: string | null = null;
+  private matchingCacheCatalog: CountProduct[] | null = null;
+  private matchingCacheExtra: CountProduct[] | null = null;
+
+  private ensureSearchIndex(): void {
+    if (
+      this.searchIndexCatalog === this.catalogProducts &&
+      this.searchIndexExtra === this.extraCatalogProducts &&
+      this.searchIndexStaffMode === this.staffMode
+    ) {
+      return;
+    }
     // Staff may also add a product found on the shelf that the shop catalog
     // does not list (system stock zero) — those come from the global catalog.
     const searchable = this.staffMode
       ? [...this.catalogProducts, ...this.extraCatalogProducts]
       : this.catalogProducts;
+    this.searchIndex = searchable.map((product) => ({
+      product,
+      text: normalizeFilterText(`${product.code} ${product.name}`),
+      digits: product.code.replace(/\D/g, "").replace(/^0+/, ""),
+    }));
+    this.searchIndexCatalog = this.catalogProducts;
+    this.searchIndexExtra = this.extraCatalogProducts;
+    this.searchIndexStaffMode = this.staffMode;
+  }
+
+  get matchingProducts(): CountProduct[] {
+    const query = normalizeFilterText(this.searchText);
+    if (!query) return [];
+    this.ensureSearchIndex();
+    if (
+      this.matchingCacheQuery === query &&
+      this.matchingCacheCatalog === this.catalogProducts &&
+      this.matchingCacheExtra === this.extraCatalogProducts
+    ) {
+      return this.matchingCache;
+    }
     const queryDigits = query.replace(/\D/g, "");
-    return searchable
-      .filter((product) => {
-        if (normalizeFilterText(`${product.code} ${product.name}`).includes(query)) return true;
+    const wanted = queryDigits.replace(/^0+/, "");
+    const results: CountProduct[] = [];
+    for (const entry of this.searchIndex) {
+      if (entry.text.includes(query)) {
+        results.push(entry.product);
+      } else if (
         // Staff often type only the number part of a code, or part of it:
         // compare digit-only forms with leading zeros stripped on both
         // sides, so "4787" and "84787" both surface code TH04787.
-        if (queryDigits.length >= 2) {
-          const codeDigits = product.code.replace(/\D/g, "").replace(/^0+/, "");
-          const wanted = queryDigits.replace(/^0+/, "");
-          if (codeDigits && wanted && (codeDigits.includes(wanted) || wanted.includes(codeDigits))) {
-            return true;
-          }
-        }
-        return false;
-      })
-      .slice(0, 8);
+        queryDigits.length >= 2 &&
+        entry.digits &&
+        wanted &&
+        (entry.digits.includes(wanted) || wanted.includes(entry.digits))
+      ) {
+        results.push(entry.product);
+      }
+      if (results.length >= 8) break;
+    }
+    this.matchingCache = results;
+    this.matchingCacheQuery = query;
+    this.matchingCacheCatalog = this.catalogProducts;
+    this.matchingCacheExtra = this.extraCatalogProducts;
+    return results;
+  }
+
+  trackByProductCode(_index: number, product: CountProduct): string {
+    return product.code;
   }
 
 

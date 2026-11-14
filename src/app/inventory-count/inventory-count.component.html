@@ -561,7 +561,7 @@
             </div>
 
             <div *ngIf="searchText && matchingProducts.length">
-              <button type="button" class="staff-app-item" *ngFor="let product of matchingProducts" (click)="selectProduct(product)">
+              <button type="button" class="staff-app-item" *ngFor="let product of matchingProducts; trackBy: trackByProductCode" (click)="selectProduct(product)">
                 <span class="staff-app-item-main">
                   <strong>{{ product.name }}</strong>
                   <small>{{ product.code }} · {{ product.unit || "Chưa có đơn vị" }}</small>
@@ -575,7 +575,7 @@
 
             <div class="staff-app-section" *ngIf="countedProducts.length">
               <div class="staff-app-section-title">Đã đếm <span>{{ countedProducts.length }} mã</span></div>
-              <div class="staff-app-item is-counted" *ngFor="let product of countedProducts" (click)="selectProduct(product)">
+              <div class="staff-app-item is-counted" *ngFor="let product of countedProducts; trackBy: trackByProductCode" (click)="selectProduct(product)">
                 <span class="staff-app-item-main">
                   <strong>{{ product.name }}</strong>
                   <small>{{ product.code }}<span *ngIf="product.outsideCatalog"> · ngoài danh mục shop</span></small>
@@ -696,7 +696,7 @@
 
             <div class="staff-code-matches">
               <p class="staff-app-hint" *ngIf="!searchText">Mã khớp sẽ hiện ở đây — cứ bấm số, danh sách tự lọc theo từng phím.</p>
-              <button type="button" class="staff-code-match" *ngFor="let product of matchingProducts.slice(0, 5)" (click)="pickFromPad(product)">
+              <button type="button" class="staff-code-match" *ngFor="let product of matchingProducts.slice(0, 5); trackBy: trackByProductCode" (click)="pickFromPad(product)">
                 <span class="staff-app-item-main">
                   <strong>{{ product.name }}</strong>
                   <small>{{ product.code }} · {{ product.unit || "Chưa có đơn vị" }}</small>
