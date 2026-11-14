@@ -58,6 +58,18 @@ select {
   overflow: hidden;
 }
 
+/* Taps must never zoom the page. This app is used like a POS terminal:
+   staff tap keypad keys and rows in rapid succession, and mobile Safari
+   reads two quick taps as a double-tap zoom, leaving the layout wedged
+   magnified. touch-action: manipulation disables double-tap zoom (and
+   the legacy tap delay) while keeping scrolling and pinch zoom intact.
+   The property is not inherited and tappable surfaces here include
+   plain divs (product cards, match rows), so it applies to everything;
+   scrolling and pinch zoom are unaffected. */
+* {
+  touch-action: manipulation;
+}
+
 body {
   /* Decorative fixed layers (snow, flying Santa) must never widen the
      page: clip horizontal overflow at the root. 'clip' (unlike 'hidden')
