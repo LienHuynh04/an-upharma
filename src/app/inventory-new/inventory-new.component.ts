@@ -620,6 +620,33 @@ export class InventoryNewComponent implements OnInit {
       return;
     }
 
+    // A refresh that failed for some shops must not poison the shared
+    // cache: carry the failed shops' rows over from the previous record.
+    const failedShopCodes = new Set(
+      (((record.data as unknown as { failedShops?: unknown[] })?.failedShops || []) as unknown[])
+        .map((failure) => String(failure).split(":")[0].trim())
+        .filter(Boolean),
+    );
+    if (failedShopCodes.size) {
+      try {
+        const existing = await this.readInventoryCache(record.cacheKey);
+        const oldRows = existing?.data?.data || [];
+        if (oldRows.length) {
+          const shopOf = (row: Record<string, unknown>) => String(row["__shopCode"] || row["ShopCode"] || row["StoreCode"] || "");
+          const newShops = new Set((record.data.data || []).map((row) => shopOf(row as Record<string, unknown>)));
+          const carried = oldRows.filter((row) => {
+            const shop = shopOf(row as Record<string, unknown>);
+            return failedShopCodes.has(shop) && !newShops.has(shop);
+          });
+          if (carried.length) {
+            record = { ...record, data: { ...record.data, data: [...(record.data.data || []), ...carried] } };
+          }
+        }
+      } catch (error) {
+        console.warn("Không hợp nhất được dữ liệu shop tải lỗi vào cache:", error);
+      }
+    }
+
     try {
       const db = await this.openInventoryCacheDb();
 

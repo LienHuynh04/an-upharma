@@ -1,5 +1,5 @@
 import { CommonModule } from "@angular/common";
-import { Component, ElementRef, OnInit, ViewChild } from "@angular/core";
+import { Component, ElementRef, HostListener, OnInit, ViewChild } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { normalizeFilterText, normalizeInventoryRow, parseNumericValue } from "../inventory-utils";
 import { ExcelExportService } from "../shared/services/excel-export.service";
@@ -466,6 +466,20 @@ export class InventoryCountComponent implements OnInit {
       this.errorMessage = "";
       this.noticeMessage = "Có nhiều sản phẩm phù hợp. Chọn đúng sản phẩm trong danh sách.";
     }
+  }
+
+  /**
+   * Status banners must not linger: the moment the user starts another
+   * action on this page (any mousedown inside it), whatever error/notice
+   * is still showing from before is dismissed. Clearing on mousedown -
+   * before the action's own click handler runs - means a message the new
+   * action itself produces is set afterwards and stays.
+   */
+  @HostListener("mousedown")
+  onCountingPageMousedown(): void {
+    if (!this.errorMessage && !this.noticeMessage) return;
+    this.errorMessage = "";
+    this.noticeMessage = "";
   }
 
   saveCount(): void {
@@ -1927,6 +1941,7 @@ export class InventoryCountComponent implements OnInit {
 
   private async writeInventoryCache(record: InventoryCacheRecord): Promise<void> {
     if (!record.data?.data?.length) return;
+    record = await this.carryOverFailedShops(record);
     const db = await this.openInventoryCacheDb();
     try {
       await new Promise<void>((resolve, reject) => {
@@ -1938,6 +1953,54 @@ export class InventoryCountComponent implements OnInit {
     } finally {
       db.close();
     }
+  }
+
+  /**
+   * A refresh that failed for some shops must not poison the shared cache:
+   * rows of the failed shops are carried over from the previous cache
+   * record, so the cache never loses a shop it already had.
+   */
+  private async carryOverFailedShops(record: InventoryCacheRecord): Promise<InventoryCacheRecord> {
+    const failedShopCodes = new Set(
+      (((record.data as unknown as { failedShops?: unknown[] })?.failedShops || []) as unknown[])
+        .map((failure) => String(failure).split(":")[0].trim())
+        .filter(Boolean),
+    );
+    if (!failedShopCodes.size) return record;
+    try {
+      const existing = await this.readInventoryCacheRecord(record.cacheKey);
+      const oldRows = existing?.data?.data || [];
+      if (!oldRows.length) return record;
+      const shopOf = (row: RawRecord) => String(row["__shopCode"] || row["ShopCode"] || row["StoreCode"] || "");
+      const newShops = new Set((record.data.data || []).map(shopOf));
+      const carried = oldRows.filter((row) => failedShopCodes.has(shopOf(row)) && !newShops.has(shopOf(row)));
+      if (!carried.length) return record;
+      return { ...record, data: { ...record.data, data: [...(record.data.data || []), ...carried] } };
+    } catch (error) {
+      console.warn("Không hợp nhất được dữ liệu shop tải lỗi vào cache:", error);
+      return record;
+    }
+  }
+
+  private async readInventoryCacheRecord(cacheKey: string): Promise<InventoryCacheRecord | null> {
+    const db = await this.openInventoryCacheDb();
+    return new Promise<InventoryCacheRecord | null>((resolve, reject) => {
+      if (!db.objectStoreNames.contains("inventory")) {
+        db.close();
+        resolve(null);
+        return;
+      }
+      const transaction = db.transaction("inventory", "readonly");
+      const request = transaction.objectStore("inventory").get(cacheKey);
+      request.onsuccess = () => {
+        db.close();
+        resolve((request.result as InventoryCacheRecord | undefined) || null);
+      };
+      request.onerror = () => {
+        db.close();
+        reject(request.error);
+      };
+    });
   }
 
   private openInventoryCacheDb(): Promise<IDBDatabase> {

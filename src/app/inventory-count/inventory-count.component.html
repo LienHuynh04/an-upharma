@@ -111,10 +111,25 @@
       <section class="card mt-3" *ngIf="!staffMode">
         <div class="card-header py-2 d-flex flex-wrap align-items-center justify-content-between gap-2">
           <div>
-            <div class="page-pretitle">KẾT QUẢ NHÂN VIÊN ĐÃ NỘP</div>
-            <h3 class="card-title">Đối chiếu kiểm kê · {{ selectedShopCode }}</h3>
+            <ng-container *ngIf="!selectedSubmission">
+              <div class="page-pretitle">KẾT QUẢ NHÂN VIÊN ĐÃ NỘP</div>
+              <h3 class="card-title">Đối chiếu kiểm kê · {{ selectedShopCode }}</h3>
+            </ng-container>
+            <ng-container *ngIf="selectedSubmission">
+              <div class="page-pretitle">CHI TIẾT PHIẾU · {{ selectedShopCode }}</div>
+              <h3 class="card-title">Phiếu của {{ selectedSubmission.staffName }}</h3>
+              <div class="text-secondary small">Nộp {{ selectedSubmission.completedAt | date: "HH:mm dd/MM/yyyy" }} · {{ sheetRows.length }} mã</div>
+            </ng-container>
           </div>
-          <div class="d-flex flex-wrap align-items-center gap-2 position-relative">
+          <div class="d-flex flex-wrap align-items-center gap-2" *ngIf="selectedSubmission">
+            <span class="badge bg-success-lt text-success">Đúng {{ verdictSummary.correct }}</span>
+            <span class="badge bg-danger-lt text-danger">Sai {{ verdictSummary.wrong }}</span>
+            <span class="badge bg-secondary-lt text-secondary" *ngIf="verdictSummary.pending">Chưa chấm {{ verdictSummary.pending }}</span>
+            <button class="btn btn-outline-secondary btn-sm" type="button" (click)="backToSheetList()">
+              <i class="ti ti-arrow-left me-1" aria-hidden="true"></i>Danh sách phiếu
+            </button>
+          </div>
+          <div class="d-flex flex-wrap align-items-center gap-2 position-relative" *ngIf="!selectedSubmission">
             <!-- Quick date tags for recent dates with count submissions -->
             <div class="d-none d-lg-flex align-items-center gap-1" *ngIf="recentCountDates.length">
               <span class="text-secondary small me-1">Gần đây:</span>
@@ -398,20 +413,6 @@
             </div>
           </ng-container>
           <ng-container *ngIf="selectedSubmission">
-            <div class="card-body py-2">
-              <div class="d-flex flex-wrap align-items-center gap-2">
-                <button class="btn btn-outline-secondary btn-sm" type="button" (click)="backToSheetList()">
-                  <i class="ti ti-arrow-left me-1" aria-hidden="true"></i>Danh sách phiếu
-                </button>
-                <span class="fw-semibold">Chi tiết phiếu của {{ selectedSubmission.staffName }}</span>
-                <span class="text-secondary small">{{ selectedShopCode }} · nộp {{ selectedSubmission.completedAt | date: "HH:mm dd/MM/yyyy" }} · {{ sheetRows.length }} mã</span>
-                <span class="ms-auto d-flex gap-2">
-                <span class="badge bg-success-lt text-success">Đúng {{ verdictSummary.correct }}</span>
-                <span class="badge bg-danger-lt text-danger">Sai {{ verdictSummary.wrong }}</span>
-                <span class="badge bg-secondary-lt text-secondary" *ngIf="verdictSummary.pending">Chưa chấm {{ verdictSummary.pending }}</span>
-                </span>
-              </div>
-            </div>
             <div class="table-responsive review-table-scroll" *ngIf="sheetRows.length">
               <table class="table table-sm table-vcenter card-table table-hover">
                 <thead>
