@@ -129,6 +129,7 @@ export class InventoryCountComponent implements OnInit {
   recentCountDates: string[] = [];
   hoveredDate: string | null = null;
   hoveredQuickDate: string | null = null;
+  openAbove = false;
   rangeClickStep: 0 | 1 = 0;
   daySubmissions: CountSubmission[] = [];
   selectedSubmission: CountSubmission | null = null;
@@ -742,9 +743,16 @@ export class InventoryCountComponent implements OnInit {
     return this.formatDisplayDate(this.reviewDate);
   }
 
-  toggleCalendarPopup(): void {
+  toggleCalendarPopup(trigger?: HTMLElement): void {
     this.showCalendarPopup = !this.showCalendarPopup;
     if (this.showCalendarPopup) {
+      if (trigger) {
+        const rect = trigger.getBoundingClientRect();
+        const popupHeight = 420;
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const spaceAbove = rect.top;
+        this.openAbove = spaceBelow < popupHeight && spaceAbove > spaceBelow;
+      }
       if (this.reviewDate) {
         const [y, m] = this.reviewDate.split("-").map(Number);
         if (y && m) {

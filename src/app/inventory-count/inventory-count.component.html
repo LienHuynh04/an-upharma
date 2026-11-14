@@ -136,7 +136,7 @@
                 </button>
 
                 <!-- Hover popover / modal displaying count sheets -->
-                <div class="quick-tag-popover" *ngIf="hoveredQuickDate === d && (submissionsByDate[d]?.length || 0) > 0">
+                <div class="quick-tag-popover" [class.open-above-popover]="openAbove" *ngIf="hoveredQuickDate === d && (submissionsByDate[d]?.length || 0) > 0">
                   <div class="popover-header">
                     <span class="popover-title">
                       <span class="dot-icon">●</span> Ngày {{ formatDisplayDate(d) }} · {{ submissionsByDate[d]?.length }} phiếu
@@ -157,9 +157,10 @@
 
             <!-- Calendar Popover Trigger Button -->
             <button
+              #calendarBtn
               type="button"
               class="calendar-trigger-btn d-flex align-items-center gap-2"
-              (click)="toggleCalendarPopup()"
+              (click)="toggleCalendarPopup(calendarBtn)"
               [attr.aria-expanded]="showCalendarPopup"
               aria-label="Chọn ngày hoặc khoảng ngày kiểm kê"
             >
@@ -175,7 +176,7 @@
 
             <!-- Calendar Popup Dropdown -->
             <div class="calendar-backdrop" *ngIf="showCalendarPopup" (click)="showCalendarPopup = false"></div>
-            <div class="calendar-popup" *ngIf="showCalendarPopup">
+            <div class="calendar-popup" [class.open-above]="openAbove" *ngIf="showCalendarPopup">
               <!-- Header with Mode Selector (Single Day vs Date Range) -->
               <div class="calendar-header py-2 px-3 d-flex align-items-center justify-content-between gap-2">
                 <div class="calendar-mode-switcher" role="group">

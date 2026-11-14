@@ -59,15 +59,24 @@ select {
 }
 
 /* Taps must never zoom the page. This app is used like a POS terminal:
-   staff tap keypad keys and rows in rapid succession, and mobile Safari
-   reads two quick taps as a double-tap zoom, leaving the layout wedged
-   magnified. touch-action: manipulation disables double-tap zoom (and
-   the legacy tap delay) while keeping scrolling and pinch zoom intact.
-   The property is not inherited and tappable surfaces here include
-   plain divs (product cards, match rows), so it applies to everything;
-   scrolling and pinch zoom are unaffected. */
+   staff tap keypad keys and rows in rapid succession. We disable double-tap zoom
+   and pinch-to-zoom across touch devices, Chrome, and Safari, while scrolling (pan-x, pan-y)
+   remains fully functional. */
+html, body {
+  touch-action: pan-x pan-y;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 * {
-  touch-action: manipulation;
+  touch-action: pan-x pan-y;
+}
+
+/* Prevent iOS Safari from auto-zooming on input focus by keeping font size >= 16px */
+@media screen and (max-width: 768px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
 }
 
 body {

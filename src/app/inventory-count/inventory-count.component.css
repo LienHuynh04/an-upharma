@@ -800,6 +800,9 @@
   font-size: 13.5px;
   cursor: pointer;
   transition: all 0.15s ease;
+  touch-action: pan-x pan-y;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .calendar-trigger-btn:hover {
@@ -932,6 +935,17 @@
   border-color: transparent transparent #0f172a transparent;
 }
 
+.quick-tag-popover.open-above-popover {
+  top: auto;
+  bottom: calc(100% + 8px);
+}
+
+.quick-tag-popover.open-above-popover::after {
+  bottom: auto;
+  top: 100%;
+  border-color: #0f172a transparent transparent transparent;
+}
+
 .quick-tag-popover .popover-header {
   margin-bottom: 6px;
   padding-bottom: 4px;
@@ -1033,6 +1047,17 @@
   --cal-switcher-active-text: #f8fafc;
   --cal-switcher-text: #94a3b8;
   --cal-shadow: 0 20px 40px -6px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+/* Auto-flip: popup opens above when not enough space below */
+.calendar-popup.open-above {
+  top: auto;
+  bottom: calc(100% + 6px);
+  box-shadow: 0 -16px 36px -4px rgba(15, 23, 42, 0.16), 0 -4px 12px -2px rgba(15, 23, 42, 0.08);
+}
+
+:host-context([data-bs-theme="dark"]) .calendar-popup.open-above {
+  box-shadow: 0 -20px 40px -6px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 
 /* Header & Mode Switcher */
@@ -1344,6 +1369,17 @@
 .calendar-grid .calendar-day:nth-child(7n) .day-hover-tooltip::after {
   left: auto;
   right: 18px;
+}
+
+/* When calendar opens above, top row day tooltips flip downwards to avoid clipping */
+.calendar-popup.open-above .calendar-grid .calendar-day:nth-child(-n + 14) .day-hover-tooltip {
+  bottom: auto;
+  top: calc(100% + 8px);
+}
+.calendar-popup.open-above .calendar-grid .calendar-day:nth-child(-n + 14) .day-hover-tooltip::after {
+  top: auto;
+  bottom: 100%;
+  border-color: transparent transparent #0f172a transparent;
 }
 
 .day-hover-tooltip .tooltip-title {
