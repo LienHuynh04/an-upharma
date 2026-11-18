@@ -156,7 +156,7 @@ function extractRows(response: unknown): RawRecord[] {
   selector: "app-sales-volume",
   standalone: true,
   imports: [CommonModule, FormsModule],
-  styles: [":host .table thead th { background: var(--upharma-card); }"],
+  styles: [":host .table thead th { background: #e9eef5; text-align: left; }", ":host-context([data-bs-theme=\"dark\"]) .table thead th { background: #22345a; }"],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="container-xl py-3">
@@ -322,21 +322,21 @@ function extractRows(response: unknown): RawRecord[] {
           <table class="table table-bordered table-sm align-middle mb-0">
             <thead>
               <tr>
-                <th rowspan="2" style="min-width: 200px; position: sticky; left: 0; background: var(--upharma-card); z-index: 1">Mã SP</th>
-                <th *ngFor="let shop of shops" colspan="3" class="text-center">
+                <th rowspan="2" style="min-width: 200px; position: sticky; left: 0; z-index: 1">Mã SP</th>
+                <th *ngFor="let shop of shops" colspan="3">
                   {{ shopLabel(shop.ShopCode) }}<span class="d-block small fw-normal text-secondary">{{ shop.ShopName }}</span>
                 </th>
-                <th colspan="3" class="text-center">Toàn chuỗi</th>
+                <th colspan="3">Toàn chuỗi</th>
               </tr>
               <tr>
                 <ng-container *ngFor="let shop of shops">
-                  <th class="text-end">Số khoán</th>
-                  <th class="text-end">Thực đạt</th>
-                  <th class="text-end" style="min-width: 96px">Tỉ trọng</th>
+                  <th>Số khoán</th>
+                  <th>Thực đạt</th>
+                  <th style="min-width: 96px">Tỉ trọng</th>
                 </ng-container>
-                <th class="text-end">Số khoán</th>
-                <th class="text-end">Thực đạt</th>
-                <th class="text-end" style="min-width: 96px">Tỉ trọng</th>
+                <th>Số khoán</th>
+                <th>Thực đạt</th>
+                <th style="min-width: 96px">Tỉ trọng</th>
               </tr>
             </thead>
             <tbody>
@@ -411,17 +411,17 @@ function extractRows(response: unknown): RawRecord[] {
             <table class="table table-bordered table-sm align-middle mb-0">
               <thead>
                 <tr>
-                  <th rowspan="2" style="min-width: 200px; position: sticky; left: 0; background: var(--upharma-card); z-index: 1">Mã SP</th>
-                  <th colspan="3" class="text-center">Cả shop {{ shopLabel(employeeShop) }}</th>
-                  <th *ngFor="let name of employeeNames" colspan="2" class="text-center">{{ name }}</th>
+                  <th rowspan="2" style="min-width: 200px; position: sticky; left: 0; z-index: 1">Mã SP</th>
+                  <th colspan="3">Cả shop {{ shopLabel(employeeShop) }}</th>
+                  <th *ngFor="let name of employeeNames" colspan="2">{{ name }}</th>
                 </tr>
                 <tr>
-                  <th class="text-end">Số khoán</th>
-                  <th class="text-end">Thực đạt</th>
-                  <th class="text-end" style="min-width: 96px">Tỉ trọng</th>
+                  <th>Số khoán</th>
+                  <th>Thực đạt</th>
+                  <th style="min-width: 96px">Tỉ trọng</th>
                   <ng-container *ngFor="let name of employeeNames">
-                    <th class="text-end">Thực đạt</th>
-                    <th class="text-end" style="min-width: 84px">Tỉ trọng</th>
+                    <th>Thực đạt</th>
+                    <th style="min-width: 84px">Tỉ trọng</th>
                   </ng-container>
                 </tr>
               </thead>
