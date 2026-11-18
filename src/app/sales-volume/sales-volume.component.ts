@@ -76,6 +76,14 @@ interface ShopView {
   employees: EmpView[];
 }
 
+interface EmployeeRow {
+  product: ProductView;
+  /** Ô của nhà thuốc đang chọn trong tab Nhân viên. */
+  shop: ShopView;
+  /** Thực đạt + tỉ trọng của từng nhân viên, khớp thứ tự với employeeNames. */
+  cells: { qty: number; pctQuota: number | null }[];
+}
+
 interface ProductView {
   code: string;
   name: string;
@@ -266,16 +274,10 @@ function extractRows(response: unknown): RawRecord[] {
 
       <!-- Bộ lọc -->
       <div *ngIf="configLoaded && configItems.length" class="row g-2 mb-3">
-        <div class="col-md-5">
+        <div class="col-md-6">
           <input type="text" class="form-control" placeholder="Tìm theo mã hoặc tên sản phẩm…" [(ngModel)]="searchText" (ngModelChange)="rebuildView()" />
         </div>
-        <div class="col-md-3">
-          <select class="form-select" [(ngModel)]="shopFilter" (ngModelChange)="rebuildView()">
-            <option value="ALL">Tất cả nhà thuốc</option>
-            <option *ngFor="let shop of shops" [value]="shop.ShopCode">{{ shop.ShopCode }} — {{ shop.ShopName }}</option>
-          </select>
-        </div>
-        <div class="col-md-4">
+        <div class="col-md-6">
           <select class="form-select" [(ngModel)]="statusFilter" (ngModelChange)="rebuildView()">
             <option value="ALL">Tất cả trạng thái</option>
             <option value="OPEN">Chưa đạt khoán</option>
@@ -293,123 +295,167 @@ function extractRows(response: unknown): RawRecord[] {
         </div>
       </div>
 
-      <div *ngIf="configLoaded && configItems.length && !products.length && !loading" class="alert alert-secondary py-2">
+      <!-- Hai tab: Nhà thuốc / Nhân viên, cùng một khung bảng như file Excel theo dõi khoán -->
+      <ul *ngIf="configLoaded && configItems.length" class="nav nav-tabs mb-2">
+        <li class="nav-item">
+          <button type="button" class="nav-link" [class.active]="activeTab === 'shops'" (click)="setTab('shops')">Nhà thuốc</button>
+        </li>
+        <li class="nav-item">
+          <button type="button" class="nav-link" [class.active]="activeTab === 'employees'" (click)="setTab('employees')">Nhân viên</button>
+        </li>
+      </ul>
+      <p *ngIf="configLoaded && configItems.length" class="text-secondary small mb-3">
+        Tỉ trọng = thực đạt ÷ số khoán. Ở tab Nhân viên, tỉ trọng của nhân viên tính trên số khoán của nhà thuốc.
+      </p>
+
+      <div
+        *ngIf="configLoaded && configItems.length && !loading && ((activeTab === 'shops' && !products.length) || (activeTab === 'employees' && !employeeRows.length))"
+        class="alert alert-secondary py-2"
+      >
         Không có mã nào khớp bộ lọc hiện tại.
       </div>
 
-      <!-- Danh sách sản phẩm -->
-      <div *ngFor="let product of products" class="card mb-3">
-        <div class="card-header py-2">
-          <div class="w-100">
-          <div class="d-flex flex-wrap align-items-center gap-2 w-100">
-            <span class="fw-bold">{{ product.code }}</span>
-            <span class="text-secondary">{{ product.name }}</span>
-            <span *ngIf="product.status === 'done'" class="badge bg-success">Đã đạt khoán</span>
-            <span *ngIf="product.status === 'open'" class="badge bg-warning text-dark">Chưa đạt</span>
-            <span *ngIf="product.status === 'noquota'" class="badge bg-secondary">Chưa đặt khoán</span>
-            <span class="ms-auto small">
-              Đã bán <strong>{{ fmtQty(product.totalQty) }}</strong><span *ngIf="product.unit"> {{ product.unit }}</span>
-              <ng-container *ngIf="product.totalQuota > 0">
-                / khoán <strong>{{ fmtQty(product.totalQuota) }}</strong> · <strong>{{ fmtPct(product.pct) }}</strong>
-                · <span *ngIf="product.remaining > 0" class="text-danger">còn thiếu {{ fmtQty(product.remaining) }}</span>
-                <span *ngIf="product.over > 0" class="text-success">vượt +{{ fmtQty(product.over) }}</span>
-              </ng-container>
-            </span>
-          </div>
-          <div *ngIf="product.totalQuota > 0" class="progress mt-2" style="height: 8px">
-            <div
-              class="progress-bar"
-              [class.bg-success]="product.status === 'done'"
-              [class.bg-warning]="product.status === 'open' && (product.pct ?? 0) >= 50"
-              [class.bg-danger]="product.status === 'open' && (product.pct ?? 0) < 50"
-              [style.width.%]="barWidth(product.pct)"
-            ></div>
-          </div>
-          </div>
-        </div>
+      <!-- Tab Nhà thuốc: hàng = mã SP, mỗi nhà thuốc một cụm 3 cột Số khoán | Thực đạt | Tỉ trọng -->
+      <div *ngIf="activeTab === 'shops' && products.length" class="card">
         <div class="table-responsive">
-          <table class="table table-vcenter table-sm mb-0">
+          <table class="table table-bordered table-sm align-middle mb-0">
             <thead>
               <tr>
-                <th>Nhà thuốc</th>
-                <th class="text-end">Đã bán</th>
-                <th class="text-end">Khoán</th>
-                <th style="min-width: 170px">% đạt</th>
-                <th class="text-end">Còn phải bán</th>
-                <th class="w-1"></th>
+                <th rowspan="2" style="min-width: 200px; position: sticky; left: 0; background: var(--upharma-card); z-index: 1">Mã SP</th>
+                <th *ngFor="let shop of shops" colspan="3" class="text-center" style="background: rgba(128, 128, 128, 0.07)">
+                  {{ shopLabel(shop.ShopCode) }}<span class="d-block small fw-normal text-secondary">{{ shop.ShopName }}</span>
+                </th>
+                <th colspan="3" class="text-center" style="background: rgba(128, 128, 128, 0.14)">Toàn chuỗi</th>
+              </tr>
+              <tr>
+                <ng-container *ngFor="let shop of shops">
+                  <th class="text-end">Số khoán</th>
+                  <th class="text-end">Thực đạt</th>
+                  <th class="text-end" style="min-width: 96px">Tỉ trọng</th>
+                </ng-container>
+                <th class="text-end">Số khoán</th>
+                <th class="text-end">Thực đạt</th>
+                <th class="text-end" style="min-width: 96px">Tỉ trọng</th>
               </tr>
             </thead>
             <tbody>
-              <ng-container *ngFor="let shop of product.shops">
-                <tr>
-                  <td>
-                    <span class="fw-bold">{{ shop.shopCode }}</span>
-                    <span class="text-secondary d-block small">{{ shop.shopName }}</span>
+              <tr *ngFor="let product of products">
+                <td style="position: sticky; left: 0; background: var(--upharma-card); z-index: 1">
+                  <span class="fw-bold">{{ product.code }}</span>
+                  <span *ngIf="product.status === 'done'" class="badge bg-success ms-1">Đã đạt</span>
+                  <span *ngIf="product.status === 'open'" class="badge bg-warning text-dark ms-1">Chưa đạt</span>
+                  <span *ngIf="product.status === 'noquota'" class="badge bg-secondary ms-1">Chưa đặt khoán</span>
+                  <span class="text-secondary d-block small">{{ product.name }}<span *ngIf="product.unit"> · ĐVT: {{ product.unit }}</span></span>
+                </td>
+                <ng-container *ngFor="let cell of product.shops">
+                  <td class="text-end">{{ cell.quota > 0 ? fmtQty(cell.quota) : "—" }}</td>
+                  <td class="text-end">
+                    <strong>{{ fmtQty(cell.qty) }}</strong>
+                    <span *ngIf="cell.remaining > 0" class="text-danger d-block small">còn thiếu {{ fmtQty(cell.remaining) }}</span>
+                    <span *ngIf="cell.quota > 0 && cell.remaining === 0" class="text-success d-block small">đủ<span *ngIf="cell.over > 0"> (+{{ fmtQty(cell.over) }})</span></span>
                   </td>
                   <td class="text-end">
-                    <strong>{{ fmtQty(shop.qty) }}</strong>
-                    <span class="text-secondary d-block small">{{ fmtMoney(shop.amount) }}</span>
+                    <strong>{{ fmtPct(cell.pct) }}</strong>
+                    <div *ngIf="cell.pct !== null" class="progress mt-1" style="height: 4px">
+                      <div
+                        class="progress-bar"
+                        [class.bg-success]="cell.pct >= 100"
+                        [class.bg-warning]="cell.pct >= 50 && cell.pct < 100"
+                        [class.bg-danger]="cell.pct < 50"
+                        [style.width.%]="barWidth(cell.pct)"
+                      ></div>
+                    </div>
                   </td>
-                  <td class="text-end">{{ shop.quota > 0 ? fmtQty(shop.quota) : "—" }}</td>
-                  <td>
-                    <ng-container *ngIf="shop.pct !== null; else noQuotaCell">
-                      <div class="d-flex align-items-center gap-2">
-                        <div class="progress flex-fill" style="height: 6px">
-                          <div
-                            class="progress-bar"
-                            [class.bg-success]="shop.pct >= 100"
-                            [class.bg-warning]="shop.pct >= 50 && shop.pct < 100"
-                            [class.bg-danger]="shop.pct < 50"
-                            [style.width.%]="barWidth(shop.pct)"
-                          ></div>
-                        </div>
-                        <strong class="small" style="white-space: nowrap">{{ fmtPct(shop.pct) }}</strong>
-                      </div>
-                    </ng-container>
-                    <ng-template #noQuotaCell><span class="text-secondary small">chưa đặt khoán</span></ng-template>
-                  </td>
-                  <td class="text-end">
-                    <span *ngIf="shop.remaining > 0" class="text-danger fw-bold">{{ fmtQty(shop.remaining) }}</span>
-                    <span *ngIf="shop.quota > 0 && shop.remaining === 0" class="text-success">đủ<span *ngIf="shop.over > 0"> (+{{ fmtQty(shop.over) }})</span></span>
-                    <span *ngIf="shop.quota === 0" class="text-secondary">—</span>
-                  </td>
-                  <td>
-                    <button
-                      *ngIf="shop.employees.length"
-                      type="button"
-                      class="btn btn-sm btn-outline-secondary"
-                      (click)="toggleEmployees(product.code, shop.shopCode)"
-                    >
-                      <i class="ti" [class.ti-chevron-down]="!isExpanded(product.code, shop.shopCode)" [class.ti-chevron-up]="isExpanded(product.code, shop.shopCode)"></i>
-                      Nhân viên ({{ shop.employees.length }})
-                    </button>
-                  </td>
-                </tr>
-                <tr *ngIf="isExpanded(product.code, shop.shopCode)">
-                  <td colspan="6" class="p-0" style="background: rgba(128, 128, 128, 0.08)">
-                    <table class="table table-sm mb-0">
-                      <thead>
-                        <tr>
-                          <th class="ps-4">Nhân viên</th>
-                          <th class="text-end">Đã bán</th>
-                          <th class="text-end">% khoán của shop</th>
-                          <th class="text-end pe-4">% cơ cấu trong shop</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr *ngFor="let emp of shop.employees">
-                          <td class="ps-4">{{ emp.name }}</td>
-                          <td class="text-end"><strong>{{ fmtQty(emp.qty) }}</strong></td>
-                          <td class="text-end">{{ emp.pctQuota !== null ? fmtPct(emp.pctQuota) : "—" }}</td>
-                          <td class="text-end pe-4">{{ fmtPct(emp.share) }}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </td>
-                </tr>
-              </ng-container>
+                </ng-container>
+                <td class="text-end">{{ product.totalQuota > 0 ? fmtQty(product.totalQuota) : "—" }}</td>
+                <td class="text-end">
+                  <strong>{{ fmtQty(product.totalQty) }}</strong>
+                  <span *ngIf="product.remaining > 0" class="text-danger d-block small">còn thiếu {{ fmtQty(product.remaining) }}</span>
+                  <span *ngIf="product.totalQuota > 0 && product.remaining === 0" class="text-success d-block small">đủ<span *ngIf="product.over > 0"> (+{{ fmtQty(product.over) }})</span></span>
+                </td>
+                <td class="text-end">
+                  <strong>{{ fmtPct(product.pct) }}</strong>
+                  <div *ngIf="product.pct !== null" class="progress mt-1" style="height: 4px">
+                    <div
+                      class="progress-bar"
+                      [class.bg-success]="product.pct >= 100"
+                      [class.bg-warning]="product.pct >= 50 && product.pct < 100"
+                      [class.bg-danger]="product.pct < 50"
+                      [style.width.%]="barWidth(product.pct)"
+                    ></div>
+                  </div>
+                </td>
+              </tr>
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <!-- Tab Nhân viên: chọn nhà thuốc, hàng = mã SP, mỗi nhân viên một cụm Thực đạt | Tỉ trọng -->
+      <div *ngIf="activeTab === 'employees' && configLoaded && configItems.length">
+        <div class="btn-group mb-3">
+          <button
+            *ngFor="let shop of shops"
+            type="button"
+            class="btn btn-sm"
+            [class.btn-primary]="employeeShop === shop.ShopCode"
+            [class.btn-outline-secondary]="employeeShop !== shop.ShopCode"
+            (click)="setEmployeeShop(shop.ShopCode)"
+          >
+            {{ shopLabel(shop.ShopCode) }}
+          </button>
+        </div>
+        <div *ngIf="employeeRows.length" class="card">
+          <div class="table-responsive">
+            <table class="table table-bordered table-sm align-middle mb-0">
+              <thead>
+                <tr>
+                  <th rowspan="2" style="min-width: 200px; position: sticky; left: 0; background: var(--upharma-card); z-index: 1">Mã SP</th>
+                  <th colspan="3" class="text-center" style="background: rgba(128, 128, 128, 0.14)">Cả shop {{ shopLabel(employeeShop) }}</th>
+                  <th *ngFor="let name of employeeNames" colspan="2" class="text-center" style="background: rgba(128, 128, 128, 0.07)">{{ name }}</th>
+                </tr>
+                <tr>
+                  <th class="text-end">Số khoán</th>
+                  <th class="text-end">Thực đạt</th>
+                  <th class="text-end" style="min-width: 96px">Tỉ trọng</th>
+                  <ng-container *ngFor="let name of employeeNames">
+                    <th class="text-end">Thực đạt</th>
+                    <th class="text-end" style="min-width: 84px">Tỉ trọng</th>
+                  </ng-container>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let row of employeeRows">
+                  <td style="position: sticky; left: 0; background: var(--upharma-card); z-index: 1">
+                    <span class="fw-bold">{{ row.product.code }}</span>
+                    <span class="text-secondary d-block small">{{ row.product.name }}<span *ngIf="row.product.unit"> · ĐVT: {{ row.product.unit }}</span></span>
+                  </td>
+                  <td class="text-end">{{ row.shop.quota > 0 ? fmtQty(row.shop.quota) : "—" }}</td>
+                  <td class="text-end">
+                    <strong>{{ fmtQty(row.shop.qty) }}</strong>
+                    <span *ngIf="row.shop.remaining > 0" class="text-danger d-block small">còn thiếu {{ fmtQty(row.shop.remaining) }}</span>
+                    <span *ngIf="row.shop.quota > 0 && row.shop.remaining === 0" class="text-success d-block small">đủ<span *ngIf="row.shop.over > 0"> (+{{ fmtQty(row.shop.over) }})</span></span>
+                  </td>
+                  <td class="text-end">
+                    <strong>{{ fmtPct(row.shop.pct) }}</strong>
+                    <div *ngIf="row.shop.pct !== null" class="progress mt-1" style="height: 4px">
+                      <div
+                        class="progress-bar"
+                        [class.bg-success]="row.shop.pct >= 100"
+                        [class.bg-warning]="row.shop.pct >= 50 && row.shop.pct < 100"
+                        [class.bg-danger]="row.shop.pct < 50"
+                        [style.width.%]="barWidth(row.shop.pct)"
+                      ></div>
+                    </div>
+                  </td>
+                  <ng-container *ngFor="let cell of row.cells">
+                    <td class="text-end">{{ cell.qty > 0 ? fmtQty(cell.qty) : "—" }}</td>
+                    <td class="text-end">{{ cell.pctQuota !== null ? fmtPct(cell.pctQuota) : "—" }}</td>
+                  </ng-container>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
@@ -433,8 +479,11 @@ export class SalesVolumeComponent implements OnInit, OnDestroy {
   stats = { tracked: 0, done: 0, totalQty: 0, totalQuota: 0, totalRemaining: 0 };
 
   searchText = "";
-  shopFilter = "ALL";
   statusFilter = "ALL";
+  activeTab: "shops" | "employees" = "shops";
+  employeeShop = "";
+  employeeNames: string[] = [];
+  employeeRows: EmployeeRow[] = [];
 
   settingsOpen = false;
   draftItems: DraftItem[] = [];
@@ -452,7 +501,6 @@ export class SalesVolumeComponent implements OnInit, OnDestroy {
   /** Tổng hợp bán hàng: code -> shopCode -> agg. Giữ riêng khỏi khoán để sửa khoán không cần tải lại. */
   private salesAgg = new Map<string, Map<string, ShopAgg>>();
   private productNames = new Map<string, string>();
-  private expandedKeys = new Set<string>();
   private hiddenAt = 0;
   private readonly onVisibility = () => {
     if (document.visibilityState === "hidden") {
@@ -768,22 +816,18 @@ export class SalesVolumeComponent implements OnInit, OnDestroy {
   }
 
   rebuildView(): void {
-    const shopFilter = this.shopFilter;
     const search = this.searchText.trim().toLowerCase();
+    if (!this.employeeShop || !this.shops.some((shop) => shop.ShopCode === this.employeeShop)) {
+      this.employeeShop = this.shops[0]?.ShopCode || "";
+    }
     const views: ProductView[] = [];
     for (const item of this.configItems) {
       const byShop = this.salesAgg.get(item.code);
       const shopViews: ShopView[] = [];
       for (const shop of this.shops) {
-        if (shopFilter !== "ALL" && shop.ShopCode !== shopFilter) {
-          continue;
-        }
         const quota = item.shopQuotas?.[shop.ShopCode] ?? item.quota ?? 0;
         const shopAgg = byShop?.get(shop.ShopCode);
         const qty = shopAgg ? this.convertedQty(shopAgg.units, item) : 0;
-        if (quota <= 0 && qty <= 0) {
-          continue;
-        }
         const employees: EmpView[] = [...(shopAgg?.employees.entries() || [])]
           .map(([name, emp]) => {
             const empQty = this.convertedQty(emp.units, item);
@@ -836,28 +880,77 @@ export class SalesVolumeComponent implements OnInit, OnDestroy {
       totalRemaining: views.reduce((sum, v) => sum + v.remaining, 0),
     };
     const statusWanted = this.statusFilter;
+    const matchesCommon = (view: ProductView): boolean => {
+      if (search && !view.code.toLowerCase().includes(search) && !view.name.toLowerCase().includes(search)) return false;
+      return true;
+    };
     this.products = views.filter((view) => {
       if (statusWanted === "OPEN" && view.status !== "open") return false;
       if (statusWanted === "DONE" && view.status !== "done") return false;
       if (statusWanted === "NOQUOTA" && view.status !== "noquota") return false;
-      if (search && !view.code.toLowerCase().includes(search) && !view.name.toLowerCase().includes(search)) return false;
-      return true;
+      return matchesCommon(view);
     });
-    this.cdr.markForCheck();
-  }
 
-  toggleEmployees(code: string, shopCode: string): void {
-    const key = `${code}|${shopCode}`;
-    if (this.expandedKeys.has(key)) {
-      this.expandedKeys.delete(key);
-    } else {
-      this.expandedKeys.add(key);
+    // Tab Nhân viên: nhân viên của shop đang chọn, tổng hợp từ mọi mã theo dõi.
+    const totals = new Map<string, number>();
+    for (const view of views) {
+      const cell = view.shops.find((shop) => shop.shopCode === this.employeeShop);
+      for (const emp of cell?.employees || []) {
+        totals.set(emp.name, (totals.get(emp.name) || 0) + emp.qty);
+      }
     }
+    this.employeeNames = [...totals.entries()]
+      .filter(([, total]) => total > 0)
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "vi"))
+      .map(([name]) => name);
+    const shopStatus = (cell: ShopView): ProductView["status"] => (cell.quota <= 0 ? "noquota" : cell.qty >= cell.quota ? "done" : "open");
+    const rows: EmployeeRow[] = [];
+    for (const view of views) {
+      const cell = view.shops.find((shop) => shop.shopCode === this.employeeShop);
+      if (!cell) {
+        continue;
+      }
+      const status = shopStatus(cell);
+      if (statusWanted === "OPEN" && status !== "open") continue;
+      if (statusWanted === "DONE" && status !== "done") continue;
+      if (statusWanted === "NOQUOTA" && status !== "noquota") continue;
+      if (!matchesCommon(view)) {
+        continue;
+      }
+      const byName = new Map(cell.employees.map((emp) => [emp.name, emp]));
+      rows.push({
+        product: view,
+        shop: cell,
+        cells: this.employeeNames.map((name) => {
+          const emp = byName.get(name);
+          return { qty: emp?.qty || 0, pctQuota: emp ? emp.pctQuota : cell.quota > 0 ? 0 : null };
+        }),
+      });
+    }
+    rows.sort(
+      (a, b) =>
+        statusRank[shopStatus(a.shop)] - statusRank[shopStatus(b.shop)] ||
+        (a.shop.pct ?? 0) - (b.shop.pct ?? 0) ||
+        b.shop.remaining - a.shop.remaining,
+    );
+    this.employeeRows = rows;
     this.cdr.markForCheck();
   }
 
-  isExpanded(code: string, shopCode: string): boolean {
-    return this.expandedKeys.has(`${code}|${shopCode}`);
+  setTab(tab: "shops" | "employees"): void {
+    this.activeTab = tab;
+    this.cdr.markForCheck();
+  }
+
+  setEmployeeShop(shopCode: string): void {
+    this.employeeShop = shopCode;
+    this.rebuildView();
+  }
+
+  /** Nhãn ngắn kiểu NT25 / NT97 / NT144 như trong file Excel theo dõi khoán. */
+  shopLabel(shopCode: string): string {
+    const digits = shopCode.replace(/\D/g, "");
+    return digits ? `NT${parseInt(digits, 10)}` : shopCode;
   }
 
   // ── Định dạng ────────────────────────────────────────────────────────
