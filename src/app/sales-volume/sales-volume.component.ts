@@ -156,6 +156,7 @@ function extractRows(response: unknown): RawRecord[] {
   selector: "app-sales-volume",
   standalone: true,
   imports: [CommonModule, FormsModule],
+  styles: [":host .table thead th { background: var(--upharma-card); }"],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="container-xl py-3">
@@ -322,10 +323,10 @@ function extractRows(response: unknown): RawRecord[] {
             <thead>
               <tr>
                 <th rowspan="2" style="min-width: 200px; position: sticky; left: 0; background: var(--upharma-card); z-index: 1">Mã SP</th>
-                <th *ngFor="let shop of shops" colspan="3" class="text-center" style="background: rgba(128, 128, 128, 0.07)">
+                <th *ngFor="let shop of shops" colspan="3" class="text-center">
                   {{ shopLabel(shop.ShopCode) }}<span class="d-block small fw-normal text-secondary">{{ shop.ShopName }}</span>
                 </th>
-                <th colspan="3" class="text-center" style="background: rgba(128, 128, 128, 0.14)">Toàn chuỗi</th>
+                <th colspan="3" class="text-center">Toàn chuỗi</th>
               </tr>
               <tr>
                 <ng-container *ngFor="let shop of shops">
@@ -411,8 +412,8 @@ function extractRows(response: unknown): RawRecord[] {
               <thead>
                 <tr>
                   <th rowspan="2" style="min-width: 200px; position: sticky; left: 0; background: var(--upharma-card); z-index: 1">Mã SP</th>
-                  <th colspan="3" class="text-center" style="background: rgba(128, 128, 128, 0.14)">Cả shop {{ shopLabel(employeeShop) }}</th>
-                  <th *ngFor="let name of employeeNames" colspan="2" class="text-center" style="background: rgba(128, 128, 128, 0.07)">{{ name }}</th>
+                  <th colspan="3" class="text-center">Cả shop {{ shopLabel(employeeShop) }}</th>
+                  <th *ngFor="let name of employeeNames" colspan="2" class="text-center">{{ name }}</th>
                 </tr>
                 <tr>
                   <th class="text-end">Số khoán</th>
@@ -776,19 +777,30 @@ export class SalesVolumeComponent implements OnInit, OnDestroy {
     try {
       const response = await fetch(CATALOG_URL);
       const data = (await response.json()) as unknown;
-      const rows: RawRecord[] = Array.isArray(data)
-        ? (data as RawRecord[])
-        : data && typeof data === "object"
-          ? (Object.values(data as RawRecord).filter((v) => v && typeof v === "object") as RawRecord[])
-          : [];
       const wanted = new Set(missing);
-      for (const row of rows) {
+      // Danh mục thật có dạng { count, items: [{ c, n, u }…], updatedAt } —
+      // duyệt đệ quy để lấy tên ở mọi cấp lồng nhau.
+      const visit = (node: unknown, depth: number): void => {
+        if (!node || typeof node !== "object" || depth > 4) {
+          return;
+        }
+        if (Array.isArray(node)) {
+          for (const child of node) {
+            visit(child, depth + 1);
+          }
+          return;
+        }
+        const row = node as RawRecord;
         const code = normalizeCode(pickField(row, ["c", "code", "ProductID", "ProductCode"]));
         const name = String(pickField(row, ["n", "name", "ProductName"]) || "").trim();
         if (code && name && wanted.has(code) && !this.productNames.has(code)) {
           this.productNames.set(code, name);
         }
-      }
+        for (const value of Object.values(row)) {
+          visit(value, depth + 1);
+        }
+      };
+      visit(data, 0);
     } catch {
       // Không tra được tên thì hiển thị mã — không chặn trang.
     }
