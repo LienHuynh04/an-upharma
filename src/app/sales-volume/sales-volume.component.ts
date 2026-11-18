@@ -156,7 +156,7 @@ function extractRows(response: unknown): RawRecord[] {
   selector: "app-sales-volume",
   standalone: true,
   imports: [CommonModule, FormsModule],
-  styles: [":host .table thead th { background: #e9eef5; text-align: left; }", ":host-context([data-bs-theme=\"dark\"]) .table thead th { background: #22345a; }"],
+  styles: [":host .table thead th { background: #e9eef5; text-align: center; }", ":host-context([data-bs-theme=\"dark\"]) .table thead th { background: #22345a; }"],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="container-xl py-3">
