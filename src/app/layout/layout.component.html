@@ -190,6 +190,13 @@
                   >Hàng key</a
                 >
                 <a
+                  class="dropdown-item"
+                  routerLink="/hang-san-luong"
+                  routerLinkActive="active"
+                  (click)="closeSidebar(); openMenuId = null"
+                  >Hàng sản lượng</a
+                >
+                <a
                   class="dropdown-item fw-bold text-danger"
                   routerLink="/goi-y-chuyen-hang"
                   routerLinkActive="active"

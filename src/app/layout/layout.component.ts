@@ -994,6 +994,7 @@ renderDashboard(); renderInventory(); renderNearExpiryOrders(); renderTabs(); re
       url.includes("/hang-da-het") ||
       url.includes("/hang-lap-tot") ||
       url.includes("/hang-key") ||
+      url.includes("/hang-san-luong") ||
       url.includes("/goi-y-chuyen-hang");
     const isReportsRoute =
       url.includes("/xuat-bao-cao") || url.includes("/lay-bao-cao-don-hang");

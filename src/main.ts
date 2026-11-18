@@ -135,6 +135,11 @@ const routes: Routes = [
         title: "UPHARMA - Hàng key",
       },
       {
+        path: "hang-san-luong",
+        loadComponent: () => import("./app/sales-volume/sales-volume.component").then((m) => m.SalesVolumeComponent),
+        title: "UPHARMA - Hàng sản lượng",
+      },
+      {
         path: "goi-y-chuyen-hang",
         loadComponent: () => import("./app/transfer-suggestions/transfer-suggestions.component").then((m) => m.TransferSuggestionsComponent),
         title: "UPHARMA - Gợi ý chuyển hàng",
