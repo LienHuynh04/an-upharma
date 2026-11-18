@@ -156,7 +156,11 @@ function extractRows(response: unknown): RawRecord[] {
   selector: "app-sales-volume",
   standalone: true,
   imports: [CommonModule, FormsModule],
-  styles: [":host .table thead th { background: #e9eef5; text-align: center; }", ":host-context([data-bs-theme=\"dark\"]) .table thead th { background: #22345a; }"],
+  styles: [
+    ":host .table thead th { background: #206bc4 !important; color: #ffffff !important; text-align: center; font-weight: 600; }",
+    ":host .table thead th .text-secondary { color: rgba(255, 255, 255, 0.78) !important; }",
+    ":host .table thead tr:last-child th { white-space: nowrap; }",
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="container-xl py-3">
@@ -324,7 +328,7 @@ function extractRows(response: unknown): RawRecord[] {
               <tr>
                 <th rowspan="2" style="min-width: 200px; position: sticky; left: 0; z-index: 1">Mã SP</th>
                 <th *ngFor="let shop of shops" colspan="3">
-                  {{ shopLabel(shop.ShopCode) }}<span class="d-block small fw-normal text-secondary">{{ shop.ShopName }}</span>
+                  {{ shopLabel(shop.ShopCode) }}<span class="d-block small fw-normal text-secondary">{{ shortShopName(shop.ShopName) }}</span>
                 </th>
                 <th colspan="3">Toàn chuỗi</th>
               </tr>
@@ -957,6 +961,11 @@ export class SalesVolumeComponent implements OnInit, OnDestroy {
   setEmployeeShop(shopCode: string): void {
     this.employeeShop = shopCode;
     this.rebuildView();
+  }
+
+  /** Tên nhà thuốc rút gọn: bỏ phần địa chỉ sau dấu gạch ngang đầu tiên. */
+  shortShopName(shopName: string): string {
+    return (shopName || "").split(/\s+[-–]\s+/)[0].trim();
   }
 
   /** Nhãn ngắn kiểu NT25 / NT97 / NT144 như trong file Excel theo dõi khoán. */
