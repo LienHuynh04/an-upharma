@@ -228,43 +228,25 @@ function extractRows(response: unknown): RawRecord[] {
               </p>
               <div *ngFor="let calc of detailCalcs" class="mb-4">
                 <h6 class="mb-2">{{ shopLabel(calc.shopCode) }} — {{ shortShopName(calc.shopName) }} <span class="text-secondary fw-normal">· Số khoán: {{ calc.quota > 0 ? fmtQty(calc.quota) + " " + detailItem.unit : "chưa đặt" }}</span></h6>
-                <table class="table table-sm table-vcenter mb-2">
-                  <thead>
-                    <tr><th>Đơn vị bán trên hóa đơn</th><th class="text-end">Số lượng bán</th><th>Phép tính</th><th class="text-end">Quy về {{ detailItem.unit }}</th></tr>
-                  </thead>
-                  <tbody>
-                    <tr *ngFor="let line of calc.lines">
-                      <td>{{ line.unit }}</td>
-                      <td class="text-end">{{ fmtQty(line.raw) }}</td>
-                      <td>
-                        <span *ngIf="line.divided">{{ fmtQty(line.raw) }} ÷ {{ detailItem.packSize }}</span>
-                        <span *ngIf="!line.divided" class="text-secondary">tính nguyên</span>
-                      </td>
-                      <td class="text-end">{{ fmtQty(line.converted) }}</td>
-                    </tr>
-                    <tr *ngIf="!calc.lines.length"><td colspan="4" class="text-secondary">Chưa có dòng bán nào trong tháng.</td></tr>
-                    <tr class="fw-bold">
-                      <td colspan="3">Thực đạt</td>
-                      <td class="text-end">{{ fmtQty(calc.total) }} {{ detailItem.unit }}</td>
-                    </tr>
-                  </tbody>
-                </table>
-                <p class="small mb-2">
-                  Tỉ trọng: <strong>{{ calc.pct !== null ? fmtPct(calc.pct) : "—" }}</strong>
-                  <span *ngIf="calc.quota > 0 && calc.remaining > 0" class="text-danger"> · Còn thiếu {{ fmtQty(calc.remaining) }} {{ detailItem.unit }}</span>
-                  <span *ngIf="calc.quota > 0 && calc.remaining === 0" class="text-success"> · Đã đủ khoán<span *ngIf="calc.over > 0"> (dư {{ fmtQty(calc.over) }})</span></span>
-                </p>
-                <table *ngIf="calc.employees.length" class="table table-sm table-vcenter">
-                  <thead><tr><th>Nhân viên</th><th>Số bán theo đơn vị</th><th class="text-end">Quy về {{ detailItem.unit }}</th><th class="text-end">Tỉ trọng / khoán shop</th></tr></thead>
-                  <tbody>
-                    <tr *ngFor="let emp of calc.employees">
-                      <td>{{ emp.name }}</td>
-                      <td class="text-secondary">{{ emp.summary }}</td>
-                      <td class="text-end">{{ fmtQty(emp.qty) }}</td>
-                      <td class="text-end">{{ emp.pct !== null ? fmtPct(emp.pct) : "—" }}</td>
-                    </tr>
-                  </tbody>
-                </table>
+                <ul class="list-unstyled mb-2">
+                  <li *ngFor="let line of calc.lines" class="py-1 border-bottom">
+                    <span *ngIf="line.divided">Bán lẻ: <strong>{{ fmtQty(line.raw) }} {{ line.unit }}</strong> ÷ {{ detailItem.packSize }} = <strong>{{ fmtQty(line.converted) }} {{ detailItem.unit }}</strong></span>
+                    <span *ngIf="!line.divided">Bán nguyên: <strong>{{ fmtQty(line.raw) }} {{ line.unit }}</strong> = <strong>{{ fmtQty(line.converted) }} {{ detailItem.unit }}</strong></span>
+                  </li>
+                  <li *ngIf="!calc.lines.length" class="py-1 border-bottom text-secondary">Chưa bán được gì trong tháng này.</li>
+                  <li class="py-2">
+                    Thực đạt: <strong>{{ fmtQty(calc.total) }} {{ detailItem.unit }}</strong>
+                    <span *ngIf="calc.quota > 0"> trên khoán {{ fmtQty(calc.quota) }} {{ detailItem.unit }} → đạt <strong>{{ fmtPct(calc.pct) }}</strong><span *ngIf="calc.remaining > 0" class="text-danger">, còn thiếu {{ fmtQty(calc.remaining) }} {{ detailItem.unit }}</span><span *ngIf="calc.remaining === 0" class="text-success">, đã đủ<span *ngIf="calc.over > 0"> (dư {{ fmtQty(calc.over) }})</span></span></span>
+                  </li>
+                </ul>
+                <div *ngIf="calc.employees.length">
+                  <div class="small text-secondary mb-1">Theo nhân viên:</div>
+                  <ul class="list-unstyled mb-0">
+                    <li *ngFor="let emp of calc.employees" class="py-1 border-bottom">
+                      <strong>{{ emp.name }}</strong>: bán {{ emp.summary }} → quy đổi <strong>{{ fmtQty(emp.qty) }} {{ detailItem.unit }}</strong><span *ngIf="emp.pct !== null" class="text-secondary"> ({{ fmtPct(emp.pct) }} khoán shop)</span>
+                    </li>
+                  </ul>
+                </div>
               </div>
             </div>
             <div class="modal-footer">
@@ -931,7 +913,7 @@ export class SalesVolumeComponent implements OnInit, OnDestroy {
               const part = convert(emp.units);
               return {
                 name,
-                summary: part.lines.map((line) => `${this.fmtQty(line.raw)} ${line.unit}`).join(" · "),
+                summary: part.lines.map((line) => `${this.fmtQty(line.raw)} ${line.unit}`).join(" + "),
                 qty: part.total,
                 pct: quota > 0 ? (part.total / quota) * 100 : null,
               };
