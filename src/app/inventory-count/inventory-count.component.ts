@@ -54,6 +54,22 @@ interface SheetRow {
   otherCounts: { staffName: string; quantity: number }[];
 }
 
+interface DaySummaryRow {
+  code: string;
+  name: string;
+  unit: string;
+  expectedQuantity: number | null;
+  /** One entry per staff member (aligned with daySummaryStaff); null = that person did not count the code. */
+  counts: (number | null)[];
+  /** Sum of every staff member's count of this code (latest sheet per person). */
+  totalCounted: number;
+  difference: number | null;
+  /** Unit price from the inventory catalog; 0 when unknown. */
+  unitPrice: number;
+  /** Money value of the total difference; null when quantity or price is unknown. */
+  differenceAmount: number | null;
+}
+
 interface CountSession {
   id: string;
   shopCode: string;
@@ -139,6 +155,8 @@ export class InventoryCountComponent implements OnInit {
   daySubmissions: CountSubmission[] = [];
   selectedSubmission: CountSubmission | null = null;
   sheetRows: SheetRow[] = [];
+  daySummaryRows: DaySummaryRow[] = [];
+  daySummaryStaff: { uid: string; name: string }[] = [];
   /** Saved manager evaluations of the shop's sheets, keyed by submission id. */
   evaluationsBySubmission: Record<string, StaffEvaluation> = {};
   /** Products with stock that no sheet of the loaded day counted (computed once per load, never in a template getter). */
@@ -1180,6 +1198,7 @@ export class InventoryCountComponent implements OnInit {
       await this.prepareFinalQuantities();
       this.reviewLoaded = true;
       this.computeUncountedProducts();
+      this.buildDaySummary();
       this.trySelectSheetFromParam();
     } catch (error) {
       this.submissionsError = this.errorText(error);
@@ -1360,6 +1379,55 @@ export class InventoryCountComponent implements OnInit {
       });
     }
     this.sheetRows = rows.sort((first, second) =>
+      first.name.localeCompare(second.name, "vi", { sensitivity: "base" }),
+    );
+  }
+
+  /**
+   * Day summary for the review card: one row per product counted that day,
+   * one count column per staff member (their LATEST sheet of the day) and a
+   * cross-staff total — the "tổng kết sau kiểm kê" the manager asked for.
+   * The total is a reporting sum only; it never feeds the final quantities.
+   */
+  private buildDaySummary(): void {
+    const latestByStaff = new Map<string, CountSubmission>();
+    for (const submission of this.daySubmissions) {
+      latestByStaff.set(submission.staffUid, submission);
+    }
+    const staff = Array.from(latestByStaff.values()).map((submission) => ({
+      uid: submission.staffUid,
+      name: submission.staffName,
+    }));
+    this.daySummaryStaff = staff;
+    const expectedByCode = new Map(this.catalogProducts.map((product) => [product.code, product]));
+    const codes = new Set<string>();
+    for (const submission of latestByStaff.values()) {
+      for (const item of submission.items) codes.add(item.code);
+    }
+    const rows: DaySummaryRow[] = [];
+    for (const code of codes) {
+      const expected = expectedByCode.get(code);
+      const anyItem = this.daySubmissions.flatMap((entry) => entry.items).find((entry) => entry.code === code);
+      const counts = staff.map(({ uid }) => {
+        const item = latestByStaff.get(uid)?.items.find((entry) => entry.code === code);
+        return item ? item.countedQuantity : null;
+      });
+      const totalCounted = counts.reduce((total: number, value) => total + (value ?? 0), 0);
+      const difference = expected ? totalCounted - expected.expectedQuantity : null;
+      const unitPrice = expected?.unitPrice ?? 0;
+      rows.push({
+        code,
+        name: expected?.name || anyItem?.name || code,
+        unit: expected?.unit || anyItem?.unit || "",
+        expectedQuantity: expected ? expected.expectedQuantity : null,
+        counts,
+        totalCounted,
+        difference,
+        unitPrice,
+        differenceAmount: difference !== null && unitPrice > 0 ? difference * unitPrice : null,
+      });
+    }
+    this.daySummaryRows = rows.sort((first, second) =>
       first.name.localeCompare(second.name, "vi", { sensitivity: "base" }),
     );
   }
@@ -1635,6 +1703,17 @@ export class InventoryCountComponent implements OnInit {
         for (const staffName of staffNames) {
           record[`SL đếm - ${staffName}`] = latestCount(staffName, code);
         }
+        const countedValues = staffNames
+          .map((staffName) => latestCount(staffName, code))
+          .filter((value): value is number => typeof value === "number");
+        record["Tổng NV đếm"] = countedValues.length
+          ? countedValues.reduce((total, value) => total + value, 0)
+          : "";
+        record["Đơn giá"] = expected && expected.unitPrice > 0 ? expected.unitPrice : "";
+        record["Tiền chênh (tổng)"] =
+          expected && expected.unitPrice > 0 && typeof record["Tổng NV đếm"] === "number"
+            ? ((record["Tổng NV đếm"] as number) - expected.expectedQuantity) * expected.unitPrice
+            : "";
         for (const staffName of staffNames) {
           record[`Đánh giá - ${staffName}`] = verdictFor(staffName, code);
         }
@@ -1973,7 +2052,10 @@ export class InventoryCountComponent implements OnInit {
             product.expectedQuantity !== this.catalogProducts[index]?.expectedQuantity,
         );
       this.catalogProducts = fresh;
-      if (this.reviewLoaded) this.computeUncountedProducts();
+      if (this.reviewLoaded) {
+        this.computeUncountedProducts();
+        this.buildDaySummary();
+      }
       if (changed) {
         this.catalogStatus = `Danh mục vừa được cập nhật từ dữ liệu tồn kho mới nhất: ${fresh.length} sản phẩm cho ${shopAtStart}.`;
       }
