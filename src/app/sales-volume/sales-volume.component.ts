@@ -50,6 +50,25 @@ interface ShopAgg {
   employees: Map<string, EmpAgg>;
 }
 
+interface CalcLine {
+  unit: string;
+  raw: number;
+  converted: number;
+  divided: boolean;
+}
+
+interface ShopCalc {
+  shopCode: string;
+  shopName: string;
+  quota: number;
+  lines: CalcLine[];
+  total: number;
+  pct: number | null;
+  remaining: number;
+  over: number;
+  employees: { name: string; summary: string; qty: number; pct: number | null }[];
+}
+
 function addUnit(map: Map<string, number>, unit: string, qty: number): void {
   map.set(unit, (map.get(unit) || 0) + qty);
 }
@@ -157,7 +176,7 @@ function extractRows(response: unknown): RawRecord[] {
   standalone: true,
   imports: [CommonModule, FormsModule],
   styles: [
-    ":host .table thead th { background: #206bc4 !important; color: #ffffff !important; text-align: center; font-weight: 600; }",
+    ":host .table thead th { background: #6f4e37 !important; color: #ffffff !important; text-align: center; font-weight: 600; }",
     ":host .table thead th .text-secondary { color: rgba(255, 255, 255, 0.78) !important; }",
     ":host .table thead tr:last-child th { white-space: nowrap; }",
   ],
@@ -193,6 +212,69 @@ function extractRows(response: unknown): RawRecord[] {
       </div>
 
       <!-- Thiết lập -->
+      <!-- Modal chi tiết phép tính -->
+      <div *ngIf="detailProduct && detailItem" class="modal modal-blur fade show d-block" tabindex="-1" (click)="closeDetail()">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable" (click)="$event.stopPropagation()">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">{{ detailProduct.code }} — {{ detailProduct.name }}</h5>
+              <button type="button" class="btn-close" (click)="closeDetail()" aria-label="Đóng"></button>
+            </div>
+            <div class="modal-body">
+              <p class="text-secondary small">
+                Đơn vị khoán: <strong>{{ detailItem.unit }}</strong>
+                <span *ngIf="detailItem.packSize && detailItem.packSize > 1"> · Quy đổi: 1 {{ detailItem.unit }} = {{ detailItem.packSize }} đơn vị lẻ — số bán lẻ (viên/ống) chia cho {{ detailItem.packSize }}, số bán đúng đơn vị khoán tính nguyên.</span>
+                <span *ngIf="!detailItem.packSize || detailItem.packSize <= 1"> · Mã này bán đúng đơn vị khoán nên tính nguyên, không quy đổi.</span>
+              </p>
+              <div *ngFor="let calc of detailCalcs" class="mb-4">
+                <h6 class="mb-2">{{ shopLabel(calc.shopCode) }} — {{ shortShopName(calc.shopName) }} <span class="text-secondary fw-normal">· Số khoán: {{ calc.quota > 0 ? fmtQty(calc.quota) + " " + detailItem.unit : "chưa đặt" }}</span></h6>
+                <table class="table table-sm table-vcenter mb-2">
+                  <thead>
+                    <tr><th>Đơn vị bán trên hóa đơn</th><th class="text-end">Số lượng bán</th><th>Phép tính</th><th class="text-end">Quy về {{ detailItem.unit }}</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let line of calc.lines">
+                      <td>{{ line.unit }}</td>
+                      <td class="text-end">{{ fmtQty(line.raw) }}</td>
+                      <td>
+                        <span *ngIf="line.divided">{{ fmtQty(line.raw) }} ÷ {{ detailItem.packSize }}</span>
+                        <span *ngIf="!line.divided" class="text-secondary">tính nguyên</span>
+                      </td>
+                      <td class="text-end">{{ fmtQty(line.converted) }}</td>
+                    </tr>
+                    <tr *ngIf="!calc.lines.length"><td colspan="4" class="text-secondary">Chưa có dòng bán nào trong tháng.</td></tr>
+                    <tr class="fw-bold">
+                      <td colspan="3">Thực đạt</td>
+                      <td class="text-end">{{ fmtQty(calc.total) }} {{ detailItem.unit }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+                <p class="small mb-2">
+                  Tỉ trọng: <strong>{{ calc.pct !== null ? fmtPct(calc.pct) : "—" }}</strong>
+                  <span *ngIf="calc.quota > 0 && calc.remaining > 0" class="text-danger"> · Còn thiếu {{ fmtQty(calc.remaining) }} {{ detailItem.unit }}</span>
+                  <span *ngIf="calc.quota > 0 && calc.remaining === 0" class="text-success"> · Đã đủ khoán<span *ngIf="calc.over > 0"> (dư {{ fmtQty(calc.over) }})</span></span>
+                </p>
+                <table *ngIf="calc.employees.length" class="table table-sm table-vcenter">
+                  <thead><tr><th>Nhân viên</th><th>Số bán theo đơn vị</th><th class="text-end">Quy về {{ detailItem.unit }}</th><th class="text-end">Tỉ trọng / khoán shop</th></tr></thead>
+                  <tbody>
+                    <tr *ngFor="let emp of calc.employees">
+                      <td>{{ emp.name }}</td>
+                      <td class="text-secondary">{{ emp.summary }}</td>
+                      <td class="text-end">{{ fmtQty(emp.qty) }}</td>
+                      <td class="text-end">{{ emp.pct !== null ? fmtPct(emp.pct) : "—" }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" (click)="closeDetail()">Đóng</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div *ngIf="detailProduct" class="modal-backdrop fade show"></div>
+
       <div *ngIf="settingsOpen" class="card mb-3">
         <div class="card-header">
           <h3 class="card-title">Thiết lập mã sản phẩm &amp; số khoán tháng này</h3>
@@ -310,7 +392,7 @@ function extractRows(response: unknown): RawRecord[] {
         </li>
       </ul>
       <p *ngIf="configLoaded && configItems.length" class="text-secondary small mb-3">
-        Tỉ trọng = thực đạt ÷ số khoán. Ở tab Nhân viên, tỉ trọng của nhân viên tính trên số khoán của nhà thuốc.
+        Tỉ trọng = thực đạt ÷ số khoán. Ở tab Nhân viên, tỉ trọng của nhân viên tính trên số khoán của nhà thuốc. Bấm vào một dòng sản phẩm để xem chi tiết phép tính.
       </p>
 
       <div
@@ -344,7 +426,7 @@ function extractRows(response: unknown): RawRecord[] {
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let product of products">
+              <tr *ngFor="let product of products" (click)="openDetail(product)" style="cursor: pointer" title="Bấm để xem chi tiết phép tính">
                 <td style="position: sticky; left: 0; background: var(--upharma-card); z-index: 1">
                   <span class="fw-bold">{{ product.code }}</span>
                   <span *ngIf="product.status === 'done'" class="badge bg-success ms-1">Đã đạt</span>
@@ -430,7 +512,7 @@ function extractRows(response: unknown): RawRecord[] {
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let row of employeeRows">
+                <tr *ngFor="let row of employeeRows" (click)="openDetail(row.product, employeeShop)" style="cursor: pointer" title="Bấm để xem chi tiết phép tính">
                   <td style="position: sticky; left: 0; background: var(--upharma-card); z-index: 1">
                     <span class="fw-bold">{{ row.product.code }}</span>
                     <span class="text-secondary d-block small">{{ row.product.name }}<span *ngIf="row.product.unit"> · ĐVT: {{ row.product.unit }}</span></span>
@@ -489,6 +571,9 @@ export class SalesVolumeComponent implements OnInit, OnDestroy {
   employeeShop = "";
   employeeNames: string[] = [];
   employeeRows: EmployeeRow[] = [];
+  detailProduct: ProductView | null = null;
+  detailItem: VolumeProductConfig | null = null;
+  detailCalcs: ShopCalc[] = [];
 
   settingsOpen = false;
   draftItems: DraftItem[] = [];
@@ -708,13 +793,12 @@ export class SalesVolumeComponent implements OnInit, OnDestroy {
         while (queue.length) {
           const shop = queue.shift()!;
           try {
-            const response = await this.upharmaService.callEndpoint<unknown>("/SalesInvoice/GetReportSalesByShop", {
-              uPharmaID: session.UserInfo.uPharmaID,
-              Token: session.Token,
-              ShopCode: shop.ShopCode,
-              _useFirebaseCache: true,
-            }, { cache: true, forceRefresh });
-            const rows = extractRows(response);
+            const response = await fetch(`https://an-upharma-default-rtdb.firebaseio.com/shops/${shop.ShopCode}/upharma_data/sales_report.json`);
+            if (!response.ok) {
+              throw new Error(`HTTP ${response.status}`);
+            }
+            const json = (await response.json()) as unknown;
+            const rows = extractRows(json);
             for (const row of rows) {
               const code = normalizeCode(pickField(row, ["ProductID", "ProductCode", "Product_ID", "MaSP", "ItemCode", "Code"]));
               if (!code) {
@@ -808,6 +892,74 @@ export class SalesVolumeComponent implements OnInit, OnDestroy {
     } catch {
       // Không tra được tên thì hiển thị mã — không chặn trang.
     }
+  }
+
+  /** Mở modal chi tiết phép tính của một mã: số bán thô theo từng đơn vị
+   * bán trên hóa đơn, cách quy đổi về đơn vị khoán và phần của từng nhân viên. */
+  openDetail(product: ProductView, onlyShop?: string): void {
+    const item = this.configItems.find((entry) => entry.code === product.code);
+    if (!item) {
+      return;
+    }
+    this.detailItem = item;
+    this.detailProduct = product;
+    const target = (item.unit || "").trim().toLowerCase();
+    const pack = item.packSize && item.packSize > 1 ? item.packSize : 1;
+    const convert = (units: Map<string, number>): { lines: CalcLine[]; total: number } => {
+      const lines: CalcLine[] = [];
+      let total = 0;
+      for (const [unit, raw] of units) {
+        const divided = !!unit && pack > 1 && unit.trim().toLowerCase() !== target;
+        const converted = divided ? raw / pack : raw;
+        lines.push({ unit: unit || "(không ghi đơn vị)", raw, converted, divided });
+        total += converted;
+      }
+      lines.sort((a, b) => b.raw - a.raw);
+      return { lines, total };
+    };
+    const calcs: ShopCalc[] = [];
+    for (const shop of this.shops) {
+      if (onlyShop && shop.ShopCode !== onlyShop) {
+        continue;
+      }
+      const shopAgg = this.salesAgg.get(product.code)?.get(shop.ShopCode);
+      const converted = convert(shopAgg?.units ?? new Map<string, number>());
+      const quota = item.shopQuotas?.[shop.ShopCode] ?? item.quota ?? 0;
+      const employees = shopAgg
+        ? [...shopAgg.employees.entries()]
+            .map(([name, emp]) => {
+              const part = convert(emp.units);
+              return {
+                name,
+                summary: part.lines.map((line) => `${this.fmtQty(line.raw)} ${line.unit}`).join(" · "),
+                qty: part.total,
+                pct: quota > 0 ? (part.total / quota) * 100 : null,
+              };
+            })
+            .filter((entry) => entry.qty > 0)
+            .sort((a, b) => b.qty - a.qty)
+        : [];
+      calcs.push({
+        shopCode: shop.ShopCode,
+        shopName: shop.ShopName,
+        quota,
+        lines: converted.lines,
+        total: converted.total,
+        pct: quota > 0 ? (converted.total / quota) * 100 : null,
+        remaining: Math.max(0, quota - converted.total),
+        over: Math.max(0, converted.total - quota),
+        employees,
+      });
+    }
+    this.detailCalcs = calcs;
+    this.cdr.markForCheck();
+  }
+
+  closeDetail(): void {
+    this.detailProduct = null;
+    this.detailItem = null;
+    this.detailCalcs = [];
+    this.cdr.markForCheck();
   }
 
   // ── Dựng view ────────────────────────────────────────────────────────

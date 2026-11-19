@@ -288,6 +288,20 @@
         </div>
         -->
 
+        <!-- Holiday FX toggle -->
+        <div class="nav-item">
+          <button
+            class="btn btn-icon btn-ghost-light border-0 p-0 text-white-50"
+            type="button"
+            (click)="toggleHolidayFx()"
+            [title]="holidayFx ? 'Ẩn tuyết và ông già Noel' : 'Hiện tuyết và ông già Noel'"
+            [style.opacity]="holidayFx ? '1' : '0.35'"
+            style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;"
+          >
+            <i class="ti ti-snowflake" style="font-size: 1.25rem;"></i>
+          </button>
+        </div>
+
         <!-- Theme toggle -->
         <div class="nav-item">
           <button
@@ -357,7 +371,7 @@
     </div>
   </div>
 
-  <div class="holiday-stage d-print-none" aria-hidden="true">
+  <div *ngIf="holidayFx" class="holiday-stage d-print-none" aria-hidden="true">
     <div class="holiday-snow"></div>
     <div class="holiday-santa">
       <div class="holiday-santa-art"></div>

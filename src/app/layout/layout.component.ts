@@ -43,6 +43,7 @@ export class LayoutComponent implements OnInit, OnDestroy {
   userTitle = "Đang tải...";
   brandShopText = "";
   darkMode = false;
+  holidayFx = true;
   notificationsOpen = false;
 
   generatingReport = false;
@@ -844,6 +845,8 @@ renderDashboard(); renderInventory(); renderNearExpiryOrders(); renderTabs(); re
   showLogoutConfirm = false;
 
   ngOnInit() {
+    const savedHolidayFx = localStorage.getItem("upharma_holiday_fx");
+    this.holidayFx = savedHolidayFx === null ? true : savedHolidayFx === "true";
     const savedDarkMode = localStorage.getItem("upharma_dark_mode");
     this.darkMode = savedDarkMode === null ? true : savedDarkMode === "true";
     if (savedDarkMode === null) {
@@ -933,6 +936,11 @@ renderDashboard(); renderInventory(); renderNearExpiryOrders(); renderTabs(); re
 
   get sidebarToggleIcon(): string {
     return this.appClasses["is-sidebar-open"] ? "×" : "☰";
+  }
+
+  toggleHolidayFx() {
+    this.holidayFx = !this.holidayFx;
+    localStorage.setItem("upharma_holiday_fx", String(this.holidayFx));
   }
 
   toggleDarkMode() {
