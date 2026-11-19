@@ -199,9 +199,10 @@ function extractRows(response: unknown): RawRecord[] {
       <div class="text-secondary small mb-3">
         Nguồn: đơn bán hàng đồng bộ trên Firebase (từ đầu tháng đến hiện tại, cập nhật hằng giờ).
         <span *ngIf="loadedAtText">Dữ liệu lúc {{ loadedAtText }}.</span>
+        <span *ngIf="loading && (products.length || employeeRows.length)" class="text-primary">Đang cập nhật dữ liệu mới…</span>
       </div>
 
-      <div *ngIf="loading" class="alert alert-info d-flex align-items-center gap-2 py-2" role="alert">
+      <div *ngIf="loading && !products.length && !employeeRows.length" class="alert alert-info d-flex align-items-center gap-2 py-2" role="alert">
         <span class="spinner-border spinner-border-sm"></span>
         <span>{{ progressText || "Đang tải dữ liệu bán hàng…" }}</span>
       </div>
@@ -257,9 +258,40 @@ function extractRows(response: unknown): RawRecord[] {
       </div>
       <div *ngIf="detailProduct" class="modal-backdrop fade show"></div>
 
-      <div *ngIf="settingsOpen" class="card mb-3">
+      <div *ngIf="configLoaded && !configItems.length && !loading && activeTab !== 'form'" class="card">
+        <div class="card-body text-center py-5">
+          <div class="fs-3 mb-2">Chưa có mã sản phẩm nào được theo dõi</div>
+          <p class="text-secondary">Bấm “Thiết lập mã &amp; khoán” để thêm các mã cần theo dõi sản lượng và đặt số khoán cho từng nhà thuốc.</p>
+          <button type="button" class="btn btn-primary" (click)="toggleSettings()">Mở thiết lập</button>
+        </div>
+      </div>
+
+      <!-- Hai tab: Nhà thuốc / Nhân viên, cùng một khung bảng như file Excel theo dõi khoán -->
+      <ul *ngIf="configLoaded" class="nav nav-tabs mb-2">
+        <li class="nav-item">
+          <button type="button" class="nav-link" [class.active]="activeTab === 'shops'" (click)="setTab('shops')">Nhà thuốc</button>
+        </li>
+        <li class="nav-item">
+          <button type="button" class="nav-link" [class.active]="activeTab === 'employees'" (click)="setTab('employees')">Nhân viên</button>
+        </li>
+        <li class="nav-item">
+          <button type="button" class="nav-link" [class.active]="activeTab === 'form'" (click)="setTab('form')">Form</button>
+        </li>
+      </ul>
+      <p *ngIf="configLoaded && configItems.length" class="text-secondary small mb-3">
+        Tỉ trọng = thực đạt ÷ số khoán. Ở tab Nhân viên, tỉ trọng của nhân viên tính trên số khoán của nhà thuốc. Bấm vào một dòng sản phẩm để xem chi tiết phép tính. Dùng tab Form để thêm mã sản phẩm và đặt số khoán.
+      </p>
+
+      <div
+        *ngIf="configLoaded && configItems.length && !loading && ((activeTab === 'shops' && !products.length) || (activeTab === 'employees' && !employeeRows.length))"
+        class="alert alert-secondary py-2"
+      >
+        Không có mã nào khớp bộ lọc hiện tại.
+      </div>
+
+      <div *ngIf="activeTab === 'form'" class="card mb-3">
         <div class="card-header">
-          <h3 class="card-title">Thiết lập mã sản phẩm &amp; số khoán tháng này</h3>
+          <h3 class="card-title">Form nhập liệu — mã sản phẩm &amp; số khoán tháng này</h3>
         </div>
         <div class="card-body">
           <div class="row g-2 align-items-end mb-3">
@@ -354,34 +386,6 @@ function extractRows(response: unknown): RawRecord[] {
             <option value="NOQUOTA">Chưa đặt khoán</option>
           </select>
         </div>
-      </div>
-
-      <div *ngIf="configLoaded && !configItems.length && !loading" class="card">
-        <div class="card-body text-center py-5">
-          <div class="fs-3 mb-2">Chưa có mã sản phẩm nào được theo dõi</div>
-          <p class="text-secondary">Bấm “Thiết lập mã &amp; khoán” để thêm các mã cần theo dõi sản lượng và đặt số khoán cho từng nhà thuốc.</p>
-          <button type="button" class="btn btn-primary" (click)="toggleSettings()">Mở thiết lập</button>
-        </div>
-      </div>
-
-      <!-- Hai tab: Nhà thuốc / Nhân viên, cùng một khung bảng như file Excel theo dõi khoán -->
-      <ul *ngIf="configLoaded && configItems.length" class="nav nav-tabs mb-2">
-        <li class="nav-item">
-          <button type="button" class="nav-link" [class.active]="activeTab === 'shops'" (click)="setTab('shops')">Nhà thuốc</button>
-        </li>
-        <li class="nav-item">
-          <button type="button" class="nav-link" [class.active]="activeTab === 'employees'" (click)="setTab('employees')">Nhân viên</button>
-        </li>
-      </ul>
-      <p *ngIf="configLoaded && configItems.length" class="text-secondary small mb-3">
-        Tỉ trọng = thực đạt ÷ số khoán. Ở tab Nhân viên, tỉ trọng của nhân viên tính trên số khoán của nhà thuốc. Bấm vào một dòng sản phẩm để xem chi tiết phép tính.
-      </p>
-
-      <div
-        *ngIf="configLoaded && configItems.length && !loading && ((activeTab === 'shops' && !products.length) || (activeTab === 'employees' && !employeeRows.length))"
-        class="alert alert-secondary py-2"
-      >
-        Không có mã nào khớp bộ lọc hiện tại.
       </div>
 
       <!-- Tab Nhà thuốc: hàng = mã SP, mỗi nhà thuốc một cụm 3 cột Số khoán | Thực đạt | Tỉ trọng -->
@@ -549,7 +553,7 @@ export class SalesVolumeComponent implements OnInit, OnDestroy {
 
   searchText = "";
   statusFilter = "ALL";
-  activeTab: "shops" | "employees" = "shops";
+  activeTab: "shops" | "employees" | "form" = "shops";
   employeeShop = "";
   employeeNames: string[] = [];
   employeeRows: EmployeeRow[] = [];
@@ -557,7 +561,6 @@ export class SalesVolumeComponent implements OnInit, OnDestroy {
   detailItem: VolumeProductConfig | null = null;
   detailCalcs: ShopCalc[] = [];
 
-  settingsOpen = false;
   draftItems: DraftItem[] = [];
   newCodesText = "";
   newQuotaDefault: number | null = null;
@@ -648,11 +651,7 @@ export class SalesVolumeComponent implements OnInit, OnDestroy {
   }
 
   toggleSettings(): void {
-    this.settingsOpen = !this.settingsOpen;
-    if (this.settingsOpen) {
-      this.openDraft();
-    }
-    this.cdr.markForCheck();
+    this.setTab("form");
   }
 
   private openDraft(): void {
@@ -670,7 +669,7 @@ export class SalesVolumeComponent implements OnInit, OnDestroy {
   }
 
   cancelSettings(): void {
-    this.settingsOpen = false;
+    this.activeTab = "shops";
     this.cdr.markForCheck();
   }
 
@@ -762,6 +761,10 @@ export class SalesVolumeComponent implements OnInit, OnDestroy {
     this.errorText = "";
     this.failedShops = [];
     this.progressText = "Đang tải dữ liệu bán hàng…";
+    // Có cache của tháng này thì dựng bảng ngay từ cache; số liệu mới tải xong sẽ thay vào.
+    if (this.applyAggCache()) {
+      this.rebuildView();
+    }
     this.cdr.markForCheck();
     try {
       const session = this.upharmaService.ensureLogin();
@@ -829,12 +832,84 @@ export class SalesVolumeComponent implements OnInit, OnDestroy {
       this.loadedAtText = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")} ${String(now.getDate()).padStart(2, "0")}/${String(now.getMonth() + 1).padStart(2, "0")}/${now.getFullYear()}`;
       await this.fillMissingNames();
       this.rebuildView();
+      this.saveAggCache();
     } catch (error) {
       this.errorText = error instanceof Error ? error.message : String(error);
     } finally {
       this.loading = false;
       this.progressText = "";
       this.cdr.markForCheck();
+    }
+  }
+
+  private static readonly AGG_CACHE_KEY = "hang-san-luong-agg-v1";
+
+  private monthKeyNow(): string {
+    const now = new Date();
+    return `${now.getFullYear()}-${now.getMonth() + 1}`;
+  }
+
+  /** Khôi phục phần tổng hợp đã lưu của tháng này để bảng hiện ngay khi mở trang. */
+  private applyAggCache(): boolean {
+    try {
+      const raw = localStorage.getItem(SalesVolumeComponent.AGG_CACHE_KEY);
+      if (!raw) {
+        return false;
+      }
+      const cache = JSON.parse(raw) as {
+        month?: string;
+        loadedAtText?: string;
+        names?: [string, string][];
+        agg?: Record<string, Record<string, { units: Record<string, number>; amount: number; employees: Record<string, { units: Record<string, number>; amount: number }> }>>;
+      };
+      if (!cache || cache.month !== this.monthKeyNow() || !cache.agg) {
+        return false;
+      }
+      const agg = new Map<string, Map<string, ShopAgg>>();
+      for (const [code, byShop] of Object.entries(cache.agg)) {
+        const shopMap = new Map<string, ShopAgg>();
+        for (const [shop, value] of Object.entries(byShop)) {
+          const employees = new Map<string, EmpAgg>();
+          for (const [name, emp] of Object.entries(value.employees || {})) {
+            employees.set(name, { units: new Map(Object.entries(emp.units || {})), amount: emp.amount || 0 });
+          }
+          shopMap.set(shop, { units: new Map(Object.entries(value.units || {})), amount: value.amount || 0, employees });
+        }
+        agg.set(code, shopMap);
+      }
+      this.salesAgg = agg;
+      this.productNames = new Map(cache.names || []);
+      if (cache.loadedAtText) {
+        this.loadedAtText = cache.loadedAtText;
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /** Lưu phần tổng hợp (không lưu đơn thô) để lần mở sau hiện ngay. */
+  private saveAggCache(): void {
+    try {
+      const agg: Record<string, Record<string, unknown>> = {};
+      for (const [code, byShop] of this.salesAgg) {
+        const shops: Record<string, unknown> = {};
+        for (const [shop, value] of byShop) {
+          const employees: Record<string, unknown> = {};
+          for (const [name, emp] of value.employees) {
+            employees[name] = { units: Object.fromEntries(emp.units), amount: emp.amount };
+          }
+          shops[shop] = { units: Object.fromEntries(value.units), amount: value.amount, employees };
+        }
+        agg[code] = shops;
+      }
+      const payload = JSON.stringify({ month: this.monthKeyNow(), loadedAtText: this.loadedAtText, names: [...this.productNames], agg });
+      if (payload.length > 1_800_000) {
+        return;
+      }
+      localStorage.setItem(SalesVolumeComponent.AGG_CACHE_KEY, payload);
+    } catch {
+      /* Cache đầy hoặc bị chặn — bỏ qua, trang vẫn tải trực tiếp như cũ. */
     }
   }
 
@@ -1087,8 +1162,11 @@ export class SalesVolumeComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
-  setTab(tab: "shops" | "employees"): void {
+  setTab(tab: "shops" | "employees" | "form"): void {
     this.activeTab = tab;
+    if (tab === "form") {
+      this.openDraft();
+    }
     this.cdr.markForCheck();
   }
 

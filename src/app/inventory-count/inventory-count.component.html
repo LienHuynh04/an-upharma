@@ -118,7 +118,7 @@
             <ng-container *ngIf="selectedSubmission">
               <div class="page-pretitle">CHI TIẾT PHIẾU · {{ selectedShopCode }}</div>
               <h3 class="card-title">Phiếu của {{ selectedSubmission.staffName }}</h3>
-              <div class="text-secondary small">Nộp {{ selectedSubmission.completedAt | date: "HH:mm dd/MM/yyyy" }} · {{ sheetRows.length }} mã</div>
+              <div class="text-secondary small">Nộp {{ selectedSubmission.completedAt | date: "HH:mm dd/MM/yyyy" }} · {{ sheetRows.length }} mã · Tiền chênh lệch: <span class="fw-semibold" [class.text-danger]="sheetDifferenceTotal < 0" [class.text-success]="sheetDifferenceTotal > 0">{{ formatMoney(sheetDifferenceTotal) }} đ</span></div>
             </ng-container>
           </div>
           <div class="d-flex flex-wrap align-items-center gap-2" *ngIf="selectedSubmission">
@@ -422,6 +422,7 @@
                     <th class="text-end">SL tồn kho</th>
                     <th class="text-end">SL đếm · {{ selectedSubmission.staffName }}</th>
                     <th class="text-end">Lệch (đếm − tồn)</th>
+                    <th class="text-end">Tiền chênh</th>
                     <th>Đánh giá của quản lý</th>
                   </tr>
                 </thead>
@@ -432,6 +433,10 @@
                     <td class="text-end">{{ row.expectedQuantity !== null ? (row.expectedQuantity | number) : "—" }}</td>
                     <td class="text-end fw-semibold">{{ row.countedQuantity | number }}</td>
                     <td class="text-end">{{ countDifferenceText(row) }}</td>
+                    <td class="text-end fw-semibold" [class.text-success]="(sheetRowDifferenceAmount(row) ?? 0) > 0" [class.text-danger]="(sheetRowDifferenceAmount(row) ?? 0) < 0">
+                      <ng-container *ngIf="sheetRowDifferenceAmount(row) !== null; else noSheetPrice">{{ formatMoney(sheetRowDifferenceAmount(row)!) }} đ<small class="d-block text-secondary fw-normal">{{ formatMoney(row.unitPrice) }} đ / {{ row.unit || "đơn vị" }}</small></ng-container>
+                      <ng-template #noSheetPrice>—</ng-template>
+                    </td>
                     <td>
                       <div class="btn-group btn-group-sm" role="group" [attr.aria-label]="'Đánh giá mã ' + row.code">
                         <button

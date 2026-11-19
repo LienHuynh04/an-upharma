@@ -48,6 +48,8 @@ interface SheetRow {
   expectedQuantity: number | null;
   /** The count of the staff member whose sheet is being viewed. */
   countedQuantity: number;
+  /** Unit price from the inventory catalog; 0 when unknown (money difference not shown). */
+  unitPrice: number;
   /** Same-day counts of the same product by OTHER staff, shown for reference. */
   otherCounts: { staffName: string; quantity: number }[];
 }
@@ -1353,6 +1355,7 @@ export class InventoryCountComponent implements OnInit {
         unit: expected?.unit || item.unit || "",
         expectedQuantity: expected ? expected.expectedQuantity : null,
         countedQuantity: item.countedQuantity,
+        unitPrice: expected?.unitPrice ?? 0,
         otherCounts: this.otherCountsFor(item.code, submission.staffUid),
       });
     }
@@ -1377,6 +1380,17 @@ export class InventoryCountComponent implements OnInit {
       }
     }
     return Array.from(latestByStaff.values());
+  }
+
+  /** Money difference of one sheet row; null when the system quantity or the price is unknown. */
+  sheetRowDifferenceAmount(row: SheetRow): number | null {
+    if (row.expectedQuantity === null || row.unitPrice <= 0) return null;
+    return (row.countedQuantity - row.expectedQuantity) * row.unitPrice;
+  }
+
+  /** Total money difference of the open sheet (rows without a known price are skipped). */
+  get sheetDifferenceTotal(): number {
+    return this.sheetRows.reduce((total, row) => total + (this.sheetRowDifferenceAmount(row) ?? 0), 0);
   }
 
   /** True when another staff member counted this product differently the same day. */
