@@ -275,11 +275,11 @@ function extractRows(response: unknown): RawRecord[] {
           <button type="button" class="nav-link" [class.active]="activeTab === 'employees'" (click)="setTab('employees')">Nhân viên</button>
         </li>
         <li class="nav-item">
-          <button type="button" class="nav-link" [class.active]="activeTab === 'form'" (click)="setTab('form')">Form</button>
+          <button type="button" class="nav-link" [class.active]="activeTab === 'form'" (click)="setTab('form')">Nhập liệu</button>
         </li>
       </ul>
       <p *ngIf="configLoaded && configItems.length" class="text-secondary small mb-3">
-        Tỉ trọng = thực đạt ÷ số khoán. Ở tab Nhân viên, tỉ trọng của nhân viên tính trên số khoán của nhà thuốc. Bấm vào một dòng sản phẩm để xem chi tiết phép tính. Dùng tab Form để thêm mã sản phẩm và đặt số khoán.
+        Tỉ trọng = thực đạt ÷ số khoán. Ở tab Nhân viên, tỉ trọng của nhân viên tính trên số khoán của nhà thuốc. Bấm vào một dòng sản phẩm để xem chi tiết phép tính. Dùng tab Nhập liệu để thêm mã sản phẩm và đặt số khoán.
       </p>
 
       <div
@@ -291,7 +291,7 @@ function extractRows(response: unknown): RawRecord[] {
 
       <div *ngIf="activeTab === 'form'" class="card mb-3">
         <div class="card-header">
-          <h3 class="card-title">Form nhập liệu — mã sản phẩm &amp; số khoán tháng này</h3>
+          <h3 class="card-title">Nhập liệu — mã sản phẩm &amp; số khoán tháng này</h3>
         </div>
         <div class="card-body">
           <div class="row g-2 align-items-end mb-3">
