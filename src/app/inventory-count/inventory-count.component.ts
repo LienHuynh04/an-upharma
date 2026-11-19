@@ -64,6 +64,10 @@ interface DaySummaryRow {
   /** Sum of every staff member's count of this code (latest sheet per person). */
   totalCounted: number;
   difference: number | null;
+  /** Unit price from the inventory catalog; 0 when unknown. */
+  unitPrice: number;
+  /** Money value of the total difference; null when quantity or price is unknown. */
+  differenceAmount: number | null;
 }
 
 interface CountSession {
@@ -1409,6 +1413,8 @@ export class InventoryCountComponent implements OnInit {
         return item ? item.countedQuantity : null;
       });
       const totalCounted = counts.reduce((total: number, value) => total + (value ?? 0), 0);
+      const difference = expected ? totalCounted - expected.expectedQuantity : null;
+      const unitPrice = expected?.unitPrice ?? 0;
       rows.push({
         code,
         name: expected?.name || anyItem?.name || code,
@@ -1416,7 +1422,9 @@ export class InventoryCountComponent implements OnInit {
         expectedQuantity: expected ? expected.expectedQuantity : null,
         counts,
         totalCounted,
-        difference: expected ? totalCounted - expected.expectedQuantity : null,
+        difference,
+        unitPrice,
+        differenceAmount: difference !== null && unitPrice > 0 ? difference * unitPrice : null,
       });
     }
     this.daySummaryRows = rows.sort((first, second) =>
@@ -1701,6 +1709,11 @@ export class InventoryCountComponent implements OnInit {
         record["Tổng NV đếm"] = countedValues.length
           ? countedValues.reduce((total, value) => total + value, 0)
           : "";
+        record["Đơn giá"] = expected && expected.unitPrice > 0 ? expected.unitPrice : "";
+        record["Tiền chênh (tổng)"] =
+          expected && expected.unitPrice > 0 && typeof record["Tổng NV đếm"] === "number"
+            ? ((record["Tổng NV đếm"] as number) - expected.expectedQuantity) * expected.unitPrice
+            : "";
         for (const staffName of staffNames) {
           record[`Đánh giá - ${staffName}`] = verdictFor(staffName, code);
         }

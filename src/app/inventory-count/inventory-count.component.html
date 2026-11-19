@@ -491,6 +491,7 @@
                     <th class="text-end" *ngFor="let staffMember of daySummaryStaff">SL đếm · {{ staffMember.name }}</th>
                     <th class="text-end">Tổng NV đếm</th>
                     <th class="text-end">Lệch (tổng − tồn)</th>
+                    <th class="text-end">Tiền chênh</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -501,6 +502,7 @@
                     <td class="text-end" *ngFor="let count of row.counts">{{ count !== null ? (count | number) : "—" }}</td>
                     <td class="text-end fw-bold">{{ row.totalCounted | number }}</td>
                     <td class="text-end" [class.text-success]="row.difference !== null && row.difference > 0" [class.text-danger]="row.difference !== null && row.difference < 0">{{ row.difference !== null ? formatSigned(row.difference) : "—" }}</td>
+                    <td class="text-end fw-semibold" [class.text-success]="row.differenceAmount !== null && row.differenceAmount > 0" [class.text-danger]="row.differenceAmount !== null && row.differenceAmount < 0">{{ row.differenceAmount !== null ? formatMoney(row.differenceAmount) + " đ" : "—" }}</td>
                   </tr>
                 </tbody>
               </table>
