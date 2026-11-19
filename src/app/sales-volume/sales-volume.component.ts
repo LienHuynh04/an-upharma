@@ -739,6 +739,8 @@ export class SalesVolumeComponent implements OnInit, OnDestroy {
       const now = new Date();
       this.configSavedText = `Đã lưu thiết lập lúc ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}.`;
       this.rebuildView();
+      // Mã mới thêm mà chưa từng bán sẽ chưa có tên — tra bổ sung ở danh mục rồi dựng lại bảng.
+      void this.fillMissingNames().then(() => this.rebuildView());
     } catch (error) {
       this.draftFeedback = `Lưu thất bại: ${error instanceof Error ? error.message : String(error)}`;
     } finally {

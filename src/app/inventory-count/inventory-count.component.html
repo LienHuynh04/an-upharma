@@ -476,6 +476,37 @@
               </div>
             </div>
           </ng-container>
+          <div class="card-body border-top" *ngIf="!selectedSubmission && daySummaryRows.length">
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+              <strong>Bảng tổng kết ngày</strong>
+              <span class="badge bg-blue-lt text-blue">{{ daySummaryRows.length }} mã đã đếm</span>
+            </div>
+            <div class="table-responsive review-table-scroll">
+              <table class="table table-sm table-vcenter card-table table-hover">
+                <thead>
+                  <tr>
+                    <th>Mã SP</th>
+                    <th>Tên sản phẩm</th>
+                    <th class="text-end">SL tồn kho</th>
+                    <th class="text-end" *ngFor="let staffMember of daySummaryStaff">SL đếm · {{ staffMember.name }}</th>
+                    <th class="text-end">Tổng NV đếm</th>
+                    <th class="text-end">Lệch (tổng − tồn)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let row of daySummaryRows">
+                    <td class="text-primary fw-semibold">{{ row.code }}</td>
+                    <td>{{ row.name }}<small class="d-block text-secondary">{{ row.unit }}</small></td>
+                    <td class="text-end">{{ row.expectedQuantity !== null ? (row.expectedQuantity | number) : "—" }}</td>
+                    <td class="text-end" *ngFor="let count of row.counts">{{ count !== null ? (count | number) : "—" }}</td>
+                    <td class="text-end fw-bold">{{ row.totalCounted | number }}</td>
+                    <td class="text-end" [class.text-success]="row.difference !== null && row.difference > 0" [class.text-danger]="row.difference !== null && row.difference < 0">{{ row.difference !== null ? formatSigned(row.difference) : "—" }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="text-secondary small mb-0">Tổng NV đếm = cộng số lượng cùng mã của mọi nhân viên (phiếu mới nhất của mỗi người trong ngày). Đây là số tổng hợp để đối chiếu, không phải số lượng chốt.</p>
+          </div>
           <div class="card-body border-top" *ngIf="!selectedSubmission">
             <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
               <strong>Chưa được kiểm kê</strong>
