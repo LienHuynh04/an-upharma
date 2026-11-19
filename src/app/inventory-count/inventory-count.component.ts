@@ -10,7 +10,6 @@ import {
   FinalReview,
   ShopCatalogIndexEntry,
   StaffCountService,
-  StaffEvaluation,
 } from "../staff-count.service";
 import { LoginResponse, RawRecord, ResourceResponse, ShopInfo, UpharmaService } from "../upharma.service";
 import { onTabReattach } from "../tab-reuse.strategy";
@@ -157,8 +156,6 @@ export class InventoryCountComponent implements OnInit {
   sheetRows: SheetRow[] = [];
   daySummaryRows: DaySummaryRow[] = [];
   daySummaryStaff: { uid: string; name: string }[] = [];
-  /** Saved manager evaluations of the shop's sheets, keyed by submission id. */
-  evaluationsBySubmission: Record<string, StaffEvaluation> = {};
   /** Products with stock that no sheet of the loaded day counted (computed once per load, never in a template getter). */
   uncountedProducts: { code: string; name: string; unit: string; expectedQuantity: number }[] = [];
   /** First rows of uncountedProducts actually rendered; the full list goes to the Excel export. */
@@ -173,14 +170,10 @@ export class InventoryCountComponent implements OnInit {
   uncountedFilterActive = false;
   /** Distinct product codes counted by any sheet of the loaded day. */
   countedCodeCount = 0;
-  /** Verdicts being edited in the open sheet detail. */
-  verdicts: Record<string, "correct" | "wrong"> = {};
-  savingEvaluation = false;
   deletingSubmission = false;
   exportNotice = "";
   exportDialogOpen = false;
   exportChoices: { key: string; label: string; checked: boolean }[] = [];
-  evaluationNotice = "";
   finalQuantities: Record<string, number | null> = {};
   savingReview = false;
   reviewNotice = "";
@@ -384,8 +377,6 @@ export class InventoryCountComponent implements OnInit {
     this.daySubmissions = [];
     this.selectedSubmission = null;
     this.sheetRows = [];
-    this.evaluationsBySubmission = {};
-    this.verdicts = {};
     this.finalQuantities = {};
     this.submissionsError = "";
     this.reviewNotice = "";
@@ -1189,12 +1180,6 @@ export class InventoryCountComponent implements OnInit {
 
       this.selectedSubmission = null;
       this.sheetRows = [];
-      this.verdicts = {};
-      // The evaluations node may not be readable yet (rules merge pending):
-      // treat that as "no evaluations yet" instead of failing the review.
-      this.evaluationsBySubmission = await this.staffCountService
-        .listEvaluations(this.selectedShopCode)
-        .catch(() => ({}));
       await this.prepareFinalQuantities();
       this.reviewLoaded = true;
       this.computeUncountedProducts();
@@ -1207,7 +1192,7 @@ export class InventoryCountComponent implements OnInit {
     }
   }
 
-  /** Opens the detail of one staff sheet: its products and the verdict form. */
+  /** Opens the detail of one staff sheet: its products and money differences. */
   selectSubmission(submission: CountSubmission): void {
     this.applySheetSelection(submission);
     if (this.sheetParamId !== submission.id) {
@@ -1220,8 +1205,6 @@ export class InventoryCountComponent implements OnInit {
   private applySheetSelection(submission: CountSubmission): void {
     this.selectedSubmission = submission;
     this.buildSheetRows();
-    this.verdicts = { ...(this.evaluationsBySubmission[submission.id]?.verdicts || {}) };
-    this.evaluationNotice = "";
     this.reviewNotice = "";
   }
 
@@ -1281,78 +1264,6 @@ export class InventoryCountComponent implements OnInit {
   private clearSheetSelection(): void {
     this.selectedSubmission = null;
     this.sheetRows = [];
-    this.verdicts = {};
-    this.evaluationNotice = "";
-  }
-
-  /** Toggles one product verdict in the open detail; clicking again clears it. */
-  setVerdict(code: string, verdict: "correct" | "wrong"): void {
-    if (this.verdicts[code] === verdict) {
-      delete this.verdicts[code];
-    } else {
-      this.verdicts[code] = verdict;
-    }
-  }
-
-  /** Marks every product of the open sheet as counted correctly. */
-  markAllCorrect(): void {
-    for (const row of this.sheetRows) this.verdicts[row.code] = "correct";
-  }
-
-  /** Verdict tallies of the open detail. */
-  get verdictSummary(): { correct: number; wrong: number; pending: number } {
-    let correct = 0;
-    let wrong = 0;
-    for (const row of this.sheetRows) {
-      if (this.verdicts[row.code] === "correct") correct += 1;
-      else if (this.verdicts[row.code] === "wrong") wrong += 1;
-    }
-    return { correct, wrong, pending: this.sheetRows.length - correct - wrong };
-  }
-
-  /** Evaluation progress of one sheet, for the list badge. */
-  evaluationState(submission: CountSubmission): { label: string; done: boolean; started: boolean } {
-    const evaluation = this.evaluationsBySubmission[submission.id];
-    const total = new Set(submission.items.map((item) => item.code)).size;
-    if (!evaluation) return { label: "Chưa đánh giá", done: false, started: false };
-    const values = evaluation.verdicts ? Object.values(evaluation.verdicts) : [];
-    const correct = values.filter((value) => value === "correct").length;
-    const wrong = values.length - correct;
-    const done = values.length >= total && total > 0;
-    return {
-      label: done
-        ? `Đã đánh giá xong · Đúng ${correct} · Sai ${wrong}`
-        : `Đang đánh giá · Đúng ${correct} · Sai ${wrong} / ${total} mã`,
-      done,
-      started: true,
-    };
-  }
-
-  async saveEvaluation(): Promise<void> {
-    const submission = this.selectedSubmission;
-    if (this.staffMode || this.savingEvaluation || !submission) return;
-    this.savingEvaluation = true;
-    this.evaluationNotice = "";
-    this.submissionsError = "";
-    try {
-      const evaluation: StaffEvaluation = {
-        id: submission.id,
-        shopCode: this.selectedShopCode,
-        staffUid: submission.staffUid,
-        staffName: submission.staffName,
-        evaluatedBy: this.userName,
-        evaluatedAt: Date.now(),
-        dateKey: this.reviewDate,
-        verdicts: { ...this.verdicts },
-      };
-      await this.staffCountService.saveEvaluation(evaluation);
-      this.evaluationsBySubmission[submission.id] = evaluation;
-      this.evaluationNotice = `Đã lưu đánh giá phiếu của ${submission.staffName}.`;
-    } catch (error) {
-      this.submissionsError = this.errorText(error);
-    } finally {
-      this.savingEvaluation = false;
-    }
   }
 
   private buildSheetRows(): void {
@@ -1682,13 +1593,6 @@ export class InventoryCountComponent implements OnInit {
           ?.items.find((entry) => entry.code === code);
         return item ? item.countedQuantity : "";
       };
-      const verdictFor = (staffName: string, code: string): string => {
-        const submission = latestSubmissionByStaff.get(staffName);
-        const verdict = submission
-          ? this.evaluationsBySubmission[submission.id]?.verdicts?.[code]
-          : undefined;
-        return verdict === "correct" ? "Đúng" : verdict === "wrong" ? "Sai" : "";
-      };
       const comparisonRows = Array.from(codes).map((code) => {
         const expected = expectedByCode.get(code);
         const anyItem = this.daySubmissions
@@ -1714,17 +1618,10 @@ export class InventoryCountComponent implements OnInit {
           expected && expected.unitPrice > 0 && typeof record["Tổng NV đếm"] === "number"
             ? ((record["Tổng NV đếm"] as number) - expected.expectedQuantity) * expected.unitPrice
             : "";
-        for (const staffName of staffNames) {
-          record[`Đánh giá - ${staffName}`] = verdictFor(staffName, code);
-        }
         return record;
       });
       const sheetRows = this.daySubmissions.map((submission) => {
         const total = new Set(submission.items.map((item) => item.code)).size;
-        const evaluation = this.evaluationsBySubmission[submission.id];
-        const values = evaluation?.verdicts ? Object.values(evaluation.verdicts) : [];
-        const correct = values.filter((value) => value === "correct").length;
-        const wrong = values.length - correct;
         return {
           "Nhân viên": submission.staffName,
           "Tài khoản": submission.staffUid,
@@ -1736,10 +1633,6 @@ export class InventoryCountComponent implements OnInit {
             year: "numeric",
           }).format(new Date(submission.completedAt)),
           "Số mã đã đếm": total,
-          "Đúng": correct,
-          "Sai": wrong,
-          "Chưa chấm": total - values.length,
-          "Người đánh giá": evaluation?.evaluatedBy || "",
         };
       });
       const uncountedRows = this.uncountedProducts.map((product) => ({
@@ -1749,7 +1642,7 @@ export class InventoryCountComponent implements OnInit {
         "SL tồn kho": product.expectedQuantity,
       }));
       // One sheet per submitted sheet, named after its staff member, so
-      // each person\'s counts and verdicts can be read on their own tab.
+      // each person's counts can be read on their own tab.
       const usedSheetNames = new Set<string>(["Đối chiếu kiểm kê", "Phiếu kiểm kê", "Chưa kiểm kê"]);
       const submissionSheets = this.daySubmissions.map((submission) => {
         const time = new Intl.DateTimeFormat("vi-VN", {
@@ -1759,18 +1652,15 @@ export class InventoryCountComponent implements OnInit {
         let sheetName = `Phiếu ${submission.staffName} ${time}`.replace(/[\\/?*[\]:]/g, "-").slice(0, 31);
         if (usedSheetNames.has(sheetName)) sheetName = `${sheetName.slice(0, 27)} (2)`;
         usedSheetNames.add(sheetName);
-        const evaluation = this.evaluationsBySubmission[submission.id];
         const rowsByCode = new Map<string, Record<string, unknown>>();
         for (const item of submission.items) {
           const expected = expectedByCode.get(item.code);
-          const verdict = evaluation?.verdicts?.[item.code];
           rowsByCode.set(item.code, {
             "Mã SP": item.code,
             "Tên sản phẩm": expected?.name || item.name || "",
             "Đơn vị": expected?.unit || item.unit || "",
             "SL tồn kho": expected ? expected.expectedQuantity : "",
             "SL đếm": item.countedQuantity,
-            "Đánh giá": verdict === "correct" ? "Đúng" : verdict === "wrong" ? "Sai" : "",
             "Lệch (đếm - tồn)": expected ? item.countedQuantity - expected.expectedQuantity : "",
           });
         }
