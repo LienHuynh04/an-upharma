@@ -1426,38 +1426,6 @@ export class ReportGeneratorService {
           return `<tr><td><div class="identity"><strong>${prod.code}</strong><span>${prod.name || ""}</span><span>ĐVT: ${prod.unit || ""}</span></div></td>${cells}<td style="text-align:right"><strong>${fmtQty(chain.quota)}</strong></td>${volActualCell(chain.qty, chain.quota)}<td style="text-align:center">${volPctCell(chain.qty, chain.quota)}</td></tr>`;
         })
         .join("");
-      const volEmpTables = shops
-        .map((shop) => {
-          const empTotals = new Map<string, number>();
-          volumeProducts.forEach((prod) => {
-            (prod.shops[shop.ShopCode]?.employees || []).forEach((e) =>
-              empTotals.set(e.name, (empTotals.get(e.name) || 0) + e.qty)
-            );
-          });
-          const empNames = [...empTotals.entries()]
-            .filter(([, total]) => total > 0)
-            .sort((a, b) => b[1] - a[1])
-            .map(([name]) => name);
-          if (!empNames.length) return "";
-          const head1 = `<th rowspan="2">Sản phẩm</th><th colspan="2">Cả shop</th>${empNames.map((name) => `<th colspan="2">${name}</th>`).join("")}`;
-          const head2 = `<th>Thực đạt</th><th>Tỉ trọng</th>${empNames.map(() => `<th>Thực đạt</th><th>Tỉ trọng</th>`).join("")}`;
-          const rows = volumeProducts
-            .map((prod) => {
-              const st = prod.shops[shop.ShopCode] || { quota: 0, qty: 0, employees: [] };
-              const empCells = empNames
-                .map((name) => {
-                  const entry = st.employees.find((x) => x.name === name);
-                  return entry
-                    ? `<td style="text-align:right">${fmtQty(entry.qty)}</td><td style="text-align:center">${volPctCell(entry.qty, st.quota)}</td>`
-                    : `<td style="text-align:right;color:#94a3b8">—</td><td style="text-align:center;color:#94a3b8">—</td>`;
-                })
-                .join("");
-              return `<tr><td><div class="identity"><strong>${prod.code}</strong><span>${prod.name || ""}</span></div></td><td style="text-align:right">${fmtQty(st.qty)}</td><td style="text-align:center">${volPctCell(st.qty, st.quota)}</td>${empCells}</tr>`;
-            })
-            .join("");
-          return `<h3 class="operation-title">${shop.ShopName} (${shopShortLabel(shop)})</h3><div class="table-wrap"><table><thead><tr>${head1}</tr><tr>${head2}</tr></thead><tbody>${rows}</tbody></table></div>`;
-        })
-        .join("");
       volumeSectionHtml = `
     <div class="dashboard-summary">
       <div class="summary-kpi"><span>Mã theo dõi</span><strong>${volumeProducts.length}</strong></div>
@@ -1471,8 +1439,7 @@ export class ReportGeneratorService {
         <tbody>${volBodyRows}</tbody>
       </table>
     </div>
-    <div class="summary-line">Tỉ trọng = thực đạt ÷ số khoán của từng nhà thuốc. Số lượng đã quy đổi về đơn vị khoán theo quy cách đóng gói cấu hình ở trang Hàng sản lượng.</div>
-    ${volEmpTables}`;
+    <div class="summary-line">Tỉ trọng = thực đạt ÷ số khoán của từng nhà thuốc. Số lượng đã quy đổi về đơn vị khoán theo quy cách đóng gói cấu hình ở trang Hàng sản lượng.</div>`;
     } else {
       volumeSectionHtml = `<p style="color:#64748b">Chưa có dữ liệu hàng sản lượng — hãy cấu hình mã và số khoán ở trang Hàng sản lượng, hoặc thu thập lại số liệu.</p>`;
     }
