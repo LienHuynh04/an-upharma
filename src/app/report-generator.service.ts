@@ -76,6 +76,24 @@ export interface EmployeePlanItem {
   quantityInvoice?: number;
 }
 
+export interface VolumeEmployeeQty {
+  name: string;
+  qty: number;
+}
+
+export interface VolumeShopStat {
+  quota: number;
+  qty: number;
+  employees: VolumeEmployeeQty[];
+}
+
+export interface VolumeProductStat {
+  code: string;
+  name: string;
+  unit: string;
+  shops: Record<string, VolumeShopStat>;
+}
+
 export interface ReportLiveMetrics {
   collectedAt: string;
   month: number;
@@ -85,6 +103,8 @@ export interface ReportLiveMetrics {
   fefoStats: Record<string, FefoSummaryItem>;
   employeePlans: Record<string, EmployeePlanItem[]>;
   nearExpiryOrders?: Record<string, Record<string, { totalAmount: number; employees: { name: string; amount: number }[] }>>;
+  /** Hàng sản lượng: thực đạt đã quy đổi theo từng mã khoán, gom từ salesRowsByShop + cấu hình khoán trên Firebase. */
+  volumeStats?: VolumeProductStat[];
 }
 
 export interface ReportCustomInputs {
@@ -701,6 +721,132 @@ export class ReportGeneratorService {
       }));
     });
 
+    // Hàng sản lượng: cấu hình khoán trên Firebase (hidden_products/volume_products,
+    // cùng nguồn với trang Hàng sản lượng) + doanh số tháng đã thu thập ở bước trên
+    // (salesRowsByShop), quy đổi về đơn vị khoán theo packSize của từng mã.
+    onProgress?.("Đang tổng hợp hàng sản lượng...", 97);
+    let volumeStats: VolumeProductStat[] = [];
+    try {
+      const volumeConfigRes = await fetch(
+        "https://an-upharma-default-rtdb.firebaseio.com/hidden_products/volume_products.json"
+      );
+      const volumeConfig = volumeConfigRes.ok ? await volumeConfigRes.json() : null;
+      const volumeItems: any[] = Array.isArray(volumeConfig?.items) ? volumeConfig.items : [];
+      if (volumeItems.length) {
+        const productNames = new Map<string, string>();
+        const unitAgg = new Map<string, Map<string, number>>();
+        const empUnitAgg = new Map<string, Map<string, number>>();
+        const addQty = (map: Map<string, Map<string, number>>, key: string, unit: string, qty: number): void => {
+          let bucket = map.get(key);
+          if (!bucket) {
+            bucket = new Map<string, number>();
+            map.set(key, bucket);
+          }
+          bucket.set(unit, (bucket.get(unit) || 0) + qty);
+        };
+        shops.forEach((shop) => {
+          for (const row of salesRowsByShop[shop.ShopCode] || []) {
+            const code = String(row?.ProductID || "").trim().toUpperCase();
+            if (!code) continue;
+            if (!productNames.has(code) && row?.ProductName) {
+              productNames.set(code, String(row.ProductName));
+            }
+            const qty = Number(row?.Quantity) || 0;
+            const unit = String(row?.UnitOfMeasure || "").trim();
+            addQty(unitAgg, `${code}|${shop.ShopCode}`, unit, qty);
+            const emp = String(row?.SalesName || "").trim();
+            if (emp) addQty(empUnitAgg, `${code}|${shop.ShopCode}|${emp}`, unit, qty);
+          }
+        });
+        const trackedCodes = new Set(
+          volumeItems.map((it) => String(it?.code || "").trim().toUpperCase()).filter(Boolean)
+        );
+        if ([...trackedCodes].some((code) => !productNames.has(code))) {
+          try {
+            const catalogRes = await fetch(
+              "https://an-upharma-default-rtdb.firebaseio.com/product_catalog.json"
+            );
+            const catalog = catalogRes.ok ? await catalogRes.json() : null;
+            const walkCatalog = (node: any, depth: number): void => {
+              if (!node || depth > 4) return;
+              if (Array.isArray(node)) {
+                node.forEach((child) => walkCatalog(child, depth + 1));
+                return;
+              }
+              if (typeof node === "object") {
+                if (node.c && node.n) {
+                  const c = String(node.c).trim().toUpperCase();
+                  if (trackedCodes.has(c) && !productNames.has(c)) {
+                    productNames.set(c, String(node.n));
+                  }
+                }
+                Object.values(node).forEach((child) => walkCatalog(child, depth + 1));
+              }
+            };
+            walkCatalog(catalog, 0);
+          } catch {
+            /* Thiếu tên thì phần hiển thị dùng mã sản phẩm thay thế. */
+          }
+        }
+        const convertBuckets = (buckets: Map<string, number> | undefined, item: any): number => {
+          if (!buckets) return 0;
+          const target = String(item?.unit || "").trim().toLowerCase();
+          const packRaw = Number(item?.packSize);
+          const pack = packRaw > 1 ? packRaw : 1;
+          let total = 0;
+          buckets.forEach((qty, unit) => {
+            if (!unit || pack <= 1 || unit.trim().toLowerCase() === target) total += qty;
+            else total += qty / pack;
+          });
+          return Math.round(total * 10) / 10;
+        };
+        volumeStats = volumeItems
+          .map((item) => {
+            const code = String(item?.code || "").trim().toUpperCase();
+            const shopsStat: Record<string, VolumeShopStat> = {};
+            shops.forEach((shop) => {
+              const quota = Number(item?.shopQuotas?.[shop.ShopCode] ?? item?.quota ?? 0) || 0;
+              const empMap = new Map<string, number>();
+              empUnitAgg.forEach((buckets, key) => {
+                const first = key.indexOf("|");
+                const second = key.indexOf("|", first + 1);
+                if (second < 0) return;
+                if (key.slice(0, first) === code && key.slice(first + 1, second) === shop.ShopCode) {
+                  empMap.set(key.slice(second + 1), convertBuckets(buckets, item));
+                }
+              });
+              shopsStat[shop.ShopCode] = {
+                quota,
+                qty: convertBuckets(unitAgg.get(`${code}|${shop.ShopCode}`), item),
+                employees: [...empMap.entries()]
+                  .map(([name, qty]) => ({ name, qty }))
+                  .filter((e) => e.qty > 0)
+                  .sort((a, b) => b.qty - a.qty),
+              };
+            });
+            return {
+              code,
+              name: productNames.get(code) || "",
+              unit: String(item?.unit || ""),
+              shops: shopsStat,
+            };
+          })
+          .filter((prod) => prod.code);
+        const chainPctOf = (prod: VolumeProductStat): number => {
+          let qty = 0;
+          let quota = 0;
+          Object.values(prod.shops).forEach((st) => {
+            qty += st.qty;
+            quota += st.quota;
+          });
+          return quota > 0 ? qty / quota : Number.POSITIVE_INFINITY;
+        };
+        volumeStats.sort((a, b) => chainPctOf(a) - chainPctOf(b));
+      }
+    } catch (e) {
+      console.warn("Không tổng hợp được hàng sản lượng cho báo cáo", e);
+    }
+
     onProgress?.("Hoàn tất thu thập dữ liệu báo cáo!", 100);
 
     const collected: ReportLiveMetrics = {
@@ -712,6 +858,7 @@ export class ReportGeneratorService {
       fefoStats: fefoStatsByShop,
       employeePlans: employeePlansClean,
       nearExpiryOrders: nearExpiryOrdersMap,
+      volumeStats,
     };
     // Đi qua cùng một lớp chuẩn hoá với dữ liệu đọc từ Firebase để cấu trúc
     // bản thu thập luôn đầy đủ (đặc biệt là các mảng employees/empSummaries).
@@ -796,6 +943,7 @@ export class ReportGeneratorService {
       inventoryStatsByShop,
       nearExpiryOrdersMap,
       fefoStatsByShop,
+      volumeStats: liveMetrics.volumeStats || [],
       customInputs,
     });
 
@@ -813,9 +961,10 @@ export class ReportGeneratorService {
     inventoryStatsByShop: Record<string, any>;
     nearExpiryOrdersMap: Record<string, Record<string, { totalAmount: number; employees: { name: string; amount: number }[] }>>;
     fefoStatsByShop: Record<string, FefoSummaryItem>;
+    volumeStats: VolumeProductStat[];
     customInputs?: ReportCustomInputs;
   }): string {
-    const { filename, month, year, shops, shopPlansMap, employeePlansMap, inventoryStatsByShop, nearExpiryOrdersMap, fefoStatsByShop, customInputs } = data;
+    const { filename, month, year, shops, shopPlansMap, employeePlansMap, inventoryStatsByShop, nearExpiryOrdersMap, fefoStatsByShop, volumeStats, customInputs } = data;
     const now = new Date();
     const { progressRatio } = calculateDaysProgress();
 
@@ -1218,6 +1367,116 @@ export class ReportGeneratorService {
       })
       .join("");
 
+    // Section: Hàng sản lượng — bảng theo nhà thuốc + bảng theo nhân viên từng shop.
+    const fmtQty = (v: number) => new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 1 }).format(v || 0);
+    const volumeProducts = volumeStats || [];
+    const shopShortLabel = (shop: ShopInfo): string => {
+      const digits = String(shop.ShopCode || "").replace(/\D/g, "");
+      return digits ? `NT${parseInt(digits, 10)}` : String(shop.ShopCode || "");
+    };
+    const volChainOf = (prod: VolumeProductStat): { qty: number; quota: number } => {
+      let qty = 0;
+      let quota = 0;
+      shops.forEach((shop) => {
+        const st = prod.shops[shop.ShopCode];
+        if (st) {
+          qty += st.qty;
+          quota += st.quota;
+        }
+      });
+      return { qty, quota };
+    };
+    let volumeSectionHtml = "";
+    if (volumeProducts.length) {
+      let volTotalQty = 0;
+      let volTotalQuota = 0;
+      let volAchieved = 0;
+      volumeProducts.forEach((prod) => {
+        const chain = volChainOf(prod);
+        volTotalQty += chain.qty;
+        volTotalQuota += chain.quota;
+        if (chain.quota > 0 && chain.qty >= chain.quota) volAchieved += 1;
+      });
+      const volChainPct = volTotalQuota > 0 ? Math.round((volTotalQty / volTotalQuota) * 1000) / 10 : null;
+      const volPctCell = (qty: number, quota: number): string =>
+        quota > 0
+          ? `<span class="ratio-badge">${fmtQty(Math.round((qty / quota) * 1000) / 10)}%</span>`
+          : `<span style="color:#94a3b8">—</span>`;
+      const volActualCell = (qty: number, quota: number): string => {
+        const lack = Math.round((quota - qty) * 10) / 10;
+        const sub =
+          quota <= 0
+            ? ""
+            : lack > 0
+              ? `<span style="color:#dc2626">còn thiếu ${fmtQty(lack)}</span>`
+              : `<span style="color:#16a34a">đủ (+${fmtQty(-lack)})</span>`;
+        return `<td><div class="cell-number"><strong>${fmtQty(qty)}</strong>${sub}</div></td>`;
+      };
+      const volHeadGroups = shops.map((shop) => `<th colspan="3">${shopShortLabel(shop)}</th>`).join("");
+      const volHeadSubs = shops.map(() => `<th>Số khoán</th><th>Thực đạt</th><th>Tỉ trọng</th>`).join("");
+      const volBodyRows = volumeProducts
+        .map((prod) => {
+          const cells = shops
+            .map((shop) => {
+              const st = prod.shops[shop.ShopCode] || { quota: 0, qty: 0, employees: [] };
+              return `<td style="text-align:right">${fmtQty(st.quota)}</td>${volActualCell(st.qty, st.quota)}<td style="text-align:center">${volPctCell(st.qty, st.quota)}</td>`;
+            })
+            .join("");
+          const chain = volChainOf(prod);
+          return `<tr><td><div class="identity"><strong>${prod.code}</strong><span>${prod.name || ""}</span><span>ĐVT: ${prod.unit || ""}</span></div></td>${cells}<td style="text-align:right"><strong>${fmtQty(chain.quota)}</strong></td>${volActualCell(chain.qty, chain.quota)}<td style="text-align:center">${volPctCell(chain.qty, chain.quota)}</td></tr>`;
+        })
+        .join("");
+      const volEmpTables = shops
+        .map((shop) => {
+          const empTotals = new Map<string, number>();
+          volumeProducts.forEach((prod) => {
+            (prod.shops[shop.ShopCode]?.employees || []).forEach((e) =>
+              empTotals.set(e.name, (empTotals.get(e.name) || 0) + e.qty)
+            );
+          });
+          const empNames = [...empTotals.entries()]
+            .filter(([, total]) => total > 0)
+            .sort((a, b) => b[1] - a[1])
+            .map(([name]) => name);
+          if (!empNames.length) return "";
+          const head1 = `<th rowspan="2">Sản phẩm</th><th colspan="2">Cả shop</th>${empNames.map((name) => `<th colspan="2">${name}</th>`).join("")}`;
+          const head2 = `<th>Thực đạt</th><th>Tỉ trọng</th>${empNames.map(() => `<th>Thực đạt</th><th>Tỉ trọng</th>`).join("")}`;
+          const rows = volumeProducts
+            .map((prod) => {
+              const st = prod.shops[shop.ShopCode] || { quota: 0, qty: 0, employees: [] };
+              const empCells = empNames
+                .map((name) => {
+                  const entry = st.employees.find((x) => x.name === name);
+                  return entry
+                    ? `<td style="text-align:right">${fmtQty(entry.qty)}</td><td style="text-align:center">${volPctCell(entry.qty, st.quota)}</td>`
+                    : `<td style="text-align:right;color:#94a3b8">—</td><td style="text-align:center;color:#94a3b8">—</td>`;
+                })
+                .join("");
+              return `<tr><td><div class="identity"><strong>${prod.code}</strong><span>${prod.name || ""}</span></div></td><td style="text-align:right">${fmtQty(st.qty)}</td><td style="text-align:center">${volPctCell(st.qty, st.quota)}</td>${empCells}</tr>`;
+            })
+            .join("");
+          return `<h3 class="operation-title">${shop.ShopName} (${shopShortLabel(shop)})</h3><div class="table-wrap"><table><thead><tr>${head1}</tr><tr>${head2}</tr></thead><tbody>${rows}</tbody></table></div>`;
+        })
+        .join("");
+      volumeSectionHtml = `
+    <div class="dashboard-summary">
+      <div class="summary-kpi"><span>Mã theo dõi</span><strong>${volumeProducts.length}</strong></div>
+      <div class="summary-kpi"><span>Đã đạt khoán toàn chuỗi</span><strong>${volAchieved} mã</strong></div>
+      <div class="summary-kpi"><span>Tổng thực đạt / khoán</span><strong>${fmtQty(volTotalQty)} / ${fmtQty(volTotalQuota)}</strong></div>
+      <div class="summary-kpi"><span>Tỉ trọng toàn chuỗi</span><strong>${volChainPct === null ? "—" : `${fmtQty(volChainPct)}%`}</strong></div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th rowspan="2">Sản phẩm</th>${volHeadGroups}<th colspan="3">Toàn chuỗi</th></tr><tr>${volHeadSubs}<th>Số khoán</th><th>Thực đạt</th><th>Tỉ trọng</th></tr></thead>
+        <tbody>${volBodyRows}</tbody>
+      </table>
+    </div>
+    <div class="summary-line">Tỉ trọng = thực đạt ÷ số khoán của từng nhà thuốc. Số lượng đã quy đổi về đơn vị khoán theo quy cách đóng gói cấu hình ở trang Hàng sản lượng.</div>
+    ${volEmpTables}`;
+    } else {
+      volumeSectionHtml = `<p style="color:#64748b">Chưa có dữ liệu hàng sản lượng — hãy cấu hình mã và số khoán ở trang Hàng sản lượng, hoặc thu thập lại số liệu.</p>`;
+    }
+
     return `<!doctype html>
 <html lang="vi">
 <head>
@@ -1342,6 +1601,7 @@ footer{text-align:center;color:var(--slate);padding:12px 20px 30px;font-size:12p
   <a href="#ton-kho">Tỷ lệ cận date</a>
   <a href="#don-hang-can-date">Đơn hàng cận date</a>
   <a href="#nhan-vien">Chỉ tiêu nhân viên</a>
+  <a href="#hang-san-luong">Hàng sản lượng</a>
   <a href="#van-hanh">Vận hành</a>
   <a href="#ke-hoach-tuan-toi">KH tuần tới</a>
 </nav>
@@ -1402,6 +1662,12 @@ footer{text-align:center;color:var(--slate);padding:12px 20px 30px;font-size:12p
 
     <!-- Shop Employee Tables -->
     ${empShopTablesHtml}
+  </section>
+
+  <!-- ===== SECTION: Hàng sản lượng ===== -->
+  <section id="hang-san-luong">
+    <div class="section-title"><h2>📦 Hàng sản lượng</h2><p>Theo dõi mã khoán tháng ${month}/${year}<br><small>Thực đạt quy đổi từ doanh số tháng so với số khoán từng nhà thuốc</small></p></div>
+    ${volumeSectionHtml}
   </section>
 
   <!-- ===== SECTION 5: Vận hành ===== -->

@@ -3,6 +3,8 @@ import type {
   InventoryExpiryItem,
   ReportLiveMetrics,
   ShopKpiItem,
+  VolumeProductStat,
+  VolumeShopStat,
 } from "./report-generator.service";
 
 /**
@@ -117,6 +119,32 @@ function normalizeNearExpiryRange(raw: unknown): NearExpiryRange {
   };
 }
 
+function normalizeVolume(raw: unknown): VolumeProductStat[] {
+  return asArray<any>(raw)
+    .map((prod) => {
+      const item = asRecord(prod);
+      const shops: Record<string, VolumeShopStat> = {};
+      for (const [shopCode, value] of Object.entries(asRecord(item["shops"]))) {
+        const st = asRecord(value);
+        shops[shopCode] = {
+          quota: asNumber(st["quota"]),
+          qty: asNumber(st["qty"]),
+          employees: asArray<any>(st["employees"]).map((emp) => {
+            const e = asRecord(emp);
+            return { name: String(e["name"] ?? ""), qty: asNumber(e["qty"]) };
+          }),
+        };
+      }
+      return {
+        code: String(item["code"] ?? ""),
+        name: String(item["name"] ?? ""),
+        unit: String(item["unit"] ?? ""),
+        shops,
+      };
+    })
+    .filter((prod) => prod.code);
+}
+
 /** Chuẩn hoá 1 bản ghi thu thập. Trả về null nếu đầu vào không phải object có dữ liệu. */
 export function normalizeLiveMetrics(raw: unknown): ReportLiveMetrics | null {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
@@ -180,6 +208,7 @@ export function normalizeLiveMetrics(raw: unknown): ReportLiveMetrics | null {
     fefoStats,
     employeePlans,
     nearExpiryOrders,
+    volumeStats: normalizeVolume(source["volumeStats"]),
   };
 }
 
