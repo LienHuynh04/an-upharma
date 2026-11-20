@@ -891,14 +891,20 @@ export class ReportGeneratorService {
     const filename = `Bao_Cao_Tong_Hop_Upharma_${dateStr}.html`;
 
     let liveMetrics = customInputs?.liveMetrics;
-    if (!liveMetrics) {
-      liveMetrics = await this.collectReportLiveMetrics(onProgress);
-    } else {
-      onProgress?.("Đang áp dụng dữ liệu đã kiểm tra & chỉnh sửa...", 80);
+    if (liveMetrics) {
       // FIX (2026-11-03): số liệu lấy lại từ Firebase RTDB bị mất các mảng rỗng
       // (RTDB không lưu []) → employees/empSummaries thành undefined và
       // buildFullHtml gục ở `.length`. Chuẩn hoá trước khi dùng, ở mọi đường vào.
       liveMetrics = normalizeLiveMetrics(liveMetrics) ?? liveMetrics;
+    }
+    if (!liveMetrics || !this.hasUsableMetrics(liveMetrics)) {
+      // Chưa có số liệu — hoặc bản ghi đã lưu chỉ là KHUNG RỖNG (người dùng lưu
+      // cấu hình trước khi từng thu thập, RTDB giữ lại một liveMetrics không có
+      // nhóm số liệu nào): tự thu thập mới. Thiếu bước này, bấm Xem/Tải Báo Cáo
+      // ngay khi vừa mở trang sẽ cho ra báo cáo trống toàn bộ.
+      liveMetrics = await this.collectReportLiveMetrics(onProgress);
+    } else {
+      onProgress?.("Đang áp dụng dữ liệu đã kiểm tra & chỉnh sửa...", 80);
     }
 
     const shopPlansMap: Record<string, any> = {};
@@ -949,6 +955,22 @@ export class ReportGeneratorService {
 
     onProgress?.("Hoàn tất xuất báo cáo!", 100);
     return { html, filename };
+  }
+
+  /**
+   * Một bản thu thập được coi là dùng được khi có ít nhất một nhóm số liệu thật.
+   * Bộ thu thập thật luôn tạo shopKpis cho từng shop đang hoạt động, nên bản ghi
+   * mà mọi nhóm đều rỗng chắc chắn là khung lưu nháp, không phải số liệu.
+   */
+  private hasUsableMetrics(metrics: ReportLiveMetrics): boolean {
+    const kpiCount = Object.keys(metrics.shopKpis || {}).length;
+    const inventoryCount = Object.keys(metrics.inventoryStats || {}).length;
+    const employeeCount = Object.values(metrics.employeePlans || {}).reduce(
+      (sum, rows) => sum + (Array.isArray(rows) ? rows.length : 0),
+      0
+    );
+    const volumeCount = (metrics.volumeStats || []).length;
+    return kpiCount + inventoryCount + employeeCount + volumeCount > 0;
   }
 
   private buildFullHtml(data: {
