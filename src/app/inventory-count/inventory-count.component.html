@@ -459,7 +459,7 @@
                 <tbody>
                   <tr *ngFor="let row of daySummaryRows">
                     <td class="text-primary fw-semibold">{{ row.code }}</td>
-                    <td>{{ row.name }}<small class="d-block text-secondary">{{ row.unit }}</small></td>
+                    <td>{{ row.name }}<small class="d-block text-secondary">{{ row.unit }}</small><span class="badge bg-warning-lt text-warning mt-1" *ngIf="row.counterCount > 1"><i class="ti ti-copy me-1" aria-hidden="true"></i>Trùng · {{ row.counterCount }} người đếm</span></td>
                     <td class="text-end">{{ row.expectedQuantity !== null ? (row.expectedQuantity | number) : "—" }}</td>
                     <td class="text-end" *ngFor="let count of row.counts">{{ count !== null ? (count | number) : "—" }}</td>
                     <td class="text-end fw-bold">{{ row.totalCounted | number }}</td>
@@ -470,6 +470,40 @@
               </table>
             </div>
             <p class="text-secondary small mb-0">Tổng NV đếm = cộng số lượng cùng mã của mọi nhân viên (phiếu mới nhất của mỗi người trong ngày). Đây là số tổng hợp để đối chiếu, không phải số lượng chốt.</p>
+          </div>
+          <div class="card-body border-top" *ngIf="!selectedSubmission && daySummaryRows.length && daySummaryStaff.length > 1">
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+              <strong>Mã đếm trùng</strong>
+              <span class="badge bg-warning-lt text-warning" *ngIf="duplicateRows.length">{{ duplicateRows.length }} mã có từ 2 người đếm</span>
+              <span class="badge bg-danger-lt text-danger" *ngIf="duplicateDisagreementCount">{{ duplicateDisagreementCount }} mã lệch số giữa các nhân viên</span>
+            </div>
+            <div class="table-responsive review-table-scroll" *ngIf="duplicateRows.length">
+              <table class="table table-sm table-vcenter card-table table-hover">
+                <thead>
+                  <tr>
+                    <th>Mã SP</th>
+                    <th>Tên sản phẩm</th>
+                    <th class="text-end">SL tồn kho</th>
+                    <th>Số đếm của từng nhân viên</th>
+                    <th>Trạng thái</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let dup of duplicateRows">
+                    <td class="text-primary fw-semibold">{{ dup.code }}</td>
+                    <td>{{ dup.name }}<small class="d-block text-secondary">{{ dup.unit }}</small></td>
+                    <td class="text-end">{{ dup.expectedQuantity !== null ? (dup.expectedQuantity | number) : "—" }}</td>
+                    <td><span class="badge bg-blue-lt text-blue me-1" *ngFor="let count of dup.counts">{{ count.staffName }}: {{ count.quantity | number }}</span></td>
+                    <td>
+                      <span class="badge bg-success-lt text-success" *ngIf="dup.agrees">Khớp số</span>
+                      <span class="badge bg-danger-lt text-danger" *ngIf="!dup.agrees">Lệch số · chênh {{ dup.spread | number }}</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="text-success small mb-0" *ngIf="!duplicateRows.length">Không có mã nào bị đếm trùng trong ngày này.</p>
+            <p class="text-secondary small mb-0 mt-2" *ngIf="duplicateRows.length">Mã đếm trùng gồm cả trùng do đối chứng chéo có chủ đích. Mã "lệch số" là mã các nhân viên đếm khác nhau — nên đếm lại hoặc chốt số đúng trước khi kết luận.</p>
           </div>
           <div class="card-body border-top" *ngIf="!selectedSubmission">
             <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
@@ -566,6 +600,10 @@
             <span class="staff-app-count">{{ completedCount }}/{{ products.length }}</span>
           </div>
           <div class="staff-app-progress"><span [style.width.%]="progressPercent"></span></div>
+          <div class="staff-syncbar" *ngIf="draftPendingCount && !codePadOpen">
+            <i class="ti ti-cloud-upload" aria-hidden="true"></i>
+            {{ draftPendingCount }} mã đang chờ gửi lên máy chủ — kiểm tra kết nối mạng, hệ thống sẽ tự gửi lại.
+          </div>
 
           <ng-container *ngIf="currentSession?.status !== 'completed'; else staffResults">
             <div class="staff-app-search" (click)="openCodePad()" role="button" tabindex="0" (keydown.enter)="openCodePad()" aria-label="Nhập mã sản phẩm bằng bàn phím số">
@@ -668,6 +706,7 @@
               step="any"
               inputmode="decimal"
               [(ngModel)]="countedQuantityInput"
+              (ngModelChange)="scheduleWipSync()"
               placeholder="0"
               required
             />
@@ -706,6 +745,15 @@
                 <i class="ti ti-x" aria-hidden="true"></i>
               </button>
             </div>
+            <div class="staff-lastcounted" *ngIf="lastCounted || draftPendingCount">
+              <span class="staff-lastcounted-main" *ngIf="lastCounted">
+                <i class="ti ti-circle-check" aria-hidden="true"></i>
+                Vừa {{ lastCounted.updated ? "cập nhật" : "đếm xong" }}: <strong>{{ lastCounted.code }}</strong> — SL {{ lastCounted.qty | number }}
+                <span class="staff-lastcounted-state" *ngIf="lastCountedSynced">· đã lưu trên máy chủ</span>
+                <span class="staff-lastcounted-state is-pending" *ngIf="!lastCountedSynced">· đang gửi lên máy chủ…</span>
+              </span>
+              <span class="staff-lastcounted-total">Đã đếm: {{ completedCount }} mã<span *ngIf="draftPendingCount"> · {{ draftPendingCount }} mã đang chờ gửi</span></span>
+            </div>
             <div class="staff-sheet-input staff-code-display" [class.staff-code-display-long]="searchText.length > 12" aria-live="polite">
               <span *ngIf="!searchText" class="staff-code-placeholder">0</span>
               <span *ngIf="searchText && searchText.length <= 12">{{ searchText }}</span>
@@ -741,6 +789,33 @@
                 <i class="ti ti-check" aria-hidden="true"></i> Mở mã này
               </button>
             </div>
+          </section>
+
+          <div class="staff-sheet-backdrop" *ngIf="submitResult"></div>
+          <section class="staff-result-modal" *ngIf="submitResult" role="dialog" aria-modal="true" aria-label="Kết quả nộp kiểm kê">
+            <ng-container *ngIf="submitResult.state === 'sending'">
+              <i class="ti ti-loader staff-result-icon is-sending" aria-hidden="true"></i>
+              <h3>Đang nộp phiếu…</h3>
+              <p>Đang gửi kết quả kiểm kê của {{ submitResult.shopName }} lên máy chủ.</p>
+            </ng-container>
+            <ng-container *ngIf="submitResult.state === 'sent'">
+              <i class="ti ti-circle-check staff-result-icon is-sent" aria-hidden="true"></i>
+              <h3>Đã nộp kiểm kê thành công</h3>
+              <p>{{ submitResult.shopName }} · {{ submitResult.codes }} mã · tổng SL {{ submitResult.totalQty | number }}<br />Nộp lúc {{ submitResult.at | date: "HH:mm dd/MM/yyyy" }} — quản lý đã thấy phiếu của bạn.</p>
+              <div class="staff-result-actions">
+                <button type="button" class="staff-sheet-cancel" (click)="closeSubmitResult(true)">Về danh sách phiên</button>
+                <button type="button" class="staff-sheet-save" (click)="closeSubmitResult(false)">Đóng</button>
+              </div>
+            </ng-container>
+            <ng-container *ngIf="submitResult.state === 'pending'">
+              <i class="ti ti-cloud-off staff-result-icon is-pending" aria-hidden="true"></i>
+              <h3>Đã đếm xong — chưa nộp được</h3>
+              <p>Chưa gửi được lên máy chủ (mất mạng?). Phiếu vẫn được giữ an toàn và sẽ <strong>tự gửi lại khi có mạng</strong> — bạn không phải nhập lại.</p>
+              <div class="staff-result-actions">
+                <button type="button" class="staff-sheet-cancel" (click)="closeSubmitResult(true)">Về danh sách phiên</button>
+                <button type="button" class="staff-sheet-save" (click)="closeSubmitResult(false)">Đóng</button>
+              </div>
+            </ng-container>
           </section>
         </div>
       </ng-container>

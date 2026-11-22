@@ -13,6 +13,12 @@ import { environment } from "../environments/environment";
  * - `product_catalog`: the existing system-wide slim catalog (public read),
  *   used so staff can also count a product they find on the shelf even when
  *   the system shows it out of stock at their shop.
+ * - `count_drafts/{shopCode}/{staffUid}/{sessionId}`: the live mirror of a
+ *   sheet still being counted — one node per counted product, written the
+ *   moment the staffer saves that product, plus the quantity sheet left
+ *   open mid-typing (`wip`). A browser reload or a discarded Safari tab can
+ *   no longer lose a count: on the next visit the draft is restored from
+ *   the server. Completing the sheet deletes its draft.
  * - `count_submissions/{shopCode}/{sessionId}`: one submitted count sheet per
  *   staff member. The app never shows a staff member anyone else's sheet
  *   (blind cross-counting); only the manager's review panel reads them all.
@@ -71,6 +77,27 @@ export interface StaffEvaluation {
   verdicts: Record<string, "correct" | "wrong">;
 }
 
+/** One counted product inside a server-side counting draft. */
+export interface CountDraftItem {
+  code: string;
+  name: string;
+  unit: string;
+  countedQuantity: number;
+  outsideCatalog?: boolean;
+}
+
+/** A staff counting session mirrored to the server while it is being counted. */
+export interface CountDraft {
+  id: string;
+  staffName: string;
+  shopName: string;
+  createdAt: number;
+  updatedAt: number;
+  items: CountDraftItem[];
+  /** Quantity sheet left open mid-typing when the page went away. */
+  wip?: { code: string; input: string } | null;
+}
+
 export interface FinalReview {
   id: string;
   shopCode: string;
@@ -119,6 +146,78 @@ export class StaffCountService {
       `count_submissions/${encodeURIComponent(submission.shopCode)}/${encodeURIComponent(submission.id)}.json`,
       submission,
     );
+  }
+
+  private draftBase(shopCode: string, staffUid: string, sessionId: string): string {
+    return `count_drafts/${encodeURIComponent(shopCode)}/${encodeURIComponent(staffUid)}/${encodeURIComponent(sessionId)}`;
+  }
+
+  /** Creates/refreshes a draft's header (owner, shop, timestamps). */
+  async saveDraftMeta(
+    shopCode: string,
+    staffUid: string,
+    sessionId: string,
+    meta: { staffName: string; shopName: string; createdAt: number; updatedAt: number },
+  ): Promise<void> {
+    await this.writeJson(`${this.draftBase(shopCode, staffUid, sessionId)}/meta.json`, meta);
+  }
+
+  /** Mirrors ONE counted product into the server draft (keyed by product code). */
+  async saveDraftItem(shopCode: string, staffUid: string, sessionId: string, item: CountDraftItem): Promise<void> {
+    await this.writeJson(
+      `${this.draftBase(shopCode, staffUid, sessionId)}/items/${encodeURIComponent(item.code)}.json`,
+      item,
+    );
+  }
+
+  /** Removes one product from the server draft (the count was deleted on the device). */
+  async deleteDraftItem(shopCode: string, staffUid: string, sessionId: string, code: string): Promise<void> {
+    await this.deleteJson(
+      `${this.draftBase(shopCode, staffUid, sessionId)}/items/${encodeURIComponent(code)}.json`,
+    );
+  }
+
+  /** Remembers the quantity sheet left open mid-typing, or clears it with null. */
+  async saveDraftWip(
+    shopCode: string,
+    staffUid: string,
+    sessionId: string,
+    wip: { code: string; input: string } | null,
+  ): Promise<void> {
+    if (wip) {
+      await this.writeJson(`${this.draftBase(shopCode, staffUid, sessionId)}/wip.json`, wip);
+    } else {
+      await this.deleteJson(`${this.draftBase(shopCode, staffUid, sessionId)}/wip.json`).catch(() => undefined);
+    }
+  }
+
+  /** All server drafts of one staffer at one shop, newest activity first. */
+  async getDrafts(shopCode: string, staffUid: string): Promise<CountDraft[]> {
+    const data = await this.readJson<Record<string, {
+      meta?: { staffName?: string; shopName?: string; createdAt?: number; updatedAt?: number };
+      items?: Record<string, CountDraftItem>;
+      wip?: { code: string; input: string } | null;
+    }> | null>(`count_drafts/${encodeURIComponent(shopCode)}/${encodeURIComponent(staffUid)}.json`);
+    if (!data) return [];
+    return Object.entries(data)
+      .map(([id, raw]) => ({
+        id,
+        staffName: String(raw?.meta?.staffName || ""),
+        shopName: String(raw?.meta?.shopName || ""),
+        createdAt: Number(raw?.meta?.createdAt || 0),
+        updatedAt: Number(raw?.meta?.updatedAt || 0),
+        items: Object.values(raw?.items || {}).filter(
+          (item) => item && typeof item.code === "string" && typeof item.countedQuantity === "number",
+        ),
+        wip: raw?.wip && typeof raw.wip.code === "string" ? raw.wip : null,
+      }))
+      .filter((draft) => draft.items.length > 0 || draft.wip)
+      .sort((a, b) => b.updatedAt - a.updatedAt);
+  }
+
+  /** Drops a whole draft (sheet completed, or draft too old to restore). */
+  async deleteDraft(shopCode: string, staffUid: string, sessionId: string): Promise<void> {
+    await this.deleteJson(`${this.draftBase(shopCode, staffUid, sessionId)}.json`);
   }
 
   async listSubmissions(shopCode: string): Promise<CountSubmission[]> {

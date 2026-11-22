@@ -6,6 +6,8 @@ import { normalizeFilterText, normalizeInventoryRow, parseNumericValue } from ".
 import { ExcelExportService } from "../shared/services/excel-export.service";
 import { StaffAuthService } from "../staff-auth.service";
 import {
+  CountDraft,
+  CountDraftItem,
   CountSubmission,
   FinalReview,
   ShopCatalogIndexEntry,
@@ -67,6 +69,22 @@ interface DaySummaryRow {
   unitPrice: number;
   /** Money value of the total difference; null when quantity or price is unknown. */
   differenceAmount: number | null;
+  /** How many staff members counted this code that day (>1 = counted more than once). */
+  counterCount: number;
+}
+
+/** One product counted by two or more staff members on the reviewed day. */
+interface DuplicateRow {
+  code: string;
+  name: string;
+  unit: string;
+  expectedQuantity: number | null;
+  /** Every staff member who counted this code that day (latest sheet per person). */
+  counts: { staffName: string; quantity: number }[];
+  /** True when every counter arrived at the same quantity. */
+  agrees: boolean;
+  /** Largest gap between two counters (0 when they agree). */
+  spread: number;
 }
 
 interface CountSession {
@@ -129,6 +147,25 @@ export class InventoryCountComponent implements OnInit {
   private staffUid = "";
   private extraCatalogProducts: CountProduct[] = [];
 
+  // Server-draft mirror (staff mode): every saved count is pushed to
+  // count_drafts the moment it is saved, so a Safari reload or a discarded
+  // tab can no longer lose it. Ops carry their session identity so a flush
+  // still targets the right draft after the user switches sessions.
+  private draftQueue = new Map<string, { sessionId: string; shopCode: string; type: "put" | "delete"; item?: CountDraftItem }>();
+  private draftFlushing = false;
+  private wipSyncTimer: ReturnType<typeof setTimeout> | null = null;
+  /** The count saved most recently, shown as a confirmation strip on the code pad. */
+  lastCounted: { code: string; qty: number; updated: boolean } | null = null;
+  /** Outcome of the latest "Hoàn thành & nộp", shown as a result modal (staff mode). */
+  submitResult: {
+    sessionId: string;
+    state: "sending" | "sent" | "pending";
+    shopName: string;
+    codes: number;
+    totalQty: number;
+    at: number;
+  } | null = null;
+
   // Manager review of submitted staff counts (manager mode only).
   submissions: CountSubmission[] = [];
   submissionsLoading = false;
@@ -155,6 +192,8 @@ export class InventoryCountComponent implements OnInit {
   selectedSubmission: CountSubmission | null = null;
   sheetRows: SheetRow[] = [];
   daySummaryRows: DaySummaryRow[] = [];
+  /** Codes counted by 2+ staff on the reviewed day, disagreements first. */
+  duplicateRows: DuplicateRow[] = [];
   daySummaryStaff: { uid: string; name: string }[] = [];
   /** Products with stock that no sheet of the loaded day counted (computed once per load, never in a template getter). */
   uncountedProducts: { code: string; name: string; unit: string; expectedQuantity: number }[] = [];
@@ -402,6 +441,16 @@ export class InventoryCountComponent implements OnInit {
     if (!this.saveSessions(updatedSessions)) return;
     this.sessions = updatedSessions;
     this.openSession(session);
+    if (this.staffMode) {
+      void this.staffCountService
+        .saveDraftMeta(session.shopCode, this.staffUid, session.id, {
+          staffName: this.userName,
+          shopName: session.shopName,
+          createdAt: session.createdAt,
+          updatedAt: Date.now(),
+        })
+        .catch(() => undefined);
+    }
   }
 
   openSession(session: CountSession, editCompleted = false): void {
@@ -443,6 +492,9 @@ export class InventoryCountComponent implements OnInit {
     const updatedSessions = this.sessions.filter((item) => item.id !== session.id);
     if (!this.saveSessions(updatedSessions)) return;
     this.sessions = updatedSessions;
+    if (this.staffMode && session.status === "counting") {
+      void this.staffCountService.deleteDraft(session.shopCode, this.staffUid, session.id).catch(() => undefined);
+    }
     if (this.currentSession?.id === session.id) {
       this.currentSession = null;
       this.editingCompletedSession = false;
@@ -529,6 +581,33 @@ export class InventoryCountComponent implements OnInit {
    * before the action's own click handler runs - means a message the new
    * action itself produces is set afterwards and stays.
    */
+  /** Back online or back to the tab: push whatever the draft queue still holds. */
+  @HostListener("window:online")
+  onOnlineForDrafts(): void {
+    if (!this.staffMode) return;
+    void this.flushDraftQueue();
+    void this.retryPendingSubmissions();
+  }
+
+  @HostListener("document:visibilitychange")
+  onVisibilityForDrafts(): void {
+    if (!this.staffMode) return;
+    if (document.visibilityState === "visible") {
+      void this.flushDraftQueue();
+      void this.retryPendingSubmissions();
+    } else {
+      void this.flushDraftQueue();
+      void this.syncWipNow();
+    }
+  }
+
+  @HostListener("window:pagehide")
+  onPageHideForDrafts(): void {
+    if (!this.staffMode) return;
+    void this.flushDraftQueue();
+    void this.syncWipNow();
+  }
+
   @HostListener("mousedown")
   onCountingPageMousedown(): void {
     if (!this.errorMessage && !this.noticeMessage) return;
@@ -556,6 +635,11 @@ export class InventoryCountComponent implements OnInit {
       session.products = this.products.map((item) => ({ ...item }));
       this.saving = false;
       return;
+    }
+    if (this.staffMode) {
+      this.lastCounted = { code: product.code, qty: value, updated: previousQuantity !== null };
+      this.queueDraftPut(session, product);
+      this.clearWipSync();
     }
     this.activeProduct = null;
     this.countedQuantityInput = "";
@@ -659,19 +743,14 @@ export class InventoryCountComponent implements OnInit {
     const current = this.countedQuantityInput || "";
     if (key === "clear") {
       this.countedQuantityInput = "";
-      return;
-    }
-    if (key === "back") {
+    } else if (key === "back") {
       this.countedQuantityInput = current.slice(0, -1);
-      return;
-    }
-    if (key === ".") {
+    } else if (key === ".") {
       if (!current.includes(".")) this.countedQuantityInput = `${current || "0"}.`;
-      return;
-    }
-    if (/^\d$/.test(key)) {
+    } else if (/^\d$/.test(key)) {
       this.countedQuantityInput = current === "0" ? key : current + key;
     }
+    this.scheduleWipSync();
   }
 
   adjustQuantity(delta: number): void {
@@ -679,9 +758,11 @@ export class InventoryCountComponent implements OnInit {
     const base = Number.isFinite(current) ? current : 0;
     const next = Math.max(0, Math.round((base + delta) * 1000) / 1000);
     this.countedQuantityInput = String(next);
+    this.scheduleWipSync();
   }
 
   closeCountForm(): void {
+    this.clearWipSync();
     this.activeProduct = null;
     this.countedQuantityInput = "";
     this.errorMessage = "";
@@ -710,6 +791,7 @@ export class InventoryCountComponent implements OnInit {
       session.products = this.products.map((item) => ({ ...item }));
       return;
     }
+    this.queueDraftDelete(session, product.code);
     if (this.activeProduct?.code === product.code) {
       this.activeProduct = null;
       this.countedQuantityInput = "";
@@ -758,7 +840,24 @@ export class InventoryCountComponent implements OnInit {
     this.errorMessage = "";
     this.noticeMessage = "Đã hoàn thành kiểm kê. Có thể xuất báo cáo Excel.";
     if (this.staffMode) {
-      void this.submitSessionToServer(completedSession);
+      this.submitResult = {
+        sessionId: completedSession.id,
+        state: "sending",
+        shopName: completedSession.shopName,
+        codes: completedSession.products.filter((product) => product.countedQuantity !== null).length,
+        totalQty: completedSession.products.reduce((sum, product) => sum + (product.countedQuantity || 0), 0),
+        at: Date.now(),
+      };
+      void this.submitSessionToServer(completedSession).then((submitted) => {
+        if (this.submitResult?.sessionId === completedSession.id) {
+          this.submitResult = { ...this.submitResult, state: submitted ? "sent" : "pending", at: Date.now() };
+        }
+        if (submitted) {
+          void this.staffCountService
+            .deleteDraft(completedSession.shopCode, this.staffUid, completedSession.id)
+            .catch(() => undefined);
+        }
+      });
     }
   }
 
@@ -790,7 +889,7 @@ export class InventoryCountComponent implements OnInit {
    * Failures (e.g. no signal in the warehouse) keep the sheet on the device
    * flagged as pending and it is retried on the next visit.
    */
-  private async submitSessionToServer(session: CountSession): Promise<void> {
+  private async submitSessionToServer(session: CountSession): Promise<boolean> {
     try {
       await this.staffCountService.submitCount(this.buildSubmission(session));
       session.submittedAt = Date.now();
@@ -800,6 +899,7 @@ export class InventoryCountComponent implements OnInit {
       if (this.currentSession?.id === session.id) {
         this.noticeMessage = "Đã hoàn thành và nộp kết quả kiểm kê cho quản lý.";
       }
+      return true;
     } catch (error) {
       console.warn("Chưa nộp được kết quả kiểm kê, sẽ thử lại sau:", error);
       session.submitPending = true;
@@ -809,6 +909,7 @@ export class InventoryCountComponent implements OnInit {
         this.noticeMessage =
           "Đã hoàn thành kiểm kê trên thiết bị này. Chưa nộp được kết quả (mất mạng?) — hệ thống sẽ tự nộp lại khi có mạng.";
       }
+      return false;
     }
   }
 
@@ -817,8 +918,229 @@ export class InventoryCountComponent implements OnInit {
       (session) => session.status === "completed" && session.submitPending,
     );
     for (const session of pending) {
-      await this.submitSessionToServer(session);
+      const submitted = await this.submitSessionToServer(session);
+      if (!submitted) continue;
+      void this.staffCountService.deleteDraft(session.shopCode, this.staffUid, session.id).catch(() => undefined);
+      if (this.submitResult?.sessionId === session.id && this.submitResult.state === "pending") {
+        this.submitResult = { ...this.submitResult, state: "sent", at: Date.now() };
+      }
     }
+  }
+
+  // ---- Server-draft mirror (staff mode) --------------------------------
+  // The local session stays the working copy; every saved count is ALSO
+  // written to count_drafts on the server, one product at a time. If the
+  // browser throws the page away (Safari tab discard, app switch, restart),
+  // the next visit rebuilds the session from the server copy.
+
+  private draftOpKey(sessionId: string, code: string): string {
+    return `${sessionId}|${code}`;
+  }
+
+  /** Draft writes still waiting for the server, for the CURRENT session. */
+  get draftPendingCount(): number {
+    const session = this.currentSession;
+    if (!session) return 0;
+    let count = 0;
+    for (const op of this.draftQueue.values()) {
+      if (op.sessionId === session.id) count++;
+    }
+    return count;
+  }
+
+  /** Whether the most recently saved count has reached the server draft. */
+  get lastCountedSynced(): boolean {
+    const session = this.currentSession;
+    if (!session || !this.lastCounted) return true;
+    return !this.draftQueue.has(this.draftOpKey(session.id, this.lastCounted.code));
+  }
+
+  private queueDraftPut(session: CountSession, product: CountProduct): void {
+    if (!this.staffMode || session.status !== "counting" || product.countedQuantity === null) return;
+    this.draftQueue.set(this.draftOpKey(session.id, product.code), {
+      sessionId: session.id,
+      shopCode: session.shopCode,
+      type: "put",
+      item: {
+        code: product.code,
+        name: product.name,
+        unit: product.unit,
+        countedQuantity: product.countedQuantity,
+        ...(product.outsideCatalog ? { outsideCatalog: true } : {}),
+      },
+    });
+    void this.flushDraftQueue();
+  }
+
+  private queueDraftDelete(session: CountSession, code: string): void {
+    if (!this.staffMode || session.status !== "counting") return;
+    this.draftQueue.set(this.draftOpKey(session.id, code), {
+      sessionId: session.id,
+      shopCode: session.shopCode,
+      type: "delete",
+    });
+    void this.flushDraftQueue();
+  }
+
+  private async flushDraftQueue(): Promise<void> {
+    if (this.draftFlushing || !this.staffMode) return;
+    this.draftFlushing = true;
+    const touchedSessions = new Set<string>();
+    try {
+      while (this.draftQueue.size > 0) {
+        const entry = this.draftQueue.entries().next().value as
+          | [string, { sessionId: string; shopCode: string; type: "put" | "delete"; item?: CountDraftItem }]
+          | undefined;
+        if (!entry) break;
+        const [key, op] = entry;
+        try {
+          if (op.type === "put" && op.item) {
+            await this.staffCountService.saveDraftItem(op.shopCode, this.staffUid, op.sessionId, op.item);
+          } else {
+            await this.staffCountService.deleteDraftItem(
+              op.shopCode,
+              this.staffUid,
+              op.sessionId,
+              key.slice(op.sessionId.length + 1),
+            );
+          }
+        } catch {
+          break; // Offline or node not open yet: keep the queue for the next retry.
+        }
+        if (this.draftQueue.get(key) === op) this.draftQueue.delete(key);
+        touchedSessions.add(op.sessionId);
+      }
+      // One header refresh per drained session keeps its freshness current.
+      for (const sessionId of touchedSessions) {
+        const session = this.sessions.find((item) => item.id === sessionId);
+        if (!session || this.draftQueue.size > 0) continue;
+        await this.staffCountService
+          .saveDraftMeta(session.shopCode, this.staffUid, session.id, {
+            staffName: this.userName,
+            shopName: session.shopName,
+            createdAt: session.createdAt,
+            updatedAt: Date.now(),
+          })
+          .catch(() => undefined);
+      }
+    } finally {
+      this.draftFlushing = false;
+    }
+  }
+
+  /** Debounced mirror of the open quantity sheet (code + digits typed so far). */
+  scheduleWipSync(): void {
+    if (!this.staffMode) return;
+    if (this.wipSyncTimer) clearTimeout(this.wipSyncTimer);
+    this.wipSyncTimer = setTimeout(() => {
+      void this.syncWipNow();
+    }, 500);
+  }
+
+  private async syncWipNow(): Promise<void> {
+    const session = this.currentSession;
+    if (!this.staffMode || !session || session.status !== "counting") return;
+    const wip = this.activeProduct ? { code: this.activeProduct.code, input: this.countedQuantityInput } : null;
+    await this.staffCountService
+      .saveDraftWip(session.shopCode, this.staffUid, session.id, wip)
+      .catch(() => undefined);
+  }
+
+  /** The sheet was saved or closed: the mid-typing state no longer exists. */
+  private clearWipSync(): void {
+    if (this.wipSyncTimer) {
+      clearTimeout(this.wipSyncTimer);
+      this.wipSyncTimer = null;
+    }
+    const session = this.currentSession;
+    if (!this.staffMode || !session || session.status !== "counting") return;
+    void this.staffCountService
+      .saveDraftWip(session.shopCode, this.staffUid, session.id, null)
+      .catch(() => undefined);
+  }
+
+  /**
+   * Rebuilds counting sessions from their server drafts after the local
+   * copies were lost (Safari discarded the tab, browser restarted, another
+   * device). Drafts older than a day are dropped instead of restored.
+   */
+  private async restoreServerDrafts(): Promise<void> {
+    if (!this.staffMode) return;
+    for (const shop of this.shops) {
+      let drafts: CountDraft[] = [];
+      try {
+        drafts = await this.staffCountService.getDrafts(shop.ShopCode, this.staffUid);
+      } catch {
+        continue;
+      }
+      for (const draft of drafts) {
+        const fresh = draft.updatedAt > 0 && Date.now() - draft.updatedAt <= 24 * 3600 * 1000;
+        const local = this.sessions.find((item) => item.id === draft.id);
+        if (!fresh || local?.status === "completed") {
+          void this.staffCountService.deleteDraft(shop.ShopCode, this.staffUid, draft.id).catch(() => undefined);
+          continue;
+        }
+        if (local) {
+          this.reconcileDraft(local, draft);
+          continue;
+        }
+        const session: CountSession = {
+          id: draft.id,
+          shopCode: shop.ShopCode,
+          shopName: draft.shopName || shop.ShopName,
+          status: "counting",
+          productSelection: "selected",
+          createdAt: draft.createdAt || Date.now(),
+          products: draft.items.map((item) => ({
+            code: item.code,
+            name: item.name,
+            unit: item.unit,
+            expectedQuantity: 0,
+            unitPrice: 0,
+            countedQuantity: item.countedQuantity,
+            ...(item.outsideCatalog ? { outsideCatalog: true } : {}),
+          })),
+        };
+        this.sessions = [session, ...this.sessions];
+        this.openSession(session);
+        this.saveSessions();
+        if (draft.wip) this.restoreWip(draft.wip);
+        this.noticeMessage =
+          `Đã khôi phục phiếu đang đếm dở từ máy chủ (${draft.items.length} mã đã đếm). ` +
+          "Bạn cứ tiếp tục đếm — không phải nhập lại.";
+      }
+    }
+  }
+
+  /** Aligns a surviving local session with its server draft (local copy wins). */
+  private reconcileDraft(session: CountSession, draft: CountDraft): void {
+    const serverItems = new Map(draft.items.map((item) => [item.code, item]));
+    for (const product of session.products) {
+      if (product.countedQuantity === null) continue;
+      const serverItem = serverItems.get(product.code);
+      if (!serverItem || serverItem.countedQuantity !== product.countedQuantity) {
+        this.queueDraftPut(session, product);
+      }
+      serverItems.delete(product.code);
+    }
+    for (const code of serverItems.keys()) {
+      this.queueDraftDelete(session, code);
+    }
+  }
+
+  /** Reopens the quantity sheet exactly where a discarded page left it. */
+  private restoreWip(wip: { code: string; input: string }): void {
+    const product =
+      this.products.find((item) => item.code === wip.code) ||
+      this.catalogProducts.find((item) => item.code === wip.code);
+    if (!product) return;
+    this.selectProduct(product);
+    this.countedQuantityInput = wip.input;
+  }
+
+  closeSubmitResult(toSessionList: boolean): void {
+    this.submitResult = null;
+    if (toSessionList) this.backToSessions();
   }
 
   async exportReport(): Promise<void> {
@@ -1316,6 +1638,7 @@ export class InventoryCountComponent implements OnInit {
       for (const item of submission.items) codes.add(item.code);
     }
     const rows: DaySummaryRow[] = [];
+    const duplicates: DuplicateRow[] = [];
     for (const code of codes) {
       const expected = expectedByCode.get(code);
       const anyItem = this.daySubmissions.flatMap((entry) => entry.items).find((entry) => entry.code === code);
@@ -1326,6 +1649,9 @@ export class InventoryCountComponent implements OnInit {
       const totalCounted = counts.reduce((total: number, value) => total + (value ?? 0), 0);
       const difference = expected ? totalCounted - expected.expectedQuantity : null;
       const unitPrice = expected?.unitPrice ?? 0;
+      const countedBy = staff
+        .map((member, index) => ({ staffName: member.name, quantity: counts[index] }))
+        .filter((entry): entry is { staffName: string; quantity: number } => entry.quantity !== null);
       rows.push({
         code,
         name: expected?.name || anyItem?.name || code,
@@ -1336,11 +1662,36 @@ export class InventoryCountComponent implements OnInit {
         difference,
         unitPrice,
         differenceAmount: difference !== null && unitPrice > 0 ? difference * unitPrice : null,
+        counterCount: countedBy.length,
       });
+      if (countedBy.length > 1) {
+        const quantities = countedBy.map((entry) => entry.quantity);
+        const spread = Math.max(...quantities) - Math.min(...quantities);
+        duplicates.push({
+          code,
+          name: expected?.name || anyItem?.name || code,
+          unit: expected?.unit || anyItem?.unit || "",
+          expectedQuantity: expected ? expected.expectedQuantity : null,
+          counts: countedBy,
+          agrees: spread === 0,
+          spread,
+        });
+      }
     }
     this.daySummaryRows = rows.sort((first, second) =>
       first.name.localeCompare(second.name, "vi", { sensitivity: "base" }),
     );
+    this.duplicateRows = duplicates.sort(
+      (first, second) =>
+        Number(first.agrees) - Number(second.agrees) ||
+        second.spread - first.spread ||
+        first.name.localeCompare(second.name, "vi", { sensitivity: "base" }),
+    );
+  }
+
+  /** How many of the day's duplicate codes the staff disagreed on. */
+  get duplicateDisagreementCount(): number {
+    return this.duplicateRows.filter((row) => !row.agrees).length;
   }
 
   /** Latest same-day count of a product by every OTHER staff member. */
@@ -1759,6 +2110,7 @@ export class InventoryCountComponent implements OnInit {
     this.selectedShopCode = this.shops[0].ShopCode;
     this.loadSavedSessions();
     await this.loadProductCatalog();
+    await this.restoreServerDrafts();
     await this.retryPendingSubmissions();
   }
 
