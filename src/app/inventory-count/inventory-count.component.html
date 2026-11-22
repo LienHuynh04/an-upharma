@@ -489,7 +489,7 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let dup of duplicateRows">
+                  <tr *ngFor="let dup of duplicateRows" [class.review-row-disagree]="!dup.agrees">
                     <td class="text-primary fw-semibold">{{ dup.code }}</td>
                     <td>{{ dup.name }}<small class="d-block text-secondary">{{ dup.unit }}</small></td>
                     <td class="text-end">{{ dup.expectedQuantity !== null ? (dup.expectedQuantity | number) : "—" }}</td>

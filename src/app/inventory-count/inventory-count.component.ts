@@ -1944,7 +1944,8 @@ export class InventoryCountComponent implements OnInit {
           ?.items.find((entry) => entry.code === code);
         return item ? item.countedQuantity : "";
       };
-      const comparisonRows = Array.from(codes).map((code) => {
+      const comparisonHighlightRows: number[] = [];
+      const comparisonRows = Array.from(codes).map((code, codeIndex) => {
         const expected = expectedByCode.get(code);
         const anyItem = this.daySubmissions
           .flatMap((entry) => entry.items)
@@ -1961,6 +1962,7 @@ export class InventoryCountComponent implements OnInit {
         const countedValues = staffNames
           .map((staffName) => latestCount(staffName, code))
           .filter((value): value is number => typeof value === "number");
+        if (new Set(countedValues).size > 1) comparisonHighlightRows.push(codeIndex);
         record["Tổng NV đếm"] = countedValues.length
           ? countedValues.reduce((total, value) => total + value, 0)
           : "";
@@ -2015,13 +2017,38 @@ export class InventoryCountComponent implements OnInit {
             "Lệch (đếm - tồn)": expected ? item.countedQuantity - expected.expectedQuantity : "",
           });
         }
-        return { key: submission.id, name: sheetName, data: Array.from(rowsByCode.values()) };
+        const highlightRows: number[] = [];
+        Array.from(rowsByCode.keys()).forEach((code, index) => {
+          const item = [...submission.items]
+            .reverse()
+            .find((entry) => entry.code === code);
+          if (
+            item &&
+            this.otherCountsFor(code, submission.staffUid).some(
+              (count) => count.quantity !== item.countedQuantity,
+            )
+          ) {
+            highlightRows.push(index);
+          }
+        });
+        return {
+          key: submission.id,
+          name: sheetName,
+          data: Array.from(rowsByCode.values()),
+          highlightRows,
+        };
       });
-      const sheets: { name: string; data: Record<string, any>[] }[] = [];
-      if (selected.has("doi-chieu")) sheets.push({ name: "Đối chiếu kiểm kê", data: comparisonRows });
+      const sheets: { name: string; data: Record<string, any>[]; highlightRows?: number[] }[] = [];
+      if (selected.has("doi-chieu"))
+        sheets.push({
+          name: "Đối chiếu kiểm kê",
+          data: comparisonRows,
+          highlightRows: comparisonHighlightRows,
+        });
       if (selected.has("danh-sach")) sheets.push({ name: "Phiếu kiểm kê", data: sheetRows });
       for (const sheet of submissionSheets) {
-        if (selected.has(`phieu:${sheet.key}`)) sheets.push({ name: sheet.name, data: sheet.data });
+        if (selected.has(`phieu:${sheet.key}`))
+          sheets.push({ name: sheet.name, data: sheet.data, highlightRows: sheet.highlightRows });
       }
       if (selected.has("chua-kiem-ke")) sheets.push({ name: "Chưa kiểm kê", data: uncountedRows });
       if (!sheets.length) return;

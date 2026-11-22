@@ -167,19 +167,20 @@
   }
 }
 
-/* Manager review: a product another staff member counted differently the
-   same day gets a subtle amber tint that fits the dark theme (the old
-   table-warning cream clashed with it) plus an amber edge marker. */
-.review-row-disagree > td {
-  background-color: rgba(247, 178, 60, 0.07) !important;
-}
-
 .review-row-zero > td {
   background-color: rgba(250, 176, 5, 0.18) !important;
 }
 
+/* Manager review: a product another staff member counted differently the
+   same day is painted clearly red (owner request 2026-11-22: the old 7%
+   amber tint was indistinguishable). Defined AFTER the zero rule so a
+   disagreeing row stays red even when this counter matched the stock. */
+.review-row-disagree > td {
+  background-color: rgba(214, 57, 57, 0.18) !important;
+}
+
 .review-row-disagree > td:first-child {
-  box-shadow: inset 3px 0 0 #f7b23c;
+  box-shadow: inset 3px 0 0 #d63939;
 }
 
 /* Manager review detail: the table is the main content — cap its height so
