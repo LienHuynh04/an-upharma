@@ -79,7 +79,7 @@ interface DuplicateRow {
   name: string;
   unit: string;
   expectedQuantity: number | null;
-  /** Every staff member who counted this code that day (latest sheet per person). */
+  /** Every staff member who counted this code in the selected period, with their summed count over all their sheets. */
   counts: { staffName: string; quantity: number }[];
   /** True when every counter arrived at the same quantity. */
   agrees: boolean;
@@ -1623,19 +1623,34 @@ export class InventoryCountComponent implements OnInit {
    * The total is a reporting sum only; it never feeds the final quantities.
    */
   private buildDaySummary(): void {
-    const latestByStaff = new Map<string, CountSubmission>();
+    // Summary semantics (owner decision 2026-11-23): the table totals
+    // EVERY sheet submitted in the selected day or range — no
+    // latest-sheet-wins replacement, so two sheets from the same person
+    // on the same day both count.
+    const staffByUid = new Map<string, { uid: string; name: string }>();
     for (const submission of this.daySubmissions) {
-      latestByStaff.set(submission.staffUid, submission);
+      if (!staffByUid.has(submission.staffUid)) {
+        staffByUid.set(submission.staffUid, { uid: submission.staffUid, name: submission.staffName });
+      }
     }
-    const staff = Array.from(latestByStaff.values()).map((submission) => ({
-      uid: submission.staffUid,
-      name: submission.staffName,
-    }));
+    const staff = Array.from(staffByUid.values());
     this.daySummaryStaff = staff;
+    // Per staff member and code: the sum over all their submitted sheets.
+    const sumsByStaff = new Map<string, Map<string, number>>();
+    for (const submission of this.daySubmissions) {
+      let sums = sumsByStaff.get(submission.staffUid);
+      if (!sums) {
+        sums = new Map<string, number>();
+        sumsByStaff.set(submission.staffUid, sums);
+      }
+      for (const item of submission.items) {
+        sums.set(item.code, (sums.get(item.code) ?? 0) + item.countedQuantity);
+      }
+    }
     const expectedByCode = new Map(this.catalogProducts.map((product) => [product.code, product]));
     const codes = new Set<string>();
-    for (const submission of latestByStaff.values()) {
-      for (const item of submission.items) codes.add(item.code);
+    for (const sums of sumsByStaff.values()) {
+      for (const code of sums.keys()) codes.add(code);
     }
     const rows: DaySummaryRow[] = [];
     const duplicates: DuplicateRow[] = [];
@@ -1643,8 +1658,8 @@ export class InventoryCountComponent implements OnInit {
       const expected = expectedByCode.get(code);
       const anyItem = this.daySubmissions.flatMap((entry) => entry.items).find((entry) => entry.code === code);
       const counts = staff.map(({ uid }) => {
-        const item = latestByStaff.get(uid)?.items.find((entry) => entry.code === code);
-        return item ? item.countedQuantity : null;
+        const value = sumsByStaff.get(uid)?.get(code);
+        return value === undefined ? null : value;
       });
       const totalCounted = counts.reduce((total: number, value) => total + (value ?? 0), 0);
       const difference = expected ? totalCounted - expected.expectedQuantity : null;
@@ -1913,6 +1928,11 @@ export class InventoryCountComponent implements OnInit {
     return this.exportChoices.filter((choice) => choice.checked).length;
   }
 
+  /** Export dialog: tick or untick every sheet choice at once. */
+  setAllExportChoices(checked: boolean): void {
+    for (const choice of this.exportChoices) choice.checked = checked;
+  }
+
   async confirmExport(): Promise<void> {
     const selected = new Set(
       this.exportChoices.filter((choice) => choice.checked).map((choice) => choice.key),
@@ -1929,20 +1949,26 @@ export class InventoryCountComponent implements OnInit {
     try {
       const expectedByCode = new Map(this.catalogProducts.map((product) => [product.code, product]));
       const staffNames = Array.from(new Set(this.daySubmissions.map((entry) => entry.staffName)));
-      const codes = new Set<string>();
+      // Same rule as the on-screen summary: EVERY submitted sheet in the
+      // selected day or range is summed, so the export matches the screen.
+      const sumsByName = new Map<string, Map<string, number>>();
       for (const submission of this.daySubmissions) {
-        for (const item of submission.items) codes.add(item.code);
+        let sums = sumsByName.get(submission.staffName);
+        if (!sums) {
+          sums = new Map<string, number>();
+          sumsByName.set(submission.staffName, sums);
+        }
+        for (const item of submission.items) {
+          sums.set(item.code, (sums.get(item.code) ?? 0) + item.countedQuantity);
+        }
       }
-      // Latest sheet per staff member (daySubmissions are chronological).
-      const latestSubmissionByStaff = new Map<string, CountSubmission>();
-      for (const submission of this.daySubmissions) {
-        latestSubmissionByStaff.set(submission.staffName, submission);
+      const codes = new Set<string>();
+      for (const sums of sumsByName.values()) {
+        for (const code of sums.keys()) codes.add(code);
       }
       const latestCount = (staffName: string, code: string): number | "" => {
-        const item = latestSubmissionByStaff
-          .get(staffName)
-          ?.items.find((entry) => entry.code === code);
-        return item ? item.countedQuantity : "";
+        const value = sumsByName.get(staffName)?.get(code);
+        return value === undefined ? "" : value;
       };
       const comparisonHighlightRows: number[] = [];
       const comparisonRows = Array.from(codes).map((code, codeIndex) => {

@@ -440,7 +440,7 @@
           </ng-container>
           <div class="card-body border-top" *ngIf="!selectedSubmission && daySummaryRows.length">
             <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-              <strong>Bảng tổng kết ngày</strong>
+              <strong>{{ isDateRange && reviewDate !== reviewEndDate ? "Bảng tổng kết khoảng ngày" : "Bảng tổng kết ngày" }}</strong>
               <span class="badge bg-blue-lt text-blue">{{ daySummaryRows.length }} mã đã đếm</span>
             </div>
             <div class="table-responsive review-table-scroll">
@@ -469,7 +469,7 @@
                 </tbody>
               </table>
             </div>
-            <p class="text-secondary small mb-0">Tổng NV đếm = cộng số lượng cùng mã của mọi nhân viên (phiếu mới nhất của mỗi người trong ngày). Đây là số tổng hợp để đối chiếu, không phải số lượng chốt.</p>
+            <p class="text-secondary small mb-0">Tổng NV đếm = cộng số lượng cùng mã từ TẤT CẢ phiếu đã nộp trong ngày / khoảng đã chọn (một người nộp nhiều phiếu thì cộng hết). Đây là số tổng hợp để đối chiếu, không phải số lượng chốt.</p>
           </div>
           <div class="card-body border-top" *ngIf="!selectedSubmission && daySummaryRows.length && daySummaryStaff.length > 1">
             <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
@@ -502,7 +502,7 @@
                 </tbody>
               </table>
             </div>
-            <p class="text-success small mb-0" *ngIf="!duplicateRows.length">Không có mã nào bị đếm trùng trong ngày này.</p>
+            <p class="text-success small mb-0" *ngIf="!duplicateRows.length">Không có mã nào bị đếm trùng trong thời gian đã chọn.</p>
             <p class="text-secondary small mb-0 mt-2" *ngIf="duplicateRows.length">Mã đếm trùng gồm cả trùng do đối chứng chéo có chủ đích. Mã "lệch số" là mã các nhân viên đếm khác nhau — nên đếm lại hoặc chốt số đúng trước khi kết luận.</p>
           </div>
           <div class="card-body border-top" *ngIf="!selectedSubmission">
@@ -566,11 +566,15 @@
           <div class="d-flex align-items-start justify-content-between gap-3 mb-2">
             <div>
               <h3 class="h4 mb-1">Xuất Excel đối chiếu</h3>
-              <p class="text-secondary small mb-0">{{ selectedShopCode }} · ngày {{ reviewDate | date: "dd/MM/yyyy" }} — tick chọn các trang muốn xuất; mỗi phiếu của nhân viên là một trang riêng.</p>
+              <p class="text-secondary small mb-0">{{ selectedShopCode }} · ngày {{ displayDateText }} — tick chọn các trang muốn xuất; mỗi phiếu của nhân viên là một trang riêng.</p>
             </div>
             <button type="button" class="btn btn-icon btn-sm btn-outline-secondary" (click)="exportDialogOpen = false" aria-label="Đóng">
               <i class="ti ti-x" aria-hidden="true"></i>
             </button>
+          </div>
+          <div class="form-check mb-2 pb-2 border-bottom">
+            <input class="form-check-input" type="checkbox" id="export-choice-all" [checked]="exportChoices.length > 0 && exportSelectionCount === exportChoices.length" [indeterminate]="exportSelectionCount > 0 && exportSelectionCount < exportChoices.length" (change)="setAllExportChoices($any($event.target).checked)">
+            <label class="form-check-label fw-semibold" for="export-choice-all">Chọn tất cả</label>
           </div>
           <div class="form-check mb-2" *ngFor="let choice of exportChoices; let i = index">
             <input class="form-check-input" type="checkbox" [id]="'export-choice-' + i" [(ngModel)]="choice.checked" [ngModelOptions]="{ standalone: true }">
