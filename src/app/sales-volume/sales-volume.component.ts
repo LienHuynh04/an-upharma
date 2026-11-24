@@ -176,7 +176,7 @@ function extractRows(response: unknown): RawRecord[] {
   standalone: true,
   imports: [CommonModule, FormsModule],
   styles: [
-    ":host .table thead th { background: #0d172d !important; color: #ffffff !important; text-align: center; font-weight: 600; }",
+    ":host .table thead th { background: #0d172d !important; color: #ffffff !important; text-align: center; vertical-align: middle; font-weight: 600; }",
     ":host .table thead th .text-secondary { color: rgba(255, 255, 255, 0.78) !important; }",
     ":host .table thead tr:last-child th { white-space: nowrap; }",
   ],
