@@ -412,7 +412,7 @@ function extractRows(response: unknown): RawRecord[] {
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let product of products" (click)="openDetail(product)" style="cursor: pointer" title="Bấm để xem chi tiết phép tính">
+              <tr *ngFor="let product of products; trackBy: trackByProductCode" (click)="openDetail(product)" style="cursor: pointer" title="Bấm để xem chi tiết phép tính">
                 <td style="position: sticky; left: 0; background: var(--upharma-card); z-index: 1">
                   <span class="fw-bold">{{ product.code }}</span>
                   <span *ngIf="product.status === 'done'" class="badge bg-success ms-1">Đã đạt</span>
@@ -498,7 +498,7 @@ function extractRows(response: unknown): RawRecord[] {
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let row of employeeRows" (click)="openDetail(row.product, employeeShop)" style="cursor: pointer" title="Bấm để xem chi tiết phép tính">
+                <tr *ngFor="let row of employeeRows; trackBy: trackByEmployeeRow" (click)="openDetail(row.product, employeeShop)" style="cursor: pointer" title="Bấm để xem chi tiết phép tính">
                   <td style="position: sticky; left: 0; background: var(--upharma-card); z-index: 1">
                     <span class="fw-bold">{{ row.product.code }}</span>
                     <span class="text-secondary d-block small">{{ row.product.name }}<span *ngIf="row.product.unit"> · ĐVT: {{ row.product.unit }}</span></span>
@@ -576,27 +576,17 @@ export class SalesVolumeComponent implements OnInit, OnDestroy {
   /** Tổng hợp bán hàng: code -> shopCode -> agg. Giữ riêng khỏi khoán để sửa khoán không cần tải lại. */
   private salesAgg = new Map<string, Map<string, ShopAgg>>();
   private productNames = new Map<string, string>();
-  private hiddenAt = 0;
-  private readonly onVisibility = () => {
-    if (document.visibilityState === "hidden") {
-      this.hiddenAt = Date.now();
-    } else if (this.hiddenAt && Date.now() - this.hiddenAt > 30 * 60 * 1000 && !this.loading) {
-      void this.loadData(false);
-    }
-  };
-
   ngOnInit(): void {
     const vnNow = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }));
     this.dayOfMonth = vnNow.getDate();
     this.daysInMonth = new Date(vnNow.getFullYear(), vnNow.getMonth() + 1, 0).getDate();
     this.monthPct = Math.round((this.dayOfMonth / this.daysInMonth) * 100);
     this.monthLabel = `Tháng ${vnNow.getMonth() + 1}/${vnNow.getFullYear()}`;
-    document.addEventListener("visibilitychange", this.onVisibility);
     void this.init();
   }
 
   ngOnDestroy(): void {
-    document.removeEventListener("visibilitychange", this.onVisibility);
+    // Không còn listener/timer nền: trang không tự tải lại khi đang xem.
   }
 
   private async init(): Promise<void> {
@@ -615,7 +605,7 @@ export class SalesVolumeComponent implements OnInit, OnDestroy {
 
   private async loadConfig(): Promise<void> {
     try {
-      const response = await fetch(CONFIG_URL);
+      const response = await fetch(CONFIG_URL, { cache: "no-store" });
       const data = (await response.json()) as VolumeConfig | null;
       const items = Array.isArray(data?.items) ? data!.items : [];
       this.configItems = items
@@ -780,7 +770,7 @@ export class SalesVolumeComponent implements OnInit, OnDestroy {
         while (queue.length) {
           const shop = queue.shift()!;
           try {
-            const response = await fetch(`https://an-upharma-default-rtdb.firebaseio.com/shops/${shop.ShopCode}/upharma_data/sales_report.json`);
+            const response = await fetch(`https://an-upharma-default-rtdb.firebaseio.com/shops/${shop.ShopCode}/upharma_data/sales_report.json`, { cache: "no-store" });
             if (!response.ok) {
               throw new Error(`HTTP ${response.status}`);
             }
@@ -922,7 +912,7 @@ export class SalesVolumeComponent implements OnInit, OnDestroy {
       return;
     }
     try {
-      const response = await fetch(CATALOG_URL);
+      const response = await fetch(CATALOG_URL, { cache: "no-store" });
       const data = (await response.json()) as unknown;
       const wanted = new Set(missing);
       // Danh mục thật có dạng { count, items: [{ c, n, u }…], updatedAt } —
@@ -1183,6 +1173,15 @@ export class SalesVolumeComponent implements OnInit, OnDestroy {
   }
 
   /** Nhãn ngắn kiểu NT25 / NT97 / NT144 như trong file Excel theo dõi khoán. */
+  /** trackBy theo mã SP: dữ liệu mới từ Firebase thay vào đúng dòng cũ, không dựng lại bảng. */
+  trackByProductCode(_index: number, product: ProductView): string {
+    return product.code;
+  }
+
+  trackByEmployeeRow(_index: number, row: EmployeeRow): string {
+    return row.product.code;
+  }
+
   shopLabel(shopCode: string): string {
     const digits = shopCode.replace(/\D/g, "");
     return digits ? `NT${parseInt(digits, 10)}` : shopCode;
