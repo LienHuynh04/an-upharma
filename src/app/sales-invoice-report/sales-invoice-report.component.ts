@@ -105,6 +105,7 @@ interface SalesInvoiceReportCacheEntry {
       </div>
 
       <ng-container *ngIf="!loading && !errorText">
+        <div class="text-secondary small mb-2" *ngIf="reportCacheStatus">{{ reportCacheStatus }}</div>
         <div class="mb-3 d-flex align-items-end justify-content-between">
           <div>
             <h2 class="h3 mb-1" id="employeeSummaryTitle">Tổng quan theo nhân viên</h2>
@@ -222,6 +223,7 @@ export class SalesInvoiceReportComponent implements OnInit {
   hasLoaded = false;
   errorText = "";
   reportCacheStatus = "";
+  private loadSequence = 0;
   items: SalesInvoiceReportItem[] = [];
   private allItems: SalesInvoiceReportItem[] = [];
   private readonly cacheStorageKeyPrefix = "upharma_sales_invoice_report_cache_v1";
@@ -343,6 +345,7 @@ export class SalesInvoiceReportComponent implements OnInit {
     this.loading = true;
     this.errorText = "";
     this.reportCacheStatus = "";
+    const seq = ++this.loadSequence;
 
     try {
       const session = this.upharmaService.ensureLogin();
@@ -359,12 +362,21 @@ export class SalesInvoiceReportComponent implements OnInit {
 
       if (cachedEntry) {
         this.applyCachedItems(cachedEntry.items);
-        this.reportCacheStatus = `Đang hiển thị cache local lúc ${this.formatCacheTime(cachedEntry.savedAt)}.`;
+        this.reportCacheStatus = `Bạn đang xem số liệu đã lưu lúc ${this.formatCacheTime(cachedEntry.savedAt)}. Hệ thống đang tải số liệu mới nhất…`;
         this.loading = false;
+        // Vẽ cache ngay, đồng thời gọi API trong nền: dữ liệu mới về thì thay vào
+        // tại chỗ (trackBy). Lỗi nền không làm mất bản cache đang xem.
+        void this.refreshFromApi(payload, cacheKey, true, seq).catch((error) => {
+          console.warn("Không kiểm chứng được báo cáo đơn hàng trong nền:", error);
+          if (seq === this.loadSequence) {
+            this.reportCacheStatus = `Bạn đang xem số liệu đã lưu lúc ${this.formatCacheTime(cachedEntry.savedAt)}. Chưa tải được số liệu mới nhất — bạn thử bấm "Làm mới" sau ít phút.`;
+            this.cdr.markForCheck();
+          }
+        });
         return;
       }
 
-      await this.refreshFromApi(payload, cacheKey, forceRefresh);
+      await this.refreshFromApi(payload, cacheKey, forceRefresh, seq);
     } catch (error) {
       this.errorText = error instanceof Error ? error.message : String(error);
       this.allItems = [];
@@ -377,7 +389,7 @@ export class SalesInvoiceReportComponent implements OnInit {
     }
   }
 
-  private async refreshFromApi(payload: RawRecord, cacheKey: string, forceRefresh: boolean): Promise<void> {
+  private async refreshFromApi(payload: RawRecord, cacheKey: string, forceRefresh: boolean, seq?: number): Promise<void> {
     const response = await this.upharmaService.callEndpoint<RawRecord>(this.endpoint, payload, {
       cache: true,
       forceRefresh,
@@ -388,9 +400,16 @@ export class SalesInvoiceReportComponent implements OnInit {
       .map((row, index) => this.normalizeRow(row, index))
       .filter((item) => Boolean(item.employeeName || item.productCode));
 
-    this.applyCachedItems(normalizedItems);
     this.writeCache(cacheKey, normalizedItems);
-    this.reportCacheStatus = `Đã cập nhật cache local lúc ${this.formatCacheTime(Date.now())}.`;
+    if (seq !== undefined && seq !== this.loadSequence) {
+      // Người dùng đã đổi shop/khoảng ngày trong lúc chờ: chỉ lưu cache, không vẽ đè.
+      return;
+    }
+    this.applyCachedItems(normalizedItems);
+    this.reportCacheStatus = `Đã cập nhật số liệu mới nhất lúc ${this.formatCacheTime(Date.now())}.`;
+    // OnPush: lần chạy nền không đi qua finally của loadData, phải tự đánh dấu
+    // để số mới hiện lên ngay khi về.
+    this.cdr.markForCheck();
   }
 
   private normalizeRow(row: RawRecord, index: number): SalesInvoiceReportItem {
@@ -659,11 +678,8 @@ export class SalesInvoiceReportComponent implements OnInit {
   }
 
   private formatCacheTime(timestamp: number): string {
-    return new Intl.DateTimeFormat("vi-VN", {
-      hour: "2-digit",
-      minute: "2-digit",
-      day: "2-digit",
-      month: "2-digit",
-    }).format(new Date(timestamp));
+    const date = new Date(timestamp);
+    const pad = (value: number) => String(value).padStart(2, "0");
+    return `${pad(date.getHours())}:${pad(date.getMinutes())} ngày ${pad(date.getDate())}/${pad(date.getMonth() + 1)}`;
   }
 }
