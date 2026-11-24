@@ -36,6 +36,7 @@
     </div>
 
     <!-- Empty State -->
+    <div class="table-loading-bar" [class.is-loading]="hasLoadingTabs()"><div class="table-loading-bar-fill"></div></div>
     <div class="card" *ngIf="!activeTab">
       <div class="card-body text-center py-5">
         <div class="avatar avatar-md bg-secondary-lt text-secondary mb-3"><i class="ti ti-folder-off" style="font-size: 20px;"></i></div>

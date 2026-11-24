@@ -657,6 +657,7 @@
 
         <!-- TAB 2: TỒN KHO & HẠN DÙNG -->
         <div *ngIf="activeDataTab === 'inventory'" class="tab-pane-content animate-fade-in">
+          <div class="table-loading-bar" [class.is-loading]="fetchDataLoading"><div class="table-loading-bar-fill"></div></div>
           <div class="table-responsive border rounded-3 mb-3">
             <table class="table table-hover align-middle mb-0 data-table-custom">
               <thead class="table-light">
@@ -925,6 +926,7 @@
             </button>
           </div>
 
+          <div class="table-loading-bar" [class.is-loading]="fetchDataLoading"><div class="table-loading-bar-fill"></div></div>
           <div class="table-responsive border rounded-3 mb-3">
             <table class="table table-hover align-middle mb-0 data-table-custom">
               <thead class="table-light">
@@ -1019,6 +1021,7 @@
             </button>
           </div>
 
+          <div class="table-loading-bar" [class.is-loading]="fetchDataLoading"><div class="table-loading-bar-fill"></div></div>
           <div class="table-responsive border rounded-3 mb-3">
             <table class="table table-hover align-middle mb-0 data-table-custom">
               <thead class="table-light">

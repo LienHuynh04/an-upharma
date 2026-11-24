@@ -131,6 +131,7 @@ import { ShopInfo, UpharmaService } from "../upharma.service";
                 <i class="ti ti-refresh me-1" aria-hidden="true"></i>{{ loading ? "Đang tải…" : "Tải lại" }}
               </button>
             </div>
+            <div class="table-loading-bar" [class.is-loading]="loading"><div class="table-loading-bar-fill"></div></div>
             <div class="table-responsive" *ngIf="users.length; else emptyUsers">
               <table class="table table-vcenter card-table table-striped table-hover">
                 <thead>

@@ -126,6 +126,7 @@ export class ShopPlanIconComponent {
         <span class="text-secondary">Đang tải dữ liệu nhà thuốc ({{ completedShopCount }}/{{ tabs.length }})...</span>
       </div>
 
+      <div class="table-loading-bar" [class.is-loading]="isAnyTabLoading"><div class="table-loading-bar-fill"></div></div>
       <div class="row row-deck row-cards" *ngIf="visibleCards.length > 0">
         <div class="col-sm-6 col-lg-4" *ngFor="let card of visibleCards; trackBy: trackByShopCode">
           <div class="card">

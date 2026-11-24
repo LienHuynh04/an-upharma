@@ -490,6 +490,7 @@ interface StockGroup {
           <span>{{ view.length }} điểm kho · Tổng tồn <b>{{ totalQty | number }}</b></span>
         </div>
 
+        <div class="table-loading-bar" [class.is-loading]="loading"><div class="table-loading-bar-fill"></div></div>
         <div class="ns-scroll ns-table-wrap">
           <table class="ns-table">
             <thead>

@@ -140,6 +140,7 @@
       <div class="card-body p-0">
         <div class="alert alert-danger m-3" *ngIf="errorText">{{ errorText }}</div>
 
+        <div class="table-loading-bar" [class.is-loading]="loading"><div class="table-loading-bar-fill"></div></div>
         <div class="table-responsive" style="max-height: 75vh; overflow-y: auto;" (scroll)="onTableScroll($event)">
           <table class="table table-vcenter card-table table-striped table-hover stable-table" style="table-layout: fixed; width: 100%;">
           <thead>

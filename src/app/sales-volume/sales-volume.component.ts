@@ -390,6 +390,7 @@ function extractRows(response: unknown): RawRecord[] {
 
       <!-- Tab Nhà thuốc: hàng = mã SP, mỗi nhà thuốc một cụm 3 cột Số khoán | Thực đạt | Tỉ trọng -->
       <div *ngIf="activeTab === 'shops' && products.length" class="card">
+        <div class="table-loading-bar" [class.is-loading]="loading"><div class="table-loading-bar-fill"></div></div>
         <div class="table-responsive">
           <table class="table table-bordered table-sm align-middle mb-0">
             <thead>
@@ -479,6 +480,7 @@ function extractRows(response: unknown): RawRecord[] {
           </button>
         </div>
         <div *ngIf="employeeRows.length" class="card">
+          <div class="table-loading-bar" [class.is-loading]="loading"><div class="table-loading-bar-fill"></div></div>
           <div class="table-responsive">
             <table class="table table-bordered table-sm align-middle mb-0">
               <thead>

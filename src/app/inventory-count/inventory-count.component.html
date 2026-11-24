@@ -362,6 +362,7 @@
         </div>
         <div class="alert alert-danger mx-3 mt-3 mb-0" *ngIf="submissionsError">{{ submissionsError }}</div>
         <ng-container *ngIf="reviewLoaded">
+        <div class="table-loading-bar" [class.is-loading]="loading || submissionsLoading"><div class="table-loading-bar-fill"></div></div>
           <div class="card-body d-flex flex-wrap align-items-center justify-content-between gap-2" *ngIf="!daySubmissions.length">
             <p class="text-secondary mb-0">{{ isDateRange && reviewDate !== reviewEndDate ? ("Khoảng ngày " + formatDisplayDate(reviewDate) + " - " + formatDisplayDate(reviewEndDate)) : ("Ngày " + formatDisplayDate(reviewDate)) }} chưa có nhân viên nào nộp phiếu cho {{ selectedShopCode }}.</p>
             <button class="btn btn-outline-primary btn-sm" type="button" (click)="openExportDialog()" [disabled]="exporting">

@@ -239,6 +239,7 @@ interface ReplenishmentPlan {
           </div>
 
           <div class="card" *ngIf="replenishmentPlans.length">
+            <div class="table-loading-bar" [class.is-loading]="loadingStep1 || loadingStep2 || replenishmentLoading"><div class="table-loading-bar-fill"></div></div>
             <div class="table-responsive" style="max-height: 75vh; overflow-y: auto;">
               <table class="table table-vcenter card-table table-striped table-hover" style="table-layout: fixed; width: 100%;">
                 <thead>
@@ -511,6 +512,7 @@ interface ReplenishmentPlan {
             <i class="ti" [class.ti-filter]="filtersCollapsed" [class.ti-filter-off]="!filtersCollapsed"></i>
           </button>
 
+          <div class="table-loading-bar" [class.is-loading]="loadingStep1 || loadingStep2 || replenishmentLoading"><div class="table-loading-bar-fill"></div></div>
           <div class="table-responsive" style="max-height: 75vh; overflow-y: auto;">
             <table class="table table-vcenter card-table table-striped table-hover" style="table-layout: fixed; width: 100%;">
               <thead>

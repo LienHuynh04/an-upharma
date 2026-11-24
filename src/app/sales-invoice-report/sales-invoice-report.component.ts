@@ -155,6 +155,7 @@ interface SalesInvoiceReportCacheEntry {
             <h3 class="card-title">Chi tiết đơn hàng {{ selectedEmployeeName ? ('- ' + selectedEmployeeName) : '' }}</h3>
             <span class="badge bg-primary-lt">Tổng {{ filteredRowCount }} dòng đơn</span>
           </div>
+          <div class="table-loading-bar" [class.is-loading]="loading || backgroundRefreshing"><div class="table-loading-bar-fill"></div></div>
           <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
             <table class="table table-vcenter card-table table-striped table-hover">
               <thead>
@@ -224,6 +225,8 @@ export class SalesInvoiceReportComponent implements OnInit {
   errorText = "";
   reportCacheStatus = "";
   private loadSequence = 0;
+  backgroundRefreshing = false;
+  private backgroundRefreshToken: object | null = null;
   items: SalesInvoiceReportItem[] = [];
   private allItems: SalesInvoiceReportItem[] = [];
   private readonly cacheStorageKeyPrefix = "upharma_sales_invoice_report_cache_v1";
@@ -366,13 +369,22 @@ export class SalesInvoiceReportComponent implements OnInit {
         this.loading = false;
         // Vẽ cache ngay, đồng thời gọi API trong nền: dữ liệu mới về thì thay vào
         // tại chỗ (trackBy). Lỗi nền không làm mất bản cache đang xem.
-        void this.refreshFromApi(payload, cacheKey, true, seq).catch((error) => {
+        this.backgroundRefreshing = true;
+        const token = (this.backgroundRefreshToken = {});
+        void this.refreshFromApi(payload, cacheKey, true, seq)
+          .catch((error) => {
           console.warn("Không kiểm chứng được báo cáo đơn hàng trong nền:", error);
-          if (seq === this.loadSequence) {
-            this.reportCacheStatus = `Bạn đang xem số liệu đã lưu lúc ${this.formatCacheTime(cachedEntry.savedAt)}. Chưa tải được số liệu mới nhất — bạn thử bấm "Làm mới" sau ít phút.`;
-            this.cdr.markForCheck();
-          }
-        });
+            if (seq === this.loadSequence) {
+              this.reportCacheStatus = `Bạn đang xem số liệu đã lưu lúc ${this.formatCacheTime(cachedEntry.savedAt)}. Chưa tải được số liệu mới nhất — bạn thử bấm "Làm mới" sau ít phút.`;
+              this.cdr.markForCheck();
+            }
+          })
+          .finally(() => {
+            if (this.backgroundRefreshToken === token) {
+              this.backgroundRefreshing = false;
+              this.cdr.markForCheck();
+            }
+          });
         return;
       }
 

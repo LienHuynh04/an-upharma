@@ -68,6 +68,7 @@
           <div class="card-body" *ngIf="!loading && runs.length === 0">
             <div class="text-secondary">Chưa có lịch sử chạy nào được tìm thấy.</div>
           </div>
+          <div class="table-loading-bar" [class.is-loading]="loading"><div class="table-loading-bar-fill"></div></div>
           <div class="table-responsive" *ngIf="!loading && runs.length > 0">
             <table class="table table-vcenter card-table">
               <thead>
